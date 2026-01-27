@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Playfair Display", serif;
+  --font-sans: "Quicksand", sans-serif;
+
+  --color-mayssa-brown: #5b3a29;
+  --color-mayssa-caramel: #f7b267;
+  --color-mayssa-cream: #fdf4e8;
+  --color-mayssa-rose: #fbe2dd;
+  --color-mayssa-soft: #fff9f3;
+  --color-mayssa-gold: #d4af37;
+
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+
+  @keyframes float {
+
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+}
+
+@layer base {
+  :root {
+    --primary: #5b3a29;
+    --accent: #f7b267;
+    --background: #fff9f3;
+  }
+
+  body {
+    @apply m-0 bg-mayssa-soft text-mayssa-brown font-sans antialiased selection:bg-mayssa-caramel/30;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display font-bold;
+  }
+}
+
+@utility glass-card {
+  background-color: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 32px 0 rgba(91, 58, 41, 0.08);
+}
+
+@utility premium-shadow {
+  box-shadow: 0 20px 50px rgba(91, 58, 41, 0.12);
+}
+
+@utility text-glow {
+  text-shadow: 0 0 20px rgba(247, 178, 103, 0.3);
+}
+
+@utility bg-mesh {
+  background-image:
+    radial-gradient(at 0% 0%, rgba(253, 244, 232, 0.8) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(251, 226, 221, 0.8) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(247, 178, 103, 0.15) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(91, 58, 41, 0.08) 0px, transparent 50%);
+}
+
+@utility section-shell {
+  @apply glass-card rounded-[2.5rem] p-6 sm:p-8 md:p-10;
+}
