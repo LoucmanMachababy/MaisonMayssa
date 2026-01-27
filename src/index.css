@@ -76,3 +76,22 @@
 @utility section-shell {
   @apply glass-card rounded-[2.5rem] p-6 sm:p-8 md:p-10;
 }
+
+@layer utilities {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(91, 58, 41, 0.2);
+    border-radius: 10px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(91, 58, 41, 0.4);
+  }
+}

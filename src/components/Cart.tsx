@@ -69,8 +69,8 @@ export function Cart({
     const canSend = hasItems && isCustomerValid
 
     return (
-        <aside className="sticky top-8 flex flex-col gap-6 section-shell bg-white/95">
-            <header className="flex items-center justify-between">
+        <aside className="sticky top-8 flex flex-col h-[calc(100vh-4rem)] section-shell bg-white/95">
+            <header className="flex items-center justify-between flex-shrink-0 pb-4 border-b border-mayssa-brown/5">
                 <div className="flex items-center gap-3 text-mayssa-brown">
                     <div className="relative">
                         <ShoppingBag size={24} />
@@ -84,7 +84,11 @@ export function Cart({
                 </div>
             </header>
 
-            <div className="flex-1 space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+            {/* Zone scrollable pour tout le contenu */}
+            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar min-h-0">
+                <div className="space-y-6 py-4">
+                    {/* Liste des items */}
+                    <div className="space-y-4">
                 <AnimatePresence mode="popLayout">
                     {hasItems ? (
                         items.map((item) => (
@@ -143,9 +147,10 @@ export function Cart({
                         </div>
                     )}
                 </AnimatePresence>
-            </div>
+                    </div>
 
-            <div className="space-y-6 pt-6 border-t border-mayssa-brown/5">
+                    {/* Formulaire client */}
+                    <div className="space-y-6 pt-6 border-t border-mayssa-brown/5">
                 {/* Infos client */}
                 <div className="space-y-4">
                     <p className="text-xs font-bold uppercase tracking-widest text-mayssa-brown/60">
@@ -270,10 +275,10 @@ export function Cart({
                             Service de 17h à 2h du matin • Créneaux toutes les 30 minutes
                         </p>
                     </div>
-                </div>
+                    </div>
 
-                {/* Détails commande + canaux */}
-                <div className="space-y-4">
+                    {/* Détails commande + canaux */}
+                    <div className="space-y-4">
                     <div className="space-y-3">
                         <label className="text-xs font-bold uppercase tracking-widest text-mayssa-brown/60">
                             Détails de commande
@@ -308,47 +313,52 @@ export function Cart({
                             activeClass="bg-[#fffc00] text-black shadow-yellow-400/30"
                         />
                     </div>
+                    </div>
+                </div>
+                </div>
+            </div>
 
-                    <div className="rounded-[2rem] bg-mayssa-brown p-6 text-mayssa-cream shadow-2xl space-y-3">
-                        <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium opacity-80">Sous-total</span>
-                            <span className="text-base font-semibold">{total.toFixed(2)} €</span>
-                        </div>
-                        {customer.wantsDelivery && (
-                            <div className="flex items-center justify-between text-xs">
-                                <span className="opacity-80">Livraison Annecy & alentours</span>
-                                <span>
-                                    {deliveryFee > 0 ? '+ 5,00 €' : 'Offerte (≥ 30 €)'}
-                                </span>
-                            </div>
-                        )}
-                        <div className="flex items-center justify-between border-t border-mayssa-cream/20 pt-3">
-                            <span className="text-sm font-medium opacity-90">Total estimé</span>
-                            <span className="text-2xl font-display font-bold">
-                                {finalTotal.toFixed(2)} €
-                            </span>
-                        </div>
-
-                        <button
-                            onClick={onSend}
-                            disabled={!canSend}
-                            className="mt-2 flex w-full items-center justify-center gap-3 rounded-2xl bg-mayssa-caramel px-6 py-4 font-bold text-white shadow-xl transition-all hover:scale-[1.02] hover:bg-mayssa-gold active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
-                        >
-                            {channel === 'whatsapp' ? <Send size={20} /> : <Copy size={20} />}
+            {/* Footer fixe avec total et bouton */}
+            <div className="flex-shrink-0 pt-4 border-t border-mayssa-brown/5 space-y-3">
+                <div className="rounded-[2rem] bg-mayssa-brown p-6 text-mayssa-cream shadow-2xl space-y-3">
+                    <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium opacity-80">Sous-total</span>
+                        <span className="text-base font-semibold">{total.toFixed(2)} €</span>
+                    </div>
+                    {customer.wantsDelivery && (
+                        <div className="flex items-center justify-between text-xs">
+                            <span className="opacity-80">Livraison Annecy & alentours</span>
                             <span>
-                                {hasItems
-                                    ? isCustomerValid
-                                        ? 'Envoyer ma commande'
-                                        : 'Complétez vos informations'
-                                    : 'Panier vide'}
+                                {deliveryFee > 0 ? '+ 5,00 €' : 'Offerte (≥ 30 €)'}
                             </span>
-                        </button>
+                        </div>
+                    )}
+                    <div className="flex items-center justify-between border-t border-mayssa-cream/20 pt-3">
+                        <span className="text-sm font-medium opacity-90">Total estimé</span>
+                        <span className="text-2xl font-display font-bold">
+                            {finalTotal.toFixed(2)} €
+                        </span>
                     </div>
 
-                    <p className="text-center text-[10px] text-mayssa-brown/40 italic">
-                        * Livraison offerte dès 30 € • Annecy & alentours (+5 €)
-                    </p>
+                    <button
+                        onClick={onSend}
+                        disabled={!canSend}
+                        className="mt-2 flex w-full items-center justify-center gap-3 rounded-2xl bg-mayssa-caramel px-6 py-4 font-bold text-white shadow-xl transition-all hover:scale-[1.02] hover:bg-mayssa-gold active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
+                    >
+                        {channel === 'whatsapp' ? <Send size={20} /> : <Copy size={20} />}
+                        <span>
+                            {hasItems
+                                ? isCustomerValid
+                                    ? 'Envoyer ma commande'
+                                    : 'Complétez vos informations'
+                                : 'Panier vide'}
+                        </span>
+                    </button>
                 </div>
+
+                <p className="text-center text-[10px] text-mayssa-brown/40 italic">
+                    * Livraison offerte dès 30 € • Annecy & alentours (+5 €)
+                </p>
             </div>
         </aside>
     )
