@@ -3,6 +3,7 @@ import { X, Check } from 'lucide-react'
 import { useState } from 'react'
 import type { Product, ProductSize } from '../types'
 import { cn } from '../lib/utils'
+import { useEscapeKey } from '../hooks/useEscapeKey'
 
 interface BoxCustomizationModalProps {
     product: Product | null
@@ -22,6 +23,8 @@ const EXTRA_COULIS_PRICE = 0.5
 export function BoxCustomizationModal({ product, onClose, onSelect }: BoxCustomizationModalProps) {
     const [selectedSize, setSelectedSize] = useState<ProductSize | null>(null)
     const [selectedCoulis, setSelectedCoulis] = useState<string[]>([])
+
+    useEscapeKey(onClose, !!(product && product.sizes))
 
     if (!product || !product.sizes) return null
 

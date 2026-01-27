@@ -54,6 +54,8 @@ export function Navbar() {
                         {/* Desktop Navigation */}
                         <div className="hidden lg:flex items-center gap-8">
                             <NavLink href="#la-carte">La Carte</NavLink>
+                            <NavLink href="#commande">Voir la commande</NavLink>
+                            <NavLink href="#temoignages">Témoignages</NavLink>
                             <NavLink href="#notre-histoire">Notre Histoire</NavLink>
                             <NavLink href="#contact">Contact</NavLink>
                         </div>
@@ -129,6 +131,8 @@ export function Navbar() {
 
                                 <nav className="space-y-2">
                                     <MobileNavLink href="#la-carte" onClick={() => setIsMobileMenuOpen(false)}>La Carte</MobileNavLink>
+                                    <MobileNavLink href="#commande" onClick={() => setIsMobileMenuOpen(false)}>Voir la commande</MobileNavLink>
+                                    <MobileNavLink href="#temoignages" onClick={() => setIsMobileMenuOpen(false)}>Témoignages</MobileNavLink>
                                     <MobileNavLink href="#notre-histoire" onClick={() => setIsMobileMenuOpen(false)}>Notre Histoire</MobileNavLink>
                                     <MobileNavLink href="#contact" onClick={() => setIsMobileMenuOpen(false)}>Contact</MobileNavLink>
                                 </nav>

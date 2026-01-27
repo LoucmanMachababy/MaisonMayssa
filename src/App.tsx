@@ -1,13 +1,19 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Navbar } from './components/Navbar'
 import { Header } from './components/Header'
 import { ProductCard } from './components/ProductCard'
 import { Cart } from './components/Cart'
 import { Footer } from './components/Footer'
-import { SizeSelectorModal } from './components/SizeSelectorModal'
-import { TiramisuCustomizationModal } from './components/TiramisuCustomizationModal'
-import { BoxCustomizationModal } from './components/BoxCustomizationModal'
+import { ToastContainer, type Toast } from './components/Toast'
+import { PromoBanner } from './components/PromoBanner'
+import { WhatsAppFloatingButton } from './components/WhatsAppFloatingButton'
+import { Testimonials } from './components/Testimonials'
+import { ConfidentialiteSection, MentionsLegalesSection } from './components/LegalPages'
+
+const SizeSelectorModal = lazy(() => import('./components/SizeSelectorModal').then(m => ({ default: m.SizeSelectorModal })))
+const TiramisuCustomizationModal = lazy(() => import('./components/TiramisuCustomizationModal').then(m => ({ default: m.TiramisuCustomizationModal })))
+const BoxCustomizationModal = lazy(() => import('./components/BoxCustomizationModal').then(m => ({ default: m.BoxCustomizationModal })))
 import { PRODUCTS, PHONE_E164 } from './constants'
 import type {
   Product,
@@ -17,13 +23,28 @@ import type {
   ProductCategory,
   CustomerInfo,
 } from './types'
-import { Sparkles } from 'lucide-react'
+import { Sparkles, Search, X } from 'lucide-react'
 
 function App() {
-  const [cart, setCart] = useState<CartItem[]>([])
+  // Load cart from localStorage on mount
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    try {
+      const savedCart = localStorage.getItem('maison-mayssa-cart')
+      return savedCart ? JSON.parse(savedCart) : []
+    } catch {
+      return []
+    }
+  })
+  
+  // Save cart to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('maison-mayssa-cart', JSON.stringify(cart))
+  }, [cart])
+
   const [note, setNote] = useState('')
   const [channel, setChannel] = useState<Channel>('whatsapp')
   const [activeCategory, setActiveCategory] = useState<ProductCategory | 'Tous'>('Tous')
+  const [searchQuery, setSearchQuery] = useState('')
   const [customer, setCustomer] = useState<CustomerInfo>({
     firstName: '',
     lastName: '',
@@ -36,6 +57,39 @@ function App() {
   const [selectedProductForSize, setSelectedProductForSize] = useState<Product | null>(null)
   const [selectedProductForTiramisu, setSelectedProductForTiramisu] = useState<Product | null>(null)
   const [selectedProductForBox, setSelectedProductForBox] = useState<Product | null>(null)
+  const [toasts, setToasts] = useState<Toast[]>([])
+
+  const showToast = (message: string, type: Toast['type'] = 'success', duration?: number) => {
+    const id = Math.random().toString(36).substring(7)
+    setToasts((prev) => [...prev, { id, message, type, duration }])
+  }
+
+  const removeToast = (id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id))
+  }
+
+  const lastActivity = useRef(Date.now())
+  const reminderShown = useRef(false)
+  useEffect(() => {
+    const bump = () => { lastActivity.current = Date.now() }
+    window.addEventListener('mousemove', bump)
+    window.addEventListener('keydown', bump)
+    window.addEventListener('scroll', bump)
+    window.addEventListener('click', bump)
+    const id = setInterval(() => {
+      if (reminderShown.current || cart.length === 0) return
+      if (Date.now() - lastActivity.current < 2 * 60 * 1000) return
+      reminderShown.current = true
+      showToast('Tu as encore des articles dans ton panier. Scrollez vers « Voir la commande » pour finaliser.', 'info', 6000)
+    }, 60 * 1000)
+    return () => {
+      window.removeEventListener('mousemove', bump)
+      window.removeEventListener('keydown', bump)
+      window.removeEventListener('scroll', bump)
+      window.removeEventListener('click', bump)
+      clearInterval(id)
+    }
+  }, [cart.length])
 
   const total = useMemo(
     () => cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0),
@@ -48,9 +102,25 @@ function App() {
   }, [])
 
   const filteredProducts = useMemo(() => {
-    if (activeCategory === 'Tous') return PRODUCTS
-    return PRODUCTS.filter((p) => p.category === activeCategory)
-  }, [activeCategory])
+    let filtered = PRODUCTS
+
+    // Filter by category
+    if (activeCategory !== 'Tous') {
+      filtered = filtered.filter((p) => p.category === activeCategory)
+    }
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim()
+      filtered = filtered.filter((p) => 
+        p.name.toLowerCase().includes(query) ||
+        p.description?.toLowerCase().includes(query) ||
+        p.category.toLowerCase().includes(query)
+      )
+    }
+
+    return filtered
+  }, [activeCategory, searchQuery])
 
   const handleAddToCart = (product: Product) => {
     // If product is a Tiramisu, open customization modal
@@ -74,10 +144,13 @@ function App() {
     setCart((current) => {
       const existing = current.find((item) => item.product.id === product.id)
       if (existing) {
-        return current.map((item) =>
+        const updated = current.map((item) =>
           item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item,
         )
+        showToast(`${product.name} ajouté au panier (quantité: ${existing.quantity + 1})`, 'success')
+        return updated
       }
+      showToast(`${product.name} ajouté au panier`, 'success')
       return [...current, { product, quantity: 1 }]
     })
   }
@@ -94,10 +167,13 @@ function App() {
     setCart((current) => {
       const existing = current.find((item) => item.product.id === cartProduct.id)
       if (existing) {
-        return current.map((item) =>
+        const updated = current.map((item) =>
           item.product.id === cartProduct.id ? { ...item, quantity: item.quantity + 1 } : item,
         )
+        showToast(`${cartProduct.name} ajouté au panier (quantité: ${existing.quantity + 1})`, 'success')
+        return updated
       }
+      showToast(`${cartProduct.name} ajouté au panier`, 'success')
       return [...current, { product: cartProduct, quantity: 1 }]
     })
 
@@ -127,6 +203,7 @@ function App() {
     }
 
     setCart((current) => {
+      showToast(`${cartProduct.name} ajouté au panier`, 'success')
       return [...current, { product: cartProduct, quantity: 1 }]
     })
 
@@ -158,6 +235,7 @@ function App() {
     }
 
     setCart((current) => {
+      showToast(`${cartProduct.name} ajouté au panier`, 'success')
       return [...current, { product: cartProduct, quantity: 1 }]
     })
 
@@ -258,19 +336,22 @@ function App() {
 
     if (channel === 'whatsapp') {
       window.open(`https://wa.me/${PHONE_E164}?text=${encoded}`, '_blank')
+      showToast('Commande envoyée sur WhatsApp !', 'success')
     } else {
       navigator.clipboard?.writeText(message).then(() => {
         const url = channel === 'instagram'
           ? 'https://www.instagram.com/maison.mayssa74/'
           : 'https://www.snapchat.com/add/mayssasucree74'
         window.open(url, '_blank')
-        alert('Commande copiée ! Collez-la dans la discussion.')
+        showToast('Commande copiée ! Collez-la dans la discussion.', 'success')
+      }).catch(() => {
+        showToast('Erreur lors de la copie de la commande', 'error')
       })
     }
   }
 
   return (
-    <div className="min-h-screen bg-mayssa-soft selection:bg-mayssa-caramel/30 font-sans">
+    <div className="min-h-screen bg-mayssa-soft selection:bg-mayssa-caramel/30 font-sans overflow-x-hidden">
       <Navbar />
 
       {/* Background Decorative Elements */}
@@ -279,10 +360,11 @@ function App() {
         <div className="absolute bottom-[10%] right-[-5%] w-[30%] h-[30%] bg-mayssa-caramel/10 blur-[100px] rounded-full" />
       </div>
 
-      <div className="relative mx-auto max-w-7xl px-4 py-16 sm:py-20 md:py-24 sm:px-6 lg:px-8">
+      <div className="relative mx-auto max-w-7xl px-4 py-16 sm:py-20 md:py-24 sm:px-6 lg:px-8 overflow-x-hidden">
+        <PromoBanner />
         <Header />
 
-        <main className="mt-8 sm:mt-12 grid gap-8 sm:gap-12 lg:grid-cols-[1fr_400px]">
+        <main className="mt-8 sm:mt-12 grid gap-8 sm:gap-12 lg:grid-cols-[1fr_minmax(340px,400px)] lg:items-start">
           {/* Menu Section */}
           <motion.section 
             id="la-carte" 
@@ -290,7 +372,7 @@ function App() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-50px" }}
             transition={{ duration: 0.5, ease: "easeOut" }}
-            className="space-y-10"
+            className="space-y-10 min-w-0"
           >
             <div className="flex flex-col gap-4 sm:gap-6 md:flex-row md:items-end md:justify-between">
               <div className="space-y-2">
@@ -301,6 +383,26 @@ function App() {
                 <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold text-mayssa-brown text-glow">
                   Nos Douceurs
                 </h2>
+              </div>
+
+              {/* Search Bar */}
+              <div className="relative w-full md:w-auto">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-mayssa-brown/40" size={18} />
+                <input
+                  type="text"
+                  placeholder="Rechercher un produit..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full md:w-64 pl-10 pr-10 py-2.5 rounded-xl bg-white/60 border border-mayssa-brown/10 text-sm text-mayssa-brown placeholder-mayssa-brown/40 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel focus:bg-white transition-all"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-mayssa-brown/40 hover:text-mayssa-brown transition-colors"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
               </div>
 
               {/* Category Filter */}
@@ -320,21 +422,37 @@ function App() {
               </div>
             </div>
 
-            <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
-              <AnimatePresence mode="popLayout">
-                {filteredProducts.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    onAdd={handleAddToCart}
-                  />
-                ))}
-              </AnimatePresence>
-            </div>
+            {filteredProducts.length === 0 ? (
+              <div className="text-center py-12 sm:py-16">
+                <p className="text-mayssa-brown/60 text-sm sm:text-base">
+                  Aucun produit trouvé{searchQuery && ` pour "${searchQuery}"`}.
+                </p>
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="mt-4 text-mayssa-caramel hover:text-mayssa-brown text-sm font-semibold underline"
+                  >
+                    Réinitialiser la recherche
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+                <AnimatePresence mode="popLayout">
+                  {filteredProducts.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      onAdd={handleAddToCart}
+                    />
+                  ))}
+                </AnimatePresence>
+              </div>
+            )}
           </motion.section>
 
           {/* Cart Section */}
-          <section id="commande" className="relative">
+          <section id="commande" className="relative min-w-0">
             <Cart
               items={cart}
               total={total}
@@ -451,29 +569,35 @@ function App() {
           </div>
         </motion.section>
 
+        <Testimonials />
+        <ConfidentialiteSection />
+        <MentionsLegalesSection />
         <Footer />
       </div>
 
-      {/* Size Selector Modal for Layer Cups */}
-      <SizeSelectorModal
-        product={selectedProductForSize}
-        onClose={() => setSelectedProductForSize(null)}
-        onSelect={handleSizeSelect}
-      />
+      <WhatsAppFloatingButton />
 
-      {/* Tiramisu Customization Modal */}
-      <TiramisuCustomizationModal
-        product={selectedProductForTiramisu}
-        onClose={() => setSelectedProductForTiramisu(null)}
-        onSelect={handleTiramisuCustomization}
-      />
+      {/* Modals (lazy-loaded) */}
+      <Suspense fallback={null}>
+        <SizeSelectorModal
+          product={selectedProductForSize}
+          onClose={() => setSelectedProductForSize(null)}
+          onSelect={handleSizeSelect}
+        />
+        <TiramisuCustomizationModal
+          product={selectedProductForTiramisu}
+          onClose={() => setSelectedProductForTiramisu(null)}
+          onSelect={handleTiramisuCustomization}
+        />
+        <BoxCustomizationModal
+          product={selectedProductForBox}
+          onClose={() => setSelectedProductForBox(null)}
+          onSelect={handleBoxCustomization}
+        />
+      </Suspense>
 
-      {/* Box Customization Modal */}
-      <BoxCustomizationModal
-        product={selectedProductForBox}
-        onClose={() => setSelectedProductForBox(null)}
-        onSelect={handleBoxCustomization}
-      />
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   )
 }

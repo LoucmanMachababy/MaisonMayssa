@@ -3,6 +3,7 @@ import { X, Check } from 'lucide-react'
 import { useState } from 'react'
 import type { Product, ProductSize } from '../types'
 import { cn } from '../lib/utils'
+import { useEscapeKey } from '../hooks/useEscapeKey'
 
 interface TiramisuCustomizationModalProps {
     product: Product | null
@@ -38,12 +39,13 @@ export function TiramisuCustomizationModal({ product, onClose, onSelect }: Tiram
     const [selectedBase, setSelectedBase] = useState<string>('')
     const [selectedToppings, setSelectedToppings] = useState<string[]>([])
 
+    useEscapeKey(onClose, !!(product && product.sizes))
+
     if (!product || !product.sizes) return null
 
     const canAddToCart = selectedSize && selectedBase && selectedToppings.length >= 2
 
     // Les 2 premiers sont inclus, les suivants sont payants
-    const includedToppings = selectedToppings.slice(0, 2)
     const extraToppings = Math.max(0, selectedToppings.length - 2)
     const totalPrice = selectedSize 
         ? selectedSize.price + (extraToppings * EXTRA_TOPPING_PRICE)

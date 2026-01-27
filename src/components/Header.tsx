@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { Phone, Instagram, Ghost as Snapchat, Clock, Truck, MapPin } from 'lucide-react'
-import { cn } from '../lib/utils'
+import { cn, isOpen } from '../lib/utils'
 import { PHONE_E164 } from '../constants'
 
 export function Header() {
@@ -56,7 +56,11 @@ export function Header() {
                             transition={{ delay: 0.3 }}
                             className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 lg:justify-start"
                         >
-                            <Badge icon={<Clock size={12} className="sm:w-3.5 sm:h-3.5" />} text="Service 17h — 02h" />
+                            <Badge
+                                icon={<Clock size={12} className="sm:w-3.5 sm:h-3.5" />}
+                                text={isOpen() ? 'Ouvert · 17h — 02h' : 'Fermé · Réouverture 17h'}
+                                variant={isOpen() ? 'open' : 'closed'}
+                            />
                             <Badge icon={<Truck size={12} className="sm:w-3.5 sm:h-3.5" />} text="Livraison Annecy" />
                             <Badge icon={<MapPin size={12} className="sm:w-3.5 sm:h-3.5" />} text="Retrait possible" />
                         </motion.div>
@@ -105,10 +109,16 @@ export function Header() {
     )
 }
 
-function Badge({ icon, text }: { icon: React.ReactNode; text: string }) {
+function Badge({ icon, text, variant = 'default' }: { icon: React.ReactNode; text: string; variant?: 'default' | 'open' | 'closed' }) {
+    const variantClass = variant === 'open'
+        ? 'bg-emerald-500/15 text-emerald-800 border-emerald-400/40'
+        : variant === 'closed'
+        ? 'bg-mayssa-brown/10 text-mayssa-brown/70 border-mayssa-brown/20'
+        : 'bg-white/60 text-mayssa-brown border-white/40'
+    const iconClass = variant === 'open' ? 'text-emerald-600' : variant === 'closed' ? 'text-mayssa-brown/50' : 'text-mayssa-caramel'
     return (
-        <span className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full bg-white/60 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-mayssa-brown border border-white/40 shadow-sm transition-colors hover:bg-white/80">
-            <span className="text-mayssa-caramel flex-shrink-0">{icon}</span>
+        <span className={cn('inline-flex items-center gap-1.5 sm:gap-2 rounded-full px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold border shadow-sm transition-colors hover:opacity-90', variantClass)}>
+            <span className={cn('flex-shrink-0', iconClass)}>{icon}</span>
             <span className="whitespace-nowrap">{text}</span>
         </span>
     )

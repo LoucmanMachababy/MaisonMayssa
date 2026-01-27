@@ -27,6 +27,7 @@ export function Footer() {
                         <ul className="space-y-2 sm:space-y-3">
                             <li><FooterLink href="#la-carte">La Carte</FooterLink></li>
                             <li><FooterLink href="#commande">Commander</FooterLink></li>
+                            <li><FooterLink href="#temoignages">Témoignages</FooterLink></li>
                             <li><FooterLink href="#livraison">Zone de Livraison</FooterLink></li>
                             <li><FooterLink href="#contact">Contact</FooterLink></li>
                         </ul>
@@ -71,9 +72,8 @@ export function Footer() {
                             © {new Date().getFullYear()} Maison Mayssa • Tous droits réservés.
                         </p>
                         <div className="flex flex-wrap justify-center gap-4 sm:gap-6 text-[10px] sm:text-xs text-mayssa-brown/40">
-                            <a href="#" className="hover:text-mayssa-brown transition-colors">Mentions Légales</a>
-                            <a href="#" className="hover:text-mayssa-brown transition-colors">CGV</a>
-                            <a href="#" className="hover:text-mayssa-brown transition-colors">Politique de confidentialité</a>
+                            <FooterLink href="#mentions-legales">Mentions légales</FooterLink>
+                            <FooterLink href="#confidentialite">Politique de confidentialité</FooterLink>
                         </div>
                     </div>
                 </div>

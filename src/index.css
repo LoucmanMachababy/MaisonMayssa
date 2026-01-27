@@ -38,6 +38,11 @@
     scroll-behavior: smooth;
   }
 
+  *:focus-visible {
+    outline: 2px solid var(--color-mayssa-caramel);
+    outline-offset: 2px;
+  }
+
   body {
     @apply m-0 bg-mayssa-soft text-mayssa-brown font-sans antialiased selection:bg-mayssa-caramel/30;
   }

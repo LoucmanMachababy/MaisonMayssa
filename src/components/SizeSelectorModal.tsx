@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Check } from 'lucide-react'
 import type { Product, ProductSize } from '../types'
 import { cn } from '../lib/utils'
+import { useEscapeKey } from '../hooks/useEscapeKey'
 
 interface SizeSelectorModalProps {
     product: Product | null
@@ -10,6 +11,8 @@ interface SizeSelectorModalProps {
 }
 
 export function SizeSelectorModal({ product, onClose, onSelect }: SizeSelectorModalProps) {
+    useEscapeKey(onClose, !!(product && product.sizes))
+
     if (!product || !product.sizes) return null
 
     return (
