@@ -146,22 +146,22 @@ export function AddressAutocomplete({
 
       {/* Suggestions dropdown */}
       {showSuggestions && (suggestions.length > 0 || isLoading) && (
-        <div className="absolute z-50 w-full mt-1 bg-white rounded-2xl shadow-2xl border border-mayssa-brown/10 overflow-hidden">
+        <div className="absolute z-50 w-full mt-1 bg-white rounded-xl sm:rounded-2xl shadow-2xl border border-mayssa-brown/10 overflow-hidden">
           {isLoading ? (
-            <div className="p-4 text-center text-sm text-mayssa-brown/60">
+            <div className="p-3 sm:p-4 text-center text-xs sm:text-sm text-mayssa-brown/60">
               Recherche en cours...
             </div>
           ) : (
-            <ul className="max-h-60 overflow-y-auto">
+            <ul className="max-h-48 sm:max-h-60 overflow-y-auto">
               {suggestions.map((suggestion, index) => (
                 <li key={index}>
                   <button
                     type="button"
                     onClick={() => handleSelectSuggestion(suggestion)}
-                    className="w-full text-left px-4 py-3 hover:bg-mayssa-soft/50 transition-all flex items-start gap-3 group cursor-pointer active:bg-mayssa-soft"
+                    className="w-full text-left px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-mayssa-soft/50 transition-all flex items-start gap-2 sm:gap-3 group cursor-pointer active:bg-mayssa-soft"
                   >
-                    <MapPin size={16} className="text-mayssa-caramel mt-0.5 flex-shrink-0 group-hover:scale-110 transition-transform" />
-                    <span className="text-sm font-medium text-mayssa-brown group-hover:text-mayssa-caramel transition-colors">
+                    <MapPin size={14} className="sm:w-4 sm:h-4 text-mayssa-caramel mt-0.5 flex-shrink-0 group-hover:scale-110 transition-transform" />
+                    <span className="text-xs sm:text-sm font-medium text-mayssa-brown group-hover:text-mayssa-caramel transition-colors">
                       {suggestion.label}
                     </span>
                   </button>

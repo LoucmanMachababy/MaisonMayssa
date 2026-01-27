@@ -172,10 +172,10 @@ function App() {
         <div className="absolute bottom-[10%] right-[-5%] w-[30%] h-[30%] bg-mayssa-caramel/10 blur-[100px] rounded-full" />
       </div>
 
-      <div className="relative mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8">
+      <div className="relative mx-auto max-w-7xl px-4 py-16 sm:py-20 md:py-24 sm:px-6 lg:px-8">
         <Header />
 
-        <main className="mt-12 grid gap-12 lg:grid-cols-[1fr_400px]">
+        <main className="mt-8 sm:mt-12 grid gap-8 sm:gap-12 lg:grid-cols-[1fr_400px]">
           {/* Menu Section */}
           <motion.section 
             id="la-carte" 
@@ -185,24 +185,24 @@ function App() {
             transition={{ duration: 0.5, ease: "easeOut" }}
             className="space-y-10"
           >
-            <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+            <div className="flex flex-col gap-4 sm:gap-6 md:flex-row md:items-end md:justify-between">
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-mayssa-caramel">
-                  <Sparkles size={18} />
-                  <span className="text-sm font-bold uppercase tracking-widest">Carte Maison</span>
+                  <Sparkles size={16} className="sm:w-[18px] sm:h-[18px]" />
+                  <span className="text-xs sm:text-sm font-bold uppercase tracking-widest">Carte Maison</span>
                 </div>
-                <h2 className="text-3xl font-display font-bold text-mayssa-brown sm:text-4xl text-glow">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold text-mayssa-brown text-glow">
                   Nos Douceurs
                 </h2>
               </div>
 
               {/* Category Filter */}
-              <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar scroll-smooth">
+              <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar scroll-smooth -mx-4 px-4 sm:mx-0 sm:px-0">
                 {categories.map((cat) => (
                   <button
                     key={cat}
                     onClick={() => setActiveCategory(cat as any)}
-                    className={`whitespace-nowrap rounded-2xl px-5 py-2.5 text-sm font-bold transition-all cursor-pointer ${activeCategory === cat
+                    className={`whitespace-nowrap rounded-xl sm:rounded-2xl px-4 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-bold transition-all cursor-pointer flex-shrink-0 ${activeCategory === cat
                       ? 'bg-mayssa-brown text-white shadow-lg shadow-mayssa-brown/20 -translate-y-1'
                       : 'bg-white/60 text-mayssa-brown hover:bg-white hover:scale-105 hover:shadow-md active:scale-95'
                       }`}
@@ -213,7 +213,7 @@ function App() {
               </div>
             </div>
 
-            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
               <AnimatePresence mode="popLayout">
                 {filteredProducts.map((product) => (
                   <ProductCard
@@ -250,30 +250,30 @@ function App() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="mt-24 section-shell bg-white/80 border border-mayssa-brown/5 premium-shadow"
+          className="mt-12 sm:mt-16 md:mt-24 section-shell bg-white/80 border border-mayssa-brown/5 premium-shadow"
         >
-          <div className="grid gap-8 md:grid-cols-[1.4fr_minmax(0,1fr)] items-start">
-            <div className="space-y-4">
-              <p className="text-xs font-bold uppercase tracking-[0.3em] text-mayssa-brown/60">
+          <div className="grid gap-6 sm:gap-8 md:grid-cols-[1.4fr_minmax(0,1fr)] items-start">
+            <div className="space-y-3 sm:space-y-4">
+              <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.3em] text-mayssa-brown/60">
                 Notre histoire
               </p>
-              <h2 className="text-3xl font-display text-mayssa-brown">
+              <h2 className="text-2xl sm:text-3xl font-display text-mayssa-brown">
                 Une cuisine de cœur, née à la maison
               </h2>
-              <p className="text-sm leading-relaxed text-mayssa-brown/80">
+              <p className="text-xs sm:text-sm leading-relaxed text-mayssa-brown/80">
                 Maison Mayssa est née d&apos;une grande passion pour la cuisine, les desserts
                 généreux et les tables chaleureuses que l&apos;on partage en famille ou entre amis.
                 Derrière chaque création se cache une personne discrète mais profondément
                 passionnée, qui préfère rester en retrait et laisser ses douceurs parler pour elle.
               </p>
-              <p className="text-sm leading-relaxed text-mayssa-brown/80">
+              <p className="text-xs sm:text-sm leading-relaxed text-mayssa-brown/80">
                 Au fil des années, les proches, voisins et amis ont commencé à commander de plus en
                 plus de brownies, cookies et autres gourmandises. C&apos;est ainsi qu&apos;est née
                 l&apos;envie de proposer un vrai service de précommande, tout en gardant l&apos;esprit
                 maison : des recettes faites avec soin, des ingrédients choisis, et une attention
                 particulière portée aux détails.
               </p>
-              <p className="text-sm leading-relaxed text-mayssa-brown/80">
+              <p className="text-xs sm:text-sm leading-relaxed text-mayssa-brown/80">
                 Pendant le mois de Ramadan, Maison Mayssa prépare également des assortiments
                 spécialement pensés pour accompagner les tables du ftour et de la soirée :
                 mini-gourmandises, box partagées, douceurs réconfortantes à savourer après une
@@ -282,11 +282,11 @@ function App() {
               </p>
             </div>
 
-            <div className="space-y-4 rounded-3xl bg-mayssa-soft/70 p-5 border border-mayssa-brown/10">
-              <h3 className="font-display text-lg text-mayssa-brown">
+            <div className="space-y-3 sm:space-y-4 rounded-2xl sm:rounded-3xl bg-mayssa-soft/70 p-4 sm:p-5 border border-mayssa-brown/10">
+              <h3 className="font-display text-base sm:text-lg text-mayssa-brown">
                 Les valeurs de Maison Mayssa
               </h3>
-              <ul className="space-y-2 text-sm text-mayssa-brown/80">
+              <ul className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-mayssa-brown/80">
                 <li>• Des recettes maison, testées et approuvées au fil du temps</li>
                 <li>• Une carte courte mais travaillée, pour garantir la qualité</li>
                 <li>• Des portions généreuses, comme à la maison</li>
@@ -303,39 +303,39 @@ function App() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.6, ease: "easeOut", delay: 0.2 }}
-          className="mt-16 section-shell bg-mayssa-soft/80 border border-mayssa-brown/5"
+          className="mt-12 sm:mt-16 section-shell bg-mayssa-soft/80 border border-mayssa-brown/5"
         >
-          <div className="grid gap-8 md:grid-cols-2">
-            <div className="space-y-3">
-              <p className="text-xs font-bold uppercase tracking-[0.3em] text-mayssa-brown/60">
+          <div className="grid gap-6 sm:gap-8 md:grid-cols-2">
+            <div className="space-y-2 sm:space-y-3">
+              <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.3em] text-mayssa-brown/60">
                 Zone géographique
               </p>
-              <h2 className="text-2xl font-display text-mayssa-brown">
+              <h2 className="text-xl sm:text-2xl font-display text-mayssa-brown">
                 Où livre Maison Mayssa&nbsp;?
               </h2>
-              <p className="text-sm leading-relaxed text-mayssa-brown/80">
+              <p className="text-xs sm:text-sm leading-relaxed text-mayssa-brown/80">
                 Les commandes sont préparées à Annecy. La livraison est proposée sur Annecy et
                 proches alentours, avec un forfait de 5&nbsp;€ pour les commandes inférieures à
                 30&nbsp;€. À partir de 30&nbsp;€ d&apos;achat, la livraison est offerte sur la zone
                 habituelle.
               </p>
-              <p className="text-sm leading-relaxed text-mayssa-brown/80">
+              <p className="text-xs sm:text-sm leading-relaxed text-mayssa-brown/80">
                 Pour les secteurs un peu plus éloignés autour d&apos;Annecy (autres communes du
                 bassin annécien), la livraison peut être étudiée au cas par cas directement par
                 message, en fonction du jour et du montant de la commande.
               </p>
             </div>
 
-            <div className="space-y-4 rounded-3xl bg-white/80 p-5 border border-mayssa-brown/10">
-              <h3 className="font-display text-lg text-mayssa-brown">Infos pratiques</h3>
-              <ul className="space-y-2 text-sm text-mayssa-brown/80">
+            <div className="space-y-3 sm:space-y-4 rounded-2xl sm:rounded-3xl bg-white/80 p-4 sm:p-5 border border-mayssa-brown/10">
+              <h3 className="font-display text-base sm:text-lg text-mayssa-brown">Infos pratiques</h3>
+              <ul className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-mayssa-brown/80">
                 <li>• Service de 17h à 2h du matin</li>
                 <li>• Livraison Annecy & alentours</li>
                 <li>• Livraison offerte dès 30&nbsp;€ d&apos;achat</li>
                 <li>• Précommande uniquement, pas de paiement en ligne</li>
                 <li>• Règlement à la livraison ou au retrait</li>
               </ul>
-              <p className="mt-3 text-xs text-mayssa-brown/60">
+              <p className="mt-2 sm:mt-3 text-[10px] sm:text-xs text-mayssa-brown/60">
                 Pour toute question sur la zone de livraison ou un besoin particulier (grosse
                 commande, événement, Ramadan, etc.), le plus simple est d&apos;envoyer un message
                 directement via WhatsApp, Instagram ou Snapchat.
