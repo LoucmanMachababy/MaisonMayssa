@@ -73,9 +73,27 @@ export function Navbar() {
 }
 
 function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+    const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+        e.preventDefault()
+        const targetId = href.replace('#', '')
+        const element = document.getElementById(targetId)
+        
+        if (element) {
+            const navHeight = 80 // Hauteur approximative de la navbar
+            const elementPosition = element.getBoundingClientRect().top + window.pageYOffset
+            const offsetPosition = elementPosition - navHeight
+
+            window.scrollTo({
+                top: offsetPosition,
+                behavior: 'smooth'
+            })
+        }
+    }
+
     return (
         <a
             href={href}
+            onClick={handleClick}
             className="text-sm font-bold text-mayssa-brown/70 hover:text-mayssa-brown transition-all uppercase tracking-widest hover:scale-105 active:scale-95 cursor-pointer"
         >
             {children}

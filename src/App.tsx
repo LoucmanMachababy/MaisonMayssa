@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Navbar } from './components/Navbar'
 import { Header } from './components/Header'
 import { ProductCard } from './components/ProductCard'
@@ -177,7 +177,14 @@ function App() {
 
         <main className="mt-12 grid gap-12 lg:grid-cols-[1fr_400px]">
           {/* Menu Section */}
-          <section id="la-carte" className="space-y-10">
+          <motion.section 
+            id="la-carte" 
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-50px" }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="space-y-10"
+          >
             <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-mayssa-caramel">
@@ -217,7 +224,7 @@ function App() {
                 ))}
               </AnimatePresence>
             </div>
-          </section>
+          </motion.section>
 
           {/* Cart Section */}
           <section id="commande" className="relative">
@@ -237,8 +244,12 @@ function App() {
         </main>
 
         {/* Notre histoire */}
-        <section
+        <motion.section
           id="notre-histoire"
+          initial={{ opacity: 0, y: 50 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
           className="mt-24 section-shell bg-white/80 border border-mayssa-brown/5 premium-shadow"
         >
           <div className="grid gap-8 md:grid-cols-[1.4fr_minmax(0,1fr)] items-start">
@@ -283,11 +294,15 @@ function App() {
               </ul>
             </div>
           </div>
-        </section>
+        </motion.section>
 
         {/* Zone géographique & infos pratiques */}
-        <section
+        <motion.section
           id="livraison"
+          initial={{ opacity: 0, y: 50 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.6, ease: "easeOut", delay: 0.2 }}
           className="mt-16 section-shell bg-mayssa-soft/80 border border-mayssa-brown/5"
         >
           <div className="grid gap-8 md:grid-cols-2">
@@ -327,7 +342,7 @@ function App() {
               </p>
             </div>
           </div>
-        </section>
+        </motion.section>
 
         <Footer />
       </div>

@@ -96,8 +96,31 @@ function SocialIcon({ href, icon }: { href: string; icon: React.ReactNode }) {
 }
 
 function FooterLink({ href, children }: { href: string; children: React.ReactNode }) {
+    const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+        if (href.startsWith('#')) {
+            e.preventDefault()
+            const targetId = href.replace('#', '')
+            const element = document.getElementById(targetId)
+            
+            if (element) {
+                const navHeight = 80
+                const elementPosition = element.getBoundingClientRect().top + window.pageYOffset
+                const offsetPosition = elementPosition - navHeight
+
+                window.scrollTo({
+                    top: offsetPosition,
+                    behavior: 'smooth'
+                })
+            }
+        }
+    }
+
     return (
-        <a href={href} className="text-sm text-mayssa-brown/60 hover:text-mayssa-caramel transition-all hover:scale-105 active:scale-95 cursor-pointer inline-block">
+        <a 
+            href={href} 
+            onClick={handleClick}
+            className="text-sm text-mayssa-brown/60 hover:text-mayssa-caramel transition-all hover:scale-105 active:scale-95 cursor-pointer inline-block"
+        >
             {children}
         </a>
     )
