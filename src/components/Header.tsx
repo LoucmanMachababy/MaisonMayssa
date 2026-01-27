@@ -58,7 +58,7 @@ export function Header() {
                         >
                             <Badge
                                 icon={<Clock size={12} className="sm:w-3.5 sm:h-3.5" />}
-                                text={isOpen() ? 'Ouvert · 17h — 02h' : 'Fermé · Réouverture 17h'}
+                                text={isOpen() ? 'Ouvert · 18h30 — 02h' : 'Fermé · Réouverture 18h30'}
                                 variant={isOpen() ? 'open' : 'closed'}
                             />
                             <Badge icon={<Truck size={12} className="sm:w-3.5 sm:h-3.5" />} text="Livraison Annecy" />

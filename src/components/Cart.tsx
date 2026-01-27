@@ -38,32 +38,58 @@ export function Cart({
     const finalTotal = total + deliveryFee
 
     // Generate time slots based on delivery mode
-    // Pickup: 17:00 to 02:00 | Delivery: 20:00 to 02:00
+    // Pickup: 18:30 to 02:00 | Delivery: 20:00 to 02:00
     const timeSlots = useMemo(() => {
         const slots: string[] = []
-        const startHour = customer.wantsDelivery ? 20 : 17
-        // From startHour to 23:30
-        for (let hour = startHour; hour < 24; hour++) {
-            slots.push(`${hour.toString().padStart(2, '0')}:00`)
-            slots.push(`${hour.toString().padStart(2, '0')}:30`)
-        }
-        // From 00:00 to 02:00
-        for (let hour = 0; hour <= 2; hour++) {
-            slots.push(`${hour.toString().padStart(2, '0')}:00`)
-            if (hour < 2) {
+        if (customer.wantsDelivery) {
+            // Delivery: from 20:00 to 02:00
+            for (let hour = 20; hour < 24; hour++) {
+                slots.push(`${hour.toString().padStart(2, '0')}:00`)
                 slots.push(`${hour.toString().padStart(2, '0')}:30`)
+            }
+            // From 00:00 to 02:00
+            for (let hour = 0; hour <= 2; hour++) {
+                slots.push(`${hour.toString().padStart(2, '0')}:00`)
+                if (hour < 2) {
+                    slots.push(`${hour.toString().padStart(2, '0')}:30`)
+                }
+            }
+        } else {
+            // Pickup: from 18:30 to 02:00
+            slots.push('18:30')
+            for (let hour = 19; hour < 24; hour++) {
+                slots.push(`${hour.toString().padStart(2, '0')}:00`)
+                slots.push(`${hour.toString().padStart(2, '0')}:30`)
+            }
+            // From 00:00 to 02:00
+            for (let hour = 0; hour <= 2; hour++) {
+                slots.push(`${hour.toString().padStart(2, '0')}:00`)
+                if (hour < 2) {
+                    slots.push(`${hour.toString().padStart(2, '0')}:30`)
+                }
             }
         }
         return slots
     }, [customer.wantsDelivery])
 
     // Reset time if switching to delivery and selected time is before 20:00
+    // or if switching to pickup and selected time is before 18:30
     useEffect(() => {
-        if (customer.wantsDelivery && customer.time) {
-            const hour = parseInt(customer.time.split(':')[0], 10)
-            // If time is between 17-19 (not valid for delivery), reset it
-            if (hour >= 17 && hour < 20) {
-                onCustomerChange({ ...customer, time: '' })
+        if (customer.time) {
+            const [hourStr, minuteStr] = customer.time.split(':')
+            const hour = parseInt(hourStr, 10)
+            const minute = parseInt(minuteStr || '0', 10)
+            
+            if (customer.wantsDelivery) {
+                // If time is before 20:00 (not valid for delivery), reset it
+                if (hour < 20) {
+                    onCustomerChange({ ...customer, time: '' })
+                }
+            } else {
+                // If time is before 18:30 (not valid for pickup), reset it
+                if (hour < 18 || (hour === 18 && minute < 30)) {
+                    onCustomerChange({ ...customer, time: '' })
+                }
             }
         }
     }, [customer.wantsDelivery])
@@ -147,35 +173,59 @@ export function Cart({
                                         )}
 
                                         <div className="min-w-0 flex-1">
-                                            <h4 className="truncate text-xs sm:text-sm font-bold text-mayssa-brown">
-                                                {item.product.name}
-                                            </h4>
+                                            <div className="flex items-start gap-1.5 sm:gap-2">
+                                                <h4 className="truncate text-xs sm:text-sm font-bold text-mayssa-brown flex-1">
+                                                    {item.product.name}
+                                                </h4>
+                                                {item.quantity > 1 && (
+                                                    <span className="flex-shrink-0 px-1.5 sm:px-2 py-0.5 rounded-lg bg-mayssa-caramel/10 text-[10px] sm:text-xs font-bold text-mayssa-caramel">
+                                                        x{item.quantity}
+                                                    </span>
+                                                )}
+                                            </div>
                                             {item.product.description && (
                                                 <p className="text-[9px] sm:text-[10px] text-mayssa-brown/60 mt-0.5 line-clamp-2">
                                                     {item.product.description}
                                                 </p>
                                             )}
-                                            <p className="text-[10px] sm:text-xs font-semibold text-mayssa-caramel mt-0.5">
-                                                {item.product.price.toFixed(2)} €
-                                            </p>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <p className="text-[10px] sm:text-xs text-mayssa-brown/60">
+                                                    {item.product.price.toFixed(2).replace('.', ',')} €
+                                                    {item.quantity > 1 && (
+                                                        <span className="ml-1">× {item.quantity}</span>
+                                                    )}
+                                                </p>
+                                                <p className="text-[11px] sm:text-sm font-bold text-mayssa-caramel">
+                                                    = {(item.product.price * item.quantity).toFixed(2).replace('.', ',')} €
+                                                </p>
+                                            </div>
                                         </div>
 
-                                        <div className="flex items-center gap-0.5 sm:gap-1 rounded-xl sm:rounded-2xl bg-white p-0.5 sm:p-1 shadow-sm border border-mayssa-brown/5 flex-shrink-0">
-                                            <button
-                                                onClick={() => onUpdateQuantity(item.product.id, item.quantity - 1)}
-                                                className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-lg sm:rounded-xl text-mayssa-brown transition-all hover:bg-mayssa-cream hover:scale-110 active:scale-95"
-                                            >
-                                                <Minus size={12} className="sm:w-3.5 sm:h-3.5" />
-                                            </button>
-                                            <span className="w-5 sm:w-6 text-center text-[10px] sm:text-xs font-bold text-mayssa-brown">
-                                                {item.quantity}
-                                            </span>
-                                            <button
-                                                onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
-                                                className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-lg sm:rounded-xl text-mayssa-brown transition-all hover:bg-mayssa-cream hover:scale-110 active:scale-95"
-                                            >
-                                                <Plus size={12} className="sm:w-3.5 sm:h-3.5" />
-                                            </button>
+                                        <div className="flex flex-col items-center gap-1 sm:gap-1.5 flex-shrink-0">
+                                            <div className="flex items-center gap-0.5 sm:gap-1 rounded-xl sm:rounded-2xl bg-white p-0.5 sm:p-1 shadow-sm border border-mayssa-brown/5">
+                                                <button
+                                                    onClick={() => onUpdateQuantity(item.product.id, item.quantity - 1)}
+                                                    className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-lg sm:rounded-xl text-mayssa-brown transition-all hover:bg-mayssa-cream hover:scale-110 active:scale-95"
+                                                    aria-label="Diminuer la quantité"
+                                                >
+                                                    <Minus size={12} className="sm:w-3.5 sm:h-3.5" />
+                                                </button>
+                                                <span className="w-5 sm:w-6 text-center text-[10px] sm:text-xs font-bold text-mayssa-brown">
+                                                    {item.quantity}
+                                                </span>
+                                                <button
+                                                    onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
+                                                    className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-lg sm:rounded-xl text-mayssa-brown transition-all hover:bg-mayssa-cream hover:scale-110 active:scale-95"
+                                                    aria-label="Augmenter la quantité"
+                                                >
+                                                    <Plus size={12} className="sm:w-3.5 sm:h-3.5" />
+                                                </button>
+                                            </div>
+                                            {item.quantity === 1 && (
+                                                <p className="text-[8px] sm:text-[9px] text-mayssa-brown/50 text-center max-w-[60px] sm:max-w-[70px]">
+                                                    Ajouter un supplément
+                                                </p>
+                                            )}
                                         </div>
                                     </motion.div>
                                 ))
@@ -371,7 +421,7 @@ export function Cart({
                         <p className="text-[9px] sm:text-[10px] text-mayssa-brown/60">
                             {customer.wantsDelivery
                                 ? 'Livraison de 20h à 2h du matin • Créneaux toutes les 30 minutes'
-                                : 'Retrait de 17h à 2h du matin • Créneaux toutes les 30 minutes'
+                                : 'Retrait de 18h30 à 2h du matin • Créneaux toutes les 30 minutes'
                             }
                         </p>
                     </div>

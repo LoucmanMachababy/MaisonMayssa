@@ -45,7 +45,7 @@ export function Footer() {
                                 <Clock size={16} className="sm:w-[18px] sm:h-[18px] shrink-0 text-mayssa-caramel mt-0.5" />
                                 <div>
                                     <p className="font-bold text-mayssa-brown">Horaires de service</p>
-                                    <p>17h — 02h • Tous les jours</p>
+                                    <p>18h30 — 02h • Tous les jours</p>
                                 </div>
                             </li>
                             <li className="flex items-start gap-2 sm:gap-3 text-xs sm:text-sm text-mayssa-brown/60">

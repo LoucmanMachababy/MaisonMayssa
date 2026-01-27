@@ -42,14 +42,14 @@ export const PRODUCTS: Product[] = [
     },
     {
         id: 'mini-box-mixte',
-        name: 'Box Mixte',
-        description: 'Assortiment mini brownies, cookies et pancakes avec coulis au choix.',
+        name: 'LA MINI BOX MIXTE',
+        description: 'Mini brownies + mini cookies + mini pancakes, coulis au choix.',
         price: 13,
         category: 'Boxes',
-        image: '/box-mixte.PNG',
+        image: '/La-mini-box-mixte.PNG',
         sizes: [
-            { label: 'Box S (≈300g)', ml: 300, price: 13 },
-            { label: 'Box L (≈600g)', ml: 600, price: 24 },
+            { label: 'Box mixte S (~300g)', ml: 300, price: 13 },
+            { label: 'Box mixte L (~600g)', ml: 600, price: 24 },
         ],
     },
 
@@ -330,6 +330,18 @@ export const PRODUCTS: Product[] = [
             { label: 'Box de 12 brownies', ml: 12, price: 38 },
         ],
     },
+    {
+        id: 'box-mixte',
+        name: '🍪🍫 Boxes Mixtes',
+        description: 'Un équilibre parfait entre cookies et brownies, parfums au choix.',
+        price: 25,
+        category: 'Boxes',
+        image: '/box-mixte.PNG',
+        sizes: [
+            { label: 'Box mixte 6 pièces (3 cookies + 3 brownies)', ml: 6, price: 25 },
+            { label: 'Box mixte 12 pièces (6 cookies + 6 brownies)', ml: 12, price: 40 },
+        ],
+    },
     // Tiramisus personnalisés
     {
         id: 'tiramisu-personnalise',
@@ -339,8 +351,8 @@ export const PRODUCTS: Product[] = [
         category: 'Tiramisus',
         image: '/Tiramisu.PNG',
         sizes: [
-            { label: 'Petit format', ml: 0, price: 3.5 },
-            { label: 'Grand format', ml: 0, price: 6 },
+            { label: 'Petit format', ml: 1, price: 3.5 },
+            { label: 'Grand format', ml: 2, price: 6 },
         ],
     },
 ]

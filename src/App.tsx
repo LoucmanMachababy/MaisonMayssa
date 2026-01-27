@@ -130,7 +130,7 @@ function App() {
     }
 
     // If product is a Mini Gourmandise (box), open box customization modal
-    if (product.category === 'Mini Gourmandises') {
+    if (product.category === 'Mini Gourmandises' || product.id === 'mini-box-mixte') {
       setSelectedProductForBox(product)
       return
     }
@@ -292,7 +292,14 @@ function App() {
     lines.push('', '*COMMANDE*')
 
     for (const item of cart) {
-      lines.push(`• ${item.quantity}x ${item.product.name} – ${item.product.price.toFixed(2)}€`)
+      const itemTotal = item.product.price * item.quantity
+      const unitPrice = item.product.price.toFixed(2).replace('.', ',')
+      const totalPrice = itemTotal.toFixed(2).replace('.', ',')
+      if (item.quantity > 1) {
+        lines.push(`• ${item.quantity}x ${item.product.name} – ${unitPrice}€ × ${item.quantity} = ${totalPrice}€`)
+      } else {
+        lines.push(`• ${item.product.name} – ${unitPrice}€`)
+      }
     }
 
     lines.push('', `Sous-total : ${total.toFixed(2)} €`)
@@ -554,7 +561,7 @@ function App() {
             <div className="space-y-3 sm:space-y-4 rounded-2xl sm:rounded-3xl bg-white/80 p-4 sm:p-5 border border-mayssa-brown/10">
               <h3 className="font-display text-base sm:text-lg text-mayssa-brown">Infos pratiques</h3>
               <ul className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-mayssa-brown/80">
-                <li>• Service de 17h à 2h du matin</li>
+                <li>• Service de 18h30 à 2h du matin</li>
                 <li>• Livraison Annecy & alentours</li>
                 <li>• Livraison offerte dès 30&nbsp;€ d&apos;achat</li>
                 <li>• Précommande uniquement, pas de paiement en ligne</li>
