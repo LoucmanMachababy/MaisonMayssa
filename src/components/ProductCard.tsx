@@ -32,18 +32,20 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
             </div>
 
             <div className="flex flex-col flex-1 gap-2 sm:gap-3">
-                <div className="space-y-0.5 sm:space-y-1">
-                    <h4 className="text-base sm:text-lg font-bold leading-tight text-mayssa-brown">
+                <div className="space-y-1 sm:space-y-1.5">
+                    <h4 className="text-sm sm:text-base md:text-lg font-bold leading-tight text-mayssa-brown">
                         {product.name}
                     </h4>
-                    <p className="text-xs sm:text-sm font-medium text-mayssa-brown/60">
-                        Pâtisserie artisanale
+                    <p className="text-[11px] sm:text-xs font-medium text-mayssa-brown/60 line-clamp-2 leading-relaxed">
+                        {product.description || 'Pâtisserie artisanale'}
                     </p>
                 </div>
 
                 <div className="mt-auto flex items-center justify-between gap-3 sm:gap-4">
                     <div className="flex flex-col">
-                        <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-mayssa-caramel">Prix</span>
+                        <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-mayssa-caramel">
+                            {product.sizes ? 'À partir de' : 'Prix'}
+                        </span>
                         <span className="text-lg sm:text-xl font-display font-bold text-mayssa-brown">
                             {product.price.toFixed(2).replace('.', ',')} €
                         </span>

@@ -7,12 +7,20 @@ export type ProductCategory =
     | 'Layer Cups'
     | 'Boxes'
 
+export type ProductSize = {
+    label: string
+    ml: number
+    price: number
+}
+
 export type Product = {
     id: string
     name: string
+    description?: string
     price: number
     category: ProductCategory
     image?: string
+    sizes?: ProductSize[]
 }
 
 export type CartItem = {

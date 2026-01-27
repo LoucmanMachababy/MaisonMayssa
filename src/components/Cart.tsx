@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ShoppingBag, Minus, Plus, MessageCircle, Send, Copy, Ghost as Snapchat, Instagram, User, Phone, MapPin, Truck, Calendar, Clock } from 'lucide-react'
 import type { CartItem, Channel, CustomerInfo } from '../types'
 import { cn } from '../lib/utils'
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { AddressAutocomplete } from './AddressAutocomplete'
 
 interface CartProps {
@@ -37,11 +37,13 @@ export function Cart({
     const deliveryFee = customer.wantsDelivery && total < 30 ? 5 : 0
     const finalTotal = total + deliveryFee
 
-    // Generate time slots (every 30 minutes from 17:00 to 02:00)
+    // Generate time slots based on delivery mode
+    // Pickup: 17:00 to 02:00 | Delivery: 20:00 to 02:00
     const timeSlots = useMemo(() => {
         const slots: string[] = []
-        // From 17:00 to 23:30
-        for (let hour = 17; hour < 24; hour++) {
+        const startHour = customer.wantsDelivery ? 20 : 17
+        // From startHour to 23:30
+        for (let hour = startHour; hour < 24; hour++) {
             slots.push(`${hour.toString().padStart(2, '0')}:00`)
             slots.push(`${hour.toString().padStart(2, '0')}:30`)
         }
@@ -53,7 +55,18 @@ export function Cart({
             }
         }
         return slots
-    }, [])
+    }, [customer.wantsDelivery])
+
+    // Reset time if switching to delivery and selected time is before 20:00
+    useEffect(() => {
+        if (customer.wantsDelivery && customer.time) {
+            const hour = parseInt(customer.time.split(':')[0], 10)
+            // If time is between 17-19 (not valid for delivery), reset it
+            if (hour >= 17 && hour < 20) {
+                onCustomerChange({ ...customer, time: '' })
+            }
+        }
+    }, [customer.wantsDelivery])
 
     // Get minimum date (today) - using local date to avoid timezone issues
     const today = new Date()
@@ -272,7 +285,10 @@ export function Cart({
                             </div>
                         </div>
                         <p className="text-[9px] sm:text-[10px] text-mayssa-brown/60">
-                            Service de 17h à 2h du matin • Créneaux toutes les 30 minutes
+                            {customer.wantsDelivery
+                                ? 'Livraison de 20h à 2h du matin • Créneaux toutes les 30 minutes'
+                                : 'Retrait de 17h à 2h du matin • Créneaux toutes les 30 minutes'
+                            }
                         </p>
                     </div>
                     </div>

@@ -5,9 +5,11 @@ import { Header } from './components/Header'
 import { ProductCard } from './components/ProductCard'
 import { Cart } from './components/Cart'
 import { Footer } from './components/Footer'
+import { SizeSelectorModal } from './components/SizeSelectorModal'
 import { PRODUCTS, PHONE_E164 } from './constants'
 import type {
   Product,
+  ProductSize,
   CartItem,
   Channel,
   ProductCategory,
@@ -29,6 +31,7 @@ function App() {
     date: '',
     time: '',
   })
+  const [selectedProductForSize, setSelectedProductForSize] = useState<Product | null>(null)
 
   const total = useMemo(
     () => cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0),
@@ -46,6 +49,12 @@ function App() {
   }, [activeCategory])
 
   const handleAddToCart = (product: Product) => {
+    // If product has sizes (like Layer Cups), open size selector modal
+    if (product.sizes && product.sizes.length > 0) {
+      setSelectedProductForSize(product)
+      return
+    }
+
     setCart((current) => {
       const existing = current.find((item) => item.product.id === product.id)
       if (existing) {
@@ -55,6 +64,28 @@ function App() {
       }
       return [...current, { product, quantity: 1 }]
     })
+  }
+
+  const handleSizeSelect = (product: Product, size: ProductSize) => {
+    // Create a cart item with the specific size
+    const cartProduct: Product = {
+      ...product,
+      id: `${product.id}-${size.ml}`,
+      name: `${product.name} (${size.label})`,
+      price: size.price,
+    }
+
+    setCart((current) => {
+      const existing = current.find((item) => item.product.id === cartProduct.id)
+      if (existing) {
+        return current.map((item) =>
+          item.product.id === cartProduct.id ? { ...item, quantity: item.quantity + 1 } : item,
+        )
+      }
+      return [...current, { product: cartProduct, quantity: 1 }]
+    })
+
+    setSelectedProductForSize(null)
   }
 
   const handleUpdateQuantity = (id: string, quantity: number) => {
@@ -346,6 +377,13 @@ function App() {
 
         <Footer />
       </div>
+
+      {/* Size Selector Modal for Layer Cups */}
+      <SizeSelectorModal
+        product={selectedProductForSize}
+        onClose={() => setSelectedProductForSize(null)}
+        onSelect={handleSizeSelect}
+      />
     </div>
   )
 }
