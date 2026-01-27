@@ -6,6 +6,7 @@ export type ProductCategory =
     | 'Cookies'
     | 'Layer Cups'
     | 'Boxes'
+    | 'Tiramisus'
 
 export type ProductSize = {
     label: string

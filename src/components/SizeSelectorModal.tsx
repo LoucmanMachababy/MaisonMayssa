@@ -116,8 +116,35 @@ export function SizeSelectorModal({ product, onClose, onSelect }: SizeSelectorMo
                                             Petite : jusqu'à 2 parfums • Grande : jusqu'à 4 parfums
                                         </p>
                                         <p className="text-[9px] sm:text-[10px] text-mayssa-brown/50 text-center">
-                                            Nutella, Crème Bueno, Caramel, Pistache (+0,50€/parfum suppl.)
+                                            Nutella, Crème Bueno, Spéculoos, Pistache (+0,50€/parfum suppl.)
                                         </p>
+                                    </div>
+                                )}
+
+                                {/* Note about customization for Tiramisus */}
+                                {product.category === 'Tiramisus' && (
+                                    <div className="rounded-xl bg-mayssa-soft/50 p-3 sm:p-4 space-y-3">
+                                        <p className="text-[10px] sm:text-xs font-bold text-mayssa-brown/70 text-center">
+                                            🥮 Choix de la base
+                                        </p>
+                                        <p className="text-[9px] sm:text-[10px] text-mayssa-brown/60 text-center leading-relaxed">
+                                            Biscuit cuillère nature • Biscuit cuillère café<br />
+                                            Gâteau Spéculoos • Gâteau Oreo
+                                        </p>
+                                        <div className="border-t border-mayssa-brown/10 pt-2 space-y-1.5">
+                                            <p className="text-[10px] sm:text-xs font-bold text-mayssa-brown/70 text-center">
+                                                🍓 Toppings inclus
+                                            </p>
+                                            <p className="text-[9px] sm:text-[10px] text-mayssa-brown/60 text-center">
+                                                2 toppings au choix
+                                            </p>
+                                            <p className="text-[9px] sm:text-[10px] text-mayssa-brown/50 text-center leading-relaxed">
+                                                Oreo, Spéculoos, Kinder Bueno, Nutella, Fraise, Mangue, Passion, Framboise, Caramel, Daim, Cacao
+                                            </p>
+                                            <p className="text-[9px] sm:text-[10px] text-mayssa-brown/50 text-center font-semibold">
+                                                ➕ Topping supplémentaire : 0,50 €
+                                            </p>
+                                        </div>
                                     </div>
                                 )}
 

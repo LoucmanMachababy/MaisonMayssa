@@ -3,11 +3,11 @@ import type { Product } from './types'
 export const PHONE_E164 = '33619871005'
 
 export const PRODUCTS: Product[] = [
-    // Mini gourmandises (avec coulis au choix : Nutella, Crème Bueno, Caramel, Pistache)
+    // Mini gourmandises (avec coulis au choix : Nutella, Crème Bueno, Spéculoos, Pistache)
     {
         id: 'mini-box-brownies',
         name: 'Box Mini Brownies',
-        description: 'Mini brownies fondants avec coulis au choix (Nutella, Bueno, Caramel, Pistache).',
+        description: 'Mini brownies fondants avec coulis au choix (Nutella, Bueno, Spéculoos, Pistache).',
         price: 4.5,
         category: 'Mini Gourmandises',
         image: '/box-brownies.PNG',
@@ -19,7 +19,7 @@ export const PRODUCTS: Product[] = [
     {
         id: 'mini-box-cookies',
         name: 'Box Mini Cookies',
-        description: 'Mini cookies croustillants avec coulis au choix (Nutella, Bueno, Caramel, Pistache).',
+        description: 'Mini cookies croustillants avec coulis au choix (Nutella, Bueno, Spéculoos, Pistache).',
         price: 4,
         category: 'Mini Gourmandises',
         image: '/box-cookie.PNG',
@@ -31,7 +31,7 @@ export const PRODUCTS: Product[] = [
     {
         id: 'mini-box-pancakes',
         name: 'Box Mini Pancakes',
-        description: 'Mini pancakes moelleux avec coulis au choix (Nutella, Bueno, Caramel, Pistache).',
+        description: 'Mini pancakes moelleux avec coulis au choix (Nutella, Bueno, Spéculoos, Pistache).',
         price: 4.5,
         category: 'Mini Gourmandises',
         image: '/box-pancakes.PNG',
@@ -45,7 +45,7 @@ export const PRODUCTS: Product[] = [
         name: 'Box Mixte',
         description: 'Assortiment mini brownies, cookies et pancakes avec coulis au choix.',
         price: 13,
-        category: 'Mini Gourmandises',
+        category: 'Boxes',
         image: '/box-mixte.PNG',
         sizes: [
             { label: 'Box S (≈300g)', ml: 300, price: 13 },
@@ -307,24 +307,40 @@ export const PRODUCTS: Product[] = [
 
     // Boxes gourmandes
     {
-        id: 'box-cookie-6',
-        name: 'Box Cookies x6 (parfums au choix)',
+        id: 'box-cookies',
+        name: '🍪 Boxes Cookies',
+        description: 'Assortiment de cookies au choix.',
+        price: 15,
+        category: 'Boxes',
+        image: '/box-cookies.jpeg',
+        sizes: [
+            { label: 'Box de 6 cookies', ml: 6, price: 15 },
+            { label: 'Box de 12 cookies', ml: 12, price: 35 },
+        ],
+    },
+    {
+        id: 'box-brownies',
+        name: '🍫 Boxes Brownies',
+        description: 'Assortiment de brownies au choix.',
         price: 18,
         category: 'Boxes',
-        image: '/Box-gourmandise.jpeg',
+        image: '/boxe-brownies.PNG',
+        sizes: [
+            { label: 'Box de 6 brownies', ml: 6, price: 18 },
+            { label: 'Box de 12 brownies', ml: 12, price: 38 },
+        ],
     },
+    // Tiramisus personnalisés
     {
-        id: 'box-brownie-6',
-        name: 'Box Brownies x6 (parfums au choix)',
-        price: 20,
-        category: 'Boxes',
-        image: '/Box-gourmandise.jpeg',
-    },
-    {
-        id: 'box-mixte-6',
-        name: 'Box Mixte x6 (3 cookies + 3 brownies)',
-        price: 25,
-        category: 'Boxes',
-        image: '/Box-gourmandise.jpeg',
+        id: 'tiramisu-personnalise',
+        name: '🍰 TIRAMISUS PERSONNALISÉS',
+        description: 'Crée ton tiramisu selon tes envies ✨',
+        price: 3.5,
+        category: 'Tiramisus',
+        image: '/Tiramisu.PNG',
+        sizes: [
+            { label: 'Petit format', ml: 0, price: 3.5 },
+            { label: 'Grand format', ml: 0, price: 6 },
+        ],
     },
 ]

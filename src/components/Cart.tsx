@@ -127,7 +127,12 @@ export function Cart({
                                     <h4 className="truncate text-xs sm:text-sm font-bold text-mayssa-brown">
                                         {item.product.name}
                                     </h4>
-                                    <p className="text-[10px] sm:text-xs font-semibold text-mayssa-caramel">
+                                    {item.product.description && (
+                                        <p className="text-[9px] sm:text-[10px] text-mayssa-brown/60 mt-0.5 line-clamp-2">
+                                            {item.product.description}
+                                        </p>
+                                    )}
+                                    <p className="text-[10px] sm:text-xs font-semibold text-mayssa-caramel mt-0.5">
                                         {item.product.price.toFixed(2)} €
                                     </p>
                                 </div>

@@ -6,6 +6,8 @@ import { ProductCard } from './components/ProductCard'
 import { Cart } from './components/Cart'
 import { Footer } from './components/Footer'
 import { SizeSelectorModal } from './components/SizeSelectorModal'
+import { TiramisuCustomizationModal } from './components/TiramisuCustomizationModal'
+import { BoxCustomizationModal } from './components/BoxCustomizationModal'
 import { PRODUCTS, PHONE_E164 } from './constants'
 import type {
   Product,
@@ -32,6 +34,8 @@ function App() {
     time: '',
   })
   const [selectedProductForSize, setSelectedProductForSize] = useState<Product | null>(null)
+  const [selectedProductForTiramisu, setSelectedProductForTiramisu] = useState<Product | null>(null)
+  const [selectedProductForBox, setSelectedProductForBox] = useState<Product | null>(null)
 
   const total = useMemo(
     () => cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0),
@@ -49,6 +53,18 @@ function App() {
   }, [activeCategory])
 
   const handleAddToCart = (product: Product) => {
+    // If product is a Tiramisu, open customization modal
+    if (product.category === 'Tiramisus') {
+      setSelectedProductForTiramisu(product)
+      return
+    }
+
+    // If product is a Mini Gourmandise (box), open box customization modal
+    if (product.category === 'Mini Gourmandises') {
+      setSelectedProductForBox(product)
+      return
+    }
+
     // If product has sizes (like Layer Cups), open size selector modal
     if (product.sizes && product.sizes.length > 0) {
       setSelectedProductForSize(product)
@@ -86,6 +102,66 @@ function App() {
     })
 
     setSelectedProductForSize(null)
+  }
+
+  const handleTiramisuCustomization = (
+    product: Product,
+    size: ProductSize,
+    base: string,
+    allToppings: string[]
+  ) => {
+    // Les 2 premiers sont inclus, les suivants sont payants
+    const extraToppings = Math.max(0, allToppings.length - 2)
+    const extraPrice = extraToppings * 0.5
+    const totalPrice = size.price + extraPrice
+
+    // Create a detailed name with all customizations
+    const toppingsText = allToppings.join(', ')
+    const extraText = extraToppings > 0 ? ` (${extraToppings} supp. +${extraPrice.toFixed(2).replace('.', ',')}€)` : ''
+    const cartProduct: Product = {
+      ...product,
+      id: `${product.id}-${size.ml}-${Date.now()}`,
+      name: `${size.label}`,
+      description: `Base: ${base} • Toppings: ${toppingsText}${extraText}`,
+      price: totalPrice,
+    }
+
+    setCart((current) => {
+      return [...current, { product: cartProduct, quantity: 1 }]
+    })
+
+    setSelectedProductForTiramisu(null)
+  }
+
+  const handleBoxCustomization = (
+    product: Product,
+    size: ProductSize,
+    coulis: string[]
+  ) => {
+    // Determine if it's petite or grande
+    const isMixte = product.id === 'mini-box-mixte'
+    const isPetite = product.sizes && product.sizes[0]?.ml === size.ml
+    const coulisInclus = isMixte ? 4 : (isPetite ? 2 : 4)
+    const extraCoulis = Math.max(0, coulis.length - coulisInclus)
+    const extraPrice = extraCoulis * 0.5
+    const totalPrice = size.price + extraPrice
+
+    // Create a detailed name with all customizations
+    const coulisText = coulis.join(', ')
+    const extraText = extraCoulis > 0 ? ` (+${extraCoulis} supp.)` : ''
+    const cartProduct: Product = {
+      ...product,
+      id: `${product.id}-${size.ml}-${Date.now()}`,
+      name: `${product.name} - ${size.label}`,
+      description: `Coulis: ${coulisText}${extraText}`,
+      price: totalPrice,
+    }
+
+    setCart((current) => {
+      return [...current, { product: cartProduct, quantity: 1 }]
+    })
+
+    setSelectedProductForBox(null)
   }
 
   const handleUpdateQuantity = (id: string, quantity: number) => {
@@ -383,6 +459,20 @@ function App() {
         product={selectedProductForSize}
         onClose={() => setSelectedProductForSize(null)}
         onSelect={handleSizeSelect}
+      />
+
+      {/* Tiramisu Customization Modal */}
+      <TiramisuCustomizationModal
+        product={selectedProductForTiramisu}
+        onClose={() => setSelectedProductForTiramisu(null)}
+        onSelect={handleTiramisuCustomization}
+      />
+
+      {/* Box Customization Modal */}
+      <BoxCustomizationModal
+        product={selectedProductForBox}
+        onClose={() => setSelectedProductForBox(null)}
+        onSelect={handleBoxCustomization}
       />
     </div>
   )
