@@ -305,13 +305,20 @@ function App() {
     lines.push('', `Sous-total : ${total.toFixed(2)} €`)
 
     if (customer.wantsDelivery) {
+      lines.push(
+        '',
+        'Zone de livraison : rayon de 5 km autour de Rue de la Gare, 74000 Annecy.',
+        'Au‑delà, le tarif précis sera convenu ensemble sur WhatsApp.',
+      )
       if (deliveryFee > 0) {
         lines.push(
-          `Livraison Annecy & alentours : +5 € (commande inférieure à 30 €)`,
+          '',
+          `Livraison : +5 € (commande inférieure à 30 €)`,
           `Total avec livraison : ${finalTotal.toFixed(2)} €`,
         )
       } else {
         lines.push(
+          '',
           'Livraison OFFERTE dès 30 € d’achat (commande ≥ 30 €).',
           `Total avec livraison : ${finalTotal.toFixed(2)} €`,
         )

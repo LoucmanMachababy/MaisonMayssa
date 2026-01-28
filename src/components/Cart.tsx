@@ -358,7 +358,10 @@ export function Cart({
                                             placeholder="Commencez à taper votre adresse (ex: 1 rue de la Paix, Annecy)..."
                                         />
                                         <p className="mt-2 text-[9px] sm:text-[10px] text-mayssa-brown/60">
-                                            💡 L'autocomplétion vous propose des adresses pendant que vous tapez
+                                            💡 L'autocomplétion vous propose des adresses pendant que vous tapez.
+                                        </p>
+                                        <p className="mt-1 text-[9px] sm:text-[10px] text-mayssa-brown/70">
+                                            🚗 Zone de livraison : rayon de <strong>5 km</strong> autour de <strong>Rue de la Gare, 74000 Annecy</strong>. Au‑delà, tarif à définir ensemble sur WhatsApp.
                                         </p>
                                     </div>
                                     {validationErrors.address && (
@@ -480,11 +483,16 @@ export function Cart({
                         <span className="text-sm sm:text-base font-semibold">{total.toFixed(2)} €</span>
                     </div>
                     {customer.wantsDelivery && (
-                        <div className="flex items-center justify-between text-[10px] sm:text-xs">
-                            <span className="opacity-80">Livraison Annecy & alentours</span>
-                            <span>
-                                {deliveryFee > 0 ? '+ 5,00 €' : 'Offerte (≥ 30 €)'}
-                            </span>
+                        <div className="space-y-0.5 text-[10px] sm:text-xs">
+                            <div className="flex items-center justify-between">
+                                <span className="opacity-80">Livraison Annecy & alentours (≤ 5 km)</span>
+                                <span>
+                                    {deliveryFee > 0 ? '+ 5,00 €' : 'Offerte (≥ 30 €)'}
+                                </span>
+                            </div>
+                            <p className="text-mayssa-cream/80">
+                                Au‑delà de 5 km autour de Rue de la Gare, 74000 Annecy, le tarif sera confirmé avec vous sur WhatsApp.
+                            </p>
                         </div>
                     )}
                     <div className="flex items-center justify-between border-t border-mayssa-cream/20 pt-2 sm:pt-3">
@@ -517,7 +525,7 @@ export function Cart({
                 </div>
 
                 <p className="text-center text-[9px] sm:text-[10px] text-mayssa-brown/40 italic">
-                    * Livraison offerte dès 30 € • Annecy & alentours (+5 €)
+                    * Livraison 5 € dans un rayon de 5 km autour de Rue de la Gare, 74000 Annecy (offerte dès 30 €). Au‑delà, tarif à fixer sur WhatsApp.
                 </p>
             </div>
         </aside>
