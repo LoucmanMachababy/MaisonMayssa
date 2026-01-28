@@ -79,7 +79,7 @@ export function Navbar() {
                                 <span className="hidden md:inline">Commander</span>
                             </a>
                             {/* Mobile Menu Button */}
-                            <button 
+                            <button
                                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                                 className="lg:hidden p-2 text-mayssa-brown hover:text-mayssa-caramel transition-colors"
                                 aria-label="Menu"
@@ -181,7 +181,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
         e.preventDefault()
         const targetId = href.replace('#', '')
         const element = document.getElementById(targetId)
-        
+
         if (element) {
             const navHeight = 80 // Hauteur approximative de la navbar
             const elementPosition = element.getBoundingClientRect().top + window.pageYOffset
@@ -210,7 +210,7 @@ function MobileNavLink({ href, children, onClick }: { href: string; children: Re
         e.preventDefault()
         const targetId = href.replace('#', '')
         const element = document.getElementById(targetId)
-        
+
         if (element) {
             const navHeight = 80
             const elementPosition = element.getBoundingClientRect().top + window.pageYOffset

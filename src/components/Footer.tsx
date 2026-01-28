@@ -101,7 +101,7 @@ function FooterLink({ href, children }: { href: string; children: React.ReactNod
             e.preventDefault()
             const targetId = href.replace('#', '')
             const element = document.getElementById(targetId)
-            
+
             if (element) {
                 const navHeight = 80
                 const elementPosition = element.getBoundingClientRect().top + window.pageYOffset
@@ -116,8 +116,8 @@ function FooterLink({ href, children }: { href: string; children: React.ReactNod
     }
 
     return (
-        <a 
-            href={href} 
+        <a
+            href={href}
             onClick={handleClick}
             className="text-xs sm:text-sm text-mayssa-brown/60 hover:text-mayssa-caramel transition-all hover:scale-105 active:scale-95 cursor-pointer inline-block"
         >

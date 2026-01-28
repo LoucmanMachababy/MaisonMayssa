@@ -23,7 +23,7 @@ import type {
   ProductCategory,
   CustomerInfo,
 } from './types'
-import { Sparkles, Search, X } from 'lucide-react'
+import { Sparkles, Search, X, ChevronRight } from 'lucide-react'
 
 function App() {
   // Load cart from localStorage on mount
@@ -413,20 +413,36 @@ function App() {
               </div>
 
               {/* Category Filter */}
-              <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar scroll-smooth -mx-4 px-4 sm:mx-0 sm:px-0">
-                {categories.map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => setActiveCategory(cat as any)}
-                    className={`whitespace-nowrap rounded-xl sm:rounded-2xl px-4 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-bold transition-all cursor-pointer flex-shrink-0 ${activeCategory === cat
-                      ? 'bg-mayssa-brown text-white shadow-lg shadow-mayssa-brown/20 -translate-y-1'
-                      : 'bg-white/60 text-mayssa-brown hover:bg-white hover:scale-105 hover:shadow-md active:scale-95'
-                      }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
+              <div className="relative">
+                <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar scroll-smooth -mx-4 px-4 sm:mx-0 sm:px-0">
+                  {categories.map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setActiveCategory(cat as any)}
+                      className={`whitespace-nowrap rounded-xl sm:rounded-2xl px-4 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-bold transition-all cursor-pointer flex-shrink-0 ${activeCategory === cat
+                        ? 'bg-mayssa-brown text-white shadow-lg shadow-mayssa-brown/20 -translate-y-1'
+                        : 'bg-white/60 text-mayssa-brown hover:bg-white hover:scale-105 hover:shadow-md active:scale-95'
+                        }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Hint that it scrolls horizontally (desktop only, outside the last pill) */}
+                <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-mayssa-cream to-transparent hidden sm:block" />
+                <div className="pointer-events-none hidden sm:flex items-center absolute top-1/2 -translate-y-1/2 right-0 translate-x-full">
+                  <div className="flex items-center gap-1 rounded-full bg-white/90 px-2 py-1 shadow-sm border border-mayssa-brown/10">
+                    <span className="text-[9px] sm:text-[10px] font-semibold text-mayssa-brown/60">
+                      Glisser
+                    </span>
+                    <ChevronRight className="w-3 h-3 text-mayssa-brown/60" />
+                  </div>
+                </div>
               </div>
+              <p className="mt-1 text-[10px] sm:hidden text-mayssa-brown/45">
+                Faites glisser horizontalement pour voir toutes les catégories →
+              </p>
             </div>
 
             {filteredProducts.length === 0 ? (

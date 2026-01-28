@@ -79,7 +79,7 @@ export function Cart({
             const [hourStr, minuteStr] = customer.time.split(':')
             const hour = parseInt(hourStr, 10)
             const minute = parseInt(minuteStr || '0', 10)
-            
+
             if (customer.wantsDelivery) {
                 // If time is before 20:00 (not valid for delivery), reset it
                 if (hour < 20) {
@@ -101,7 +101,7 @@ export function Cart({
     // Validation with detailed errors
     const validationErrors = useMemo(() => {
         const errors: Partial<Record<keyof CustomerInfo, string>> = {}
-        
+
         if (!customer.firstName.trim()) {
             errors.firstName = 'Le prénom est requis'
         }
@@ -122,7 +122,7 @@ export function Cart({
         if (!customer.time.trim()) {
             errors.time = 'L\'heure est requise'
         }
-        
+
         return errors
     }, [customer])
 
@@ -311,120 +311,120 @@ export function Cart({
                         </div>
 
                         {/* Mode de récupération - Gros boutons clairs */}
-                    <div className="space-y-2 sm:space-y-3">
-                        <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-mayssa-brown/60">
-                            Comment souhaitez-vous récupérer votre commande ?
-                        </p>
-                        <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                            <button
-                                type="button"
-                                onClick={() => onCustomerChange({ ...customer, wantsDelivery: false })}
-                                className={cn(
-                                    "flex flex-col items-center justify-center gap-1.5 sm:gap-2 rounded-2xl sm:rounded-3xl p-3 sm:p-4 text-xs sm:text-sm font-bold transition-all shadow-lg cursor-pointer",
-                                    !customer.wantsDelivery
-                                        ? "bg-mayssa-brown text-mayssa-cream ring-2 sm:ring-4 ring-mayssa-caramel/30 scale-105"
-                                        : "bg-white/70 text-mayssa-brown hover:bg-white hover:scale-105 hover:shadow-xl border-2 border-mayssa-brown/20 active:scale-95"
-                                )}
-                            >
-                                <MapPin size={20} className="sm:w-6 sm:h-6" />
-                                <span className="text-center leading-tight">Retrait sur place</span>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => onCustomerChange({ ...customer, wantsDelivery: true })}
-                                className={cn(
-                                    "flex flex-col items-center justify-center gap-1.5 sm:gap-2 rounded-2xl sm:rounded-3xl p-3 sm:p-4 text-xs sm:text-sm font-bold transition-all shadow-lg cursor-pointer",
-                                    customer.wantsDelivery
-                                        ? "bg-mayssa-caramel text-white ring-2 sm:ring-4 ring-mayssa-caramel/30 scale-105"
-                                        : "bg-white/70 text-mayssa-brown hover:bg-white hover:scale-105 hover:shadow-xl border-2 border-mayssa-brown/20 active:scale-95"
-                                )}
-                            >
-                                <Truck size={20} className="sm:w-6 sm:h-6" />
-                                <span className="text-center leading-tight">Livraison à domicile</span>
-                            </button>
+                        <div className="space-y-2 sm:space-y-3">
+                            <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-mayssa-brown/60">
+                                Comment souhaitez-vous récupérer votre commande ?
+                            </p>
+                            <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => onCustomerChange({ ...customer, wantsDelivery: false })}
+                                    className={cn(
+                                        "flex flex-col items-center justify-center gap-1.5 sm:gap-2 rounded-2xl sm:rounded-3xl p-3 sm:p-4 text-xs sm:text-sm font-bold transition-all shadow-lg cursor-pointer",
+                                        !customer.wantsDelivery
+                                            ? "bg-mayssa-brown text-mayssa-cream ring-2 sm:ring-4 ring-mayssa-caramel/30 scale-105"
+                                            : "bg-white/70 text-mayssa-brown hover:bg-white hover:scale-105 hover:shadow-xl border-2 border-mayssa-brown/20 active:scale-95"
+                                    )}
+                                >
+                                    <MapPin size={20} className="sm:w-6 sm:h-6" />
+                                    <span className="text-center leading-tight">Retrait sur place</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => onCustomerChange({ ...customer, wantsDelivery: true })}
+                                    className={cn(
+                                        "flex flex-col items-center justify-center gap-1.5 sm:gap-2 rounded-2xl sm:rounded-3xl p-3 sm:p-4 text-xs sm:text-sm font-bold transition-all shadow-lg cursor-pointer",
+                                        customer.wantsDelivery
+                                            ? "bg-mayssa-caramel text-white ring-2 sm:ring-4 ring-mayssa-caramel/30 scale-105"
+                                            : "bg-white/70 text-mayssa-brown hover:bg-white hover:scale-105 hover:shadow-xl border-2 border-mayssa-brown/20 active:scale-95"
+                                    )}
+                                >
+                                    <Truck size={20} className="sm:w-6 sm:h-6" />
+                                    <span className="text-center leading-tight">Livraison à domicile</span>
+                                </button>
+                            </div>
+
+                            {customer.wantsDelivery && (
+                                <div className="space-y-1">
+                                    <div className={cn(
+                                        "rounded-xl sm:rounded-2xl bg-white/80 px-3 sm:px-4 py-2 sm:py-3 transition-all",
+                                        validationErrors.address ? "ring-2 ring-red-300" : "ring-2 ring-mayssa-caramel/30 focus-within:ring-mayssa-caramel/50"
+                                    )}>
+                                        <AddressAutocomplete
+                                            value={customer.address}
+                                            onChange={(address) =>
+                                                onCustomerChange({ ...customer, address })
+                                            }
+                                            placeholder="Commencez à taper votre adresse (ex: 1 rue de la Paix, Annecy)..."
+                                        />
+                                        <p className="mt-2 text-[9px] sm:text-[10px] text-mayssa-brown/60">
+                                            💡 L'autocomplétion vous propose des adresses pendant que vous tapez
+                                        </p>
+                                    </div>
+                                    {validationErrors.address && (
+                                        <p className="text-[10px] text-red-500 px-1">{validationErrors.address}</p>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
-                        {customer.wantsDelivery && (
-                            <div className="space-y-1">
-                                <div className={cn(
-                                    "rounded-xl sm:rounded-2xl bg-white/80 px-3 sm:px-4 py-2 sm:py-3 transition-all",
-                                    validationErrors.address ? "ring-2 ring-red-300" : "ring-2 ring-mayssa-caramel/30 focus-within:ring-mayssa-caramel/50"
-                                )}>
-                                    <AddressAutocomplete
-                                        value={customer.address}
-                                        onChange={(address) =>
-                                            onCustomerChange({ ...customer, address })
-                                        }
-                                        placeholder="Commencez à taper votre adresse (ex: 1 rue de la Paix, Annecy)..."
-                                    />
-                                    <p className="mt-2 text-[9px] sm:text-[10px] text-mayssa-brown/60">
-                                        💡 L'autocomplétion vous propose des adresses pendant que vous tapez
-                                    </p>
+                        {/* Date et heure - Obligatoires */}
+                        <div className="space-y-2 sm:space-y-3 rounded-2xl sm:rounded-3xl bg-mayssa-soft/60 p-3 sm:p-4 ring-1 ring-mayssa-brown/5">
+                            <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-mayssa-brown/60">
+                                📅 Date et heure souhaitées *
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                                <div className="space-y-1">
+                                    <div className={cn(
+                                        "flex items-center gap-2 rounded-xl sm:rounded-2xl bg-white/80 px-2.5 sm:px-3 py-2 sm:py-2.5 transition-all",
+                                        validationErrors.date ? "ring-2 ring-red-300" : "ring-1 ring-mayssa-brown/10"
+                                    )}>
+                                        <Calendar size={14} className="sm:w-4 sm:h-4 text-mayssa-caramel flex-shrink-0" />
+                                        <input
+                                            type="date"
+                                            min={minDate}
+                                            value={customer.date}
+                                            onChange={(e) => onCustomerChange({ ...customer, date: e.target.value })}
+                                            required
+                                            className="w-full bg-transparent text-xs sm:text-sm font-medium text-mayssa-brown focus:outline-none"
+                                        />
+                                    </div>
+                                    {validationErrors.date && (
+                                        <p className="text-[10px] text-red-500 px-1">{validationErrors.date}</p>
+                                    )}
                                 </div>
-                                {validationErrors.address && (
-                                    <p className="text-[10px] text-red-500 px-1">{validationErrors.address}</p>
-                                )}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Date et heure - Obligatoires */}
-                    <div className="space-y-2 sm:space-y-3 rounded-2xl sm:rounded-3xl bg-mayssa-soft/60 p-3 sm:p-4 ring-1 ring-mayssa-brown/5">
-                        <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-mayssa-brown/60">
-                            📅 Date et heure souhaitées *
-                        </p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                            <div className="space-y-1">
-                                <div className={cn(
-                                    "flex items-center gap-2 rounded-xl sm:rounded-2xl bg-white/80 px-2.5 sm:px-3 py-2 sm:py-2.5 transition-all",
-                                    validationErrors.date ? "ring-2 ring-red-300" : "ring-1 ring-mayssa-brown/10"
-                                )}>
-                                    <Calendar size={14} className="sm:w-4 sm:h-4 text-mayssa-caramel flex-shrink-0" />
-                                    <input
-                                        type="date"
-                                        min={minDate}
-                                        value={customer.date}
-                                        onChange={(e) => onCustomerChange({ ...customer, date: e.target.value })}
-                                        required
-                                        className="w-full bg-transparent text-xs sm:text-sm font-medium text-mayssa-brown focus:outline-none"
-                                    />
+                                <div className="space-y-1">
+                                    <div className={cn(
+                                        "flex items-center gap-2 rounded-xl sm:rounded-2xl bg-white/80 px-2.5 sm:px-3 py-2 sm:py-2.5 transition-all",
+                                        validationErrors.time ? "ring-2 ring-red-300" : "ring-1 ring-mayssa-brown/10"
+                                    )}>
+                                        <Clock size={14} className="sm:w-4 sm:h-4 text-mayssa-caramel flex-shrink-0" />
+                                        <select
+                                            value={customer.time}
+                                            onChange={(e) => onCustomerChange({ ...customer, time: e.target.value })}
+                                            required
+                                            className="w-full bg-transparent text-xs sm:text-sm font-medium text-mayssa-brown focus:outline-none cursor-pointer"
+                                        >
+                                            <option value="">Choisir l'heure</option>
+                                            {timeSlots.map((time) => (
+                                                <option key={time} value={time}>
+                                                    {time}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    {validationErrors.time && (
+                                        <p className="text-[10px] text-red-500 px-1">{validationErrors.time}</p>
+                                    )}
                                 </div>
-                                {validationErrors.date && (
-                                    <p className="text-[10px] text-red-500 px-1">{validationErrors.date}</p>
-                                )}
                             </div>
-                            <div className="space-y-1">
-                                <div className={cn(
-                                    "flex items-center gap-2 rounded-xl sm:rounded-2xl bg-white/80 px-2.5 sm:px-3 py-2 sm:py-2.5 transition-all",
-                                    validationErrors.time ? "ring-2 ring-red-300" : "ring-1 ring-mayssa-brown/10"
-                                )}>
-                                    <Clock size={14} className="sm:w-4 sm:h-4 text-mayssa-caramel flex-shrink-0" />
-                                    <select
-                                        value={customer.time}
-                                        onChange={(e) => onCustomerChange({ ...customer, time: e.target.value })}
-                                        required
-                                        className="w-full bg-transparent text-xs sm:text-sm font-medium text-mayssa-brown focus:outline-none cursor-pointer"
-                                    >
-                                        <option value="">Choisir l'heure</option>
-                                        {timeSlots.map((time) => (
-                                            <option key={time} value={time}>
-                                                {time}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                {validationErrors.time && (
-                                    <p className="text-[10px] text-red-500 px-1">{validationErrors.time}</p>
-                                )}
-                            </div>
+                            <p className="text-[9px] sm:text-[10px] text-mayssa-brown/60">
+                                {customer.wantsDelivery
+                                    ? 'Livraison de 20h à 2h du matin • Créneaux toutes les 30 minutes'
+                                    : 'Retrait de 18h30 à 2h du matin • Créneaux toutes les 30 minutes'
+                                }
+                            </p>
                         </div>
-                        <p className="text-[9px] sm:text-[10px] text-mayssa-brown/60">
-                            {customer.wantsDelivery
-                                ? 'Livraison de 20h à 2h du matin • Créneaux toutes les 30 minutes'
-                                : 'Retrait de 18h30 à 2h du matin • Créneaux toutes les 30 minutes'
-                            }
-                        </p>
-                    </div>
 
                         {/* Détails commande + canaux */}
                         <div className="space-y-3 sm:space-y-4">
@@ -530,8 +530,8 @@ function ChannelButton({ active, onClick, icon, label, activeClass }: any) {
             onClick={onClick}
             className={cn(
                 "flex flex-1 flex-col items-center gap-1.5 sm:gap-2 rounded-xl sm:rounded-2xl p-2 sm:p-3 text-[9px] sm:text-[10px] font-bold transition-all cursor-pointer",
-                active 
-                    ? `${activeClass} scale-105` 
+                active
+                    ? `${activeClass} scale-105`
                     : "bg-mayssa-soft text-mayssa-brown hover:bg-white hover:-translate-y-1 hover:shadow-lg border border-mayssa-brown/5 active:scale-95"
             )}
         >

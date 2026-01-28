@@ -113,8 +113,8 @@ function Badge({ icon, text, variant = 'default' }: { icon: React.ReactNode; tex
     const variantClass = variant === 'open'
         ? 'bg-emerald-500/15 text-emerald-800 border-emerald-400/40'
         : variant === 'closed'
-        ? 'bg-mayssa-brown/10 text-mayssa-brown/70 border-mayssa-brown/20'
-        : 'bg-white/60 text-mayssa-brown border-white/40'
+            ? 'bg-mayssa-brown/10 text-mayssa-brown/70 border-mayssa-brown/20'
+            : 'bg-white/60 text-mayssa-brown border-white/40'
     const iconClass = variant === 'open' ? 'text-emerald-600' : variant === 'closed' ? 'text-mayssa-brown/50' : 'text-mayssa-caramel'
     return (
         <span className={cn('inline-flex items-center gap-1.5 sm:gap-2 rounded-full px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold border shadow-sm transition-colors hover:opacity-90', variantClass)}>
