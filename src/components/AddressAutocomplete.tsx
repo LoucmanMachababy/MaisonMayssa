@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { MapPin, X } from 'lucide-react'
 import { cn } from '../lib/utils'
+import type { Coordinates } from '../types'
 
 // Debounce function pour limiter les appels API
 function useDebounce<T>(value: T, delay: number): T {
@@ -22,11 +23,12 @@ function useDebounce<T>(value: T, delay: number): T {
 interface AddressSuggestion {
   label: string
   value: string
+  coordinates: Coordinates
 }
 
 interface AddressAutocompleteProps {
   value: string
-  onChange: (address: string) => void
+  onChange: (address: string, coordinates: Coordinates) => void
   placeholder?: string
   className?: string
 }
@@ -79,6 +81,9 @@ export function AddressAutocomplete({
           const formattedSuggestions: AddressSuggestion[] = data.features.map((feature: any) => ({
             label: feature.properties.label,
             value: feature.properties.label,
+            coordinates: feature.geometry?.coordinates
+              ? { lng: feature.geometry.coordinates[0], lat: feature.geometry.coordinates[1] }
+              : null,
           }))
           setSuggestions(formattedSuggestions)
           setShowSuggestions(true)
@@ -99,17 +104,18 @@ export function AddressAutocomplete({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value
-    onChange(newValue)
+    // Quand on tape manuellement, on efface les coordonnées (elles seront définies à la sélection)
+    onChange(newValue, null)
   }
 
   const handleSelectSuggestion = (suggestion: AddressSuggestion) => {
-    onChange(suggestion.value)
+    onChange(suggestion.value, suggestion.coordinates)
     setShowSuggestions(false)
     inputRef.current?.blur()
   }
 
   const handleClear = () => {
-    onChange('')
+    onChange('', null)
     setSuggestions([])
     setShowSuggestions(false)
     inputRef.current?.focus()

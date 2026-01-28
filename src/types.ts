@@ -29,11 +29,17 @@ export type CartItem = {
     quantity: number
 }
 
+export type Coordinates = {
+    lat: number
+    lng: number
+} | null
+
 export type CustomerInfo = {
     firstName: string
     lastName: string
     phone: string
     address: string
+    addressCoordinates: Coordinates
     wantsDelivery: boolean
     date: string
     time: string

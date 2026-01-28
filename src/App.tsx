@@ -22,8 +22,30 @@ import type {
   Channel,
   ProductCategory,
   CustomerInfo,
+  Coordinates,
 } from './types'
 import { Sparkles, Search, X, ChevronRight } from 'lucide-react'
+
+// Coordonnées de référence : Rue de la Gare, 74000 Annecy
+const ANNECY_GARE: Coordinates = { lat: 45.9017, lng: 6.1217 }
+const DELIVERY_RADIUS_KM = 5
+const DELIVERY_FEE = 5
+const FREE_DELIVERY_THRESHOLD = 30
+
+// Calcul de distance entre deux points GPS (formule de Haversine)
+function calculateDistance(coord1: Coordinates, coord2: Coordinates): number | null {
+  if (!coord1 || !coord2) return null
+
+  const R = 6371 // Rayon de la Terre en km
+  const dLat = (coord2.lat - coord1.lat) * Math.PI / 180
+  const dLng = (coord2.lng - coord1.lng) * Math.PI / 180
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(coord1.lat * Math.PI / 180) * Math.cos(coord2.lat * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return R * c
+}
 
 function App() {
   // Load cart from localStorage on mount
@@ -50,6 +72,7 @@ function App() {
     lastName: '',
     phone: '',
     address: '',
+    addressCoordinates: null,
     wantsDelivery: false,
     date: '',
     time: '',
@@ -257,7 +280,23 @@ function App() {
   const buildOrderMessage = () => {
     if (cart.length === 0) return ''
 
-    const deliveryFee = customer.wantsDelivery && total < 30 ? 5 : 0
+    // Calcul de la distance et des frais de livraison
+    const distanceFromAnnecy = calculateDistance(customer.addressCoordinates, ANNECY_GARE)
+    const isWithinDeliveryZone = distanceFromAnnecy !== null && distanceFromAnnecy <= DELIVERY_RADIUS_KM
+
+    // Frais de livraison : 5€ si dans la zone et total < 30€, sinon 0 ou à définir
+    let deliveryFee = 0
+    let deliveryStatus: 'free' | 'paid' | 'to_define' = 'free'
+
+    if (customer.wantsDelivery) {
+      if (!customer.addressCoordinates || !isWithinDeliveryZone) {
+        deliveryStatus = 'to_define'
+      } else if (total < FREE_DELIVERY_THRESHOLD) {
+        deliveryFee = DELIVERY_FEE
+        deliveryStatus = 'paid'
+      }
+    }
+
     const finalTotal = total + deliveryFee
     const modeTexte = customer.wantsDelivery ? 'Livraison' : 'Retrait sur place'
 
@@ -276,6 +315,9 @@ function App() {
 
     if (customer.wantsDelivery && customer.address.trim()) {
       lines.push(`- Adresse : ${customer.address.trim()}`)
+      if (distanceFromAnnecy !== null) {
+        lines.push(`- Distance estimée : ${distanceFromAnnecy.toFixed(1)} km depuis la gare d'Annecy`)
+      }
     }
 
     if (customer.date && customer.time) {
@@ -305,21 +347,23 @@ function App() {
     lines.push('', `Sous-total : ${total.toFixed(2)} €`)
 
     if (customer.wantsDelivery) {
-      lines.push(
-        '',
-        'Zone de livraison : rayon de 5 km autour de Rue de la Gare, 74000 Annecy.',
-        'Au‑delà, le tarif précis sera convenu ensemble sur WhatsApp.',
-      )
-      if (deliveryFee > 0) {
+      if (deliveryStatus === 'to_define') {
         lines.push(
           '',
-          `Livraison : +5 € (commande inférieure à 30 €)`,
+          `⚠️ LIVRAISON HORS ZONE (> ${DELIVERY_RADIUS_KM} km)`,
+          'Tarif de livraison à définir ensemble.',
+          `Total produits : ${total.toFixed(2)} €`,
+        )
+      } else if (deliveryStatus === 'paid') {
+        lines.push(
+          '',
+          `Livraison (≤ ${DELIVERY_RADIUS_KM} km) : +${DELIVERY_FEE} € (commande < ${FREE_DELIVERY_THRESHOLD} €)`,
           `Total avec livraison : ${finalTotal.toFixed(2)} €`,
         )
       } else {
         lines.push(
           '',
-          'Livraison OFFERTE dès 30 € d’achat (commande ≥ 30 €).',
+          `Livraison OFFERTE (commande ≥ ${FREE_DELIVERY_THRESHOLD} €)`,
           `Total avec livraison : ${finalTotal.toFixed(2)} €`,
         )
       }
