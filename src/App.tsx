@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { useVisitorNotification } from './hooks/useVisitorNotification'
 import { Navbar } from './components/Navbar'
 import { Header } from './components/Header'
 import { ProductCard } from './components/ProductCard'
@@ -48,6 +49,9 @@ function calculateDistance(coord1: Coordinates, coord2: Coordinates): number | n
 }
 
 function App() {
+  // Notification de visite Telegram
+  useVisitorNotification()
+
   // Load cart from localStorage on mount
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
