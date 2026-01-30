@@ -1,4 +1,4 @@
-export type Channel = 'whatsapp' | 'instagram' | 'snapchat'
+export type Channel = 'whatsapp' | 'instagram'
 
 export type ProductCategory =
     | 'Mini Gourmandises'

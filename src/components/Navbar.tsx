@@ -158,14 +158,6 @@ export function Navbar() {
                                     >
                                         <Instagram size={20} />
                                     </a>
-                                    <a
-                                        href="https://www.snapchat.com/add/mayssasucree74"
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#fffc00] text-black shadow-lg transition-all hover:scale-110 active:scale-95 cursor-pointer"
-                                    >
-                                        <Phone size={20} />
-                                    </a>
                                 </div>
                             </div>
                         </motion.div>

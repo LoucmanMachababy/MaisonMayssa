@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Phone, Instagram, Ghost as Snapchat, Clock, Truck, MapPin } from 'lucide-react'
+import { Phone, Instagram, Clock, Truck, MapPin } from 'lucide-react'
 import { cn, isOpen } from '../lib/utils'
 import { PHONE_E164 } from '../constants'
 
@@ -84,20 +84,12 @@ L'excellence de la pâtisserie artisanale à Annecy.
                             <span className="font-bold">Appeler maintenant</span>
                         </a>
 
-                        <div className="grid grid-cols-2 gap-3">
-                            <SocialLink
-                                href="https://www.instagram.com/maison.mayssa74/"
-                                icon={<Instagram size={16} className="sm:w-[18px] sm:h-[18px]" />}
-                                label="Instagram"
-                                className="bg-gradient-to-br from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white"
-                            />
-                            <SocialLink
-                                href="https://www.snapchat.com/add/mayssasucree74"
-                                icon={<Snapchat size={16} className="sm:w-[18px] sm:h-[18px]" />}
-                                label="Snapchat"
-                                className="bg-[#fffc00] text-black"
-                            />
-                        </div>
+                        <SocialLink
+                            href="https://www.instagram.com/maison.mayssa74/"
+                            icon={<Instagram size={16} className="sm:w-[18px] sm:h-[18px]" />}
+                            label="Instagram"
+                            className="bg-gradient-to-br from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white w-full"
+                        />
                     </div>
 
                     <p className="text-center text-[10px] sm:text-xs font-semibold text-mayssa-brown/60 lg:text-right">

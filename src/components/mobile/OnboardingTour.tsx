@@ -19,13 +19,13 @@ const STEPS: OnboardingStep[] = [
     id: 'welcome',
     useLogo: true,
     title: 'Bienvenue chez Maison Mayssa',
-    description: "Découvre nos pâtisseries artisanales faites avec amour à Annecy. Voici quelques astuces pour commander facilement.",
+    description: "Découvre nos pâtisseries faites avec amour à Annecy. Voici quelques astuces pour commander facilement.",
   },
   {
     id: 'swipe',
     icon: HandMetal,
     title: 'Glisse pour ajouter',
-    description: 'Glisse un produit vers la droite pour l\'ajouter rapidement au panier. Rapide et satisfaisant !',
+    description: 'Glisse un produit vers la droite avec ton doigt pour l\'ajouter rapidement au panier. Rapide et satisfaisant !',
     animation: 'swipe',
   },
   {

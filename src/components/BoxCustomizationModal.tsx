@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Check } from 'lucide-react'
+import { X, Check, Plus, Minus } from 'lucide-react'
 import { useState } from 'react'
 import type { Product, ProductSize } from '../types'
 import { cn } from '../lib/utils'
@@ -18,7 +18,7 @@ const COULIS = [
     'Pistache',
 ]
 
-const EXTRA_COULIS_PRICE = 0.5
+const EXTRA_COULIS_PRICE = 1
 
 export function BoxCustomizationModal({ product, onClose, onSelect }: BoxCustomizationModalProps) {
     const [selectedSize, setSelectedSize] = useState<ProductSize | null>(null)
@@ -31,8 +31,8 @@ export function BoxCustomizationModal({ product, onClose, onSelect }: BoxCustomi
     const isMixte = product.id === 'mini-box-mixte'
     // Petite = first size (index 0), Grande = second size (index 1)
     const isPetite = selectedSize && product.sizes && product.sizes[0]?.ml === selectedSize.ml
-    const maxCoulis = isMixte ? 4 : (isPetite ? 2 : 4)
     const coulisInclus = isMixte ? 4 : (isPetite ? 2 : 4)
+    const maxCoulis = 8 // max total (inclus + supplément possible)
     const extraCoulis = Math.max(0, selectedCoulis.length - coulisInclus)
     const extraPrice = extraCoulis * EXTRA_COULIS_PRICE
 
@@ -42,15 +42,17 @@ export function BoxCustomizationModal({ product, onClose, onSelect }: BoxCustomi
         ? selectedSize.price + extraPrice
         : 0
 
-    const handleCoulisToggle = (coulis: string) => {
-        setSelectedCoulis((current) => {
-            if (current.includes(coulis)) {
-                return current.filter((c) => c !== coulis)
-            }
-            if (current.length < maxCoulis) {
-                return [...current, coulis]
-            }
-            return current
+    const addCoulis = (coulis: string) => {
+        if (selectedCoulis.length < maxCoulis) {
+            setSelectedCoulis((prev) => [...prev, coulis])
+        }
+    }
+
+    const removeCoulis = (coulis: string) => {
+        setSelectedCoulis((prev) => {
+            const i = prev.indexOf(coulis)
+            if (i === -1) return prev
+            return [...prev.slice(0, i), ...prev.slice(i + 1)]
         })
     }
 
@@ -169,58 +171,75 @@ export function BoxCustomizationModal({ product, onClose, onSelect }: BoxCustomi
                                 {selectedSize && (
                                     <div className="space-y-2 sm:space-y-3">
                                         <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-mayssa-brown/60 text-center">
-                                            2. 🍯 Choisissez vos coulis
+                                            2. 🍯 Choisissez vos coulis (sélection multiple)
                                         </p>
                                         {isMixte ? (
                                             <p className="text-[9px] sm:text-[10px] text-mayssa-brown/60 text-center">
-                                                4 coulis inclus au choix
+                                                {coulisInclus} coulis inclus · +1 € par coulis supplémentaire
                                             </p>
                                         ) : isPetite ? (
                                             <p className="text-[9px] sm:text-[10px] text-mayssa-brown/60 text-center">
-                                                2 coulis max inclus
+                                                {coulisInclus} coulis inclus (max {maxCoulis}) · +1 € par supplément
                                             </p>
                                         ) : (
                                             <p className="text-[9px] sm:text-[10px] text-mayssa-brown/60 text-center">
-                                                4 coulis inclus au choix
+                                                {coulisInclus} coulis inclus · +1 € par coulis supplémentaire
                                             </p>
                                         )}
                                         <div className="grid grid-cols-2 gap-2 sm:gap-2">
                                             {COULIS.map((coulis) => {
-                                                const isSelected = selectedCoulis.includes(coulis)
-                                                const isDisabled = !isSelected && selectedCoulis.length >= maxCoulis
+                                                const atMax = selectedCoulis.length >= maxCoulis
                                                 return (
                                                     <button
                                                         key={coulis}
-                                                        onClick={() => handleCoulisToggle(coulis)}
-                                                        disabled={isDisabled}
+                                                        type="button"
+                                                        onClick={() => addCoulis(coulis)}
+                                                        disabled={atMax}
                                                         className={cn(
-                                                            "group relative flex items-center justify-center gap-2 rounded-xl sm:rounded-2xl p-2.5 sm:p-3 transition-all cursor-pointer text-left",
-                                                            isSelected
-                                                                ? "bg-mayssa-caramel text-white border-2 border-mayssa-caramel shadow-lg"
-                                                                : isDisabled
-                                                                ? "bg-mayssa-soft/30 text-mayssa-brown/30 border-2 border-transparent cursor-not-allowed"
-                                                                : "bg-mayssa-soft/60 hover:bg-mayssa-caramel/10 border-2 border-transparent hover:border-mayssa-caramel/30",
-                                                            "shadow-sm hover:shadow-md"
+                                                            "flex items-center justify-between gap-2 rounded-xl sm:rounded-2xl p-2.5 sm:p-3 transition-all cursor-pointer border-2 text-left",
+                                                            atMax
+                                                                ? "bg-mayssa-soft/30 text-mayssa-brown/30 border-transparent cursor-not-allowed"
+                                                                : "bg-mayssa-soft/60 hover:bg-mayssa-caramel/20 border-transparent hover:border-mayssa-caramel/30"
                                                         )}
                                                     >
-                                                        <span className={cn(
-                                                            "text-[10px] sm:text-xs font-semibold transition-colors text-center",
-                                                            isSelected ? "text-white" : isDisabled ? "text-mayssa-brown/30" : "text-mayssa-brown"
-                                                        )}>
+                                                        <span className="text-[10px] sm:text-xs font-semibold text-mayssa-brown">
                                                             {coulis}
                                                         </span>
-                                                        {isSelected && (
-                                                            <Check size={14} className="text-white flex-shrink-0" strokeWidth={3} />
-                                                        )}
+                                                        <Plus size={14} className={cn("shrink-0", atMax ? "text-mayssa-brown/30" : "text-mayssa-caramel")} />
                                                     </button>
                                                 )
                                             })}
                                         </div>
                                         {selectedCoulis.length > 0 && (
-                                            <p className="text-[9px] sm:text-[10px] text-mayssa-brown/60 text-center">
-                                                {selectedCoulis.length}/{maxCoulis} sélectionnés
-                                                {extraCoulis > 0 && ` • ${extraCoulis} supplémentaire${extraCoulis > 1 ? 's' : ''}`}
-                                            </p>
+                                            <>
+                                                <p className="text-[9px] sm:text-[10px] text-mayssa-brown/60 text-center">
+                                                    {selectedCoulis.length}/{maxCoulis} choisi(s)
+                                                    {extraCoulis > 0 && ` · ${extraCoulis} supp. (+${extraPrice.toFixed(2).replace('.', ',')} €)`}
+                                                </p>
+                                                <div className="flex flex-wrap gap-1.5 justify-center">
+                                                    {Array.from(
+                                                        selectedCoulis.reduce((acc, n) => acc.set(n, (acc.get(n) ?? 0) + 1), new Map<string, number>())
+                                                    ).map(([name, qty]) => (
+                                                        <span
+                                                            key={name}
+                                                            className="inline-flex items-center gap-1 rounded-full bg-mayssa-caramel/20 px-2 py-1 text-[10px] font-semibold text-mayssa-brown"
+                                                        >
+                                                            {name} ×{qty}
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation()
+                                                                    removeCoulis(name)
+                                                                }}
+                                                                className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-mayssa-brown/20 hover:bg-mayssa-brown/40 cursor-pointer"
+                                                                aria-label={`Retirer un ${name}`}
+                                                            >
+                                                                <Minus size={10} />
+                                                            </button>
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </>
                                         )}
                                     </div>
                                 )}
@@ -239,10 +258,10 @@ export function BoxCustomizationModal({ product, onClose, onSelect }: BoxCustomi
                                         {extraCoulis > 0 && (
                                             <div className="flex items-center justify-between">
                                                 <span className="text-xs sm:text-sm font-semibold text-mayssa-brown">
-                                                    Coulis supplémentaires ({extraCoulis})
+                                                    Coulis supplémentaires ({extraCoulis} × 1 €)
                                                 </span>
                                                 <span className="text-xs sm:text-sm font-bold text-mayssa-brown">
-                                                    {extraPrice.toFixed(2).replace('.', ',')} €
+                                                    +{extraPrice.toFixed(2).replace('.', ',')} €
                                                 </span>
                                             </div>
                                         )}

@@ -1,4 +1,4 @@
-import { Instagram, Ghost as Snapchat, Phone, MapPin, Clock } from 'lucide-react'
+import { Instagram, Phone, MapPin, Clock } from 'lucide-react'
 
 export function Footer() {
     return (
@@ -16,7 +16,6 @@ export function Footer() {
                         </p>
                         <div className="flex gap-3 sm:gap-4">
                             <SocialIcon href="https://www.instagram.com/maison.mayssa74/" icon={<Instagram size={16} className="sm:w-[18px] sm:h-[18px]" />} />
-                            <SocialIcon href="https://www.snapchat.com/add/mayssasucree74" icon={<Snapchat size={16} className="sm:w-[18px] sm:h-[18px]" />} />
                             <SocialIcon href="tel:+33619871005" icon={<Phone size={16} className="sm:w-[18px] sm:h-[18px]" />} />
                         </div>
                     </div>

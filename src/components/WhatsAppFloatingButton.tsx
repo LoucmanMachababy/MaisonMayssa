@@ -1,7 +1,7 @@
 import { MessageCircle } from 'lucide-react'
 import { PHONE_E164 } from '../constants'
 
-const DEFAULT_MESSAGE = 'Bonjour Maison Mayssa, je souhaite passer une commande.'
+const DEFAULT_MESSAGE = 'Bonjour Maison Mayssa, je souhaite vous passer une commande.'
 
 export function WhatsAppFloatingButton() {
   const url = `https://wa.me/${PHONE_E164}?text=${encodeURIComponent(DEFAULT_MESSAGE)}`

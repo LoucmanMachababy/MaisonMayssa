@@ -37,6 +37,7 @@ import { hapticFeedback } from './lib/haptics'
 const SizeSelectorModal = lazy(() => import('./components/SizeSelectorModal').then(m => ({ default: m.SizeSelectorModal })))
 const TiramisuCustomizationModal = lazy(() => import('./components/TiramisuCustomizationModal').then(m => ({ default: m.TiramisuCustomizationModal })))
 const BoxCustomizationModal = lazy(() => import('./components/BoxCustomizationModal').then(m => ({ default: m.BoxCustomizationModal })))
+const BoxFlavorsModal = lazy(() => import('./components/BoxFlavorsModal').then(m => ({ default: m.BoxFlavorsModal })))
 import { PRODUCTS, PHONE_E164 } from './constants'
 import type {
   Product,
@@ -159,6 +160,7 @@ function App() {
   const [selectedProductForSize, setSelectedProductForSize] = useState<Product | null>(null)
   const [selectedProductForTiramisu, setSelectedProductForTiramisu] = useState<Product | null>(null)
   const [selectedProductForBox, setSelectedProductForBox] = useState<Product | null>(null)
+  const [selectedProductForBoxFlavors, setSelectedProductForBoxFlavors] = useState<Product | null>(null)
   const [toasts, setToasts] = useState<Toast[]>([])
 
   const showToast = (message: string, type: Toast['type'] = 'success', duration?: number, withConfetti?: boolean, product?: Product) => {
@@ -255,6 +257,12 @@ function App() {
     // If product is a Mini Gourmandise (box), open box customization modal
     if (product.category === 'Mini Gourmandises' || product.id === 'mini-box-mixte') {
       setSelectedProductForBox(product)
+      return
+    }
+
+    // Box cookies / brownies / mixte : choix du format + parfums
+    if (product.id === 'box-cookies' || product.id === 'box-brownies' || product.id === 'box-mixte') {
+      setSelectedProductForBoxFlavors(product)
       return
     }
 
@@ -365,6 +373,21 @@ function App() {
     setSelectedProductForBox(null)
   }
 
+  const handleBoxFlavorsSelect = (product: Product, size: ProductSize, flavorDescription: string, totalPrice: number) => {
+    const cartProduct: Product = {
+      ...product,
+      id: `${product.id}-${size.ml}-${Date.now()}`,
+      name: `${product.name} – ${size.label}`,
+      description: flavorDescription,
+      price: totalPrice,
+    }
+    setCart((current) => {
+      pendingAddToastRef.current = { message: `${cartProduct.name} ajouté au panier` }
+      return [...current, { product: cartProduct, quantity: 1 }]
+    })
+    setSelectedProductForBoxFlavors(null)
+  }
+
   const handleUpdateQuantity = (id: string, quantity: number) => {
     if (quantity <= 0) {
       setCart((current) => current.filter((item) => item.product.id !== id))
@@ -433,14 +456,31 @@ function App() {
 
     lines.push('', '*COMMANDE*')
 
+    // Affiche chaque ligne avec : produit (ex. Brownie / Cookie / Tiramisu) + format + parfums
+    const getOrderLineLabel = (item: CartItem): string => {
+      const p = item.product
+      const cat = p.category
+      if (cat === 'Tiramisus') {
+        const base = p.description ? p.description : ''
+        return `Tiramisu – ${p.name}${base ? ` – ${base}` : ''}`
+      }
+      if (cat === 'Brownies') return `Brownie – ${p.name}`
+      if (cat === 'Cookies') return `Cookie – ${p.name}`
+      if (cat === 'Layer Cups') return `Layer cup – ${p.name}`
+      if (cat === 'Boxes') return p.description ? `${p.name} – ${p.description}` : p.name
+      if (cat === 'Mini Gourmandises') return p.description ? `${p.name} – ${p.description}` : p.name
+      return p.description ? `${p.name} – ${p.description}` : p.name
+    }
+
     for (const item of cart) {
+      const label = getOrderLineLabel(item)
       const itemTotal = item.product.price * item.quantity
       const unitPrice = item.product.price.toFixed(2).replace('.', ',')
       const totalPrice = itemTotal.toFixed(2).replace('.', ',')
       if (item.quantity > 1) {
-        lines.push(`• ${item.quantity}x ${item.product.name} – ${unitPrice}€ × ${item.quantity} = ${totalPrice}€`)
+        lines.push(`• ${item.quantity}x ${label} – ${unitPrice}€ × ${item.quantity} = ${totalPrice}€`)
       } else {
-        lines.push(`• ${item.product.name} – ${unitPrice}€`)
+        lines.push(`• ${label} – ${unitPrice}€`)
       }
     }
 
@@ -496,12 +536,10 @@ function App() {
       window.open(`https://wa.me/${PHONE_E164}?text=${encoded}`, '_blank')
       showToast('Commande envoyée sur WhatsApp !', 'success')
     } else {
+      // Instagram : message prérempli copié, on ouvre Instagram pour coller
       navigator.clipboard?.writeText(message).then(() => {
-        const url = channel === 'instagram'
-          ? 'https://www.instagram.com/maison.mayssa74/'
-          : 'https://www.snapchat.com/add/mayssasucree74'
-        window.open(url, '_blank')
-        showToast('Commande copiée ! Collez-la dans la discussion.', 'success')
+        window.open('https://www.instagram.com/maison.mayssa74/', '_blank')
+        showToast('Message copié ! Collez-le dans votre discussion Instagram pour envoyer la commande.', 'success')
       }).catch(() => {
         showToast('Erreur lors de la copie de la commande', 'error')
       })
@@ -783,7 +821,7 @@ function App() {
               <p className="mt-2 sm:mt-3 text-[10px] sm:text-xs text-mayssa-brown/60">
                 Pour toute question sur la zone de livraison ou un besoin particulier (grosse
                 commande, événement, Ramadan, etc.), le plus simple est d&apos;envoyer un message
-                directement via WhatsApp, Instagram ou Snapchat.
+                directement via WhatsApp ou Instagram.
               </p>
             </div>
           </div>
@@ -813,6 +851,11 @@ function App() {
           product={selectedProductForBox}
           onClose={() => setSelectedProductForBox(null)}
           onSelect={handleBoxCustomization}
+        />
+        <BoxFlavorsModal
+          product={selectedProductForBoxFlavors}
+          onClose={() => setSelectedProductForBoxFlavors(null)}
+          onSelect={handleBoxFlavorsSelect}
         />
       </Suspense>
 

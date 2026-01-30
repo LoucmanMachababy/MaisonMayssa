@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { ShoppingBag, Minus, Plus, MessageCircle, Send, Copy, Ghost as Snapchat, Instagram, User, Phone, MapPin, Truck, Calendar, Clock } from 'lucide-react'
+import { ShoppingBag, Minus, Plus, MessageCircle, Send, Copy, Instagram, User, Phone, MapPin, Truck, Calendar, Clock } from 'lucide-react'
 import type { CartItem, Channel, CustomerInfo, Coordinates } from '../types'
 import { cn } from '../lib/utils'
 import { useEffect, useMemo } from 'react'
@@ -430,7 +430,6 @@ export function Cart({
                                 <div className="flex gap-2">
                                     <ChannelButton active={channel === 'whatsapp'} onClick={() => onChannelChange('whatsapp')} icon={<MessageCircle size={18} />} label="WhatsApp" activeClass="bg-emerald-500 text-white" />
                                     <ChannelButton active={channel === 'instagram'} onClick={() => onChannelChange('instagram')} icon={<Instagram size={18} />} label="Instagram" activeClass="bg-gradient-to-br from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white" />
-                                    <ChannelButton active={channel === 'snapchat'} onClick={() => onChannelChange('snapchat')} icon={<Snapchat size={18} />} label="Snapchat" activeClass="bg-[#fffc00] text-black" />
                                 </div>
 
                                 <button

@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { motion, AnimatePresence, useDragControls } from 'framer-motion'
-import { X, Minus, Plus, Trash2, ShoppingBag, Send, Copy, MessageCircle, Instagram, Ghost as Snapchat, User, Phone, MapPin, Truck, Calendar, Clock } from 'lucide-react'
+import { X, Minus, Plus, Trash2, ShoppingBag, Send, Copy, MessageCircle, Instagram, User, Phone, MapPin, Truck, Calendar, Clock } from 'lucide-react'
 import { hapticFeedback } from '../../lib/haptics'
 import { cn } from '../../lib/utils'
 import { AddressAutocomplete } from '../AddressAutocomplete'
@@ -370,7 +370,6 @@ export function CartSheet({
                 {[
                   { id: 'whatsapp', icon: MessageCircle, label: 'WhatsApp', activeClass: 'bg-emerald-500 text-white' },
                   { id: 'instagram', icon: Instagram, label: 'Insta', activeClass: 'bg-gradient-to-br from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white' },
-                  { id: 'snapchat', icon: Snapchat, label: 'Snap', activeClass: 'bg-[#fffc00] text-black' },
                 ].map((ch) => (
                   <button
                     key={ch.id}
