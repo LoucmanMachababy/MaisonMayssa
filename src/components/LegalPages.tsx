@@ -68,3 +68,12 @@ export function MentionsLegalesSection() {
     </motion.section>
   )
 }
+
+export default function LegalPagesSections() {
+  return (
+    <>
+      <ConfidentialiteSection />
+      <MentionsLegalesSection />
+    </>
+  )
+}

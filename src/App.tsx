@@ -10,14 +10,12 @@ import { Footer } from './components/Footer'
 import { ToastContainer, type Toast } from './components/Toast'
 import { PromoBanner } from './components/PromoBanner'
 import { WhatsAppFloatingButton } from './components/WhatsAppFloatingButton'
-import { Testimonials } from './components/Testimonials'
-import { ConfidentialiteSection, MentionsLegalesSection } from './components/LegalPages'
-import {
-  FloatingParticles,
-  AnimatedGradient,
-  Confetti,
-  useConfetti,
-} from './components/effects'
+import { Confetti, useConfetti } from './components/effects'
+
+const VisualBackground = lazy(() => import('./components/effects/VisualBackground').then(m => ({ default: m.VisualBackground })))
+
+const Testimonials = lazy(() => import('./components/Testimonials').then(m => ({ default: m.Testimonials })))
+const LegalPagesSections = lazy(() => import('./components/LegalPages').then(m => ({ default: m.default })))
 import {
   BottomNav,
   FloatingCartPreview,
@@ -117,6 +115,19 @@ function App() {
     checkMobile()
     window.addEventListener('resize', checkMobile)
     return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  // Remove initial loader once app is mounted
+  useEffect(() => {
+    const loader = document.getElementById('initial-loader')
+    if (loader) {
+      // Fade out animation
+      loader.style.transition = 'opacity 0.5s ease-out'
+      loader.style.opacity = '0'
+      setTimeout(() => {
+        loader.remove()
+      }, 500)
+    }
   }, [])
 
 
@@ -543,9 +554,10 @@ function App() {
 
   return (
     <div className="min-h-screen bg-mayssa-soft selection:bg-mayssa-caramel/30 font-sans overflow-x-hidden">
-      {/* Visual Effects */}
-      <AnimatedGradient />
-      <FloatingParticles />
+      {/* Visual Effects (fond chargé en lazy pour accélérer le premier affichage) */}
+      <Suspense fallback={null}>
+        <VisualBackground />
+      </Suspense>
       <Confetti trigger={confettiTrigger} originX={confettiOrigin.x} originY={confettiOrigin.y} />
 
       <Navbar />
@@ -822,9 +834,10 @@ function App() {
           </div>
         </motion.section>
 
-        <Testimonials />
-        <ConfidentialiteSection />
-        <MentionsLegalesSection />
+        <Suspense fallback={null}>
+          <Testimonials />
+          <LegalPagesSections />
+        </Suspense>
         <Footer />
       </div>
 
