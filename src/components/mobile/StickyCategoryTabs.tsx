@@ -59,7 +59,7 @@ export function StickyCategoryTabs({
               key={category}
               whileTap={{ scale: 0.95 }}
               onClick={() => handleSelect(category)}
-              className={`relative whitespace-nowrap rounded-xl px-4 py-2.5 text-xs font-bold transition-all flex-shrink-0 ${
+              className={`relative whitespace-nowrap rounded-xl px-4 py-2.5 text-xs font-bold transition-all flex-shrink-0 cursor-pointer ${
                 activeCategory === category
                   ? 'text-mayssa-cream'
                   : 'bg-white/80 text-mayssa-brown'

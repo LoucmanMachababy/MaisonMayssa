@@ -110,7 +110,7 @@ export function OnboardingTour() {
           {/* Skip button */}
           <button
             onClick={handleSkip}
-            className="absolute top-4 right-4 flex items-center gap-1 px-3 py-1.5 rounded-full bg-white/10 text-white/60 text-sm"
+            className="absolute top-4 right-4 flex items-center gap-1 px-3 py-1.5 rounded-full bg-white/10 text-white/60 text-sm cursor-pointer"
           >
             Passer
             <X size={14} />
@@ -213,7 +213,7 @@ export function OnboardingTour() {
               whileTap={{ scale: 0.95 }}
               onClick={handlePrev}
               disabled={currentStep === 0}
-              className={`flex h-12 w-12 items-center justify-center rounded-full ${
+              className={`flex h-12 w-12 items-center justify-center rounded-full cursor-pointer ${
                 currentStep === 0 ? 'opacity-30' : 'bg-white/10'
               }`}
             >
@@ -223,7 +223,7 @@ export function OnboardingTour() {
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={handleNext}
-              className="flex items-center gap-2 px-8 py-4 rounded-2xl bg-mayssa-caramel text-white font-bold shadow-xl"
+              className="flex items-center gap-2 px-8 py-4 rounded-2xl bg-mayssa-caramel text-white font-bold shadow-xl cursor-pointer"
             >
               {currentStep === STEPS.length - 1 ? (
                 'Commencer'

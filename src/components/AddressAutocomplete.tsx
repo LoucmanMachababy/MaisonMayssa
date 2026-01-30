@@ -142,7 +142,7 @@ export function AddressAutocomplete({
           <button
             type="button"
             onClick={handleClear}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-mayssa-soft transition-colors"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-mayssa-soft transition-colors cursor-pointer"
             aria-label="Effacer"
           >
             <X size={14} className="text-mayssa-brown/60" />

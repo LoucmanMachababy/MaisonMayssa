@@ -129,7 +129,7 @@ export function VoiceSearch({ onResult, isActive, onToggle }: VoiceSearchProps) 
       <motion.button
         whileTap={{ scale: 0.9 }}
         onClick={handleToggleClick}
-        className={`flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${
+        className={`flex h-10 w-10 items-center justify-center rounded-xl transition-colors cursor-pointer ${
           isActive
             ? 'bg-mayssa-caramel text-white'
             : 'bg-white/60 text-mayssa-brown/60 hover:bg-white'
@@ -150,7 +150,7 @@ export function VoiceSearch({ onResult, isActive, onToggle }: VoiceSearchProps) 
             {/* Close button */}
             <button
               onClick={handleToggleClick}
-              className="absolute top-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white"
+              className="absolute top-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white cursor-pointer"
             >
               <X size={20} />
             </button>

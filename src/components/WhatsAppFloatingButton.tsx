@@ -11,7 +11,7 @@ export function WhatsAppFloatingButton() {
       href={url}
       target="_blank"
       rel="noreferrer"
-      className="fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-2xl bg-[#25D366] px-4 py-3 text-white shadow-lg transition-all hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[#25D366] focus:ring-offset-2"
+      className="fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-2xl bg-[#25D366] px-4 py-3 text-white shadow-lg transition-all hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[#25D366] focus:ring-offset-2 cursor-pointer"
       aria-label="Commander sur WhatsApp"
     >
       <MessageCircle size={22} />

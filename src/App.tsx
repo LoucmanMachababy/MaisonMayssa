@@ -134,6 +134,14 @@ function App() {
     localStorage.setItem('maison-mayssa-cart', JSON.stringify(cart))
   }, [cart])
 
+  // Une seule confirmation (toast + fly) par ajout au panier (évite le double en Strict Mode)
+  useEffect(() => {
+    const pending = pendingAddToastRef.current
+    if (!pending) return
+    pendingAddToastRef.current = null
+    showToast(pending.message, 'success', undefined, true, pending.product)
+  }, [cart])
+
   const [note, setNote] = useState('')
   const [channel, setChannel] = useState<Channel>('whatsapp')
   const [activeCategory, setActiveCategory] = useState<ProductCategory | 'Tous'>('Tous')
@@ -171,6 +179,7 @@ function App() {
 
   const lastActivity = useRef(Date.now())
   const reminderShown = useRef(false)
+  const pendingAddToastRef = useRef<{ message: string; product?: Product } | null>(null)
   useEffect(() => {
     const bump = () => { lastActivity.current = Date.now() }
     window.addEventListener('mousemove', bump)
@@ -258,13 +267,13 @@ function App() {
     setCart((current) => {
       const existing = current.find((item) => item.product.id === product.id)
       if (existing) {
-        const updated = current.map((item) =>
-          item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item,
+        const newQty = existing.quantity + 1
+        pendingAddToastRef.current = { message: `${product.name} ajouté au panier (quantité: ${newQty})`, product }
+        return current.map((item) =>
+          item.product.id === product.id ? { ...item, quantity: newQty } : item,
         )
-        showToast(`${product.name} ajouté au panier (quantité: ${existing.quantity + 1})`, 'success', undefined, true, product)
-        return updated
       }
-      showToast(`${product.name} ajouté au panier`, 'success', undefined, true, product)
+      pendingAddToastRef.current = { message: `${product.name} ajouté au panier`, product }
       return [...current, { product, quantity: 1 }]
     })
   }
@@ -281,13 +290,13 @@ function App() {
     setCart((current) => {
       const existing = current.find((item) => item.product.id === cartProduct.id)
       if (existing) {
-        const updated = current.map((item) =>
-          item.product.id === cartProduct.id ? { ...item, quantity: item.quantity + 1 } : item,
+        const newQty = existing.quantity + 1
+        pendingAddToastRef.current = { message: `${cartProduct.name} ajouté au panier (quantité: ${newQty})` }
+        return current.map((item) =>
+          item.product.id === cartProduct.id ? { ...item, quantity: newQty } : item,
         )
-        showToast(`${cartProduct.name} ajouté au panier (quantité: ${existing.quantity + 1})`, 'success', undefined, true)
-        return updated
       }
-      showToast(`${cartProduct.name} ajouté au panier`, 'success', undefined, true)
+      pendingAddToastRef.current = { message: `${cartProduct.name} ajouté au panier` }
       return [...current, { product: cartProduct, quantity: 1 }]
     })
 
@@ -317,7 +326,7 @@ function App() {
     }
 
     setCart((current) => {
-      showToast(`${cartProduct.name} ajouté au panier`, 'success', undefined, true)
+      pendingAddToastRef.current = { message: `${cartProduct.name} ajouté au panier` }
       return [...current, { product: cartProduct, quantity: 1 }]
     })
 
@@ -349,7 +358,7 @@ function App() {
     }
 
     setCart((current) => {
-      showToast(`${cartProduct.name} ajouté au panier`, 'success', undefined, true)
+      pendingAddToastRef.current = { message: `${cartProduct.name} ajouté au panier` }
       return [...current, { product: cartProduct, quantity: 1 }]
     })
 
@@ -553,7 +562,7 @@ function App() {
                   {searchQuery && (
                     <button
                       onClick={() => setSearchQuery('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-mayssa-brown/40 hover:text-mayssa-brown transition-colors"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-mayssa-brown/40 hover:text-mayssa-brown transition-colors cursor-pointer"
                     >
                       <X size={16} />
                     </button>
@@ -580,7 +589,7 @@ function App() {
                     <button
                       key={cat}
                       onClick={() => setActiveCategory(cat as any)}
-                      className={`group relative flex flex-col items-center justify-center gap-2 sm:gap-3 rounded-xl sm:rounded-2xl p-3 sm:p-4 transition-all duration-300 ${isActive
+                      className={`group relative flex flex-col items-center justify-center gap-2 sm:gap-3 rounded-xl sm:rounded-2xl p-3 sm:p-4 transition-all duration-300 cursor-pointer ${isActive
                         ? 'bg-mayssa-brown text-white shadow-xl shadow-mayssa-brown/20 -translate-y-1'
                         : 'bg-white/60 text-mayssa-brown hover:bg-white hover:shadow-lg hover:-translate-y-1 border border-mayssa-brown/5'
                         }`}
@@ -619,7 +628,7 @@ function App() {
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="mt-4 text-mayssa-caramel hover:text-mayssa-brown text-sm font-semibold underline"
+                    className="mt-4 text-mayssa-caramel hover:text-mayssa-brown text-sm font-semibold underline cursor-pointer"
                   >
                     Réinitialiser la recherche
                   </button>
@@ -662,7 +671,7 @@ function App() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-100px" }}
             transition={{ duration: 0.6, ease: "easeOut" }}
-            className="w-full max-w-4xl mx-auto"
+            className="w-full max-w-4xl lg:max-w-5xl mx-auto px-2 sm:px-4"
           >
             <Cart
               items={cart}

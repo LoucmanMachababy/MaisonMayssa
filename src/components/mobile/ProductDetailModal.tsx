@@ -75,7 +75,7 @@ export function ProductDetailModal({ product, onClose, onAdd, isFavorite, onTogg
           <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-4 bg-gradient-to-b from-black/50 to-transparent">
             <button
               onClick={() => { hapticFeedback('light'); onClose() }}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm text-white"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm text-white cursor-pointer"
             >
               <X size={20} />
             </button>
@@ -84,7 +84,7 @@ export function ProductDetailModal({ product, onClose, onAdd, isFavorite, onTogg
                 <motion.button
                   whileTap={{ scale: 0.9 }}
                   onClick={handleHeartClick}
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm cursor-pointer"
                 >
                   <Heart
                     size={20}
@@ -94,7 +94,7 @@ export function ProductDetailModal({ product, onClose, onAdd, isFavorite, onTogg
               )}
               <button
                 onClick={toggleZoom}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm text-white"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm text-white cursor-pointer"
               >
                 {isZoomed ? <ZoomOut size={20} /> : <ZoomIn size={20} />}
               </button>
@@ -205,7 +205,7 @@ export function ProductDetailModal({ product, onClose, onAdd, isFavorite, onTogg
                     }
                   }}
                   disabled={quantity <= 1}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-mayssa-brown disabled:opacity-40"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-mayssa-brown disabled:opacity-40 cursor-pointer"
                 >
                   <Minus size={16} />
                 </motion.button>
@@ -218,7 +218,7 @@ export function ProductDetailModal({ product, onClose, onAdd, isFavorite, onTogg
                     setQuantity(q => q + 1)
                     hapticFeedback('light')
                   }}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-mayssa-brown text-mayssa-cream"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-mayssa-brown text-mayssa-cream cursor-pointer"
                 >
                   <Plus size={16} />
                 </motion.button>
@@ -227,7 +227,7 @@ export function ProductDetailModal({ product, onClose, onAdd, isFavorite, onTogg
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 onClick={handleAdd}
-                className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl bg-mayssa-brown text-mayssa-cream font-bold shadow-xl"
+                className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl bg-mayssa-brown text-mayssa-cream font-bold shadow-xl cursor-pointer"
               >
                 <ShoppingBag size={18} />
                 <span>Ajouter • {(product.price * quantity).toFixed(2).replace('.', ',')} €</span>

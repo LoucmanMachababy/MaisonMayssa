@@ -106,7 +106,7 @@ export function FavoritesSheet({
                       hapticFeedback('warning')
                       onClear()
                     }}
-                    className="flex items-center gap-1 px-2 py-1 text-xs text-red-500 rounded-lg hover:bg-red-50"
+                    className="flex items-center gap-1 px-2 py-1 text-xs text-red-500 rounded-lg hover:bg-red-50 cursor-pointer"
                   >
                     <Trash2 size={14} />
                     Vider
@@ -114,7 +114,7 @@ export function FavoritesSheet({
                 )}
                 <button
                   onClick={() => { hapticFeedback('light'); onClose() }}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-mayssa-brown/5 text-mayssa-brown/60"
+                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-mayssa-brown/5 text-mayssa-brown/60 cursor-pointer"
                 >
                   <X size={18} />
                 </button>
@@ -153,7 +153,7 @@ export function FavoritesSheet({
                       {/* Remove button */}
                       <button
                         onClick={() => handleRemove(product.id)}
-                        className="absolute top-2 right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm"
+                        className="absolute top-2 right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm cursor-pointer"
                       >
                         <Heart size={14} className="text-red-500 fill-red-500" />
                       </button>
@@ -188,7 +188,7 @@ export function FavoritesSheet({
                           <motion.button
                             whileTap={{ scale: 0.9 }}
                             onClick={() => handleAddToCart(product)}
-                            className="flex h-8 w-8 items-center justify-center rounded-xl bg-mayssa-brown text-mayssa-cream"
+                            className="flex h-8 w-8 items-center justify-center rounded-xl bg-mayssa-brown text-mayssa-cream cursor-pointer"
                           >
                             <Plus size={16} />
                           </motion.button>
@@ -210,7 +210,7 @@ export function FavoritesSheet({
                     favorites.forEach(p => onAddToCart(p))
                     onClose()
                   }}
-                  className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-gradient-to-r from-red-500 to-pink-500 text-white font-bold shadow-xl"
+                  className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-gradient-to-r from-red-500 to-pink-500 text-white font-bold shadow-xl cursor-pointer"
                 >
                   <ShoppingBag size={18} />
                   <span>Ajouter tous au panier ({favorites.length})</span>

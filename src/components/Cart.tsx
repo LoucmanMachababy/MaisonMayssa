@@ -183,9 +183,9 @@ export function Cart({
                 </div>
             </header>
 
-            <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-8 lg:gap-16 mt-8">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.1fr] lg:items-start gap-8 lg:gap-12 mt-8">
                 {/* Left Column: Items & Notes */}
-                <div className="space-y-8">
+                <div className="space-y-8 min-w-0">
                     <div className="space-y-4">
                         <p className="text-xs font-bold uppercase tracking-widest text-mayssa-brown/60">
                             Articles sélectionnés ({itemCount})
@@ -238,7 +238,7 @@ export function Cart({
                                                 <div className="flex items-center gap-1.5 rounded-2xl bg-white p-1 shadow-sm border border-mayssa-brown/5">
                                                     <button
                                                         onClick={() => onUpdateQuantity(item.product.id, item.quantity - 1)}
-                                                        className="flex h-7 w-7 items-center justify-center rounded-xl text-mayssa-brown transition-all hover:bg-mayssa-cream hover:scale-110 active:scale-95"
+                                                        className="flex h-7 w-7 items-center justify-center rounded-xl text-mayssa-brown transition-all hover:bg-mayssa-cream hover:scale-110 active:scale-95 cursor-pointer"
                                                     >
                                                         <Minus size={14} />
                                                     </button>
@@ -247,7 +247,7 @@ export function Cart({
                                                     </span>
                                                     <button
                                                         onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
-                                                        className="flex h-7 w-7 items-center justify-center rounded-xl text-mayssa-brown transition-all hover:bg-mayssa-cream hover:scale-110 active:scale-95"
+                                                        className="flex h-7 w-7 items-center justify-center rounded-xl text-mayssa-brown transition-all hover:bg-mayssa-cream hover:scale-110 active:scale-95 cursor-pointer"
                                                     >
                                                         <Plus size={14} />
                                                     </button>
@@ -279,7 +279,7 @@ export function Cart({
                 </div>
 
                 {/* Right Column: Info & Totals */}
-                <div className="space-y-8 lg:sticky lg:top-24 h-fit">
+                <div className="space-y-8 lg:sticky lg:top-24 lg:self-start min-w-0">
                     <div className="space-y-6 bg-mayssa-soft/50 p-6 sm:p-8 rounded-[2.5rem] border border-mayssa-brown/5">
                         <p className="text-xs font-bold uppercase tracking-widest text-mayssa-brown/60 border-b border-mayssa-brown/5 pb-3">
                             Informations de livraison
@@ -339,7 +339,7 @@ export function Cart({
                                 type="button"
                                 onClick={() => onCustomerChange({ ...customer, wantsDelivery: false })}
                                 className={cn(
-                                    "flex flex-col items-center gap-2 rounded-2xl py-4 transition-all shadow-sm",
+                                    "flex flex-col items-center gap-2 rounded-2xl py-4 transition-all shadow-sm cursor-pointer",
                                     !customer.wantsDelivery ? "bg-mayssa-brown text-white ring-2 ring-mayssa-caramel shadow-xl -translate-y-1" : "bg-white text-mayssa-brown border border-mayssa-brown/10 hover:bg-mayssa-rose/10"
                                 )}
                             >
@@ -350,7 +350,7 @@ export function Cart({
                                 type="button"
                                 onClick={() => onCustomerChange({ ...customer, wantsDelivery: true })}
                                 className={cn(
-                                    "flex flex-col items-center gap-2 rounded-2xl py-4 transition-all shadow-sm",
+                                    "flex flex-col items-center gap-2 rounded-2xl py-4 transition-all shadow-sm cursor-pointer",
                                     customer.wantsDelivery ? "bg-mayssa-caramel text-white ring-2 ring-mayssa-brown shadow-xl -translate-y-1" : "bg-white text-mayssa-brown border border-mayssa-brown/10 hover:bg-mayssa-rose/10"
                                 )}
                             >

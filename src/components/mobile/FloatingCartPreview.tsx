@@ -28,7 +28,7 @@ export function FloatingCartPreview({ items, total, onExpand }: FloatingCartPrev
         >
           <motion.button
             onClick={handleClick}
-            className="w-full flex items-center justify-between gap-4 p-4 rounded-2xl bg-mayssa-brown text-mayssa-cream shadow-2xl shadow-mayssa-brown/30"
+            className="w-full flex items-center justify-between gap-4 p-4 rounded-2xl bg-mayssa-brown text-mayssa-cream shadow-2xl shadow-mayssa-brown/30 cursor-pointer"
             whileTap={{ scale: 0.98 }}
           >
             <div className="flex items-center gap-3">

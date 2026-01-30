@@ -40,7 +40,7 @@ export function SizeSelectorModal({ product, onClose, onSelect }: SizeSelectorMo
                             {/* Close button */}
                             <button
                                 onClick={onClose}
-                                className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-mayssa-brown/60 shadow-lg backdrop-blur-sm transition-all hover:bg-white hover:text-mayssa-brown hover:scale-110 active:scale-95"
+                                className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-mayssa-brown/60 shadow-lg backdrop-blur-sm transition-all hover:bg-white hover:text-mayssa-brown hover:scale-110 active:scale-95 cursor-pointer"
                             >
                                 <X size={18} />
                             </button>

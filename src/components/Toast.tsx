@@ -52,7 +52,7 @@ export function ToastComponent({ toast, onRemove }: ToastProps) {
             {toast.type !== 'loading' && (
                 <button
                     onClick={() => onRemove(toast.id)}
-                    className="text-mayssa-brown/40 hover:text-mayssa-brown transition-colors"
+                    className="text-mayssa-brown/40 hover:text-mayssa-brown transition-colors cursor-pointer"
                     aria-label="Fermer la notification"
                 >
                     <X size={16} />

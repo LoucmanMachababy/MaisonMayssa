@@ -137,7 +137,7 @@ export function CartSheet({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm md:hidden"
+            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm md:hidden cursor-pointer"
           />
 
           {/* Sheet */}
@@ -176,7 +176,7 @@ export function CartSheet({
               </div>
               <button
                 onClick={() => { hapticFeedback('light'); onClose() }}
-                className="flex h-9 w-9 items-center justify-center rounded-xl bg-mayssa-brown/5 text-mayssa-brown/60"
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-mayssa-brown/5 text-mayssa-brown/60 cursor-pointer"
               >
                 <X size={18} />
               </button>
@@ -207,14 +207,14 @@ export function CartSheet({
                           <div className="flex items-center gap-1.5">
                             <button
                               onClick={() => { hapticFeedback('light'); onUpdateQuantity(item.product.id, item.quantity - 1) }}
-                              className="flex h-6 w-6 items-center justify-center rounded-md bg-mayssa-cream text-mayssa-brown"
+                              className="flex h-6 w-6 items-center justify-center rounded-md bg-mayssa-cream text-mayssa-brown cursor-pointer"
                             >
                               {item.quantity === 1 ? <Trash2 size={12} /> : <Minus size={12} />}
                             </button>
                             <span className="w-5 text-center font-bold text-xs">{item.quantity}</span>
                             <button
                               onClick={() => { hapticFeedback('light'); onUpdateQuantity(item.product.id, item.quantity + 1) }}
-                              className="flex h-6 w-6 items-center justify-center rounded-md bg-mayssa-brown text-mayssa-cream"
+                              className="flex h-6 w-6 items-center justify-center rounded-md bg-mayssa-brown text-mayssa-cream cursor-pointer"
                             >
                               <Plus size={12} />
                             </button>
@@ -283,7 +283,7 @@ export function CartSheet({
                   <button
                     onClick={() => { hapticFeedback('light'); onCustomerChange({ ...customer, wantsDelivery: false }) }}
                     className={cn(
-                      "flex flex-col items-center justify-center gap-1 rounded-xl p-3 text-xs font-bold transition-all",
+                      "flex flex-col items-center justify-center gap-1 rounded-xl p-3 text-xs font-bold transition-all cursor-pointer",
                       !customer.wantsDelivery
                         ? "bg-mayssa-brown text-mayssa-cream shadow-lg"
                         : "bg-white/80 text-mayssa-brown ring-1 ring-mayssa-brown/10"
@@ -295,7 +295,7 @@ export function CartSheet({
                   <button
                     onClick={() => { hapticFeedback('light'); onCustomerChange({ ...customer, wantsDelivery: true }) }}
                     className={cn(
-                      "flex flex-col items-center justify-center gap-1 rounded-xl p-3 text-xs font-bold transition-all",
+                      "flex flex-col items-center justify-center gap-1 rounded-xl p-3 text-xs font-bold transition-all cursor-pointer",
                       customer.wantsDelivery
                         ? "bg-mayssa-caramel text-white shadow-lg"
                         : "bg-white/80 text-mayssa-brown ring-1 ring-mayssa-brown/10"
@@ -338,7 +338,7 @@ export function CartSheet({
                     <select
                       value={customer.time}
                       onChange={(e) => onCustomerChange({ ...customer, time: e.target.value })}
-                      className="w-full bg-transparent text-xs font-medium text-mayssa-brown focus:outline-none"
+                      className="w-full bg-transparent text-xs font-medium text-mayssa-brown focus:outline-none cursor-pointer"
                     >
                       <option value="">Heure</option>
                       {timeSlots.map((time) => (
@@ -420,7 +420,7 @@ export function CartSheet({
                 }}
                 disabled={!canSend}
                 className={cn(
-                  "w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base shadow-xl transition-all",
+                  "w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base shadow-xl transition-all cursor-pointer",
                   canSend
                     ? "bg-mayssa-brown text-mayssa-cream"
                     : "bg-mayssa-brown/30 text-mayssa-cream/70"

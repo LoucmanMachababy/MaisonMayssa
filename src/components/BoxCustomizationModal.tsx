@@ -86,7 +86,7 @@ export function BoxCustomizationModal({ product, onClose, onSelect }: BoxCustomi
                             {/* Close button */}
                             <button
                                 onClick={onClose}
-                                className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-mayssa-brown/60 shadow-lg backdrop-blur-sm transition-all hover:bg-white hover:text-mayssa-brown hover:scale-110 active:scale-95"
+                                className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-mayssa-brown/60 shadow-lg backdrop-blur-sm transition-all hover:bg-white hover:text-mayssa-brown hover:scale-110 active:scale-95 cursor-pointer"
                             >
                                 <X size={18} />
                             </button>
@@ -264,7 +264,7 @@ export function BoxCustomizationModal({ product, onClose, onSelect }: BoxCustomi
                                     className={cn(
                                         "w-full rounded-2xl py-3 sm:py-4 font-bold text-sm sm:text-base transition-all",
                                         canAddToCart
-                                            ? "bg-mayssa-caramel text-white shadow-lg hover:bg-mayssa-brown hover:scale-105 active:scale-95"
+                                            ? "bg-mayssa-caramel text-white shadow-lg hover:bg-mayssa-brown hover:scale-105 active:scale-95 cursor-pointer"
                                             : "bg-mayssa-soft/50 text-mayssa-brown/40 cursor-not-allowed"
                                     )}
                                 >
