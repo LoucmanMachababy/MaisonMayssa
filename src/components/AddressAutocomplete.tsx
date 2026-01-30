@@ -44,9 +44,10 @@ export function AddressAutocomplete({
   const [isLoading, setIsLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  
-  // Debounce de la valeur pour limiter les appels API (300ms de délai)
-  const debouncedValue = useDebounce(value, 300)
+  const selectedValueRef = useRef<string | null>(null)
+
+  // Debounce plus court pour proposer les adresses plus rapidement (150ms)
+  const debouncedValue = useDebounce(value, 150)
 
   // Fermer les suggestions quand on clique ailleurs
   useEffect(() => {
@@ -63,7 +64,14 @@ export function AddressAutocomplete({
   // Recherche d'adresses avec l'API Adresse (data.gouv.fr)
   useEffect(() => {
     const searchAddresses = async (query: string) => {
-      if (query.length < 3) {
+      if (query.length < 2) {
+        setSuggestions([])
+        setShowSuggestions(false)
+        return
+      }
+
+      // Ne pas rouvrir la liste si la valeur actuelle est celle qu'on vient de sélectionner
+      if (selectedValueRef.current !== null && query.trim() === selectedValueRef.current) {
         setSuggestions([])
         setShowSuggestions(false)
         return
@@ -71,7 +79,6 @@ export function AddressAutocomplete({
 
       setIsLoading(true)
       try {
-        // API Adresse du gouvernement français - gratuite et sans limite
         const response = await fetch(
           `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=5&type=housenumber&autocomplete=1`
         )
@@ -86,7 +93,9 @@ export function AddressAutocomplete({
               : null,
           }))
           setSuggestions(formattedSuggestions)
-          setShowSuggestions(true)
+          if (selectedValueRef.current === null || query.trim() !== selectedValueRef.current) {
+            setShowSuggestions(true)
+          }
         } else {
           setSuggestions([])
           setShowSuggestions(false)
@@ -104,17 +113,20 @@ export function AddressAutocomplete({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value
-    // Quand on tape manuellement, on efface les coordonnées (elles seront définies à la sélection)
+    selectedValueRef.current = null
     onChange(newValue, null)
   }
 
   const handleSelectSuggestion = (suggestion: AddressSuggestion) => {
-    onChange(suggestion.value, suggestion.coordinates)
+    selectedValueRef.current = suggestion.value
+    setSuggestions([])
     setShowSuggestions(false)
+    onChange(suggestion.value, suggestion.coordinates)
     inputRef.current?.blur()
   }
 
   const handleClear = () => {
+    selectedValueRef.current = null
     onChange('', null)
     setSuggestions([])
     setShowSuggestions(false)
@@ -131,7 +143,7 @@ export function AddressAutocomplete({
           value={value}
           onChange={handleInputChange}
           onFocus={() => {
-            if (suggestions.length > 0) {
+            if (suggestions.length > 0 && selectedValueRef.current !== value.trim()) {
               setShowSuggestions(true)
             }
           }}

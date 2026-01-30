@@ -403,11 +403,9 @@ function App() {
   const buildOrderMessage = () => {
     if (cart.length === 0) return ''
 
-    // Calcul de la distance et des frais de livraison
     const distanceFromAnnecy = calculateDistance(customer.addressCoordinates, ANNECY_GARE)
     const isWithinDeliveryZone = distanceFromAnnecy !== null && distanceFromAnnecy <= DELIVERY_RADIUS_KM
 
-    // Frais de livraison : 5€ si dans la zone et total < 30€, sinon 0 ou à définir
     let deliveryFee = 0
     let deliveryStatus: 'free' | 'paid' | 'to_define' = 'free'
 
@@ -423,23 +421,41 @@ function App() {
     const finalTotal = total + deliveryFee
     const modeTexte = customer.wantsDelivery ? 'Livraison' : 'Retrait sur place'
 
+    // Retire les emojis des noms pour un message WhatsApp lisible
+    const stripEmoji = (s: string) => s.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '').replace(/\s+/g, ' ').trim()
+
+    const getOrderLineLabel = (item: CartItem): string => {
+      const p = item.product
+      const name = stripEmoji(p.name)
+      const cat = p.category
+      if (cat === 'Tiramisus') {
+        const base = p.description ? p.description : ''
+        return `Tiramisu – ${name}${base ? ` – ${base}` : ''}`
+      }
+      if (cat === 'Brownies') return `Brownie – ${name}`
+      if (cat === 'Cookies') return `Cookie – ${name}`
+      if (cat === 'Layer Cups') return `Layer cup – ${name}`
+      if (cat === 'Boxes') return p.description ? `${name} – ${p.description}` : name
+      if (cat === 'Mini Gourmandises') return p.description ? `${name} – ${p.description}` : name
+      return p.description ? `${name} – ${p.description}` : name
+    }
+
     const lines: string[] = []
-    lines.push(
-      'Bonjour Maison Mayssa',
-      '',
-      "Je souhaiterais passer une commande, voici les détails :",
-      '',
-      '*INFORMATIONS CLIENT*',
-      `- Nom : ${customer.lastName || '[à compléter]'}`,
-      `- Prénom : ${customer.firstName || '[à compléter]'}`,
-      `- Téléphone : ${customer.phone || '[à compléter]'}`,
-      `- Mode : ${modeTexte}`,
-    )
+
+    // —— En-tête ——
+    lines.push('Bonjour Maison Mayssa', '', "Je souhaiterais passer une commande, voici les détails :", '')
+
+    // —— INFORMATIONS CLIENT ——
+    lines.push('*INFORMATIONS CLIENT*', '')
+    lines.push(`Nom : ${customer.lastName || '[à compléter]'}`)
+    lines.push(`Prénom : ${customer.firstName || '[à compléter]'}`)
+    lines.push(`Téléphone : ${customer.phone || '[à compléter]'}`)
+    lines.push(`Mode : ${modeTexte}`)
 
     if (customer.wantsDelivery && customer.address.trim()) {
-      lines.push(`- Adresse : ${customer.address.trim()}`)
+      lines.push(`Adresse : ${customer.address.trim()}`)
       if (distanceFromAnnecy !== null) {
-        lines.push(`- Distance estimée : ${distanceFromAnnecy.toFixed(1)} km depuis la gare d'Annecy`)
+        lines.push(`Distance : ${distanceFromAnnecy.toFixed(1)} km depuis la gare d'Annecy`)
       }
     }
 
@@ -450,78 +466,57 @@ function App() {
         day: 'numeric',
         month: 'long',
       })
-      lines.push(`- Date souhaitée : ${dateFormatted}`)
-      lines.push(`- Heure souhaitée : ${customer.time}`)
+      lines.push(`Date souhaitée : ${dateFormatted}`)
+      lines.push(`Heure souhaitée : ${customer.time}`)
     }
 
-    lines.push('', '*COMMANDE*')
+    lines.push('', '')
 
-    // Affiche chaque ligne avec : produit (ex. Brownie / Cookie / Tiramisu) + format + parfums
-    const getOrderLineLabel = (item: CartItem): string => {
-      const p = item.product
-      const cat = p.category
-      if (cat === 'Tiramisus') {
-        const base = p.description ? p.description : ''
-        return `Tiramisu – ${p.name}${base ? ` – ${base}` : ''}`
-      }
-      if (cat === 'Brownies') return `Brownie – ${p.name}`
-      if (cat === 'Cookies') return `Cookie – ${p.name}`
-      if (cat === 'Layer Cups') return `Layer cup – ${p.name}`
-      if (cat === 'Boxes') return p.description ? `${p.name} – ${p.description}` : p.name
-      if (cat === 'Mini Gourmandises') return p.description ? `${p.name} – ${p.description}` : p.name
-      return p.description ? `${p.name} – ${p.description}` : p.name
-    }
-
-    for (const item of cart) {
+    // —— COMMANDE (numérotée, une ligne par produit) ——
+    lines.push('*COMMANDE*', '')
+    cart.forEach((item, index) => {
       const label = getOrderLineLabel(item)
-      const itemTotal = item.product.price * item.quantity
       const unitPrice = item.product.price.toFixed(2).replace('.', ',')
-      const totalPrice = itemTotal.toFixed(2).replace('.', ',')
+      const totalPrice = (item.product.price * item.quantity).toFixed(2).replace('.', ',')
       if (item.quantity > 1) {
-        lines.push(`• ${item.quantity}x ${label} – ${unitPrice}€ × ${item.quantity} = ${totalPrice}€`)
+        lines.push(`${index + 1}. ${item.quantity}× ${label}`)
+        lines.push(`   → ${unitPrice} € × ${item.quantity} = ${totalPrice} €`)
       } else {
-        lines.push(`• ${label} – ${unitPrice}€`)
+        lines.push(`${index + 1}. ${label} → ${unitPrice} €`)
       }
-    }
+      lines.push('')
+    })
 
-    lines.push('', `Sous-total : ${total.toFixed(2)} €`)
+    // —— Récapitulatif ——
+    lines.push('*RÉCAPITULATIF*', '')
+    lines.push(`Sous-total : ${total.toFixed(2)} €`)
 
     if (customer.wantsDelivery) {
       if (deliveryStatus === 'to_define') {
-        lines.push(
-          '',
-          `⚠️ LIVRAISON HORS ZONE (> ${DELIVERY_RADIUS_KM} km)`,
-          'Tarif de livraison à définir ensemble.',
-          `Total produits : ${total.toFixed(2)} €`,
-        )
+        lines.push('')
+        lines.push(`⚠️ LIVRAISON HORS ZONE (> ${DELIVERY_RADIUS_KM} km)`)
+        lines.push('Tarif à définir ensemble.')
+        lines.push(`Total produits : ${total.toFixed(2)} €`)
       } else if (deliveryStatus === 'paid') {
-        lines.push(
-          '',
-          `Livraison (≤ ${DELIVERY_RADIUS_KM} km) : +${DELIVERY_FEE} € (commande < ${FREE_DELIVERY_THRESHOLD} €)`,
-          `Total avec livraison : ${finalTotal.toFixed(2)} €`,
-        )
+        lines.push(`Livraison : +${DELIVERY_FEE} €`)
+        lines.push(`*Total : ${finalTotal.toFixed(2)} €*`)
       } else {
-        lines.push(
-          '',
-          `Livraison OFFERTE (commande ≥ ${FREE_DELIVERY_THRESHOLD} €)`,
-          `Total avec livraison : ${finalTotal.toFixed(2)} €`,
-        )
+        lines.push(`Livraison : offerte (≥ ${FREE_DELIVERY_THRESHOLD} €)`)
+        lines.push(`*Total : ${finalTotal.toFixed(2)} €*`)
       }
     } else {
-      lines.push(`Total à régler : ${total.toFixed(2)} €`)
+      lines.push(`*Total : ${total.toFixed(2)} €*`)
     }
 
-    lines.push('')
+    lines.push('', '')
 
     if (note.trim() && note.trim() !== 'Pour le … (date, créneau, adresse)') {
-      lines.push('*INFOS COMPLÉMENTAIRES :*', note.trim(), '')
-      lines.push('')
+      lines.push('*INFOS COMPLÉMENTAIRES*', '')
+      lines.push(note.trim(), '', '')
     }
 
-    lines.push(
-      'Merci beaucoup, à très vite !',
-      '– Message envoyé depuis le site de précommande Maison Mayssa',
-    )
+    lines.push('Merci beaucoup, à très vite !')
+    lines.push('— Site de précommande Maison Mayssa')
 
     return lines.join('\n')
   }

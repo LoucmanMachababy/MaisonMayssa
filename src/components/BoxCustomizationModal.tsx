@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Check, Plus, Minus } from 'lucide-react'
+import { X, Check, Plus, Minus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import type { Product, ProductSize } from '../types'
 import { cn } from '../lib/utils'
@@ -55,6 +55,8 @@ export function BoxCustomizationModal({ product, onClose, onSelect }: BoxCustomi
             return [...prev.slice(0, i), ...prev.slice(i + 1)]
         })
     }
+
+    const clearAllCoulis = () => setSelectedCoulis([])
 
     const handleAddToCart = () => {
         if (!canAddToCart || !selectedSize) return
@@ -238,6 +240,16 @@ export function BoxCustomizationModal({ product, onClose, onSelect }: BoxCustomi
                                                             </button>
                                                         </span>
                                                     ))}
+                                                </div>
+                                                <div className="flex justify-center pt-1">
+                                                    <button
+                                                        type="button"
+                                                        onClick={clearAllCoulis}
+                                                        className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold text-mayssa-brown/70 hover:text-mayssa-brown hover:bg-mayssa-brown/10 transition-all cursor-pointer"
+                                                    >
+                                                        <Trash2 size={12} />
+                                                        Tout supprimer
+                                                    </button>
                                                 </div>
                                             </>
                                         )}
