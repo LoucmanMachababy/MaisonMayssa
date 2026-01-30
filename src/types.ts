@@ -14,6 +14,8 @@ export type ProductSize = {
     price: number
 }
 
+export type ProductBadge = 'best-seller' | 'nouveau' | 'coup-de-coeur' | 'populaire'
+
 export type Product = {
     id: string
     name: string
@@ -22,6 +24,8 @@ export type Product = {
     category: ProductCategory
     image?: string
     sizes?: ProductSize[]
+    /** Badges affichés sur la carte (Best seller, Nouveau, etc.) */
+    badges?: ProductBadge[]
 }
 
 export type CartItem = {

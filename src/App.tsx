@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useVisitorNotification } from './hooks/useVisitorNotification'
+import { useFavorites } from './hooks/useFavorites'
 import { Navbar } from './components/Navbar'
 import { Header } from './components/Header'
 import { ProductCard } from './components/ProductCard'
@@ -11,6 +12,27 @@ import { PromoBanner } from './components/PromoBanner'
 import { WhatsAppFloatingButton } from './components/WhatsAppFloatingButton'
 import { Testimonials } from './components/Testimonials'
 import { ConfidentialiteSection, MentionsLegalesSection } from './components/LegalPages'
+import {
+  FloatingParticles,
+  AnimatedGradient,
+  Confetti,
+  useConfetti,
+} from './components/effects'
+import {
+  BottomNav,
+  FloatingCartPreview,
+  SwipeableProductCard,
+  FlyToCart,
+  useFlyToCart,
+  CartSheet,
+  FavoritesSheet,
+  ProductDetailModal,
+  StickyCategoryTabs,
+  VoiceSearch,
+  useVoiceSearch,
+  OnboardingTour,
+} from './components/mobile'
+import { hapticFeedback } from './lib/haptics'
 
 const SizeSelectorModal = lazy(() => import('./components/SizeSelectorModal').then(m => ({ default: m.SizeSelectorModal })))
 const TiramisuCustomizationModal = lazy(() => import('./components/TiramisuCustomizationModal').then(m => ({ default: m.TiramisuCustomizationModal })))
@@ -25,7 +47,17 @@ import type {
   CustomerInfo,
   Coordinates,
 } from './types'
-import { Sparkles, Search, X, ChevronRight } from 'lucide-react'
+import {
+  Sparkles,
+  Search,
+  X,
+  LayoutGrid,
+  Cookie,
+  Package,
+  CakeSlice,
+  CupSoda as Cup,
+  Cake
+} from 'lucide-react'
 
 // Coordonnées de référence : Rue de la Gare, 74000 Annecy
 const ANNECY_GARE: Coordinates = { lat: 45.9017, lng: 6.1217 }
@@ -52,6 +84,41 @@ function App() {
   // Notification de visite Telegram
   useVisitorNotification()
 
+  // Confetti effect
+  const { trigger: confettiTrigger, origin: confettiOrigin, fire: fireConfetti } = useConfetti()
+
+  // Fly-to-cart animation
+  const { trigger: flyTrigger, currentProduct: flyProduct, fly: flyToCart } = useFlyToCart()
+
+  // Mobile state
+  const [isMobile, setIsMobile] = useState(false)
+  const [isCartSheetOpen, setIsCartSheetOpen] = useState(false)
+  const [isFavoritesSheetOpen, setIsFavoritesSheetOpen] = useState(false)
+  const [selectedProductForDetail, setSelectedProductForDetail] = useState<Product | null>(null)
+
+  // Favorites (localStorage)
+  const {
+    favorites,
+    isFavorite,
+    removeFavorite,
+    toggleFavorite,
+    clearFavorites,
+    count: favoritesCount,
+  } = useFavorites()
+
+  // Voice search
+  const { isVoiceActive, toggleVoice, handleVoiceResult } = useVoiceSearch((query) => {
+    setSearchQuery(query)
+  })
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+
   // Load cart from localStorage on mount
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
@@ -61,7 +128,7 @@ function App() {
       return []
     }
   })
-  
+
   // Save cart to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('maison-mayssa-cart', JSON.stringify(cart))
@@ -86,9 +153,16 @@ function App() {
   const [selectedProductForBox, setSelectedProductForBox] = useState<Product | null>(null)
   const [toasts, setToasts] = useState<Toast[]>([])
 
-  const showToast = (message: string, type: Toast['type'] = 'success', duration?: number) => {
+  const showToast = (message: string, type: Toast['type'] = 'success', duration?: number, withConfetti?: boolean, product?: Product) => {
     const id = Math.random().toString(36).substring(7)
     setToasts((prev) => [...prev, { id, message, type, duration }])
+    if (withConfetti) {
+      fireConfetti()
+      hapticFeedback('success')
+    }
+    if (product && isMobile) {
+      flyToCart(product.name, product.image)
+    }
   }
 
   const removeToast = (id: string) => {
@@ -128,6 +202,19 @@ function App() {
     return ['Tous', ...cats] as const
   }, [])
 
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case 'Tous': return <LayoutGrid size={20} />
+      case 'Mini Gourmandises': return <Sparkles size={20} />
+      case 'Brownies': return <Cake size={20} />
+      case 'Cookies': return <Cookie size={20} />
+      case 'Layer Cups': return <Cup size={20} />
+      case 'Boxes': return <Package size={20} />
+      case 'Tiramisus': return <CakeSlice size={20} />
+      default: return <LayoutGrid size={20} />
+    }
+  }
+
   const filteredProducts = useMemo(() => {
     let filtered = PRODUCTS
 
@@ -139,7 +226,7 @@ function App() {
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim()
-      filtered = filtered.filter((p) => 
+      filtered = filtered.filter((p) =>
         p.name.toLowerCase().includes(query) ||
         p.description?.toLowerCase().includes(query) ||
         p.category.toLowerCase().includes(query)
@@ -174,10 +261,10 @@ function App() {
         const updated = current.map((item) =>
           item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item,
         )
-        showToast(`${product.name} ajouté au panier (quantité: ${existing.quantity + 1})`, 'success')
+        showToast(`${product.name} ajouté au panier (quantité: ${existing.quantity + 1})`, 'success', undefined, true, product)
         return updated
       }
-      showToast(`${product.name} ajouté au panier`, 'success')
+      showToast(`${product.name} ajouté au panier`, 'success', undefined, true, product)
       return [...current, { product, quantity: 1 }]
     })
   }
@@ -197,10 +284,10 @@ function App() {
         const updated = current.map((item) =>
           item.product.id === cartProduct.id ? { ...item, quantity: item.quantity + 1 } : item,
         )
-        showToast(`${cartProduct.name} ajouté au panier (quantité: ${existing.quantity + 1})`, 'success')
+        showToast(`${cartProduct.name} ajouté au panier (quantité: ${existing.quantity + 1})`, 'success', undefined, true)
         return updated
       }
-      showToast(`${cartProduct.name} ajouté au panier`, 'success')
+      showToast(`${cartProduct.name} ajouté au panier`, 'success', undefined, true)
       return [...current, { product: cartProduct, quantity: 1 }]
     })
 
@@ -230,7 +317,7 @@ function App() {
     }
 
     setCart((current) => {
-      showToast(`${cartProduct.name} ajouté au panier`, 'success')
+      showToast(`${cartProduct.name} ajouté au panier`, 'success', undefined, true)
       return [...current, { product: cartProduct, quantity: 1 }]
     })
 
@@ -262,7 +349,7 @@ function App() {
     }
 
     setCart((current) => {
-      showToast(`${cartProduct.name} ajouté au panier`, 'success')
+      showToast(`${cartProduct.name} ajouté au panier`, 'success', undefined, true)
       return [...current, { product: cartProduct, quantity: 1 }]
     })
 
@@ -414,6 +501,11 @@ function App() {
 
   return (
     <div className="min-h-screen bg-mayssa-soft selection:bg-mayssa-caramel/30 font-sans overflow-x-hidden">
+      {/* Visual Effects */}
+      <AnimatedGradient />
+      <FloatingParticles />
+      <Confetti trigger={confettiTrigger} originX={confettiOrigin.x} originY={confettiOrigin.y} />
+
       <Navbar />
 
       {/* Background Decorative Elements */}
@@ -426,15 +518,15 @@ function App() {
         <PromoBanner />
         <Header />
 
-        <main className="mt-8 sm:mt-12 grid gap-8 sm:gap-12 lg:grid-cols-[1fr_minmax(340px,400px)] lg:items-start">
+        <main className="mt-8 sm:mt-12 flex flex-col gap-12 sm:gap-20 md:gap-28 items-center">
           {/* Menu Section */}
-          <motion.section 
-            id="la-carte" 
+          <motion.section
+            id="la-carte"
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-50px" }}
             transition={{ duration: 0.5, ease: "easeOut" }}
-            className="space-y-10 min-w-0"
+            className="space-y-10 w-full"
           >
             <div className="flex flex-col gap-4 sm:gap-6 md:flex-row md:items-end md:justify-between">
               <div className="space-y-2">
@@ -448,57 +540,76 @@ function App() {
               </div>
 
               {/* Search Bar */}
-              <div className="relative w-full md:w-auto">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-mayssa-brown/40" size={18} />
-                <input
-                  type="text"
-                  placeholder="Rechercher un produit..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full md:w-64 pl-10 pr-10 py-2.5 rounded-xl bg-white/60 border border-mayssa-brown/10 text-sm text-mayssa-brown placeholder-mayssa-brown/40 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel focus:bg-white transition-all"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-mayssa-brown/40 hover:text-mayssa-brown transition-colors"
-                  >
-                    <X size={16} />
-                  </button>
-                )}
+              <div className="flex gap-2 w-full md:w-auto">
+                <div className="relative flex-1 md:flex-none">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-mayssa-brown/40" size={18} />
+                  <input
+                    type="text"
+                    placeholder="Rechercher un produit..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full md:w-64 pl-10 pr-10 py-2.5 rounded-xl bg-white/60 border border-mayssa-brown/10 text-sm text-mayssa-brown placeholder-mayssa-brown/40 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel focus:bg-white transition-all"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-mayssa-brown/40 hover:text-mayssa-brown transition-colors"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
+                {/* Voice Search - Mobile only */}
+                <div className="md:hidden">
+                  <VoiceSearch
+                    isActive={isVoiceActive}
+                    onToggle={toggleVoice}
+                    onResult={handleVoiceResult}
+                  />
+                </div>
               </div>
 
-              {/* Category Filter */}
-              <div className="relative">
-                <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar scroll-smooth -mx-4 px-4 sm:mx-0 sm:px-0">
-                  {categories.map((cat) => (
+            </div>
+
+            {/* Category Filter - Grid layout for visibility */}
+            <div className="block">
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-3">
+                {categories.map((cat) => {
+                  const isActive = activeCategory === cat
+                  return (
                     <button
                       key={cat}
                       onClick={() => setActiveCategory(cat as any)}
-                      className={`whitespace-nowrap rounded-xl sm:rounded-2xl px-4 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-bold transition-all cursor-pointer flex-shrink-0 ${activeCategory === cat
-                        ? 'bg-mayssa-brown text-white shadow-lg shadow-mayssa-brown/20 -translate-y-1'
-                        : 'bg-white/60 text-mayssa-brown hover:bg-white hover:scale-105 hover:shadow-md active:scale-95'
+                      className={`group relative flex flex-col items-center justify-center gap-2 sm:gap-3 rounded-xl sm:rounded-2xl p-3 sm:p-4 transition-all duration-300 ${isActive
+                        ? 'bg-mayssa-brown text-white shadow-xl shadow-mayssa-brown/20 -translate-y-1'
+                        : 'bg-white/60 text-mayssa-brown hover:bg-white hover:shadow-lg hover:-translate-y-1 border border-mayssa-brown/5'
                         }`}
                     >
-                      {cat}
+                      <div className={`p-2 sm:p-2.5 rounded-lg sm:rounded-xl transition-colors duration-300 ${isActive ? 'bg-white/20' : 'bg-mayssa-soft group-hover:bg-mayssa-rose/30'
+                        }`}>
+                        {getCategoryIcon(cat)}
+                      </div>
+                      <span className="text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-center">
+                        {cat}
+                      </span>
+                      {isActive && (
+                        <motion.div
+                          layoutId="activeCategoryDot"
+                          className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-mayssa-caramel shadow-[0_0_10px_#f7b267]"
+                        />
+                      )}
                     </button>
-                  ))}
-                </div>
-
-                {/* Hint that it scrolls horizontally (desktop only, outside the last pill) */}
-                <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-mayssa-cream to-transparent hidden sm:block" />
-                <div className="pointer-events-none hidden sm:flex items-center absolute top-1/2 -translate-y-1/2 right-0 translate-x-full">
-                  <div className="flex items-center gap-1 rounded-full bg-white/90 px-2 py-1 shadow-sm border border-mayssa-brown/10">
-                    <span className="text-[9px] sm:text-[10px] font-semibold text-mayssa-brown/60">
-                      Glisser
-                    </span>
-                    <ChevronRight className="w-3 h-3 text-mayssa-brown/60" />
-                  </div>
-                </div>
+                  )
+                })}
               </div>
-              <p className="mt-1 text-[10px] sm:hidden text-mayssa-brown/45">
-                Faites glisser horizontalement pour voir toutes les catégories →
-              </p>
             </div>
+
+            {/* Sticky Category Tabs - Mobile */}
+            <StickyCategoryTabs
+              categories={categories}
+              activeCategory={activeCategory}
+              onCategoryChange={setActiveCategory}
+            />
 
             {filteredProducts.length === 0 ? (
               <div className="text-center py-12 sm:py-16">
@@ -515,22 +626,44 @@ function App() {
                 )}
               </div>
             ) : (
-              <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
-                <AnimatePresence mode="popLayout">
+              <>
+                {/* Desktop Grid */}
+                <div className="hidden md:grid gap-4 sm:gap-6 grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  <AnimatePresence mode="popLayout">
+                    {filteredProducts.map((product) => (
+                      <ProductCard
+                        key={product.id}
+                        product={product}
+                        onAdd={handleAddToCart}
+                      />
+                    ))}
+                  </AnimatePresence>
+                </div>
+
+                {/* Mobile Swipeable List */}
+                <div className="md:hidden space-y-3">
                   {filteredProducts.map((product) => (
-                    <ProductCard
+                    <SwipeableProductCard
                       key={product.id}
                       product={product}
                       onAdd={handleAddToCart}
+                      onTap={setSelectedProductForDetail}
                     />
                   ))}
-                </AnimatePresence>
-              </div>
+                </div>
+              </>
             )}
           </motion.section>
 
-          {/* Cart Section */}
-          <section id="commande" className="relative min-w-0">
+          {/* Cart Section - Centered at the bottom for Desktop */}
+          <motion.section
+            id="commande"
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            className="w-full max-w-4xl mx-auto"
+          >
             <Cart
               items={cart}
               total={total}
@@ -543,7 +676,7 @@ function App() {
               onCustomerChange={setCustomer}
               onSend={handleSend}
             />
-          </section>
+          </motion.section>
         </main>
 
         {/* Notre histoire */}
@@ -674,8 +807,61 @@ function App() {
         />
       </Suspense>
 
+      {/* Mobile Components */}
+      <BottomNav
+        cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
+        favoritesCount={favoritesCount}
+        onCartClick={() => setIsCartSheetOpen(true)}
+        onFavoritesClick={() => setIsFavoritesSheetOpen(true)}
+      />
+      <FloatingCartPreview
+        items={cart}
+        total={total}
+        onExpand={() => setIsCartSheetOpen(true)}
+      />
+      <CartSheet
+        isOpen={isCartSheetOpen}
+        onClose={() => setIsCartSheetOpen(false)}
+        items={cart}
+        total={total}
+        note={note}
+        channel={channel}
+        customer={customer}
+        onUpdateQuantity={handleUpdateQuantity}
+        onNoteChange={setNote}
+        onChannelChange={setChannel}
+        onCustomerChange={setCustomer}
+        onSend={handleSend}
+      />
+      <FavoritesSheet
+        isOpen={isFavoritesSheetOpen}
+        onClose={() => setIsFavoritesSheetOpen(false)}
+        favorites={favorites}
+        onRemove={removeFavorite}
+        onAddToCart={handleAddToCart}
+        onClear={clearFavorites}
+      />
+      <FlyToCart
+        trigger={flyTrigger}
+        productImage={flyProduct.image}
+        productName={flyProduct.name}
+        startPosition={flyProduct.position}
+      />
+
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+
+      {/* Product Detail Modal - Mobile */}
+      <ProductDetailModal
+        product={selectedProductForDetail}
+        onClose={() => setSelectedProductForDetail(null)}
+        onAdd={handleAddToCart}
+        isFavorite={isFavorite}
+        onToggleFavorite={toggleFavorite}
+      />
+
+      {/* Onboarding Tour - Mobile */}
+      <OnboardingTour />
     </div>
   )
 }

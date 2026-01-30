@@ -47,6 +47,7 @@ export const PRODUCTS: Product[] = [
         price: 13,
         category: 'Boxes',
         image: '/La-mini-box-mixte.PNG',
+        badges: ['best-seller'],
         sizes: [
             { label: 'Box mixte S (~300g)', ml: 300, price: 13 },
             { label: 'Box mixte L (~600g)', ml: 600, price: 24 },
@@ -61,6 +62,7 @@ export const PRODUCTS: Product[] = [
         price: 3.5,
         category: 'Brownies',
         image: '/brownie-pistache-framboise.png',
+        badges: ['coup-de-coeur'],
     },
     {
         id: 'brownie-speculoos-framboise',
@@ -93,6 +95,7 @@ export const PRODUCTS: Product[] = [
         price: 3.5,
         category: 'Brownies',
         image: '/brownie-elmordjene-kinder.png',
+        badges: ['populaire'],
     },
     {
         id: 'brownie-nutella-oreo',
@@ -101,6 +104,7 @@ export const PRODUCTS: Product[] = [
         price: 3.5,
         category: 'Brownies',
         image: '/brownie-nutella-oreo.png',
+        badges: ['best-seller'],
     },
     {
         id: 'brownie-patissiere-pecan',
@@ -135,6 +139,7 @@ export const PRODUCTS: Product[] = [
         price: 3,
         category: 'Cookies',
         image: '/cookie-kinder-bueno.PNG',
+        badges: ['best-seller'],
     },
     {
         id: 'cookie-nutella-oreo',
@@ -143,6 +148,7 @@ export const PRODUCTS: Product[] = [
         price: 3,
         category: 'Cookies',
         image: '/Cookie-nutella-oreo.PNG',
+        badges: ['populaire'],
     },
     {
         id: 'cookie-speculoos-framboise',
@@ -167,6 +173,7 @@ export const PRODUCTS: Product[] = [
         price: 3,
         category: 'Cookies',
         image: '/cookie--fruit-rouges-des-bois.PNG',
+        badges: ['nouveau'],
     },
     {
         id: 'cookie-chocolat-blanc-framboise',
@@ -233,6 +240,7 @@ export const PRODUCTS: Product[] = [
         price: 4,
         category: 'Layer Cups',
         image: '/layer-cup-fraise-vanille.PNG',
+        badges: ['coup-de-coeur'],
         sizes: [
             { label: '250 ml', ml: 250, price: 4 },
             { label: '360 ml', ml: 360, price: 6 },
@@ -246,6 +254,7 @@ export const PRODUCTS: Product[] = [
         price: 4,
         category: 'Layer Cups',
         image: '/layer-cup-pistache-fraise.PNG',
+        badges: ['coup-de-coeur'],
         sizes: [
             { label: '250 ml', ml: 250, price: 4 },
             { label: '360 ml', ml: 360, price: 6 },
@@ -259,6 +268,7 @@ export const PRODUCTS: Product[] = [
         price: 4,
         category: 'Layer Cups',
         image: '/layer-cup-mangue-passion.PNG',
+        badges: ['nouveau'],
         sizes: [
             { label: '250 ml', ml: 250, price: 4 },
             { label: '360 ml', ml: 360, price: 6 },
@@ -272,6 +282,7 @@ export const PRODUCTS: Product[] = [
         price: 4,
         category: 'Layer Cups',
         image: '/layer-cup-speculoos.PNG',
+        badges: ['populaire'],
         sizes: [
             { label: '250 ml', ml: 250, price: 4 },
             { label: '360 ml', ml: 360, price: 6 },
@@ -298,6 +309,7 @@ export const PRODUCTS: Product[] = [
         price: 4,
         category: 'Layer Cups',
         image: '/layer-cup-nutella-oreo.PNG',
+        badges: ['best-seller'],
         sizes: [
             { label: '250 ml', ml: 250, price: 4 },
             { label: '360 ml', ml: 360, price: 6 },
@@ -337,6 +349,7 @@ export const PRODUCTS: Product[] = [
         price: 25,
         category: 'Boxes',
         image: '/box-mixte.PNG',
+        badges: ['coup-de-coeur', 'best-seller'],
         sizes: [
             { label: 'Box mixte 6 pièces (3 cookies + 3 brownies)', ml: 6, price: 25 },
             { label: 'Box mixte 12 pièces (6 cookies + 6 brownies)', ml: 12, price: 40 },
@@ -350,6 +363,7 @@ export const PRODUCTS: Product[] = [
         price: 3.5,
         category: 'Tiramisus',
         image: '/Tiramisu.PNG',
+        badges: ['best-seller', 'populaire'],
         sizes: [
             { label: 'Petit format', ml: 1, price: 3.5 },
             { label: 'Grand format', ml: 2, price: 6 },

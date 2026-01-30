@@ -168,427 +168,285 @@ export function Cart({
     const canSend = hasItems && isCustomerValid
 
     return (
-        <aside className="lg:sticky lg:top-8 flex flex-col min-w-0 w-full max-w-full overflow-hidden lg:h-[calc(100vh-4rem)] section-shell bg-white/95 lg:max-h-[calc(100vh-4rem)] !p-4 sm:!p-5 lg:!p-5">
-            <header className="flex items-center justify-between flex-shrink-0 pb-3 sm:pb-4 border-b border-mayssa-brown/5">
-                <div className="flex items-center gap-2 sm:gap-3 text-mayssa-brown">
+        <div className="flex flex-col min-w-0 w-full overflow-hidden section-shell bg-white/95 !p-4 sm:!p-8 md:!p-10 premium-shadow">
+            <header className="flex items-center justify-between flex-shrink-0 pb-6 border-b border-mayssa-brown/5">
+                <div className="flex items-center gap-3 text-mayssa-brown text-glow">
                     <div className="relative">
-                        <ShoppingBag size={20} className="sm:w-6 sm:h-6" />
+                        <ShoppingBag size={24} className="sm:w-8 sm:h-8" />
                         {itemCount > 0 && (
-                            <span className="absolute -right-2 -top-2 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-mayssa-caramel text-[9px] sm:text-[10px] font-bold text-white shadow-lg">
+                            <span className="absolute -right-2 -top-2 flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-full bg-mayssa-caramel text-[10px] sm:text-[11px] font-bold text-white shadow-lg ring-2 ring-white">
                                 {itemCount}
                             </span>
                         )}
                     </div>
-                    <h2 className="text-xl sm:text-2xl font-display font-bold">Votre Panier</h2>
+                    <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold">Votre Panier</h2>
                 </div>
             </header>
 
-            {/* Zone scrollable pour tout le contenu */}
-            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-1 sm:pr-2 custom-scrollbar">
-                <div className="space-y-4 sm:space-y-6 py-3 sm:py-4">
-                    {/* Liste des items */}
+            <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-8 lg:gap-16 mt-8">
+                {/* Left Column: Items & Notes */}
+                <div className="space-y-8">
                     <div className="space-y-4">
+                        <p className="text-xs font-bold uppercase tracking-widest text-mayssa-brown/60">
+                            Articles sélectionnés ({itemCount})
+                        </p>
                         <AnimatePresence mode="popLayout">
                             {hasItems ? (
-                                items.map((item) => (
-                                    <motion.div
-                                        key={item.product.id}
-                                        layout
-                                        initial={{ opacity: 0, x: 20 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        exit={{ opacity: 0, scale: 0.95 }}
-                                        className="group flex items-center gap-2 sm:gap-4 rounded-2xl sm:rounded-3xl bg-mayssa-soft/50 p-2 sm:p-3 ring-1 ring-mayssa-brown/5 transition-all hover:bg-white hover:ring-mayssa-caramel/20"
-                                    >
-                                        {item.product.image && (
-                                            <div className="h-12 w-12 sm:h-16 sm:w-16 overflow-hidden rounded-xl sm:rounded-2xl shadow-sm flex-shrink-0">
-                                                <img
-                                                    src={item.product.image}
-                                                    alt={item.product.name}
-                                                    loading="lazy"
-                                                    className="h-full w-full object-cover"
-                                                />
-                                            </div>
-                                        )}
+                                <div className="space-y-4">
+                                    {items.map((item) => (
+                                        <motion.div
+                                            key={item.product.id}
+                                            layout
+                                            initial={{ opacity: 0, x: -20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, scale: 0.95 }}
+                                            className="group flex items-center gap-4 rounded-3xl bg-mayssa-soft/50 p-3 sm:p-4 ring-1 ring-mayssa-brown/5 transition-all hover:bg-white hover:ring-mayssa-caramel/20 active:shadow-md"
+                                        >
+                                            {item.product.image && (
+                                                <div className="h-16 w-16 sm:h-20 sm:w-20 overflow-hidden rounded-2xl shadow-sm flex-shrink-0">
+                                                    <img
+                                                        src={item.product.image}
+                                                        alt={item.product.name}
+                                                        loading="lazy"
+                                                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                                    />
+                                                </div>
+                                            )}
 
-                                        <div className="min-w-0 flex-1">
-                                            <div className="flex items-start gap-1.5 sm:gap-2">
-                                                <h4 className="truncate text-xs sm:text-sm font-bold text-mayssa-brown flex-1">
-                                                    {item.product.name}
-                                                </h4>
-                                                {item.quantity > 1 && (
-                                                    <span className="flex-shrink-0 px-1.5 sm:px-2 py-0.5 rounded-lg bg-mayssa-caramel/10 text-[10px] sm:text-xs font-bold text-mayssa-caramel">
-                                                        x{item.quantity}
-                                                    </span>
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex items-start gap-2">
+                                                    <h4 className="truncate text-sm sm:text-base font-bold text-mayssa-brown flex-1">
+                                                        {item.product.name}
+                                                    </h4>
+                                                </div>
+                                                {item.product.description && (
+                                                    <p className="text-[10px] sm:text-xs text-mayssa-brown/60 mt-0.5 line-clamp-2 leading-relaxed">
+                                                        {item.product.description}
+                                                    </p>
                                                 )}
+                                                <div className="flex items-center gap-3 mt-2">
+                                                    <p className="text-xs text-mayssa-brown/60">
+                                                        {item.product.price.toFixed(2).replace('.', ',')} €
+                                                    </p>
+                                                    <p className="text-sm font-bold text-mayssa-caramel">
+                                                        = {(item.product.price * item.quantity).toFixed(2).replace('.', ',')} €
+                                                    </p>
+                                                </div>
                                             </div>
-                                            {item.product.description && (
-                                                <p className="text-[9px] sm:text-[10px] text-mayssa-brown/60 mt-0.5 line-clamp-2">
-                                                    {item.product.description}
-                                                </p>
-                                            )}
-                                            <div className="flex items-center gap-2 mt-1">
-                                                <p className="text-[10px] sm:text-xs text-mayssa-brown/60">
-                                                    {item.product.price.toFixed(2).replace('.', ',')} €
-                                                    {item.quantity > 1 && (
-                                                        <span className="ml-1">× {item.quantity}</span>
-                                                    )}
-                                                </p>
-                                                <p className="text-[11px] sm:text-sm font-bold text-mayssa-caramel">
-                                                    = {(item.product.price * item.quantity).toFixed(2).replace('.', ',')} €
-                                                </p>
-                                            </div>
-                                        </div>
 
-                                        <div className="flex flex-col items-center gap-1 sm:gap-1.5 flex-shrink-0">
-                                            <div className="flex items-center gap-0.5 sm:gap-1 rounded-xl sm:rounded-2xl bg-white p-0.5 sm:p-1 shadow-sm border border-mayssa-brown/5">
-                                                <button
-                                                    onClick={() => onUpdateQuantity(item.product.id, item.quantity - 1)}
-                                                    className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-lg sm:rounded-xl text-mayssa-brown transition-all hover:bg-mayssa-cream hover:scale-110 active:scale-95"
-                                                    aria-label="Diminuer la quantité"
-                                                >
-                                                    <Minus size={12} className="sm:w-3.5 sm:h-3.5" />
-                                                </button>
-                                                <span className="w-5 sm:w-6 text-center text-[10px] sm:text-xs font-bold text-mayssa-brown">
-                                                    {item.quantity}
-                                                </span>
-                                                <button
-                                                    onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
-                                                    className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-lg sm:rounded-xl text-mayssa-brown transition-all hover:bg-mayssa-cream hover:scale-110 active:scale-95"
-                                                    aria-label="Augmenter la quantité"
-                                                >
-                                                    <Plus size={12} className="sm:w-3.5 sm:h-3.5" />
-                                                </button>
+                                            <div className="flex flex-col items-center gap-2 flex-shrink-0">
+                                                <div className="flex items-center gap-1.5 rounded-2xl bg-white p-1 shadow-sm border border-mayssa-brown/5">
+                                                    <button
+                                                        onClick={() => onUpdateQuantity(item.product.id, item.quantity - 1)}
+                                                        className="flex h-7 w-7 items-center justify-center rounded-xl text-mayssa-brown transition-all hover:bg-mayssa-cream hover:scale-110 active:scale-95"
+                                                    >
+                                                        <Minus size={14} />
+                                                    </button>
+                                                    <span className="w-6 text-center text-xs font-bold text-mayssa-brown">
+                                                        {item.quantity}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
+                                                        className="flex h-7 w-7 items-center justify-center rounded-xl text-mayssa-brown transition-all hover:bg-mayssa-cream hover:scale-110 active:scale-95"
+                                                    >
+                                                        <Plus size={14} />
+                                                    </button>
+                                                </div>
                                             </div>
-                                            {item.quantity === 1 && (
-                                                <p className="text-[8px] sm:text-[9px] text-mayssa-brown/50 text-center max-w-[60px] sm:max-w-[70px]">
-                                                    Ajouter un supplément
-                                                </p>
-                                            )}
-                                        </div>
-                                    </motion.div>
-                                ))
+                                        </motion.div>
+                                    ))}
+                                </div>
                             ) : (
-                                <div className="flex flex-col items-center justify-center gap-4 py-8 text-center text-mayssa-brown/40">
-                                    <div className="rounded-full bg-mayssa-soft p-6">
-                                        <ShoppingBag size={40} />
-                                    </div>
-                                    <p className="text-sm font-medium">Votre panier est vide</p>
+                                <div className="flex flex-col items-center justify-center gap-4 py-12 text-center text-mayssa-brown/30 bg-mayssa-soft/30 rounded-[2.5rem] border border-dashed border-mayssa-brown/10">
+                                    <ShoppingBag size={48} className="opacity-20" />
+                                    <p className="text-base font-medium">Votre panier est vide</p>
                                 </div>
                             )}
                         </AnimatePresence>
                     </div>
 
-                    {/* Formulaire client */}
-                    <div className="space-y-4 sm:space-y-6 pt-4 sm:pt-6 border-t border-mayssa-brown/5">
-                        {/* Infos client */}
-                        <div className="space-y-3 sm:space-y-4">
-                            <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-mayssa-brown/60">
-                                Vos informations
-                            </p>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                                <div className="space-y-1">
-                                    <div className={cn(
-                                        "flex items-center gap-2 sm:gap-3 rounded-xl sm:rounded-2xl bg-white/80 px-3 sm:px-4 py-2 sm:py-3 transition-all",
-                                        validationErrors.firstName ? "ring-2 ring-red-300" : "ring-2 ring-mayssa-brown/10 focus-within:ring-mayssa-caramel/50"
-                                    )}>
-                                        <User size={16} className="sm:w-[18px] sm:h-[18px] text-mayssa-caramel flex-shrink-0" />
-                                        <input
-                                            value={customer.firstName}
-                                            onChange={(e) => onCustomerChange({ ...customer, firstName: e.target.value })}
-                                            placeholder="Votre prénom *"
-                                            className="w-full bg-transparent text-xs sm:text-sm font-semibold text-mayssa-brown placeholder:text-mayssa-brown/50 focus:outline-none"
-                                        />
-                                    </div>
-                                    {validationErrors.firstName && (
-                                        <p className="text-[10px] text-red-500 px-1">{validationErrors.firstName}</p>
-                                    )}
-                                </div>
-                                <div className="space-y-1">
-                                    <div className={cn(
-                                        "flex items-center gap-2 sm:gap-3 rounded-xl sm:rounded-2xl bg-white/80 px-3 sm:px-4 py-2 sm:py-3 transition-all",
-                                        validationErrors.lastName ? "ring-2 ring-red-300" : "ring-2 ring-mayssa-brown/10 focus-within:ring-mayssa-caramel/50"
-                                    )}>
-                                        <User size={16} className="sm:w-[18px] sm:h-[18px] text-mayssa-caramel flex-shrink-0" />
-                                        <input
-                                            value={customer.lastName}
-                                            onChange={(e) => onCustomerChange({ ...customer, lastName: e.target.value })}
-                                            placeholder="Votre nom *"
-                                            className="w-full bg-transparent text-xs sm:text-sm font-semibold text-mayssa-brown placeholder:text-mayssa-brown/50 focus:outline-none"
-                                        />
-                                    </div>
-                                    {validationErrors.lastName && (
-                                        <p className="text-[10px] text-red-500 px-1">{validationErrors.lastName}</p>
-                                    )}
-                                </div>
-                                <div className="space-y-1 sm:col-span-2">
-                                    <div className={cn(
-                                        "flex items-center gap-2 sm:gap-3 rounded-xl sm:rounded-2xl bg-white/80 px-3 sm:px-4 py-2 sm:py-3 transition-all",
-                                        validationErrors.phone ? "ring-2 ring-red-300" : "ring-2 ring-mayssa-brown/10 focus-within:ring-mayssa-caramel/50"
-                                    )}>
-                                        <Phone size={16} className="sm:w-[18px] sm:h-[18px] text-mayssa-caramel flex-shrink-0" />
-                                        <input
-                                            type="tel"
-                                            value={customer.phone}
-                                            onChange={(e) => {
-                                                let value = e.target.value.replace(/\s/g, '')
-                                                // Format: 06 12 34 56 78
-                                                if (value.length > 2) {
-                                                    value = value.match(/.{1,2}/g)?.join(' ') || value
-                                                }
-                                                onCustomerChange({ ...customer, phone: value })
-                                            }}
-                                            placeholder="Votre numéro de téléphone *"
-                                            className="w-full bg-transparent text-xs sm:text-sm font-semibold text-mayssa-brown placeholder:text-mayssa-brown/50 focus:outline-none"
-                                        />
-                                    </div>
-                                    {validationErrors.phone && (
-                                        <p className="text-[10px] text-red-500 px-1">{validationErrors.phone}</p>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Mode de récupération - Gros boutons clairs */}
-                        <div className="space-y-2 sm:space-y-3">
-                            <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-mayssa-brown/60">
-                                Comment souhaitez-vous récupérer votre commande ?
-                            </p>
-                            <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => onCustomerChange({ ...customer, wantsDelivery: false })}
-                                    className={cn(
-                                        "flex flex-col items-center justify-center gap-1.5 sm:gap-2 rounded-2xl sm:rounded-3xl p-3 sm:p-4 text-xs sm:text-sm font-bold transition-all shadow-lg cursor-pointer",
-                                        !customer.wantsDelivery
-                                            ? "bg-mayssa-brown text-mayssa-cream ring-2 sm:ring-4 ring-mayssa-caramel/30 scale-105"
-                                            : "bg-white/70 text-mayssa-brown hover:bg-white hover:scale-105 hover:shadow-xl border-2 border-mayssa-brown/20 active:scale-95"
-                                    )}
-                                >
-                                    <MapPin size={20} className="sm:w-6 sm:h-6" />
-                                    <span className="text-center leading-tight">Retrait sur place</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => onCustomerChange({ ...customer, wantsDelivery: true })}
-                                    className={cn(
-                                        "flex flex-col items-center justify-center gap-1.5 sm:gap-2 rounded-2xl sm:rounded-3xl p-3 sm:p-4 text-xs sm:text-sm font-bold transition-all shadow-lg cursor-pointer",
-                                        customer.wantsDelivery
-                                            ? "bg-mayssa-caramel text-white ring-2 sm:ring-4 ring-mayssa-caramel/30 scale-105"
-                                            : "bg-white/70 text-mayssa-brown hover:bg-white hover:scale-105 hover:shadow-xl border-2 border-mayssa-brown/20 active:scale-95"
-                                    )}
-                                >
-                                    <Truck size={20} className="sm:w-6 sm:h-6" />
-                                    <span className="text-center leading-tight">Livraison à domicile</span>
-                                </button>
-                            </div>
-
-                            {customer.wantsDelivery && (
-                                <div className="space-y-1">
-                                    <div className={cn(
-                                        "rounded-xl sm:rounded-2xl bg-white/80 px-3 sm:px-4 py-2 sm:py-3 transition-all",
-                                        validationErrors.address ? "ring-2 ring-red-300" : "ring-2 ring-mayssa-caramel/30 focus-within:ring-mayssa-caramel/50"
-                                    )}>
-                                        <AddressAutocomplete
-                                            value={customer.address}
-                                            onChange={(address, coordinates) =>
-                                                onCustomerChange({ ...customer, address, addressCoordinates: coordinates })
-                                            }
-                                            placeholder="Commencez à taper votre adresse (ex: 1 rue de la Paix, Annecy)..."
-                                        />
-                                        <p className="mt-2 text-[9px] sm:text-[10px] text-mayssa-brown/60">
-                                            💡 L'autocomplétion vous propose des adresses pendant que vous tapez.
-                                        </p>
-                                        <p className="mt-1 text-[9px] sm:text-[10px] text-mayssa-brown/70">
-                                            🚗 Zone de livraison : rayon de <strong>5 km</strong> autour de <strong>Rue de la Gare, 74000 Annecy</strong>. Au‑delà, tarif à définir ensemble sur WhatsApp.
-                                        </p>
-                                    </div>
-                                    {validationErrors.address && (
-                                        <p className="text-[10px] text-red-500 px-1">{validationErrors.address}</p>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Date et heure - Obligatoires */}
-                        <div className="space-y-2 sm:space-y-3 rounded-2xl sm:rounded-3xl bg-mayssa-soft/60 p-3 sm:p-4 ring-1 ring-mayssa-brown/5">
-                            <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-mayssa-brown/60">
-                                📅 Date et heure souhaitées *
-                            </p>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                                <div className="space-y-1">
-                                    <div className={cn(
-                                        "flex items-center gap-2 rounded-xl sm:rounded-2xl bg-white/80 px-2.5 sm:px-3 py-2 sm:py-2.5 transition-all",
-                                        validationErrors.date ? "ring-2 ring-red-300" : "ring-1 ring-mayssa-brown/10"
-                                    )}>
-                                        <Calendar size={14} className="sm:w-4 sm:h-4 text-mayssa-caramel flex-shrink-0" />
-                                        <input
-                                            type="date"
-                                            min={minDate}
-                                            value={customer.date}
-                                            onChange={(e) => onCustomerChange({ ...customer, date: e.target.value })}
-                                            required
-                                            className="w-full bg-transparent text-xs sm:text-sm font-medium text-mayssa-brown focus:outline-none"
-                                        />
-                                    </div>
-                                    {validationErrors.date && (
-                                        <p className="text-[10px] text-red-500 px-1">{validationErrors.date}</p>
-                                    )}
-                                </div>
-                                <div className="space-y-1">
-                                    <div className={cn(
-                                        "flex items-center gap-2 rounded-xl sm:rounded-2xl bg-white/80 px-2.5 sm:px-3 py-2 sm:py-2.5 transition-all",
-                                        validationErrors.time ? "ring-2 ring-red-300" : "ring-1 ring-mayssa-brown/10"
-                                    )}>
-                                        <Clock size={14} className="sm:w-4 sm:h-4 text-mayssa-caramel flex-shrink-0" />
-                                        <select
-                                            value={customer.time}
-                                            onChange={(e) => onCustomerChange({ ...customer, time: e.target.value })}
-                                            required
-                                            className="w-full bg-transparent text-xs sm:text-sm font-medium text-mayssa-brown focus:outline-none cursor-pointer"
-                                        >
-                                            <option value="">Choisir l'heure</option>
-                                            {timeSlots.map((time) => (
-                                                <option key={time} value={time}>
-                                                    {time}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    {validationErrors.time && (
-                                        <p className="text-[10px] text-red-500 px-1">{validationErrors.time}</p>
-                                    )}
-                                </div>
-                            </div>
-                            <p className="text-[9px] sm:text-[10px] text-mayssa-brown/60">
-                                {customer.wantsDelivery
-                                    ? 'Livraison de 20h à 2h du matin • Créneaux toutes les 30 minutes'
-                                    : 'Retrait de 18h30 à 2h du matin • Créneaux toutes les 30 minutes'
-                                }
-                            </p>
-                        </div>
-
-                        {/* Détails commande + canaux */}
-                        <div className="space-y-3 sm:space-y-4">
-                            <div className="space-y-2 sm:space-y-3">
-                                <label className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-mayssa-brown/60">
-                                    Détails de commande
-                                </label>
-                                <textarea
-                                    value={note}
-                                    onChange={(e) => onNoteChange(e.target.value)}
-                                    placeholder="Informations complémentaires (allergies, occasion spéciale, instructions particulières...)"
-                                    className="w-full min-h-[80px] sm:min-h-[90px] resize-none rounded-2xl sm:rounded-3xl bg-white/80 p-3 sm:p-4 text-xs sm:text-sm text-mayssa-brown ring-2 ring-mayssa-brown/10 focus:bg-white focus:outline-none focus:ring-mayssa-caramel/50 transition-all"
-                                />
-                            </div>
-                            <div className="flex gap-2">
-                                <ChannelButton
-                                    active={channel === 'whatsapp'}
-                                    onClick={() => onChannelChange('whatsapp')}
-                                    icon={<MessageCircle size={16} className="sm:w-[18px] sm:h-[18px]" />}
-                                    label="WhatsApp"
-                                    activeClass="bg-emerald-500 text-white shadow-emerald-500/30"
-                                />
-                                <ChannelButton
-                                    active={channel === 'instagram'}
-                                    onClick={() => onChannelChange('instagram')}
-                                    icon={<Instagram size={16} className="sm:w-[18px] sm:h-[18px]" />}
-                                    label="Instagram"
-                                    activeClass="bg-gradient-to-br from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white shadow-pink-500/30"
-                                />
-                                <ChannelButton
-                                    active={channel === 'snapchat'}
-                                    onClick={() => onChannelChange('snapchat')}
-                                    icon={<Snapchat size={16} className="sm:w-[18px] sm:h-[18px]" />}
-                                    label="Snapchat"
-                                    activeClass="bg-[#fffc00] text-black shadow-yellow-400/30"
-                                />
-                            </div>
-                        </div>
+                    <div className="space-y-3">
+                        <label className="text-xs font-bold uppercase tracking-widest text-mayssa-brown/60 block">
+                            Instructions particulières
+                        </label>
+                        <textarea
+                            value={note}
+                            onChange={(e) => onNoteChange(e.target.value)}
+                            placeholder="Allergies, une occasion spéciale, ou une demande particulière pour votre livraison ?"
+                            className="w-full min-h-[120px] resize-none rounded-[2rem] bg-white p-5 text-sm md:text-base text-mayssa-brown ring-1 ring-mayssa-brown/10 focus:ring-2 focus:ring-mayssa-caramel transition-all premium-shadow"
+                        />
                     </div>
                 </div>
-            </div>
 
-            {/* Footer fixe avec total et bouton */}
-            <div className="flex-shrink-0 pt-3 sm:pt-4 border-t border-mayssa-brown/5 space-y-2 sm:space-y-3">
-                {customer.wantsDelivery && total > 0 && total < FREE_DELIVERY_THRESHOLD && isWithinDeliveryZone && (
-                    <p className="text-center text-xs sm:text-sm font-semibold text-mayssa-caramel bg-mayssa-caramel/10 rounded-xl py-2 px-3">
-                        Plus que {(FREE_DELIVERY_THRESHOLD - total).toFixed(2).replace('.', ',')} € pour la livraison offerte
-                    </p>
-                )}
-                <div className="rounded-2xl sm:rounded-[2rem] bg-mayssa-brown p-4 sm:p-6 text-mayssa-cream shadow-2xl space-y-2 sm:space-y-3">
-                    <div className="flex items-center justify-between">
-                        <span className="text-xs sm:text-sm font-medium opacity-80">Sous-total</span>
-                        <span className="text-sm sm:text-base font-semibold">{total.toFixed(2)} €</span>
-                    </div>
-                    {customer.wantsDelivery && (
-                        <div className="space-y-0.5 text-[10px] sm:text-xs">
-                            {customer.addressCoordinates ? (
-                                isWithinDeliveryZone ? (
-                                    <>
-                                        <div className="flex items-center justify-between">
-                                            <span className="opacity-80">Livraison Annecy & alentours (≤ 5 km)</span>
-                                            <span>
-                                                {deliveryFee === 0 ? 'Offerte (≥ 30 €)' : `+ ${DELIVERY_FEE},00 €`}
-                                            </span>
-                                        </div>
-                                        {distanceFromAnnecy && (
-                                            <p className="text-mayssa-cream/60 text-[9px]">
-                                                Distance estimée : {distanceFromAnnecy.toFixed(1)} km depuis la gare d'Annecy
-                                            </p>
-                                        )}
-                                    </>
-                                ) : (
-                                    <>
-                                        <div className="flex items-center justify-between">
-                                            <span className="opacity-80">Livraison hors zone (&gt; 5 km)</span>
-                                            <span className="text-mayssa-caramel font-semibold">À définir</span>
-                                        </div>
-                                        <p className="text-mayssa-cream/80">
-                                            Votre adresse est à {distanceFromAnnecy?.toFixed(1)} km. Le tarif de livraison sera confirmé avec vous sur WhatsApp.
-                                        </p>
-                                    </>
-                                )
-                            ) : (
-                                <p className="text-mayssa-cream/80">
-                                    Sélectionnez une adresse pour calculer les frais de livraison. Zone gratuite : 5 km autour de Rue de la Gare, 74000 Annecy (dès 30 €).
-                                </p>
-                            )}
-                        </div>
-                    )}
-                    <div className="flex items-center justify-between border-t border-mayssa-cream/20 pt-2 sm:pt-3">
-                        <span className="text-xs sm:text-sm font-medium opacity-90">Total estimé</span>
-                        <span className="text-xl sm:text-2xl font-display font-bold">
-                            {finalTotal.toFixed(2)} €
-                        </span>
-                    </div>
-
-                    {canSend && (
-                        <p className="text-[10px] sm:text-xs opacity-80 text-center">
-                            Vous allez envoyer {itemCount} article{itemCount > 1 ? 's' : ''}, {finalTotal.toFixed(2).replace('.', ',')} € · {customer.wantsDelivery ? 'Livraison' : 'Retrait'}
+                {/* Right Column: Info & Totals */}
+                <div className="space-y-8 lg:sticky lg:top-24 h-fit">
+                    <div className="space-y-6 bg-mayssa-soft/50 p-6 sm:p-8 rounded-[2.5rem] border border-mayssa-brown/5">
+                        <p className="text-xs font-bold uppercase tracking-widest text-mayssa-brown/60 border-b border-mayssa-brown/5 pb-3">
+                            Informations de livraison
                         </p>
-                    )}
 
-                    <button
-                        onClick={onSend}
-                        disabled={!canSend}
-                        className="mt-2 flex w-full items-center justify-center gap-2 sm:gap-3 rounded-xl sm:rounded-2xl bg-mayssa-caramel px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold text-white shadow-xl transition-all hover:scale-[1.02] hover:bg-mayssa-gold active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
-                    >
-                        {channel === 'whatsapp' ? <Send size={18} className="sm:w-5 sm:h-5" /> : <Copy size={18} className="sm:w-5 sm:h-5" />}
-                        <span>
-                            {hasItems
-                                ? isCustomerValid
-                                    ? 'Envoyer ma commande'
-                                    : 'Complétez vos informations'
-                                : 'Panier vide'}
-                        </span>
-                    </button>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <div className={cn(
+                                    "flex items-center gap-3 rounded-2xl bg-white px-4 py-3.5 transition-all shadow-sm",
+                                    validationErrors.firstName ? "ring-2 ring-red-300" : "ring-1 ring-mayssa-brown/5 focus-within:ring-mayssa-caramel"
+                                )}>
+                                    <User size={18} className="text-mayssa-caramel flex-shrink-0" />
+                                    <input
+                                        value={customer.firstName}
+                                        onChange={(e) => onCustomerChange({ ...customer, firstName: e.target.value })}
+                                        placeholder="Prénom *"
+                                        className="w-full bg-transparent text-sm font-semibold text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-1.5">
+                                <div className={cn(
+                                    "flex items-center gap-3 rounded-2xl bg-white px-4 py-3.5 transition-all shadow-sm",
+                                    validationErrors.lastName ? "ring-2 ring-red-300" : "ring-1 ring-mayssa-brown/5 focus-within:ring-mayssa-caramel"
+                                )}>
+                                    <User size={18} className="text-mayssa-caramel flex-shrink-0" />
+                                    <input
+                                        value={customer.lastName}
+                                        onChange={(e) => onCustomerChange({ ...customer, lastName: e.target.value })}
+                                        placeholder="Nom *"
+                                        className="w-full bg-transparent text-sm font-semibold text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className={cn(
+                            "flex items-center gap-3 rounded-2xl bg-white px-4 py-3.5 transition-all shadow-sm",
+                            validationErrors.phone ? "ring-2 ring-red-300" : "ring-1 ring-mayssa-brown/5 focus-within:ring-mayssa-caramel"
+                        )}>
+                            <Phone size={18} className="text-mayssa-caramel flex-shrink-0" />
+                            <input
+                                type="tel"
+                                value={customer.phone}
+                                onChange={(e) => {
+                                    let value = e.target.value.replace(/\s/g, '')
+                                    if (value.length > 2) value = value.match(/.{1,2}/g)?.join(' ') || value
+                                    onCustomerChange({ ...customer, phone: value })
+                                }}
+                                placeholder="Numéro de téléphone *"
+                                className="w-full bg-transparent text-sm font-semibold text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <button
+                                type="button"
+                                onClick={() => onCustomerChange({ ...customer, wantsDelivery: false })}
+                                className={cn(
+                                    "flex flex-col items-center gap-2 rounded-2xl py-4 transition-all shadow-sm",
+                                    !customer.wantsDelivery ? "bg-mayssa-brown text-white ring-2 ring-mayssa-caramel shadow-xl -translate-y-1" : "bg-white text-mayssa-brown border border-mayssa-brown/10 hover:bg-mayssa-rose/10"
+                                )}
+                            >
+                                <MapPin size={22} />
+                                <span className="text-xs font-bold uppercase tracking-wide">Retrait</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => onCustomerChange({ ...customer, wantsDelivery: true })}
+                                className={cn(
+                                    "flex flex-col items-center gap-2 rounded-2xl py-4 transition-all shadow-sm",
+                                    customer.wantsDelivery ? "bg-mayssa-caramel text-white ring-2 ring-mayssa-brown shadow-xl -translate-y-1" : "bg-white text-mayssa-brown border border-mayssa-brown/10 hover:bg-mayssa-rose/10"
+                                )}
+                            >
+                                <Truck size={22} />
+                                <span className="text-xs font-bold uppercase tracking-wide">Livraison</span>
+                            </button>
+                        </div>
+
+                        {customer.wantsDelivery && (
+                            <div className={cn(
+                                "rounded-2xl bg-white p-4 transition-all shadow-inner",
+                                validationErrors.address ? "ring-2 ring-red-300" : "ring-1 ring-mayssa-caramel/20"
+                            )}>
+                                <AddressAutocomplete
+                                    value={customer.address}
+                                    onChange={(address, coordinates) => onCustomerChange({ ...customer, address, addressCoordinates: coordinates })}
+                                    placeholder="Votre adresse complète..."
+                                />
+                                <p className="mt-3 text-[10px] text-mayssa-brown/50 leading-relaxed italic">
+                                    🚗 Livraison gratuite dès {FREE_DELIVERY_THRESHOLD}€ (rayon de {DELIVERY_RADIUS_KM}km).
+                                </p>
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className={cn(
+                                "flex items-center gap-2 rounded-2xl bg-white px-3 py-3 shadow-sm transition-all",
+                                validationErrors.date ? "ring-2 ring-red-300" : "ring-1 ring-mayssa-brown/5"
+                            )}>
+                                <Calendar size={16} className="text-mayssa-caramel" />
+                                <input
+                                    type="date"
+                                    min={minDate}
+                                    value={customer.date}
+                                    onChange={(e) => onCustomerChange({ ...customer, date: e.target.value })}
+                                    className="w-full bg-transparent text-xs font-bold text-mayssa-brown focus:outline-none"
+                                />
+                            </div>
+                            <div className={cn(
+                                "flex items-center gap-2 rounded-2xl bg-white px-3 py-3 shadow-sm transition-all",
+                                validationErrors.time ? "ring-2 ring-red-300" : "ring-1 ring-mayssa-brown/5"
+                            )}>
+                                <Clock size={16} className="text-mayssa-caramel" />
+                                <select
+                                    value={customer.time}
+                                    onChange={(e) => onCustomerChange({ ...customer, time: e.target.value })}
+                                    className="w-full bg-transparent text-xs font-bold text-mayssa-brown focus:outline-none cursor-pointer"
+                                >
+                                    <option value="">L'heure</option>
+                                    {timeSlots.map((t) => <option key={t} value={t}>{t}</option>)}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4 pt-6 border-t border-mayssa-brown/10">
+                            <div className="flex flex-col gap-3">
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-mayssa-brown/60">Sous-total</span>
+                                    <span className="font-bold text-mayssa-brown">{total.toFixed(2)} €</span>
+                                </div>
+                                {customer.wantsDelivery && (
+                                    <div className="flex items-center justify-between text-sm">
+                                        <span className="text-mayssa-brown/60">Livraison</span>
+                                        <span className="font-bold text-mayssa-brown">
+                                            {!customer.addressCoordinates ? 'À définir' : deliveryFee === 0 ? 'Gratuite' : `${DELIVERY_FEE.toFixed(2)} €`}
+                                        </span>
+                                    </div>
+                                )}
+                                <div className="flex items-center justify-between pt-3 border-t-2 border-dashed border-mayssa-brown/10">
+                                    <span className="text-lg font-bold text-mayssa-brown">Total estimé</span>
+                                    <span className="text-3xl font-display font-bold text-mayssa-caramel">{finalTotal.toFixed(2).replace('.', ',')} €</span>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3 pt-2">
+                                <p className="text-[10px] text-mayssa-brown/60 text-center font-medium">Choisissez un mode pour envoyer votre commande :</p>
+                                <div className="flex gap-2">
+                                    <ChannelButton active={channel === 'whatsapp'} onClick={() => onChannelChange('whatsapp')} icon={<MessageCircle size={18} />} label="WhatsApp" activeClass="bg-emerald-500 text-white" />
+                                    <ChannelButton active={channel === 'instagram'} onClick={() => onChannelChange('instagram')} icon={<Instagram size={18} />} label="Instagram" activeClass="bg-gradient-to-br from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white" />
+                                    <ChannelButton active={channel === 'snapchat'} onClick={() => onChannelChange('snapchat')} icon={<Snapchat size={18} />} label="Snapchat" activeClass="bg-[#fffc00] text-black" />
+                                </div>
+
+                                <button
+                                    onClick={onSend}
+                                    disabled={!canSend}
+                                    className="w-full flex items-center justify-center gap-3 rounded-[2rem] bg-mayssa-brown text-white py-5 text-base font-bold shadow-2xl transition-all hover:bg-mayssa-caramel hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:grayscale disabled:hover:scale-100 cursor-pointer"
+                                >
+                                    {channel === 'whatsapp' ? <Send size={24} /> : <Copy size={24} />}
+                                    <span>{hasItems ? (isCustomerValid ? 'Commander maintenant' : 'Vérifiez le formulaire') : 'Votre panier est vide'}</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-
-                <p className="text-center text-[9px] sm:text-[10px] text-mayssa-brown/40 italic">
-                    * Livraison {DELIVERY_FEE} € dans un rayon de {DELIVERY_RADIUS_KM} km autour de Rue de la Gare, 74000 Annecy (offerte dès {FREE_DELIVERY_THRESHOLD} €). Au‑delà, tarif à fixer sur WhatsApp.
-                </p>
             </div>
-        </aside>
+        </div>
     )
 }
 

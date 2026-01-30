@@ -65,7 +65,7 @@ export function Navbar() {
                                 href="https://www.instagram.com/maison.mayssa74/"
                                 target="_blank"
                                 rel="noreferrer"
-                                className="p-1.5 sm:p-2 text-mayssa-brown hover:text-mayssa-caramel transition-colors"
+                                className="p-1.5 sm:p-2 text-mayssa-brown hover:text-mayssa-caramel transition-colors rounded-lg hover:bg-mayssa-soft/50 active:scale-95 cursor-pointer"
                             >
                                 <Instagram size={18} className="sm:w-5 sm:h-5" />
                             </a>
@@ -73,7 +73,7 @@ export function Navbar() {
                                 href={`https://wa.me/${PHONE_E164}`}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="hidden sm:flex items-center gap-2 rounded-full bg-white/80 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-mayssa-brown shadow-sm ring-1 ring-mayssa-brown/5 hover:bg-white hover:text-mayssa-caramel transition-all"
+                                className="hidden sm:flex items-center gap-2 rounded-full bg-white/80 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-mayssa-brown shadow-sm ring-1 ring-mayssa-brown/5 hover:bg-white hover:text-mayssa-caramel transition-all active:scale-95 cursor-pointer"
                             >
                                 <Phone size={14} className="sm:w-4 sm:h-4" />
                                 <span className="hidden md:inline">Commander</span>
@@ -81,7 +81,7 @@ export function Navbar() {
                             {/* Mobile Menu Button */}
                             <button
                                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                                className="lg:hidden p-2 text-mayssa-brown hover:text-mayssa-caramel transition-colors"
+                                className="lg:hidden p-2 text-mayssa-brown hover:text-mayssa-caramel transition-colors rounded-lg hover:bg-mayssa-soft/50 active:scale-95 cursor-pointer"
                                 aria-label="Menu"
                             >
                                 {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
@@ -101,7 +101,7 @@ export function Navbar() {
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             onClick={() => setIsMobileMenuOpen(false)}
-                            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 lg:hidden"
+                            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 lg:hidden cursor-pointer"
                         />
                         {/* Menu Panel */}
                         <motion.div
@@ -122,7 +122,7 @@ export function Navbar() {
                                     </div>
                                     <button
                                         onClick={() => setIsMobileMenuOpen(false)}
-                                        className="p-2 text-mayssa-brown hover:text-mayssa-caramel transition-colors"
+                                        className="p-2 text-mayssa-brown hover:text-mayssa-caramel transition-colors rounded-xl hover:bg-mayssa-soft/50 active:scale-95 cursor-pointer"
                                         aria-label="Fermer"
                                     >
                                         <X size={24} />
@@ -142,7 +142,7 @@ export function Navbar() {
                                         href={`https://wa.me/${PHONE_E164}`}
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="flex items-center justify-center gap-3 rounded-2xl bg-mayssa-brown px-6 py-4 text-mayssa-cream shadow-lg transition-all hover:bg-mayssa-caramel w-full"
+                                        className="flex items-center justify-center gap-3 rounded-2xl bg-mayssa-brown px-6 py-4 text-mayssa-cream shadow-lg transition-all hover:bg-mayssa-caramel hover:-translate-y-0.5 active:scale-[0.98] w-full cursor-pointer"
                                     >
                                         <Phone size={20} />
                                         <span className="font-bold">Appeler maintenant</span>
@@ -154,7 +154,7 @@ export function Navbar() {
                                         href="https://www.instagram.com/maison.mayssa74/"
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white shadow-lg transition-all hover:scale-110"
+                                        className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white shadow-lg transition-all hover:scale-110 active:scale-95 cursor-pointer"
                                     >
                                         <Instagram size={20} />
                                     </a>
@@ -162,7 +162,7 @@ export function Navbar() {
                                         href="https://www.snapchat.com/add/mayssasucree74"
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#fffc00] text-black shadow-lg transition-all hover:scale-110"
+                                        className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#fffc00] text-black shadow-lg transition-all hover:scale-110 active:scale-95 cursor-pointer"
                                     >
                                         <Phone size={20} />
                                     </a>
@@ -228,7 +228,7 @@ function MobileNavLink({ href, children, onClick }: { href: string; children: Re
         <a
             href={href}
             onClick={handleClick}
-            className="block rounded-2xl px-4 py-3 text-base font-bold text-mayssa-brown/80 hover:text-mayssa-brown hover:bg-mayssa-soft/50 transition-all uppercase tracking-widest cursor-pointer"
+            className="block rounded-2xl px-4 py-3 text-base font-bold text-mayssa-brown/80 hover:text-mayssa-brown hover:bg-mayssa-soft/50 active:bg-mayssa-soft active:scale-[0.99] transition-all uppercase tracking-widest cursor-pointer"
         >
             {children}
         </a>

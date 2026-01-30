@@ -78,7 +78,7 @@ L'excellence de la pâtisserie artisanale à Annecy.
                             href={`https://wa.me/${PHONE_E164}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="group flex items-center justify-center gap-3 rounded-2xl bg-mayssa-brown px-5 sm:px-6 py-3 sm:py-4 text-sm sm:text-base text-mayssa-cream shadow-xl transition-all hover:-translate-y-1 hover:bg-mayssa-caramel"
+                            className="group flex items-center justify-center gap-3 rounded-2xl bg-mayssa-brown px-5 sm:px-6 py-3 sm:py-4 text-sm sm:text-base text-mayssa-cream shadow-xl transition-all hover:-translate-y-1 hover:bg-mayssa-caramel active:scale-[0.98] cursor-pointer"
                         >
                             <Phone size={18} className="sm:w-5 sm:h-5 transition-transform group-hover:rotate-12" />
                             <span className="font-bold">Appeler maintenant</span>
@@ -131,7 +131,7 @@ function SocialLink({ href, icon, label, className }: { href: string; icon: Reac
             target="_blank"
             rel="noreferrer"
             className={cn(
-                "flex items-center justify-center gap-1.5 sm:gap-2 rounded-2xl p-2.5 sm:p-3 shadow-lg transition-transform hover:-translate-y-1",
+                "flex items-center justify-center gap-1.5 sm:gap-2 rounded-2xl p-2.5 sm:p-3 shadow-lg transition-transform hover:-translate-y-1 active:scale-95 cursor-pointer",
                 className
             )}
         >

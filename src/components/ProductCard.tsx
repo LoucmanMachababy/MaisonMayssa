@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion'
 import { Plus, ShoppingCart } from 'lucide-react'
 import type { Product } from '../types'
+import { use3DTilt } from '../hooks/use3DTilt'
+import { ProductBadges } from './ProductBadges'
 
 interface ProductCardProps {
     product: Product
@@ -8,15 +10,35 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, onAdd }: ProductCardProps) {
+    const { ref, style, handlers } = use3DTilt(10)
+
     return (
         <motion.article
             layout
+            role="button"
+            tabIndex={0}
+            onClick={() => onAdd(product)}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onAdd(product)
+                }
+            }}
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="group relative flex flex-col gap-3 sm:gap-4 overflow-hidden rounded-2xl sm:rounded-[2rem] bg-white/60 p-3 sm:p-4 shadow-xl ring-1 ring-white/40 transition-all hover:-translate-y-1 sm:hover:-translate-y-2 hover:bg-white/90 hover:shadow-2xl hover:shadow-mayssa-brown/10"
+            className="group relative flex flex-col gap-3 sm:gap-4 overflow-hidden rounded-2xl sm:rounded-[2rem] bg-white/60 p-3 sm:p-4 shadow-xl ring-1 ring-white/40 cursor-pointer hover:bg-white/90 hover:shadow-2xl hover:shadow-mayssa-brown/10 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-mayssa-caramel focus-visible:ring-offset-2"
         >
+            <div
+                ref={ref}
+                style={style}
+                {...handlers}
+                className="flex flex-col gap-3 sm:gap-4 h-full"
+            >
             <div className="relative aspect-[4/3] overflow-hidden rounded-xl sm:rounded-2xl shadow-inner bg-mayssa-cream/50">
+                {product.badges?.length ? (
+                  <ProductBadges badges={product.badges} variant="card" />
+                ) : null}
                 {product.image ? (
                     <img
                         src={product.image}
@@ -54,12 +76,16 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
 
                     <button
                         type="button"
-                        onClick={() => onAdd(product)}
-                        className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl sm:rounded-2xl bg-mayssa-brown text-mayssa-cream shadow-lg transition-all hover:scale-110 hover:bg-mayssa-caramel active:scale-95 flex-shrink-0"
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            onAdd(product)
+                        }}
+                        className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl sm:rounded-2xl bg-mayssa-brown text-mayssa-cream shadow-lg transition-all hover:scale-110 hover:bg-mayssa-caramel active:scale-95 flex-shrink-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-mayssa-cream focus-visible:ring-offset-2"
                     >
                         <Plus size={20} className="sm:w-6 sm:h-6" />
                     </button>
                 </div>
+            </div>
             </div>
         </motion.article>
     )

@@ -108,4 +108,27 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  /* Scrollbar visible pour les catégories desktop (glisser horizontalement) */
+  .scrollbar-categories {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(91, 58, 41, 0.35) transparent;
+  }
+
+  .scrollbar-categories::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .scrollbar-categories::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-categories::-webkit-scrollbar-thumb {
+    background: rgba(91, 58, 41, 0.35);
+    border-radius: 10px;
+  }
+
+  .scrollbar-categories::-webkit-scrollbar-thumb:hover {
+    background: rgba(91, 58, 41, 0.5);
+  }
 }

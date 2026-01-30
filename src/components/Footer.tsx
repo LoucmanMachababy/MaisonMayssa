@@ -50,7 +50,7 @@ export function Footer() {
                             </li>
                             <li className="flex items-start gap-2 sm:gap-3 text-xs sm:text-sm text-mayssa-brown/60">
                                 <Phone size={16} className="sm:w-[18px] sm:h-[18px] shrink-0 text-mayssa-caramel mt-0.5" />
-                                <a href="tel:+33619871005" className="hover:text-mayssa-caramel transition-colors">06 19 87 10 05</a>
+                                <a href="tel:+33619871005" className="hover:text-mayssa-caramel transition-colors active:opacity-80 cursor-pointer">06 19 87 10 05</a>
                             </li>
                         </ul>
                     </div>
@@ -88,7 +88,7 @@ function SocialIcon({ href, icon }: { href: string; icon: React.ReactNode }) {
             href={href}
             target="_blank"
             rel="noreferrer"
-            className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-mayssa-brown text-mayssa-cream shadow-sm transition-all hover:-translate-y-1 hover:bg-mayssa-caramel"
+            className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-mayssa-brown text-mayssa-cream shadow-sm transition-all hover:-translate-y-1 hover:bg-mayssa-caramel active:scale-95 cursor-pointer"
         >
             {icon}
         </a>
