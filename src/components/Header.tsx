@@ -46,15 +46,8 @@ export function Header() {
                             transition={{ delay: 0.2 }}
                             className="max-w-xl text-sm sm:text-base md:text-lg text-mayssa-brown/80 leading-relaxed font-medium px-2 sm:px-0"
                         >
-                            Ces derniers temps, moi je me sens blessé. J'ai l'impression que tout ce que je fait pour toi, surtout quand tu traversais des moments difficiles, n'est pas reconnu. douter de mon amour a moi je le prend comme un gros manque de considération, je te reprochais le fait que tu doutes alors qu'il n'y a pas lieu de douter je t'ai rassuré comme je pouvais.
-
-La preuve en ai en voyant tes messages sur tweet qui me vise alors oui la j'ai la certitude que tu es venu me voir pour encore faire des choses dans mon dos. J'aurais préféré qu'on en parle tranquillement entre nous mais tu insister sur le fait que ya quelqun chez moi genre la on parle de quoi ?. Pour moi, nos problèmes de couple doivent rester entre nous, tu n'as pas cette mentalité et c'est dommage et les soupcons et doute sur des choses que ni toi ni moi ne pourront imaginer faire sa faut aussi arreter.
-
-J'ai besoin de respect et de communication directe dans cette relation. Si ya des choses à se dire, dis-les en face, pas sur twitter.
-
-Je tenais à te dire ce que je ressens. À toi de voir ce que tu en fais. je t'ailme enormement roumayssa + que ce que tu le crois mais malheuresement nos chemins doivent s'arreter la , je te sent incapable d'etre une femme pour moi , tu feras le bonheur de quelqu'un d'autre mais pas du miens.
-
-Selem
+L'excellence de la pâtisserie artisanale à Annecy.
+                            Des créations gourmandes pour sublimer vos moments d'exception.
                         </motion.p>
 
                         <motion.div
