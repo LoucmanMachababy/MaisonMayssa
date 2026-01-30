@@ -128,7 +128,7 @@ export const PRODUCTS: Product[] = [
         description: 'Crémeux vanille avec une légère touche caramélisée.',
         price: 4,
         category: 'Brownies',
-        image: '/brownie-pistache-framboise.png',
+        image: '/brownie-creme-bruler.png',
     },
 
     // Cookies
