@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { motion, useMotionValue, useTransform } from 'framer-motion'
 import type { PanInfo } from 'framer-motion'
-import { Plus, Check, ShoppingBag } from 'lucide-react'
+import { Plus, Check, ShoppingBag, Heart } from 'lucide-react'
 import type { Product } from '../../types'
 import { hapticFeedback } from '../../lib/haptics'
 import { ProductBadges } from '../ProductBadges'
@@ -10,9 +10,11 @@ interface SwipeableProductCardProps {
   product: Product
   onAdd: (product: Product) => void
   onTap?: (product: Product) => void
+  isFavorite?: boolean
+  onToggleFavorite?: (product: Product) => void
 }
 
-export function SwipeableProductCard({ product, onAdd, onTap }: SwipeableProductCardProps) {
+export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false, onToggleFavorite }: SwipeableProductCardProps) {
   const [isAdded, setIsAdded] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const x = useMotionValue(0)
@@ -127,20 +129,41 @@ export function SwipeableProductCard({ product, onAdd, onTap }: SwipeableProduct
                 {product.price.toFixed(2).replace('.', ',')} €
               </span>
 
-              {/* Quick add button */}
-              <motion.button
-                whileTap={{ scale: 0.9 }}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  hapticFeedback('medium')
-                  setIsAdded(true)
-                  onAdd(product)
-                  setTimeout(() => setIsAdded(false), 1500)
-                }}
-                className="flex h-8 w-8 items-center justify-center rounded-xl bg-mayssa-brown text-mayssa-cream"
-              >
-                {isAdded ? <Check size={16} /> : <Plus size={16} />}
-              </motion.button>
+              <div className="flex items-center gap-2">
+                {/* Favorite button */}
+                {onToggleFavorite && (
+                  <motion.button
+                    whileTap={{ scale: 0.85 }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      hapticFeedback('medium')
+                      onToggleFavorite(product)
+                    }}
+                    className="flex h-8 w-8 items-center justify-center rounded-xl bg-white border border-mayssa-brown/10 shadow-sm"
+                    aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+                  >
+                    <Heart
+                      size={16}
+                      className={`transition-colors ${isFavorite ? 'text-red-500 fill-red-500' : 'text-mayssa-brown/40'}`}
+                    />
+                  </motion.button>
+                )}
+
+                {/* Quick add button */}
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    hapticFeedback('medium')
+                    setIsAdded(true)
+                    onAdd(product)
+                    setTimeout(() => setIsAdded(false), 1500)
+                  }}
+                  className="flex h-8 w-8 items-center justify-center rounded-xl bg-mayssa-brown text-mayssa-cream"
+                >
+                  {isAdded ? <Check size={16} /> : <Plus size={16} />}
+                </motion.button>
+              </div>
             </div>
           </div>
         </div>

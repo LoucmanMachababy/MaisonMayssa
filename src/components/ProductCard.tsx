@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Plus, ShoppingCart } from 'lucide-react'
+import { Plus, ShoppingCart, Heart } from 'lucide-react'
 import type { Product } from '../types'
 import { use3DTilt } from '../hooks/use3DTilt'
 import { ProductBadges } from './ProductBadges'
@@ -7,9 +7,11 @@ import { ProductBadges } from './ProductBadges'
 interface ProductCardProps {
     product: Product
     onAdd: (product: Product) => void
+    isFavorite?: boolean
+    onToggleFavorite?: (product: Product) => void
 }
 
-export function ProductCard({ product, onAdd }: ProductCardProps) {
+export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavorite }: ProductCardProps) {
     const { ref, style, handlers } = use3DTilt(10)
 
     return (
@@ -29,6 +31,25 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
             viewport={{ once: true }}
             className="group relative flex flex-col gap-3 sm:gap-4 overflow-hidden rounded-2xl sm:rounded-[2rem] bg-white/60 p-3 sm:p-4 shadow-xl ring-1 ring-white/40 cursor-pointer hover:bg-white/90 hover:shadow-2xl hover:shadow-mayssa-brown/10 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-mayssa-caramel focus-visible:ring-offset-2"
         >
+            {/* Favorite button */}
+            {onToggleFavorite && (
+                <motion.button
+                    type="button"
+                    onClick={(e) => {
+                        e.stopPropagation()
+                        onToggleFavorite(product)
+                    }}
+                    whileTap={{ scale: 0.85 }}
+                    className="absolute top-4 right-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 shadow-md transition-all hover:scale-110 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                    aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+                >
+                    <Heart
+                        size={18}
+                        className={`transition-colors ${isFavorite ? 'text-red-500 fill-red-500' : 'text-mayssa-brown/40 hover:text-red-400'}`}
+                    />
+                </motion.button>
+            )}
+
             <div
                 ref={ref}
                 style={style}

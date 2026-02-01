@@ -11,6 +11,7 @@ import { ToastContainer, type Toast } from './components/Toast'
 import { PromoBanner } from './components/PromoBanner'
 import { WhatsAppFloatingButton } from './components/WhatsAppFloatingButton'
 import { Confetti, useConfetti } from './components/effects'
+import { FavorisSection } from './components/FavorisSection'
 
 const VisualBackground = lazy(() => import('./components/effects/VisualBackground').then(m => ({ default: m.VisualBackground })))
 
@@ -689,6 +690,8 @@ function App() {
                         key={product.id}
                         product={product}
                         onAdd={handleAddToCart}
+                        isFavorite={isFavorite(product.id)}
+                        onToggleFavorite={toggleFavorite}
                       />
                     ))}
                   </AnimatePresence>
@@ -702,12 +705,22 @@ function App() {
                       product={product}
                       onAdd={handleAddToCart}
                       onTap={setSelectedProductForDetail}
+                      isFavorite={isFavorite(product.id)}
+                      onToggleFavorite={toggleFavorite}
                     />
                   ))}
                 </div>
               </>
             )}
           </motion.section>
+
+          {/* Favoris Section */}
+          <FavorisSection
+            favorites={favorites}
+            onRemove={removeFavorite}
+            onAddToCart={handleAddToCart}
+            onClear={clearFavorites}
+          />
 
           {/* Cart Section - Centered at the bottom for Desktop */}
           <motion.section

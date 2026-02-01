@@ -1,8 +1,8 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence, useMotionValue } from 'framer-motion'
 import { X, Plus, Minus, ShoppingBag, ZoomIn, ZoomOut, Heart } from 'lucide-react'
 import { hapticFeedback } from '../../lib/haptics'
-import type { Product } from '../../types'
+import type { Product, ProductSize } from '../../types'
 import { ProductBadges } from '../ProductBadges'
 
 interface ProductDetailModalProps {
@@ -16,19 +16,45 @@ interface ProductDetailModalProps {
 export function ProductDetailModal({ product, onClose, onAdd, isFavorite, onToggleFavorite }: ProductDetailModalProps) {
   const [quantity, setQuantity] = useState(1)
   const [isZoomed, setIsZoomed] = useState(false)
+  const [selectedSize, setSelectedSize] = useState<ProductSize | null>(null)
   const isLiked = product ? (isFavorite ? isFavorite(product.id) : false) : false
   const imageRef = useRef<HTMLDivElement>(null)
+
+  // Reset selected size when product changes
+  useEffect(() => {
+    if (product?.sizes && product.sizes.length > 0) {
+      setSelectedSize(product.sizes[0])
+    } else {
+      setSelectedSize(null)
+    }
+    setQuantity(1)
+  }, [product])
 
   // Pinch-to-zoom
   const scale = useMotionValue(1)
   const x = useMotionValue(0)
   const y = useMotionValue(0)
 
+  // Get the current price based on selection
+  const currentPrice = selectedSize ? selectedSize.price : product?.price || 0
+
   const handleAdd = () => {
     if (!product) return
     hapticFeedback('success')
+
+    // If product has sizes and one is selected, create a modified product
+    let productToAdd = product
+    if (selectedSize && product.sizes && product.sizes.length > 0) {
+      productToAdd = {
+        ...product,
+        id: `${product.id}-${selectedSize.ml}`,
+        name: `${product.name} (${selectedSize.label})`,
+        price: selectedSize.price,
+      }
+    }
+
     for (let i = 0; i < quantity; i++) {
-      onAdd(product)
+      onAdd(productToAdd)
     }
     setQuantity(1)
     onClose()
@@ -167,7 +193,7 @@ export function ProductDetailModal({ product, onClose, onAdd, isFavorite, onTogg
                 {product.name}
               </h2>
               <span className="text-2xl font-bold text-mayssa-caramel whitespace-nowrap">
-                {product.price.toFixed(2).replace('.', ',')} €
+                {currentPrice.toFixed(2).replace('.', ',')} €
               </span>
             </div>
 
@@ -179,16 +205,28 @@ export function ProductDetailModal({ product, onClose, onAdd, isFavorite, onTogg
             {/* Sizes if available */}
             {product.sizes && product.sizes.length > 0 && (
               <div className="mb-4">
-                <p className="text-xs font-bold text-mayssa-brown/60 mb-2">Tailles disponibles</p>
+                <p className="text-xs font-bold text-mayssa-brown/60 mb-2">Choisir une taille</p>
                 <div className="flex gap-2 flex-wrap">
-                  {product.sizes.map((size) => (
-                    <span
-                      key={size.ml}
-                      className="px-3 py-1.5 rounded-lg bg-mayssa-cream text-xs font-semibold text-mayssa-brown"
-                    >
-                      {size.label} - {size.price.toFixed(2).replace('.', ',')}€
-                    </span>
-                  ))}
+                  {product.sizes.map((size) => {
+                    const isSelected = selectedSize?.ml === size.ml
+                    return (
+                      <motion.button
+                        key={size.ml}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => {
+                          setSelectedSize(size)
+                          hapticFeedback('light')
+                        }}
+                        className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-mayssa-brown text-mayssa-cream shadow-lg'
+                            : 'bg-mayssa-cream text-mayssa-brown hover:bg-mayssa-brown/10'
+                        }`}
+                      >
+                        {size.label} - {size.price.toFixed(2).replace('.', ',')}€
+                      </motion.button>
+                    )
+                  })}
                 </div>
               </div>
             )}
@@ -230,7 +268,7 @@ export function ProductDetailModal({ product, onClose, onAdd, isFavorite, onTogg
                 className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl bg-mayssa-brown text-mayssa-cream font-bold shadow-xl cursor-pointer"
               >
                 <ShoppingBag size={18} />
-                <span>Ajouter • {(product.price * quantity).toFixed(2).replace('.', ',')} €</span>
+                <span>Ajouter • {(currentPrice * quantity).toFixed(2).replace('.', ',')} €</span>
               </motion.button>
             </div>
           </motion.div>
