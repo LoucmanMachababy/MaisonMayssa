@@ -33,7 +33,11 @@ export function ShareButton({ product, variant = 'icon', className = '' }: Share
   const [isOpen, setIsOpen] = useState(false)
   const [copied, setCopied] = useState(false)
 
-  const shareUrl = typeof window !== 'undefined' ? window.location.href : ''
+  // Generate a product-specific URL with the product ID
+  const baseUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}${window.location.pathname}`
+    : ''
+  const shareUrl = `${baseUrl}?produit=${encodeURIComponent(product.id)}`
   const shareText = `Découvre ${product.name} chez Maison Mayssa - ${product.price.toFixed(2).replace('.', ',')}€`
 
   const shareLinks = [

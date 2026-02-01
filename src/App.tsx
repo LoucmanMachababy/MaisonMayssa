@@ -30,8 +30,8 @@ import {
   StickyCategoryTabs,
   VoiceSearch,
   useVoiceSearch,
-  OnboardingTour,
 } from './components/mobile'
+const OnboardingTour = lazy(() => import('./components/mobile/OnboardingTour').then(m => ({ default: m.OnboardingTour })))
 import { hapticFeedback } from './lib/haptics'
 
 const SizeSelectorModal = lazy(() => import('./components/SizeSelectorModal').then(m => ({ default: m.SizeSelectorModal })))
@@ -117,6 +117,23 @@ function App() {
     checkMobile()
     window.addEventListener('resize', checkMobile)
     return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  // Open product from URL query param (for shared links)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const productId = params.get('produit')
+    if (productId) {
+      const product = PRODUCTS.find(p => p.id === productId)
+      if (product) {
+        // Small delay to ensure the page is loaded
+        setTimeout(() => {
+          setSelectedProductForDetail(product)
+          // Clean the URL without reload
+          window.history.replaceState({}, '', window.location.pathname)
+        }, 300)
+      }
+    }
   }, [])
 
   // Remove initial loader once app is mounted
@@ -937,8 +954,10 @@ function App() {
         onToggleFavorite={toggleFavorite}
       />
 
-      {/* Onboarding Tour - Mobile */}
-      <OnboardingTour />
+      {/* Onboarding Tour - Mobile (lazy, s'affiche 1.5s après le mount) */}
+      <Suspense fallback={null}>
+        <OnboardingTour />
+      </Suspense>
     </div>
   )
 }

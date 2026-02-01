@@ -65,7 +65,7 @@ export function OnboardingTour() {
       const timer = setTimeout(() => {
         setIsVisible(true)
         hapticFeedback('medium')
-      }, 1500)
+      }, 600)
       return () => clearTimeout(timer)
     }
   }, [])
