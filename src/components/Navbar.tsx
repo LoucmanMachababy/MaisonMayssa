@@ -1,10 +1,14 @@
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion'
-import { Phone, Instagram, Menu, X } from 'lucide-react'
+import { Phone, Instagram, Menu, X, Heart } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useEffect, useState } from 'react'
 import { PHONE_E164 } from '../constants'
 
-export function Navbar() {
+interface NavbarProps {
+    favoritesCount?: number
+}
+
+export function Navbar({ favoritesCount = 0 }: NavbarProps) {
     const [isScrolled, setIsScrolled] = useState(false)
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
     const { scrollY } = useScroll()
@@ -54,6 +58,9 @@ export function Navbar() {
                         {/* Desktop Navigation */}
                         <div className="hidden lg:flex items-center gap-8">
                             <NavLink href="#la-carte">La Carte</NavLink>
+                            <NavLinkWithBadge href="#favoris" count={favoritesCount} icon={<Heart size={14} className={favoritesCount > 0 ? 'fill-red-500 text-red-500' : ''} />}>
+                                Favoris
+                            </NavLinkWithBadge>
                             <NavLink href="#commande">Voir la commande</NavLink>
                             <NavLink href="#temoignages">Témoignages</NavLink>
                             <NavLink href="#notre-histoire">Notre Histoire</NavLink>
@@ -131,6 +138,9 @@ export function Navbar() {
 
                                 <nav className="space-y-2">
                                     <MobileNavLink href="#la-carte" onClick={() => setIsMobileMenuOpen(false)}>La Carte</MobileNavLink>
+                                    <MobileNavLinkWithBadge href="#favoris" count={favoritesCount} onClick={() => setIsMobileMenuOpen(false)}>
+                                        Favoris
+                                    </MobileNavLinkWithBadge>
                                     <MobileNavLink href="#commande" onClick={() => setIsMobileMenuOpen(false)}>Voir la commande</MobileNavLink>
                                     <MobileNavLink href="#temoignages" onClick={() => setIsMobileMenuOpen(false)}>Témoignages</MobileNavLink>
                                     <MobileNavLink href="#notre-histoire" onClick={() => setIsMobileMenuOpen(false)}>Notre Histoire</MobileNavLink>
@@ -223,6 +233,79 @@ function MobileNavLink({ href, children, onClick }: { href: string; children: Re
             className="block rounded-2xl px-4 py-3 text-base font-bold text-mayssa-brown/80 hover:text-mayssa-brown hover:bg-mayssa-soft/50 active:bg-mayssa-soft active:scale-[0.99] transition-all uppercase tracking-widest cursor-pointer"
         >
             {children}
+        </a>
+    )
+}
+
+function NavLinkWithBadge({ href, children, count, icon }: { href: string; children: React.ReactNode; count: number; icon?: React.ReactNode }) {
+    const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+        e.preventDefault()
+        const targetId = href.replace('#', '')
+        const element = document.getElementById(targetId)
+
+        if (element) {
+            const navHeight = 80
+            const elementPosition = element.getBoundingClientRect().top + window.pageYOffset
+            const offsetPosition = elementPosition - navHeight
+
+            window.scrollTo({
+                top: offsetPosition,
+                behavior: 'smooth'
+            })
+        }
+    }
+
+    return (
+        <a
+            href={href}
+            onClick={handleClick}
+            className="relative flex items-center gap-1.5 text-sm font-bold text-mayssa-brown/70 hover:text-mayssa-brown transition-all uppercase tracking-widest hover:scale-105 active:scale-95 cursor-pointer"
+        >
+            {icon}
+            {children}
+            {count > 0 && (
+                <span className="absolute -top-2 -right-3 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-lg">
+                    {count > 9 ? '9+' : count}
+                </span>
+            )}
+        </a>
+    )
+}
+
+function MobileNavLinkWithBadge({ href, children, count, onClick }: { href: string; children: React.ReactNode; count: number; onClick: () => void }) {
+    const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+        e.preventDefault()
+        const targetId = href.replace('#', '')
+        const element = document.getElementById(targetId)
+
+        if (element) {
+            const navHeight = 80
+            const elementPosition = element.getBoundingClientRect().top + window.pageYOffset
+            const offsetPosition = elementPosition - navHeight
+
+            window.scrollTo({
+                top: offsetPosition,
+                behavior: 'smooth'
+            })
+        }
+        onClick()
+    }
+
+    return (
+        <a
+            href={href}
+            onClick={handleClick}
+            className="flex items-center justify-between rounded-2xl px-4 py-3 text-base font-bold text-mayssa-brown/80 hover:text-mayssa-brown hover:bg-mayssa-soft/50 active:bg-mayssa-soft active:scale-[0.99] transition-all uppercase tracking-widest cursor-pointer"
+        >
+            <span className="flex items-center gap-2">
+                <Heart size={18} className={count > 0 ? 'fill-red-500 text-red-500' : ''} />
+                {children}
+            </span>
+            {count > 0 && (
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
+                    {count > 9 ? '9+' : count}
+                </span>
+            )}
         </a>
     )
 }

@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ShoppingBag, ChevronUp } from 'lucide-react'
 import { hapticFeedback } from '../../lib/haptics'
@@ -11,6 +12,26 @@ interface FloatingCartPreviewProps {
 
 export function FloatingCartPreview({ items, total, onExpand }: FloatingCartPreviewProps) {
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0)
+  const [showAddedPreview, setShowAddedPreview] = useState(false)
+  const [lastAddedName, setLastAddedName] = useState('')
+  const prevItemCountRef = useRef(itemCount)
+
+  // Show "ajouté" preview only when a new item is added
+  useEffect(() => {
+    if (itemCount > prevItemCountRef.current && items.length > 0) {
+      const lastItem = items[items.length - 1]
+      setLastAddedName(lastItem.product.name)
+      setShowAddedPreview(true)
+
+      // Hide after 2.5 seconds
+      const timer = setTimeout(() => {
+        setShowAddedPreview(false)
+      }, 2500)
+
+      return () => clearTimeout(timer)
+    }
+    prevItemCountRef.current = itemCount
+  }, [itemCount, items])
 
   const handleClick = () => {
     hapticFeedback('medium')
@@ -65,21 +86,24 @@ export function FloatingCartPreview({ items, total, onExpand }: FloatingCartPrev
             </div>
           </motion.button>
 
-          {/* Last added item preview */}
-          {items.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="absolute -top-12 left-0 right-0 flex justify-center"
-            >
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/90 backdrop-blur-sm shadow-lg text-xs text-mayssa-brown">
-                <span className="font-semibold truncate max-w-[150px]">
-                  {items[items.length - 1]?.product.name}
-                </span>
-                <span className="text-mayssa-caramel">ajouté ✓</span>
-              </div>
-            </motion.div>
-          )}
+          {/* Last added item preview - only shows temporarily */}
+          <AnimatePresence>
+            {showAddedPreview && lastAddedName && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="absolute -top-12 left-0 right-0 flex justify-center"
+              >
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/90 backdrop-blur-sm shadow-lg text-xs text-mayssa-brown">
+                  <span className="font-semibold truncate max-w-[150px]">
+                    {lastAddedName}
+                  </span>
+                  <span className="text-mayssa-caramel">ajouté ✓</span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       )}
     </AnimatePresence>

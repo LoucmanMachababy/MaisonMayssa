@@ -12,6 +12,7 @@ import { PromoBanner } from './components/PromoBanner'
 import { WhatsAppFloatingButton } from './components/WhatsAppFloatingButton'
 import { Confetti, useConfetti } from './components/effects'
 import { FavorisSection } from './components/FavorisSection'
+import { OfflineIndicator } from './components/OfflineIndicator'
 
 const VisualBackground = lazy(() => import('./components/effects/VisualBackground').then(m => ({ default: m.VisualBackground })))
 
@@ -555,13 +556,16 @@ function App() {
 
   return (
     <div className="min-h-screen bg-mayssa-soft selection:bg-mayssa-caramel/30 font-sans overflow-x-hidden">
+      {/* Offline indicator for PWA */}
+      <OfflineIndicator />
+
       {/* Visual Effects (fond chargé en lazy pour accélérer le premier affichage) */}
       <Suspense fallback={null}>
         <VisualBackground />
       </Suspense>
       <Confetti trigger={confettiTrigger} originX={confettiOrigin.x} originY={confettiOrigin.y} />
 
-      <Navbar />
+      <Navbar favoritesCount={favoritesCount} />
 
       {/* Background Decorative Elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">

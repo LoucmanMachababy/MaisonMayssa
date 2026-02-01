@@ -3,6 +3,8 @@ import { Plus, ShoppingCart, Heart } from 'lucide-react'
 import type { Product } from '../types'
 import { use3DTilt } from '../hooks/use3DTilt'
 import { ProductBadges } from './ProductBadges'
+import { ShareButton } from './ShareButton'
+import { BlurImage } from './BlurImage'
 
 interface ProductCardProps {
     product: Product
@@ -31,24 +33,32 @@ export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavori
             viewport={{ once: true }}
             className="group relative flex flex-col gap-3 sm:gap-4 overflow-hidden rounded-2xl sm:rounded-[2rem] bg-white/60 p-3 sm:p-4 shadow-xl ring-1 ring-white/40 cursor-pointer hover:bg-white/90 hover:shadow-2xl hover:shadow-mayssa-brown/10 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-mayssa-caramel focus-visible:ring-offset-2"
         >
-            {/* Favorite button */}
-            {onToggleFavorite && (
-                <motion.button
-                    type="button"
-                    onClick={(e) => {
-                        e.stopPropagation()
-                        onToggleFavorite(product)
-                    }}
-                    whileTap={{ scale: 0.85 }}
-                    className="absolute top-4 right-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 shadow-md transition-all hover:scale-110 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
-                    aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-                >
-                    <Heart
-                        size={18}
-                        className={`transition-colors ${isFavorite ? 'text-red-500 fill-red-500' : 'text-mayssa-brown/40 hover:text-red-400'}`}
+            {/* Action buttons */}
+            <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
+                {onToggleFavorite && (
+                    <motion.button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            onToggleFavorite(product)
+                        }}
+                        whileTap={{ scale: 0.85 }}
+                        className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 shadow-md transition-all hover:scale-110 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                        aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+                    >
+                        <Heart
+                            size={18}
+                            className={`transition-colors ${isFavorite ? 'text-red-500 fill-red-500' : 'text-mayssa-brown/40 hover:text-red-400'}`}
+                        />
+                    </motion.button>
+                )}
+                <div onClick={(e) => e.stopPropagation()}>
+                    <ShareButton
+                        product={product}
+                        className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 shadow-md text-mayssa-brown/40 hover:text-mayssa-brown transition-all hover:scale-110"
                     />
-                </motion.button>
-            )}
+                </div>
+            </div>
 
             <div
                 ref={ref}
@@ -61,11 +71,10 @@ export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavori
                   <ProductBadges badges={product.badges} variant="card" />
                 ) : null}
                 {product.image ? (
-                    <img
+                    <BlurImage
                         src={product.image}
                         alt={product.name}
-                        loading="lazy"
-                        className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
+                        className="h-full w-full transition-transform duration-700 group-hover:scale-110"
                     />
                 ) : (
                     <div className="flex items-center justify-center h-full">

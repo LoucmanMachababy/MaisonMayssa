@@ -4,6 +4,7 @@ import { X, Plus, Minus, ShoppingBag, ZoomIn, ZoomOut, Heart } from 'lucide-reac
 import { hapticFeedback } from '../../lib/haptics'
 import type { Product, ProductSize } from '../../types'
 import { ProductBadges } from '../ProductBadges'
+import { ShareButton } from '../ShareButton'
 
 interface ProductDetailModalProps {
   product: Product | null
@@ -106,6 +107,10 @@ export function ProductDetailModal({ product, onClose, onAdd, isFavorite, onTogg
               <X size={20} />
             </button>
             <div className="flex gap-2">
+              <ShareButton
+                product={product}
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm text-white"
+              />
               {onToggleFavorite && (
                 <motion.button
                   whileTap={{ scale: 0.9 }}

@@ -5,6 +5,7 @@ import { Plus, Check, ShoppingBag, Heart } from 'lucide-react'
 import type { Product } from '../../types'
 import { hapticFeedback } from '../../lib/haptics'
 import { ProductBadges } from '../ProductBadges'
+import { BlurImage } from '../BlurImage'
 
 interface SwipeableProductCardProps {
   product: Product
@@ -88,11 +89,10 @@ export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false
               <ProductBadges badges={product.badges} variant="compact" />
             ) : null}
             {product.image ? (
-              <img
+              <BlurImage
                 src={product.image}
                 alt={product.name}
-                loading="lazy"
-                className="w-full h-full object-cover"
+                className="w-full h-full"
               />
             ) : (
               <div className="flex items-center justify-center h-full">
