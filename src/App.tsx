@@ -13,6 +13,8 @@ import { WhatsAppFloatingButton } from './components/WhatsAppFloatingButton'
 import { Confetti, useConfetti } from './components/effects'
 import { FavorisSection } from './components/FavorisSection'
 import { OfflineIndicator } from './components/OfflineIndicator'
+import { InstagramInstructionModal } from './components/InstagramInstructionModal'
+import { FloatingCartBar } from './components/FloatingCartBar'
 
 const VisualBackground = lazy(() => import('./components/effects/VisualBackground').then(m => ({ default: m.VisualBackground })))
 
@@ -192,6 +194,7 @@ function App() {
   const [selectedProductForBox, setSelectedProductForBox] = useState<Product | null>(null)
   const [selectedProductForBoxFlavors, setSelectedProductForBoxFlavors] = useState<Product | null>(null)
   const [toasts, setToasts] = useState<Toast[]>([])
+  const [isInstagramModalOpen, setIsInstagramModalOpen] = useState(false)
 
   const showToast = (message: string, type: Toast['type'] = 'success', duration?: number, withConfetti?: boolean, product?: Product) => {
     const id = Math.random().toString(36).substring(7)
@@ -561,10 +564,9 @@ function App() {
       window.open(`https://wa.me/${PHONE_E164}?text=${encoded}`, '_blank')
       showToast('Commande envoyée sur WhatsApp !', 'success')
     } else {
-      // Instagram : message prérempli copié, on ouvre Instagram pour coller
+      // Instagram : message copié, on affiche la modale d'instructions
       navigator.clipboard?.writeText(message).then(() => {
-        window.open('https://www.instagram.com/maison.mayssa74/', '_blank')
-        showToast('Message copié ! Collez-le dans votre discussion Instagram pour envoyer la commande.', 'success')
+        setIsInstagramModalOpen(true)
       }).catch(() => {
         showToast('Erreur lors de la copie de la commande', 'error')
       })
@@ -877,6 +879,9 @@ function App() {
 
       <WhatsAppFloatingButton />
 
+      {/* Floating cart bar - Desktop only, appears when cart section is not visible */}
+      <FloatingCartBar items={cart} total={total} />
+
       {/* Modals (lazy-loaded) */}
       <Suspense fallback={null}>
         <SizeSelectorModal
@@ -952,6 +957,12 @@ function App() {
         onAdd={handleAddToCart}
         isFavorite={isFavorite}
         onToggleFavorite={toggleFavorite}
+      />
+
+      {/* Instagram instruction modal - après envoi commande via Instagram */}
+      <InstagramInstructionModal
+        isOpen={isInstagramModalOpen}
+        onClose={() => setIsInstagramModalOpen(false)}
       />
 
       {/* Onboarding Tour - Mobile (lazy, s'affiche 1.5s après le mount) */}
