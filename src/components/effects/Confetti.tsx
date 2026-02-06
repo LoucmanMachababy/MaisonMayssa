@@ -34,6 +34,9 @@ export function Confetti({ trigger, originX = 50, originY = 50 }: ConfettiProps)
   useEffect(() => {
     if (trigger === 0) return
 
+    // Respect prefers-reduced-motion
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
     // Generate confetti pieces
     const newPieces: ConfettiPiece[] = Array.from({ length: 50 }, (_, i) => ({
       id: Date.now() + i,

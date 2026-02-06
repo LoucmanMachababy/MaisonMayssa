@@ -10,7 +10,7 @@ export const PRODUCTS: Product[] = [
         description: 'Mini brownies fondants avec coulis au choix (Nutella, Bueno, Spéculoos, Pistache).',
         price: 4.5,
         category: 'Mini Gourmandises',
-        image: '/box-brownies.PNG',
+        image: '/box-brownies.webp',
         sizes: [
             { label: 'Petite (≈200g)', ml: 200, price: 4.5 },
             { label: 'Grande (≈400g)', ml: 400, price: 8.5 },
@@ -22,7 +22,7 @@ export const PRODUCTS: Product[] = [
         description: 'Mini cookies croustillants avec coulis au choix (Nutella, Bueno, Spéculoos, Pistache).',
         price: 4,
         category: 'Mini Gourmandises',
-        image: '/box-cookie.PNG',
+        image: '/box-cookie.webp',
         sizes: [
             { label: 'Petite (≈180g)', ml: 180, price: 4 },
             { label: 'Grande (≈350g)', ml: 350, price: 7 },
@@ -34,7 +34,7 @@ export const PRODUCTS: Product[] = [
         description: 'Mini pancakes moelleux avec coulis au choix (Nutella, Bueno, Spéculoos, Pistache).',
         price: 4.5,
         category: 'Mini Gourmandises',
-        image: '/box-pancakes.PNG',
+        image: '/box-pancakes.webp',
         sizes: [
             { label: 'Petite (≈200g)', ml: 200, price: 4.5 },
             { label: 'Grande (≈400g)', ml: 400, price: 8 },
@@ -46,7 +46,7 @@ export const PRODUCTS: Product[] = [
         description: 'Mini brownies + mini cookies + mini pancakes, coulis au choix.',
         price: 13,
         category: 'Boxes',
-        image: '/La-mini-box-mixte.PNG',
+        image: '/La-mini-box-mixte.webp',
         badges: ['best-seller'],
         sizes: [
             { label: 'Box mixte S (~300g)', ml: 300, price: 13 },
@@ -61,7 +61,7 @@ export const PRODUCTS: Product[] = [
         description: 'Brownie fondant à la pistache, relevé par la fraîcheur de la framboise.',
         price: 3.5,
         category: 'Brownies',
-        image: '/brownie-pistache-framboise.png',
+        image: '/brownie-pistache-framboise.webp',
         badges: ['coup-de-coeur'],
     },
     {
@@ -70,7 +70,7 @@ export const PRODUCTS: Product[] = [
         description: 'Fondant chocolaté, douceur épicée du spéculoos et touche fruitée.',
         price: 3.5,
         category: 'Brownies',
-        image: '/brownie-speculoos-framboise.png',
+        image: '/brownie-speculoos-framboise.webp',
     },
     {
         id: 'brownie-fraise-vanille',
@@ -78,7 +78,7 @@ export const PRODUCTS: Product[] = [
         description: 'Brownie moelleux aux notes douces de vanille et de fraise.',
         price: 3.5,
         category: 'Brownies',
-        image: '/brownie-fraise-vanille.png',
+        image: '/brownie-fraise-vanille.webp',
     },
     {
         id: 'brownie-caramel-cacahuete',
@@ -86,7 +86,7 @@ export const PRODUCTS: Product[] = [
         description: 'Caramel fondant et cacahuète croquante sur une base chocolatée.',
         price: 3.5,
         category: 'Brownies',
-        image: '/brownie-caramel-cacahuete.png',
+        image: '/brownie-caramel-cacahuete.webp',
     },
     {
         id: 'brownie-el-mordjen-kinder',
@@ -94,7 +94,7 @@ export const PRODUCTS: Product[] = [
         description: 'Ultra gourmand, cœur fondant et éclats de Kinder Bueno.',
         price: 3.5,
         category: 'Brownies',
-        image: '/brownie-elmordjene-kinder.png',
+        image: '/brownie-elmordjene-kinder.webp',
         badges: ['populaire'],
     },
     {
@@ -103,7 +103,7 @@ export const PRODUCTS: Product[] = [
         description: 'Chocolat intense, Nutella fondant et croquant d\'Oreo.',
         price: 3.5,
         category: 'Brownies',
-        image: '/brownie-nutella-oreo.png',
+        image: '/brownie-nutella-oreo.webp',
         badges: ['best-seller'],
     },
     {
@@ -112,7 +112,7 @@ export const PRODUCTS: Product[] = [
         description: 'Brownie crémeux à la crème pâtissière et pécan croquante.',
         price: 4,
         category: 'Brownies',
-        image: '/brownie-patissiere-pecan.png',
+        image: '/brownie-patissiere-pecan.webp',
     },
     {
         id: 'brownie-tiramisu-cafe',
@@ -120,7 +120,7 @@ export const PRODUCTS: Product[] = [
         description: 'Inspiré du tiramisu, aux délicates notes de café.',
         price: 4,
         category: 'Brownies',
-        image: '/brownie-tiramisu-cafe.jpeg',
+        image: '/brownie-tiramisu-cafe.webp',
     },
     {
         id: 'brownie-creme-brule-vanille',
@@ -128,7 +128,7 @@ export const PRODUCTS: Product[] = [
         description: 'Crémeux vanille avec une légère touche caramélisée.',
         price: 4,
         category: 'Brownies',
-        image: '/brownie-creme-bruler.png',
+        image: '/brownie-creme-bruler.webp',
     },
 
     // Cookies
@@ -138,7 +138,7 @@ export const PRODUCTS: Product[] = [
         description: 'Cœur fondant au Nutella sublimé par le croquant du Kinder Bueno.',
         price: 3,
         category: 'Cookies',
-        image: '/cookie-kinder-bueno.PNG',
+        image: '/cookie-kinder-bueno.webp',
         badges: ['best-seller'],
     },
     {
@@ -147,7 +147,7 @@ export const PRODUCTS: Product[] = [
         description: 'Intensément gourmand, entre chocolat fondant et éclats d\'Oreo.',
         price: 3,
         category: 'Cookies',
-        image: '/Cookie-nutella-oreo.PNG',
+        image: '/Cookie-nutella-oreo.webp',
         badges: ['populaire'],
     },
     {
@@ -156,7 +156,7 @@ export const PRODUCTS: Product[] = [
         description: 'Douceur épicée du spéculoos relevée par une framboise acidulée.',
         price: 3,
         category: 'Cookies',
-        image: '/cookie-speculos-framboise.PNG',
+        image: '/cookie-speculos-framboise.webp',
     },
     {
         id: 'cookie-nutella-fraise',
@@ -164,7 +164,7 @@ export const PRODUCTS: Product[] = [
         description: 'L\'alliance parfaite du chocolat fondant et de la fraîcheur de la fraise.',
         price: 3,
         category: 'Cookies',
-        image: '/cookie-nutella-fraise.PNG',
+        image: '/cookie-nutella-fraise.webp',
     },
     {
         id: 'cookie-fruits-rouges-bois',
@@ -172,7 +172,7 @@ export const PRODUCTS: Product[] = [
         description: 'Fondant et fruité, relevé par un coulis de fruits rouges.',
         price: 3,
         category: 'Cookies',
-        image: '/cookie--fruit-rouges-des-bois.PNG',
+        image: '/cookie--fruit-rouges-des-bois.webp',
         badges: ['nouveau'],
     },
     {
@@ -181,7 +181,7 @@ export const PRODUCTS: Product[] = [
         description: 'Douceur fondante du chocolat blanc réveillée par la framboise.',
         price: 3,
         category: 'Cookies',
-        image: '/cookie-chocolat-blanc-framboise.PNG',
+        image: '/cookie-chocolat-blanc-framboise.webp',
     },
     {
         id: 'cookie-caramel-daim',
@@ -189,7 +189,7 @@ export const PRODUCTS: Product[] = [
         description: 'Crème pâtissière onctueuse, éclats de Daim et caramel fondant.',
         price: 3,
         category: 'Cookies',
-        image: '/cookie-caramel-daim.PNG',
+        image: '/cookie-caramel-daim.webp',
     },
     {
         id: 'cookie-caramel-cacahuete',
@@ -197,7 +197,7 @@ export const PRODUCTS: Product[] = [
         description: 'Crème pâtissière douce, caramel beurre salé et cacahuète croquante.',
         price: 3,
         category: 'Cookies',
-        image: '/cookie-caramel-cacahuete.PNG',
+        image: '/cookie-caramel-cacahuete.webp',
     },
     {
         id: 'cookie-pistache-framboise',
@@ -205,7 +205,7 @@ export const PRODUCTS: Product[] = [
         description: 'Subtil contraste entre pistache douce et framboise fruitée.',
         price: 3,
         category: 'Cookies',
-        image: '/cookie-pistache-framboise.PNG',
+        image: '/cookie-pistache-framboise.webp',
     },
     {
         id: 'cookie-praline-noix-pecan',
@@ -213,7 +213,7 @@ export const PRODUCTS: Product[] = [
         description: 'Crème pâtissière onctueuse et praliné aux éclats de noix de pécan.',
         price: 4,
         category: 'Cookies',
-        image: '/cookie-praliné-noix-de-pecan.PNG',
+        image: '/cookie-praliné-noix-de-pecan.webp',
     },
     {
         id: 'cookie-tiramisu-cafe',
@@ -221,7 +221,7 @@ export const PRODUCTS: Product[] = [
         description: 'Inspiré du tiramisu, doux et délicatement café.',
         price: 4,
         category: 'Cookies',
-        image: '/cookie-tiramisu-cafe.PNG',
+        image: '/cookie-tiramisu-cafe.webp',
     },
     {
         id: 'cookie-creme-brulee-vanille',
@@ -229,7 +229,7 @@ export const PRODUCTS: Product[] = [
         description: 'Crémeux vanillé avec une touche caramélisée.',
         price: 4,
         category: 'Cookies',
-        image: '/cookie-creme-bruler-vanille.PNG',
+        image: '/cookie-creme-bruler-vanille.webp',
     },
 
     // Layer cups
@@ -239,7 +239,7 @@ export const PRODUCTS: Product[] = [
         description: 'Douceur crémeuse aux saveurs de fraise et vanille.',
         price: 4,
         category: 'Layer Cups',
-        image: '/layer-cup-fraise-vanille.PNG',
+        image: '/layer-cup-fraise-vanille.webp',
         badges: ['coup-de-coeur'],
         sizes: [
             { label: '250 ml', ml: 250, price: 4 },
@@ -253,7 +253,7 @@ export const PRODUCTS: Product[] = [
         description: 'Onctueux à la pistache relevé par la fraîcheur de la fraise.',
         price: 4,
         category: 'Layer Cups',
-        image: '/layer-cup-pistache-fraise.PNG',
+        image: '/layer-cup-pistache-fraise.webp',
         badges: ['coup-de-coeur'],
         sizes: [
             { label: '250 ml', ml: 250, price: 4 },
@@ -267,7 +267,7 @@ export const PRODUCTS: Product[] = [
         description: 'Explosion tropicale de mangue et fruit de la passion.',
         price: 4,
         category: 'Layer Cups',
-        image: '/layer-cup-mangue-passion.PNG',
+        image: '/layer-cup-mangue-passion.webp',
         badges: ['nouveau'],
         sizes: [
             { label: '250 ml', ml: 250, price: 4 },
@@ -281,7 +281,7 @@ export const PRODUCTS: Product[] = [
         description: 'Crème onctueuse aux notes épicées du spéculoos Lotus.',
         price: 4,
         category: 'Layer Cups',
-        image: '/layer-cup-speculoos.PNG',
+        image: '/layer-cup-speculoos.webp',
         badges: ['populaire'],
         sizes: [
             { label: '250 ml', ml: 250, price: 4 },
@@ -295,7 +295,7 @@ export const PRODUCTS: Product[] = [
         description: 'Douceur du spéculoos relevée par l\'acidulé de la framboise.',
         price: 4,
         category: 'Layer Cups',
-        image: '/layer-cup-framboise-speculoos.PNG',
+        image: '/layer-cup-framboise-speculoos.webp',
         sizes: [
             { label: '250 ml', ml: 250, price: 4 },
             { label: '360 ml', ml: 360, price: 6 },
@@ -308,7 +308,7 @@ export const PRODUCTS: Product[] = [
         description: 'Gourmandise chocolatée au Nutella et éclats d\'Oreo.',
         price: 4,
         category: 'Layer Cups',
-        image: '/layer-cup-nutella-oreo.PNG',
+        image: '/layer-cup-nutella-oreo.webp',
         badges: ['best-seller'],
         sizes: [
             { label: '250 ml', ml: 250, price: 4 },
@@ -324,7 +324,7 @@ export const PRODUCTS: Product[] = [
         description: 'Assortiment de cookies au choix.',
         price: 15,
         category: 'Boxes',
-        image: '/box-cookies.jpeg',
+        image: '/box-cookies.webp',
         sizes: [
             { label: 'Box de 6 cookies', ml: 6, price: 15 },
             { label: 'Box de 12 cookies', ml: 12, price: 35 },
@@ -336,7 +336,7 @@ export const PRODUCTS: Product[] = [
         description: 'Assortiment de brownies au choix.',
         price: 18,
         category: 'Boxes',
-        image: '/boxe-brownies.PNG',
+        image: '/boxe-brownies.webp',
         sizes: [
             { label: 'Box de 6 brownies', ml: 6, price: 18 },
             { label: 'Box de 12 brownies', ml: 12, price: 38 },
@@ -348,7 +348,7 @@ export const PRODUCTS: Product[] = [
         description: 'Un équilibre parfait entre cookies et brownies, parfums au choix.',
         price: 25,
         category: 'Boxes',
-        image: '/box-mixte.PNG',
+        image: '/box-mixte.webp',
         badges: ['coup-de-coeur', 'best-seller'],
         sizes: [
             { label: 'Box mixte 6 pièces (3 cookies + 3 brownies)', ml: 6, price: 25 },
@@ -362,7 +362,7 @@ export const PRODUCTS: Product[] = [
         description: 'Crée ton tiramisu selon tes envies ✨',
         price: 3.5,
         category: 'Tiramisus',
-        image: '/Tiramisu.PNG',
+        image: '/Tiramisu.webp',
         badges: ['best-seller', 'populaire'],
         sizes: [
             { label: 'Petit format', ml: 1, price: 3.5 },

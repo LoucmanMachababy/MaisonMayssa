@@ -45,7 +45,7 @@ export function FloatingCartPreview({ items, total, onExpand }: FloatingCartPrev
           initial={{ y: 100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 100, opacity: 0 }}
-          className="fixed bottom-20 left-4 right-4 z-40 md:hidden"
+          className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-4 right-4 z-40 md:hidden"
         >
           <motion.button
             onClick={handleClick}

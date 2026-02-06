@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, ChevronRight, ChevronLeft, HandMetal, ShoppingBag, Mic, Heart } from 'lucide-react'
 import { hapticFeedback } from '../../lib/haptics'
 
-const LOGO_URL = '/logo.PNG'
+const LOGO_URL = '/logo.webp'
 
 interface OnboardingStep {
   id: string

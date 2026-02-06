@@ -13,6 +13,10 @@ import { WhatsAppFloatingButton } from './components/WhatsAppFloatingButton'
 import { Confetti, useConfetti } from './components/effects'
 import { FavorisSection } from './components/FavorisSection'
 import { OfflineIndicator } from './components/OfflineIndicator'
+import { InstagramInstructionModal } from './components/InstagramInstructionModal'
+import { FloatingCartBar } from './components/FloatingCartBar'
+import { ComplementarySuggestions } from './components/ComplementarySuggestions'
+import { PWAInstallPrompt } from './components/PWAInstallPrompt'
 
 const VisualBackground = lazy(() => import('./components/effects/VisualBackground').then(m => ({ default: m.VisualBackground })))
 
@@ -46,8 +50,14 @@ import type {
   Channel,
   ProductCategory,
   CustomerInfo,
-  Coordinates,
 } from './types'
+import {
+  ANNECY_GARE,
+  DELIVERY_RADIUS_KM,
+  DELIVERY_FEE,
+  FREE_DELIVERY_THRESHOLD,
+  calculateDistance,
+} from './lib/delivery'
 import {
   Sparkles,
   Search,
@@ -59,27 +69,6 @@ import {
   CupSoda as Cup,
   Cake
 } from 'lucide-react'
-
-// Coordonnées de référence : Rue de la Gare, 74000 Annecy
-const ANNECY_GARE: Coordinates = { lat: 45.9017, lng: 6.1217 }
-const DELIVERY_RADIUS_KM = 5
-const DELIVERY_FEE = 5
-const FREE_DELIVERY_THRESHOLD = 30
-
-// Calcul de distance entre deux points GPS (formule de Haversine)
-function calculateDistance(coord1: Coordinates, coord2: Coordinates): number | null {
-  if (!coord1 || !coord2) return null
-
-  const R = 6371 // Rayon de la Terre en km
-  const dLat = (coord2.lat - coord1.lat) * Math.PI / 180
-  const dLng = (coord2.lng - coord1.lng) * Math.PI / 180
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(coord1.lat * Math.PI / 180) * Math.cos(coord2.lat * Math.PI / 180) *
-    Math.sin(dLng / 2) * Math.sin(dLng / 2)
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  return R * c
-}
 
 function App() {
   // Notification de visite Telegram
@@ -119,17 +108,20 @@ function App() {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // Open product from URL query param (for shared links)
+  // Ouvrir le produit depuis un lien partagé : ?produit= ou #produit= (hash survivant aux redirections)
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const productId = params.get('produit')
+    const fromSearch = new URLSearchParams(window.location.search).get('produit')
+    const fromHash = new URLSearchParams(window.location.hash.slice(1)).get('produit')
+    const productId = fromSearch || fromHash
     if (productId) {
       const product = PRODUCTS.find(p => p.id === productId)
       if (product) {
-        // Small delay to ensure the page is loaded
         setTimeout(() => {
-          setSelectedProductForDetail(product)
-          // Clean the URL without reload
+          if (window.innerWidth >= 768) {
+            setSelectedProductForDetail(product)
+          } else {
+            handleAddToCart(product)
+          }
           window.history.replaceState({}, '', window.location.pathname)
         }, 300)
       }
@@ -165,33 +157,93 @@ function App() {
     localStorage.setItem('maison-mayssa-cart', JSON.stringify(cart))
   }, [cart])
 
+  // Show recovery toast if cart was restored from localStorage
+  const cartRecoveredRef = useRef(false)
+  useEffect(() => {
+    if (!cartRecoveredRef.current && cart.length > 0) {
+      cartRecoveredRef.current = true
+      const count = cart.reduce((sum, item) => sum + item.quantity, 0)
+      const timer = setTimeout(() => {
+        showToast(`Ton panier de ${count} article${count > 1 ? 's' : ''} t'attend toujours !`, 'info', 4000)
+      }, 1500)
+      return () => clearTimeout(timer)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Une seule confirmation (toast + fly) par ajout au panier (évite le double en Strict Mode)
   useEffect(() => {
     const pending = pendingAddToastRef.current
     if (!pending) return
     pendingAddToastRef.current = null
     showToast(pending.message, 'success', undefined, true, pending.product)
+    // Show complementary product suggestions
+    const lastItem = cart[cart.length - 1]
+    if (lastItem) showComplementary(lastItem.product)
   }, [cart])
 
   const [note, setNote] = useState('')
   const [channel, setChannel] = useState<Channel>('whatsapp')
   const [activeCategory, setActiveCategory] = useState<ProductCategory | 'Tous'>('Tous')
   const [searchQuery, setSearchQuery] = useState('')
-  const [customer, setCustomer] = useState<CustomerInfo>({
-    firstName: '',
-    lastName: '',
-    phone: '',
-    address: '',
-    addressCoordinates: null,
-    wantsDelivery: false,
-    date: '',
-    time: '',
+  const [customer, setCustomer] = useState<CustomerInfo>(() => {
+    try {
+      const saved = localStorage.getItem('maison-mayssa-customer')
+      if (saved) {
+        const p = JSON.parse(saved)
+        return {
+          firstName: p.firstName || '',
+          lastName: p.lastName || '',
+          phone: p.phone || '',
+          address: p.address || '',
+          addressCoordinates: null,
+          wantsDelivery: !!p.wantsDelivery,
+          date: '',
+          time: '',
+        }
+      }
+    } catch {}
+    return {
+      firstName: '',
+      lastName: '',
+      phone: '',
+      address: '',
+      addressCoordinates: null,
+      wantsDelivery: false,
+      date: '',
+      time: '',
+    }
   })
+
+  // Save customer info to localStorage (persistent fields only)
+  useEffect(() => {
+    localStorage.setItem('maison-mayssa-customer', JSON.stringify({
+      firstName: customer.firstName,
+      lastName: customer.lastName,
+      phone: customer.phone,
+      address: customer.address,
+      wantsDelivery: customer.wantsDelivery,
+    }))
+  }, [customer.firstName, customer.lastName, customer.phone, customer.address, customer.wantsDelivery])
   const [selectedProductForSize, setSelectedProductForSize] = useState<Product | null>(null)
   const [selectedProductForTiramisu, setSelectedProductForTiramisu] = useState<Product | null>(null)
   const [selectedProductForBox, setSelectedProductForBox] = useState<Product | null>(null)
   const [selectedProductForBoxFlavors, setSelectedProductForBoxFlavors] = useState<Product | null>(null)
   const [toasts, setToasts] = useState<Toast[]>([])
+  const [isInstagramModalOpen, setIsInstagramModalOpen] = useState(false)
+  const [suggestedProducts, setSuggestedProducts] = useState<Product[]>([])
+  const suggestTimerRef = useRef<ReturnType<typeof setTimeout>>()
+
+  const showComplementary = (addedProduct: Product) => {
+    clearTimeout(suggestTimerRef.current)
+    const cartIds = new Set(cart.map(i => i.product.id))
+    const suggestions = PRODUCTS
+      .filter(p => p.category !== addedProduct.category && !cartIds.has(p.id) && p.id !== addedProduct.id)
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 3)
+    if (suggestions.length === 0) return
+    setSuggestedProducts(suggestions)
+    suggestTimerRef.current = setTimeout(() => setSuggestedProducts([]), 6000)
+  }
 
   const showToast = (message: string, type: Toast['type'] = 'success', duration?: number, withConfetti?: boolean, product?: Product) => {
     const id = Math.random().toString(36).substring(7)
@@ -506,14 +558,9 @@ function App() {
     lines.push('*COMMANDE*', '')
     cart.forEach((item, index) => {
       const label = getOrderLineLabel(item)
-      const unitPrice = item.product.price.toFixed(2).replace('.', ',')
       const totalPrice = (item.product.price * item.quantity).toFixed(2).replace('.', ',')
-      if (item.quantity > 1) {
-        lines.push(`${index + 1}. ${item.quantity}× ${label}`)
-        lines.push(`   → ${unitPrice} € × ${item.quantity} = ${totalPrice} €`)
-      } else {
-        lines.push(`${index + 1}. ${label} → ${unitPrice} €`)
-      }
+      const qty = item.quantity > 1 ? `${item.quantity}× ` : ''
+      lines.push(`${index + 1}. ${qty}${label} → ${totalPrice} €`)
       lines.push('')
     })
 
@@ -551,20 +598,110 @@ function App() {
     return lines.join('\n')
   }
 
+  const buildInstagramMessages = (): string[] => {
+    if (cart.length === 0) return []
+
+    const distanceFromAnnecy = calculateDistance(customer.addressCoordinates, ANNECY_GARE)
+    const isWithinDeliveryZone = distanceFromAnnecy !== null && distanceFromAnnecy <= DELIVERY_RADIUS_KM
+    let deliveryFee = 0
+    if (customer.wantsDelivery) {
+      if (customer.addressCoordinates && isWithinDeliveryZone && total < FREE_DELIVERY_THRESHOLD) {
+        deliveryFee = DELIVERY_FEE
+      }
+    }
+    const finalTotal = total + deliveryFee
+    const mode = customer.wantsDelivery ? 'Livraison' : 'Retrait'
+
+    const stripEmoji = (s: string) => s.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '').replace(/\s+/g, ' ').trim()
+
+    // -- Header (compact) --
+    const header: string[] = []
+    header.push('Bonjour ! Commande via le site :')
+    header.push(`${customer.firstName} ${customer.lastName} · ${customer.phone}`)
+    header.push(`Mode : ${mode}`)
+    if (customer.wantsDelivery && customer.address.trim()) {
+      header.push(`Adr : ${customer.address.trim()}`)
+    }
+    if (customer.date && customer.time) {
+      const d = new Date(customer.date)
+      header.push(`Date : ${d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })} à ${customer.time}`)
+    }
+    header.push('')
+
+    // -- Item lines (compact) --
+    // Skip generic descriptions for products with size already in name (Layer Cups, etc.)
+    const itemLines: string[] = []
+    cart.forEach((item, i) => {
+      const name = stripEmoji(item.product.name)
+      const cat = item.product.category
+      // Include description only for Tiramisus (has customization info) and Boxes
+      const needsDesc = cat === 'Tiramisus' || cat === 'Boxes' || cat === 'Mini Gourmandises'
+      const desc = needsDesc && item.product.description ? ` (${item.product.description})` : ''
+      const price = (item.product.price * item.quantity).toFixed(2).replace('.', ',')
+      const qty = item.quantity > 1 ? `${item.quantity}× ` : ''
+      itemLines.push(`${i + 1}. ${qty}${name}${desc} → ${price}€`)
+    })
+
+    // -- Footer (compact) --
+    const footer: string[] = ['']
+    if (customer.wantsDelivery) {
+      const delivLabel = deliveryFee > 0 ? `+${DELIVERY_FEE}€` : (!customer.addressCoordinates || !isWithinDeliveryZone) ? 'à définir' : 'offerte'
+      footer.push(`Livraison : ${delivLabel}`)
+    }
+    footer.push(`Total : ${finalTotal.toFixed(2).replace('.', ',')}€`)
+    if (note.trim() && note.trim() !== 'Pour le … (date, créneau, adresse)') {
+      footer.push(`Note : ${note.trim()}`)
+    }
+
+    // Try to fit everything in one message
+    const full = [...header, ...itemLines, ...footer].join('\n')
+    if (full.length <= 950) return [full]
+
+    // Split into multiple messages
+    const IG_LIMIT = 900
+    const messages: string[] = []
+    let current = header.join('\n') + '\n'
+
+    for (const line of itemLines) {
+      if ((current + line + '\n').length > IG_LIMIT) {
+        messages.push(current.trim())
+        current = '(suite)\n'
+      }
+      current += line + '\n'
+    }
+
+    // Add footer to last chunk or new one
+    const footerStr = footer.join('\n')
+    if ((current + footerStr).length > IG_LIMIT) {
+      messages.push(current.trim())
+      messages.push(footerStr.trim())
+    } else {
+      current += footerStr
+      messages.push(current.trim())
+    }
+
+    // Label parts
+    if (messages.length > 1) {
+      return messages.map((m, i) => `[${i + 1}/${messages.length}]\n${m}`)
+    }
+    return messages
+  }
+
+  const [instagramParts, setInstagramParts] = useState<string[]>([])
+
   const handleSend = () => {
-    const message = buildOrderMessage()
-    if (!message) return
-
-    const encoded = encodeURIComponent(message)
-
     if (channel === 'whatsapp') {
+      const message = buildOrderMessage()
+      if (!message) return
+      const encoded = encodeURIComponent(message)
       window.open(`https://wa.me/${PHONE_E164}?text=${encoded}`, '_blank')
       showToast('Commande envoyée sur WhatsApp !', 'success')
     } else {
-      // Instagram : message prérempli copié, on ouvre Instagram pour coller
-      navigator.clipboard?.writeText(message).then(() => {
-        window.open('https://www.instagram.com/maison.mayssa74/', '_blank')
-        showToast('Message copié ! Collez-le dans votre discussion Instagram pour envoyer la commande.', 'success')
+      const parts = buildInstagramMessages()
+      if (parts.length === 0) return
+      setInstagramParts(parts)
+      navigator.clipboard?.writeText(parts[0]).then(() => {
+        setIsInstagramModalOpen(true)
       }).catch(() => {
         showToast('Erreur lors de la copie de la commande', 'error')
       })
@@ -718,14 +855,14 @@ function App() {
                   </AnimatePresence>
                 </div>
 
-                {/* Mobile Swipeable List */}
+                {/* Mobile Swipeable List — tap = ajout direct (pas de page détail / pavé) */}
                 <div className="md:hidden space-y-3">
                   {filteredProducts.map((product) => (
                     <SwipeableProductCard
                       key={product.id}
                       product={product}
                       onAdd={handleAddToCart}
-                      onTap={setSelectedProductForDetail}
+                      onTap={handleAddToCart}
                       isFavorite={isFavorite(product.id)}
                       onToggleFavorite={toggleFavorite}
                     />
@@ -877,29 +1014,46 @@ function App() {
 
       <WhatsAppFloatingButton />
 
-      {/* Modals (lazy-loaded) */}
-      <Suspense fallback={null}>
-        <SizeSelectorModal
-          product={selectedProductForSize}
-          onClose={() => setSelectedProductForSize(null)}
-          onSelect={handleSizeSelect}
-        />
-        <TiramisuCustomizationModal
-          product={selectedProductForTiramisu}
-          onClose={() => setSelectedProductForTiramisu(null)}
-          onSelect={handleTiramisuCustomization}
-        />
-        <BoxCustomizationModal
-          product={selectedProductForBox}
-          onClose={() => setSelectedProductForBox(null)}
-          onSelect={handleBoxCustomization}
-        />
-        <BoxFlavorsModal
-          product={selectedProductForBoxFlavors}
-          onClose={() => setSelectedProductForBoxFlavors(null)}
-          onSelect={handleBoxFlavorsSelect}
-        />
-      </Suspense>
+      {/* Floating cart bar - Desktop only, appears when cart section is not visible */}
+      <FloatingCartBar items={cart} total={total} />
+
+      {/* Modals (lazy-loaded, mounted only when needed) */}
+      {selectedProductForSize && (
+        <Suspense fallback={null}>
+          <SizeSelectorModal
+            product={selectedProductForSize}
+            onClose={() => setSelectedProductForSize(null)}
+            onSelect={handleSizeSelect}
+          />
+        </Suspense>
+      )}
+      {selectedProductForTiramisu && (
+        <Suspense fallback={null}>
+          <TiramisuCustomizationModal
+            product={selectedProductForTiramisu}
+            onClose={() => setSelectedProductForTiramisu(null)}
+            onSelect={handleTiramisuCustomization}
+          />
+        </Suspense>
+      )}
+      {selectedProductForBox && (
+        <Suspense fallback={null}>
+          <BoxCustomizationModal
+            product={selectedProductForBox}
+            onClose={() => setSelectedProductForBox(null)}
+            onSelect={handleBoxCustomization}
+          />
+        </Suspense>
+      )}
+      {selectedProductForBoxFlavors && (
+        <Suspense fallback={null}>
+          <BoxFlavorsModal
+            product={selectedProductForBoxFlavors}
+            onClose={() => setSelectedProductForBoxFlavors(null)}
+            onSelect={handleBoxFlavorsSelect}
+          />
+        </Suspense>
+      )}
 
       {/* Mobile Components */}
       <BottomNav
@@ -945,6 +1099,13 @@ function App() {
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
+      {/* Complementary product suggestions */}
+      <ComplementarySuggestions
+        products={suggestedProducts}
+        onAdd={(p) => { setSuggestedProducts([]); handleAddToCart(p) }}
+        onDismiss={() => setSuggestedProducts([])}
+      />
+
       {/* Product Detail Modal - Mobile */}
       <ProductDetailModal
         product={selectedProductForDetail}
@@ -953,6 +1114,16 @@ function App() {
         isFavorite={isFavorite}
         onToggleFavorite={toggleFavorite}
       />
+
+      {/* Instagram instruction modal - après envoi commande via Instagram */}
+      <InstagramInstructionModal
+        isOpen={isInstagramModalOpen}
+        onClose={() => setIsInstagramModalOpen(false)}
+        messageParts={instagramParts}
+      />
+
+      {/* PWA install prompt */}
+      <PWAInstallPrompt />
 
       {/* Onboarding Tour - Mobile (lazy, s'affiche 1.5s après le mount) */}
       <Suspense fallback={null}>

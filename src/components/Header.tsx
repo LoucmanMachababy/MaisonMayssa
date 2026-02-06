@@ -15,7 +15,7 @@ export function Header() {
                     >
                         <div className="absolute -inset-3 sm:-inset-4 rounded-full bg-mayssa-caramel/20 blur-2xl animate-pulse-slow" />
                         <img
-                            src="/logo.PNG"
+                            src="/logo.webp"
                             alt="Maison Mayssa"
                             className="relative h-20 w-20 sm:h-24 sm:w-24 md:h-28 md:w-28 lg:h-32 lg:w-32 rounded-3xl object-contain shadow-2xl ring-4 ring-white/50"
                         />

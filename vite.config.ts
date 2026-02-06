@@ -22,7 +22,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['logo.PNG', 'favicon.ico'],
+      includeAssets: ['logo.webp', 'favicon.ico'],
       manifest: {
         name: 'Maison Mayssa',
         short_name: 'Maison Mayssa',
@@ -32,8 +32,8 @@ export default defineConfig({
         background_color: '#fff9f3',
         theme_color: '#5b3a29',
         icons: [
-          { src: '/logo.PNG', sizes: '192x192', type: 'image/png', purpose: 'any' },
-          { src: '/logo.PNG', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+          { src: '/logo.webp', sizes: '192x192', type: 'image/webp', purpose: 'any' },
+          { src: '/logo.webp', sizes: '512x512', type: 'image/webp', purpose: 'any maskable' },
         ],
       },
       workbox: {

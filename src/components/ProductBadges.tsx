@@ -1,7 +1,7 @@
 import { Award, Heart, Flame } from 'lucide-react'
 import type { ProductBadge } from '../types'
 
-const LOGO_BADGE_URL = '/logo.PNG'
+const LOGO_BADGE_URL = '/logo.webp'
 
 const BADGE_CONFIG: Record<
   ProductBadge,

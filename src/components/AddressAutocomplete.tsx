@@ -42,6 +42,7 @@ export function AddressAutocomplete({
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [fetchError, setFetchError] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const selectedValueRef = useRef<string | null>(null)
@@ -78,10 +79,12 @@ export function AddressAutocomplete({
       }
 
       setIsLoading(true)
+      setFetchError(false)
       try {
         const response = await fetch(
           `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=5&type=housenumber&autocomplete=1`
         )
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
         const data = await response.json()
 
         if (data.features && data.features.length > 0) {
@@ -100,9 +103,10 @@ export function AddressAutocomplete({
           setSuggestions([])
           setShowSuggestions(false)
         }
-      } catch (error) {
-        console.error('Erreur lors de la recherche d\'adresse:', error)
+      } catch {
         setSuggestions([])
+        setFetchError(true)
+        setShowSuggestions(true)
       } finally {
         setIsLoading(false)
       }
@@ -163,11 +167,15 @@ export function AddressAutocomplete({
       </div>
 
       {/* Suggestions dropdown */}
-      {showSuggestions && (suggestions.length > 0 || isLoading) && (
+      {showSuggestions && (suggestions.length > 0 || isLoading || fetchError) && (
         <div className="absolute z-50 w-full mt-1 bg-white rounded-xl sm:rounded-2xl shadow-2xl border border-mayssa-brown/10 overflow-hidden">
           {isLoading ? (
             <div className="p-3 sm:p-4 text-center text-xs sm:text-sm text-mayssa-brown/60">
               Recherche en cours...
+            </div>
+          ) : fetchError ? (
+            <div className="p-3 sm:p-4 text-center text-xs sm:text-sm text-red-400">
+              Impossible de rechercher l'adresse. Tape-la manuellement.
             </div>
           ) : (
             <ul className="max-h-48 sm:max-h-60 overflow-y-auto">

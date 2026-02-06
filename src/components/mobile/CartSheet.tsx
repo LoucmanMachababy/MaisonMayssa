@@ -1,28 +1,21 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence, useDragControls } from 'framer-motion'
 import { X, Minus, Plus, Trash2, ShoppingBag, Send, Copy, MessageCircle, Instagram, User, Phone, MapPin, Truck, Calendar, Clock } from 'lucide-react'
 import { hapticFeedback } from '../../lib/haptics'
 import { cn } from '../../lib/utils'
 import { AddressAutocomplete } from '../AddressAutocomplete'
-import type { CartItem, Channel, CustomerInfo, Coordinates } from '../../types'
-
-// Coordonnées de référence : Rue de la Gare, 74000 Annecy
-const ANNECY_GARE: Coordinates = { lat: 45.9017, lng: 6.1217 }
-const DELIVERY_RADIUS_KM = 5
-const DELIVERY_FEE = 5
-const FREE_DELIVERY_THRESHOLD = 30
-
-function calculateDistance(coord1: Coordinates | null, coord2: Coordinates): number | null {
-  if (!coord1 || !coord2) return null
-  const R = 6371
-  const dLat = (coord2.lat - coord1.lat) * Math.PI / 180
-  const dLng = (coord2.lng - coord1.lng) * Math.PI / 180
-  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(coord1.lat * Math.PI / 180) * Math.cos(coord2.lat * Math.PI / 180) *
-    Math.sin(dLng / 2) * Math.sin(dLng / 2)
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  return R * c
-}
+import type { CartItem, Channel, CustomerInfo } from '../../types'
+import {
+  ANNECY_GARE,
+  DELIVERY_RADIUS_KM,
+  DELIVERY_FEE,
+  FREE_DELIVERY_THRESHOLD,
+  calculateDistance,
+  generateTimeSlots,
+  getMinDate,
+  validateCustomer,
+  computeDeliveryFee,
+} from '../../lib/delivery'
 
 interface CartSheetProps {
   isOpen: boolean
@@ -69,6 +62,11 @@ export function CartSheet({
     }
   }, [isOpen])
 
+  // Touched state for real-time validation
+  const [touched, setTouched] = useState<Partial<Record<keyof typeof customer, boolean>>>({})
+  const markTouched = (field: keyof typeof customer) =>
+    setTouched(prev => ({ ...prev, [field]: true }))
+
   // Distance calculation
   const distanceFromAnnecy = useMemo(() => {
     return calculateDistance(customer.addressCoordinates, ANNECY_GARE)
@@ -76,46 +74,17 @@ export function CartSheet({
 
   const isWithinDeliveryZone = distanceFromAnnecy !== null && distanceFromAnnecy <= DELIVERY_RADIUS_KM
 
-  const deliveryFee = useMemo(() => {
-    if (!customer.wantsDelivery) return 0
-    if (!customer.addressCoordinates) return null
-    if (!isWithinDeliveryZone) return null
-    return total >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE
-  }, [customer.wantsDelivery, customer.addressCoordinates, isWithinDeliveryZone, total])
+  const deliveryFee = useMemo(() => computeDeliveryFee(customer, total), [customer, total])
 
   const finalTotal = total + (deliveryFee ?? 0)
 
-  // Time slots
-  const timeSlots = useMemo(() => {
-    const slots: string[] = []
-    if (!customer.wantsDelivery) slots.push('18:30')
-    for (let hour = customer.wantsDelivery ? 20 : 19; hour < 24; hour++) {
-      slots.push(`${hour.toString().padStart(2, '0')}:00`)
-      slots.push(`${hour.toString().padStart(2, '0')}:30`)
-    }
-    for (let hour = 0; hour <= 2; hour++) {
-      slots.push(`${hour.toString().padStart(2, '0')}:00`)
-      if (hour < 2) slots.push(`${hour.toString().padStart(2, '0')}:30`)
-    }
-    return slots
-  }, [customer.wantsDelivery])
+  const timeSlots = useMemo(() => generateTimeSlots(customer.wantsDelivery), [customer.wantsDelivery])
 
-  // Min date
-  const today = new Date()
-  const minDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  const minDate = getMinDate()
 
-  // Validation
-  const validationErrors = useMemo(() => {
-    const errors: Partial<Record<keyof CustomerInfo, string>> = {}
-    if (!customer.firstName.trim()) errors.firstName = 'Requis'
-    if (!customer.lastName.trim()) errors.lastName = 'Requis'
-    if (!customer.phone.trim()) errors.phone = 'Requis'
-    else if (!/^(\+33|0)[1-9](\d{2}){4}$/.test(customer.phone.replace(/\s/g, ''))) errors.phone = 'Format invalide'
-    if (customer.wantsDelivery && !customer.address.trim()) errors.address = 'Requis'
-    if (!customer.date.trim()) errors.date = 'Requis'
-    if (!customer.time.trim()) errors.time = 'Requis'
-    return errors
-  }, [customer])
+  const validationErrors = useMemo(() => validateCustomer(customer), [customer])
+  const showError = (field: keyof typeof customer) =>
+    touched[field] && validationErrors[field as keyof CustomerInfo]
 
   const isCustomerValid = Object.keys(validationErrors).length === 0
   const canSend = hasItems && isCustomerValid
@@ -207,6 +176,7 @@ export function CartSheet({
                           <div className="flex items-center gap-1.5">
                             <button
                               onClick={() => { hapticFeedback('light'); onUpdateQuantity(item.product.id, item.quantity - 1) }}
+                              aria-label={item.quantity === 1 ? `Supprimer ${item.product.name}` : `Réduire ${item.product.name}`}
                               className="flex h-6 w-6 items-center justify-center rounded-md bg-mayssa-cream text-mayssa-brown cursor-pointer"
                             >
                               {item.quantity === 1 ? <Trash2 size={12} /> : <Minus size={12} />}
@@ -214,6 +184,7 @@ export function CartSheet({
                             <span className="w-5 text-center font-bold text-xs">{item.quantity}</span>
                             <button
                               onClick={() => { hapticFeedback('light'); onUpdateQuantity(item.product.id, item.quantity + 1) }}
+                              aria-label={`Ajouter ${item.product.name}`}
                               className="flex h-6 w-6 items-center justify-center rounded-md bg-mayssa-brown text-mayssa-cream cursor-pointer"
                             >
                               <Plus size={12} />
@@ -239,38 +210,53 @@ export function CartSheet({
                   Tes informations *
                 </p>
                 <div className="grid grid-cols-2 gap-2">
-                  <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", validationErrors.firstName ? "ring-red-300" : "ring-mayssa-brown/10")}>
-                    <User size={14} className="text-mayssa-caramel flex-shrink-0" />
-                    <input
-                      value={customer.firstName}
-                      onChange={(e) => onCustomerChange({ ...customer, firstName: e.target.value })}
-                      placeholder="Prénom"
-                      className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
-                    />
+                  <div>
+                    <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", showError('firstName') ? "ring-red-300" : "ring-mayssa-brown/10")}>
+                      <User size={14} className="text-mayssa-caramel flex-shrink-0" />
+                      <input
+                        value={customer.firstName}
+                        onChange={(e) => onCustomerChange({ ...customer, firstName: e.target.value })}
+                        onBlur={() => markTouched('firstName')}
+                        placeholder="Prénom"
+                        aria-label="Prénom"
+                        className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
+                      />
+                    </div>
+                    {showError('firstName') && <p className="text-[9px] text-red-400 pl-3 mt-0.5">{validationErrors.firstName}</p>}
                   </div>
-                  <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", validationErrors.lastName ? "ring-red-300" : "ring-mayssa-brown/10")}>
-                    <User size={14} className="text-mayssa-caramel flex-shrink-0" />
-                    <input
-                      value={customer.lastName}
-                      onChange={(e) => onCustomerChange({ ...customer, lastName: e.target.value })}
-                      placeholder="Nom"
-                      className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
-                    />
+                  <div>
+                    <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", showError('lastName') ? "ring-red-300" : "ring-mayssa-brown/10")}>
+                      <User size={14} className="text-mayssa-caramel flex-shrink-0" />
+                      <input
+                        value={customer.lastName}
+                        onChange={(e) => onCustomerChange({ ...customer, lastName: e.target.value })}
+                        onBlur={() => markTouched('lastName')}
+                        placeholder="Nom"
+                        aria-label="Nom"
+                        className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
+                      />
+                    </div>
+                    {showError('lastName') && <p className="text-[9px] text-red-400 pl-3 mt-0.5">{validationErrors.lastName}</p>}
                   </div>
                 </div>
-                <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", validationErrors.phone ? "ring-red-300" : "ring-mayssa-brown/10")}>
-                  <Phone size={14} className="text-mayssa-caramel flex-shrink-0" />
-                  <input
-                    type="tel"
-                    value={customer.phone}
-                    onChange={(e) => {
-                      let value = e.target.value.replace(/\s/g, '')
-                      if (value.length > 2) value = value.match(/.{1,2}/g)?.join(' ') || value
-                      onCustomerChange({ ...customer, phone: value })
-                    }}
-                    placeholder="Téléphone"
-                    className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
-                  />
+                <div>
+                  <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", showError('phone') ? "ring-red-300" : "ring-mayssa-brown/10")}>
+                    <Phone size={14} className="text-mayssa-caramel flex-shrink-0" />
+                    <input
+                      type="tel"
+                      value={customer.phone}
+                      onChange={(e) => {
+                        let value = e.target.value.replace(/\s/g, '')
+                        if (value.length > 2) value = value.match(/.{1,2}/g)?.join(' ') || value
+                        onCustomerChange({ ...customer, phone: value })
+                      }}
+                      onBlur={() => markTouched('phone')}
+                      placeholder="Téléphone"
+                      aria-label="Téléphone"
+                      className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
+                    />
+                  </div>
+                  {showError('phone') && <p className="text-[9px] text-red-400 pl-3 mt-0.5">{validationErrors.phone}</p>}
                 </div>
               </div>
 

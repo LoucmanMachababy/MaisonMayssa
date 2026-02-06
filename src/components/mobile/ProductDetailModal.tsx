@@ -39,9 +39,18 @@ export function ProductDetailModal({ product, onClose, onAdd, isFavorite, onTogg
   // Get the current price based on selection
   const currentPrice = selectedSize ? selectedSize.price : product?.price || 0
 
+  // Box cookies / brownies / mixte : onAdd ouvre la modal parfums (il faut passer le produit original)
+  const isBoxWithFlavors = product?.id === 'box-cookies' || product?.id === 'box-brownies' || product?.id === 'box-mixte'
+
   const handleAdd = () => {
     if (!product) return
     hapticFeedback('success')
+
+    if (isBoxWithFlavors) {
+      onAdd(product)
+      onClose()
+      return
+    }
 
     // If product has sizes and one is selected, create a modified product
     let productToAdd = product
@@ -207,8 +216,8 @@ export function ProductDetailModal({ product, onClose, onAdd, isFavorite, onTogg
               {product.description || "Pâtisserie artisanale préparée avec amour chez Maison Mayssa. Ingrédients frais et de qualité."}
             </p>
 
-            {/* Sizes if available */}
-            {product.sizes && product.sizes.length > 0 && (
+            {/* Sizes if available (masqué pour les boxes parfums : taille + parfums dans la modal dédiée) */}
+            {!isBoxWithFlavors && product.sizes && product.sizes.length > 0 && (
               <div className="mb-4">
                 <p className="text-xs font-bold text-mayssa-brown/60 mb-2">Choisir une taille</p>
                 <div className="flex gap-2 flex-wrap">
@@ -236,7 +245,25 @@ export function ProductDetailModal({ product, onClose, onAdd, isFavorite, onTogg
               </div>
             )}
 
-            {/* Quantity & Add button */}
+            {/* Pour les boxes parfums : un seul bouton qui ouvre la modal choix parfums */}
+            {isBoxWithFlavors && (
+              <div className="mb-4">
+                <p className="text-sm text-mayssa-brown/70 mb-3">
+                  Choisissez la taille puis vos parfums dans l’étape suivante.
+                </p>
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleAdd}
+                  className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-mayssa-brown text-mayssa-cream font-bold shadow-xl cursor-pointer"
+                >
+                  <ShoppingBag size={18} />
+                  <span>Choisir mes parfums</span>
+                </motion.button>
+              </div>
+            )}
+
+            {/* Quantity & Add button (masqués pour les boxes parfums) */}
+            {!isBoxWithFlavors && (
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-3 bg-mayssa-cream rounded-xl px-3 py-2">
                 <motion.button
@@ -276,6 +303,7 @@ export function ProductDetailModal({ product, onClose, onAdd, isFavorite, onTogg
                 <span>Ajouter • {(currentPrice * quantity).toFixed(2).replace('.', ',')} €</span>
               </motion.button>
             </div>
+            )}
           </motion.div>
         </motion.div>
       )}

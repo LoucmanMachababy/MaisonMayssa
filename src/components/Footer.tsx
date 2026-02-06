@@ -8,7 +8,7 @@ export function Footer() {
                     {/* Brand Column */}
                     <div className="space-y-4 sm:space-y-6">
                         <div className="flex items-center gap-2 sm:gap-3">
-                            <img src="/logo.PNG" alt="Logo" className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl shadow-md" />
+                            <img src="/logo.webp" alt="Logo" className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl shadow-md" />
                             <span className="font-display text-xl sm:text-2xl font-bold text-mayssa-brown">Maison Mayssa</span>
                         </div>
                         <p className="text-xs sm:text-sm leading-relaxed text-mayssa-brown/60">

@@ -1,30 +1,20 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { ShoppingBag, Minus, Plus, MessageCircle, Send, Copy, Instagram, User, Phone, MapPin, Truck, Calendar, Clock } from 'lucide-react'
-import type { CartItem, Channel, CustomerInfo, Coordinates } from '../types'
+import type { CartItem, Channel, CustomerInfo } from '../types'
 import { cn } from '../lib/utils'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AddressAutocomplete } from './AddressAutocomplete'
-
-// Coordonnées de référence : Rue de la Gare, 74000 Annecy
-const ANNECY_GARE: Coordinates = { lat: 45.9017, lng: 6.1217 }
-const DELIVERY_RADIUS_KM = 5
-const DELIVERY_FEE = 5
-const FREE_DELIVERY_THRESHOLD = 30
-
-// Calcul de distance entre deux points GPS (formule de Haversine)
-function calculateDistance(coord1: Coordinates, coord2: Coordinates): number | null {
-    if (!coord1 || !coord2) return null
-
-    const R = 6371 // Rayon de la Terre en km
-    const dLat = (coord2.lat - coord1.lat) * Math.PI / 180
-    const dLng = (coord2.lng - coord1.lng) * Math.PI / 180
-    const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(coord1.lat * Math.PI / 180) * Math.cos(coord2.lat * Math.PI / 180) *
-        Math.sin(dLng / 2) * Math.sin(dLng / 2)
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-    return R * c
-}
+import {
+    ANNECY_GARE,
+    DELIVERY_RADIUS_KM,
+    DELIVERY_FEE,
+    FREE_DELIVERY_THRESHOLD,
+    calculateDistance,
+    generateTimeSlots,
+    getMinDate,
+    validateCustomer,
+    computeDeliveryFee,
+} from '../lib/delivery'
 
 interface CartProps {
     items: CartItem[]
@@ -54,61 +44,22 @@ export function Cart({
     const hasItems = items.length > 0
     const itemCount = items.reduce((sum, item) => sum + item.quantity, 0)
 
-    // Calcul de la distance depuis Annecy Gare
+    // Touched state for real-time validation feedback
+    const [touched, setTouched] = useState<Partial<Record<keyof typeof customer, boolean>>>({})
+    const markTouched = (field: keyof typeof customer) =>
+        setTouched(prev => ({ ...prev, [field]: true }))
+
     const distanceFromAnnecy = useMemo(() => {
         return calculateDistance(customer.addressCoordinates, ANNECY_GARE)
     }, [customer.addressCoordinates])
 
-    // Vérifier si l'adresse est dans le rayon de livraison (5km)
     const isWithinDeliveryZone = distanceFromAnnecy !== null && distanceFromAnnecy <= DELIVERY_RADIUS_KM
 
-    // Delivery fee logic:
-    // - Si pas de livraison ou pas de coordonnées : pas de frais
-    // - Si dans le rayon 5km : 5€ (ou gratuit si total >= 30€)
-    // - Si hors rayon : tarif à fixer sur WhatsApp (affiché comme null)
-    const deliveryFee = useMemo(() => {
-        if (!customer.wantsDelivery) return 0
-        if (!customer.addressCoordinates) return null // Pas encore d'adresse sélectionnée
-        if (!isWithinDeliveryZone) return null // Hors zone = tarif à définir
-        return total >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE
-    }, [customer.wantsDelivery, customer.addressCoordinates, isWithinDeliveryZone, total])
+    const deliveryFee = useMemo(() => computeDeliveryFee(customer, total), [customer, total])
 
     const finalTotal = total + (deliveryFee ?? 0)
 
-    // Generate time slots based on delivery mode
-    // Pickup: 18:30 to 02:00 | Delivery: 20:00 to 02:00
-    const timeSlots = useMemo(() => {
-        const slots: string[] = []
-        if (customer.wantsDelivery) {
-            // Delivery: from 20:00 to 02:00
-            for (let hour = 20; hour < 24; hour++) {
-                slots.push(`${hour.toString().padStart(2, '0')}:00`)
-                slots.push(`${hour.toString().padStart(2, '0')}:30`)
-            }
-            // From 00:00 to 02:00
-            for (let hour = 0; hour <= 2; hour++) {
-                slots.push(`${hour.toString().padStart(2, '0')}:00`)
-                if (hour < 2) {
-                    slots.push(`${hour.toString().padStart(2, '0')}:30`)
-                }
-            }
-        } else {
-            // Pickup: from 18:30 to 02:00
-            slots.push('18:30')
-            for (let hour = 19; hour < 24; hour++) {
-                slots.push(`${hour.toString().padStart(2, '0')}:00`)
-                slots.push(`${hour.toString().padStart(2, '0')}:30`)
-            }
-            // From 00:00 to 02:00
-            for (let hour = 0; hour <= 2; hour++) {
-                slots.push(`${hour.toString().padStart(2, '0')}:00`)
-                if (hour < 2) {
-                    slots.push(`${hour.toString().padStart(2, '0')}:30`)
-                }
-            }
-        }
-        return slots
-    }, [customer.wantsDelivery])
+    const timeSlots = useMemo(() => generateTimeSlots(customer.wantsDelivery), [customer.wantsDelivery])
 
     // Reset time if switching to delivery and selected time is before 20:00
     // or if switching to pickup and selected time is before 18:30
@@ -132,37 +83,12 @@ export function Cart({
         }
     }, [customer.wantsDelivery])
 
-    // Get minimum date (today) - using local date to avoid timezone issues
-    const today = new Date()
-    const minDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    const minDate = getMinDate()
 
-    // Validation with detailed errors
-    const validationErrors = useMemo(() => {
-        const errors: Partial<Record<keyof CustomerInfo, string>> = {}
-
-        if (!customer.firstName.trim()) {
-            errors.firstName = 'Le prénom est requis'
-        }
-        if (!customer.lastName.trim()) {
-            errors.lastName = 'Le nom est requis'
-        }
-        if (!customer.phone.trim()) {
-            errors.phone = 'Le téléphone est requis'
-        } else if (!/^(\+33|0)[1-9](\d{2}){4}$/.test(customer.phone.replace(/\s/g, ''))) {
-            errors.phone = 'Format de téléphone invalide'
-        }
-        if (customer.wantsDelivery && !customer.address.trim()) {
-            errors.address = 'L\'adresse est requise pour la livraison'
-        }
-        if (!customer.date.trim()) {
-            errors.date = 'La date est requise'
-        }
-        if (!customer.time.trim()) {
-            errors.time = 'L\'heure est requise'
-        }
-
-        return errors
-    }, [customer])
+    const validationErrors = useMemo(() => validateCustomer(customer), [customer])
+    // Show error only for fields the user has interacted with
+    const showError = (field: keyof typeof customer) =>
+        touched[field] && validationErrors[field as keyof CustomerInfo]
 
     const isCustomerValid = Object.keys(validationErrors).length === 0
     const canSend = hasItems && isCustomerValid
@@ -238,6 +164,7 @@ export function Cart({
                                                 <div className="flex items-center gap-1.5 rounded-2xl bg-white p-1 shadow-sm border border-mayssa-brown/5">
                                                     <button
                                                         onClick={() => onUpdateQuantity(item.product.id, item.quantity - 1)}
+                                                        aria-label={`Réduire ${item.product.name}`}
                                                         className="flex h-7 w-7 items-center justify-center rounded-xl text-mayssa-brown transition-all hover:bg-mayssa-cream hover:scale-110 active:scale-95 cursor-pointer"
                                                     >
                                                         <Minus size={14} />
@@ -247,6 +174,7 @@ export function Cart({
                                                     </span>
                                                     <button
                                                         onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
+                                                        aria-label={`Ajouter ${item.product.name}`}
                                                         className="flex h-7 w-7 items-center justify-center rounded-xl text-mayssa-brown transition-all hover:bg-mayssa-cream hover:scale-110 active:scale-95 cursor-pointer"
                                                     >
                                                         <Plus size={14} />
@@ -289,49 +217,60 @@ export function Cart({
                             <div className="space-y-1.5">
                                 <div className={cn(
                                     "flex items-center gap-3 rounded-2xl bg-white px-4 py-3.5 transition-all shadow-sm",
-                                    validationErrors.firstName ? "ring-2 ring-red-300" : "ring-1 ring-mayssa-brown/5 focus-within:ring-mayssa-caramel"
+                                    showError('firstName') ? "ring-2 ring-red-300" : "ring-1 ring-mayssa-brown/5 focus-within:ring-mayssa-caramel"
                                 )}>
                                     <User size={18} className="text-mayssa-caramel flex-shrink-0" />
                                     <input
                                         value={customer.firstName}
                                         onChange={(e) => onCustomerChange({ ...customer, firstName: e.target.value })}
+                                        onBlur={() => markTouched('firstName')}
                                         placeholder="Prénom *"
+                                        aria-label="Prénom"
                                         className="w-full bg-transparent text-sm font-semibold text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
                                     />
                                 </div>
+                                {showError('firstName') && <p className="text-[10px] text-red-400 pl-4">{validationErrors.firstName}</p>}
                             </div>
                             <div className="space-y-1.5">
                                 <div className={cn(
                                     "flex items-center gap-3 rounded-2xl bg-white px-4 py-3.5 transition-all shadow-sm",
-                                    validationErrors.lastName ? "ring-2 ring-red-300" : "ring-1 ring-mayssa-brown/5 focus-within:ring-mayssa-caramel"
+                                    showError('lastName') ? "ring-2 ring-red-300" : "ring-1 ring-mayssa-brown/5 focus-within:ring-mayssa-caramel"
                                 )}>
                                     <User size={18} className="text-mayssa-caramel flex-shrink-0" />
                                     <input
                                         value={customer.lastName}
                                         onChange={(e) => onCustomerChange({ ...customer, lastName: e.target.value })}
+                                        onBlur={() => markTouched('lastName')}
                                         placeholder="Nom *"
+                                        aria-label="Nom"
                                         className="w-full bg-transparent text-sm font-semibold text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
                                     />
                                 </div>
+                                {showError('lastName') && <p className="text-[10px] text-red-400 pl-4">{validationErrors.lastName}</p>}
                             </div>
                         </div>
 
-                        <div className={cn(
-                            "flex items-center gap-3 rounded-2xl bg-white px-4 py-3.5 transition-all shadow-sm",
-                            validationErrors.phone ? "ring-2 ring-red-300" : "ring-1 ring-mayssa-brown/5 focus-within:ring-mayssa-caramel"
-                        )}>
-                            <Phone size={18} className="text-mayssa-caramel flex-shrink-0" />
-                            <input
-                                type="tel"
-                                value={customer.phone}
-                                onChange={(e) => {
-                                    let value = e.target.value.replace(/\s/g, '')
-                                    if (value.length > 2) value = value.match(/.{1,2}/g)?.join(' ') || value
-                                    onCustomerChange({ ...customer, phone: value })
-                                }}
-                                placeholder="Numéro de téléphone *"
-                                className="w-full bg-transparent text-sm font-semibold text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
-                            />
+                        <div className="space-y-1.5">
+                            <div className={cn(
+                                "flex items-center gap-3 rounded-2xl bg-white px-4 py-3.5 transition-all shadow-sm",
+                                showError('phone') ? "ring-2 ring-red-300" : "ring-1 ring-mayssa-brown/5 focus-within:ring-mayssa-caramel"
+                            )}>
+                                <Phone size={18} className="text-mayssa-caramel flex-shrink-0" />
+                                <input
+                                    type="tel"
+                                    value={customer.phone}
+                                    onChange={(e) => {
+                                        let value = e.target.value.replace(/\s/g, '')
+                                        if (value.length > 2) value = value.match(/.{1,2}/g)?.join(' ') || value
+                                        onCustomerChange({ ...customer, phone: value })
+                                    }}
+                                    onBlur={() => markTouched('phone')}
+                                    placeholder="Numéro de téléphone *"
+                                    aria-label="Numéro de téléphone"
+                                    className="w-full bg-transparent text-sm font-semibold text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
+                                />
+                            </div>
+                            {showError('phone') && <p className="text-[10px] text-red-400 pl-4">{validationErrors.phone}</p>}
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
@@ -404,6 +343,24 @@ export function Cart({
                                 </select>
                             </div>
                         </div>
+
+                        {/* Free delivery progress banner */}
+                        {customer.wantsDelivery && total > 0 && total < FREE_DELIVERY_THRESHOLD && isWithinDeliveryZone && (
+                            <div className="flex items-center gap-3 rounded-2xl bg-mayssa-caramel/10 p-3">
+                                <Truck size={16} className="text-mayssa-caramel flex-shrink-0" />
+                                <div className="flex-1">
+                                    <p className="text-xs font-semibold text-mayssa-caramel">
+                                        Plus que {(FREE_DELIVERY_THRESHOLD - total).toFixed(2).replace('.', ',')} € pour la livraison offerte !
+                                    </p>
+                                    <div className="mt-1.5 h-1.5 rounded-full bg-mayssa-brown/10 overflow-hidden">
+                                        <div
+                                            className="h-full rounded-full bg-mayssa-caramel transition-all"
+                                            style={{ width: `${Math.min(100, (total / FREE_DELIVERY_THRESHOLD) * 100)}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         <div className="space-y-4 pt-6 border-t border-mayssa-brown/10">
                             <div className="flex flex-col gap-3">
