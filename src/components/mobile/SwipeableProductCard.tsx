@@ -6,6 +6,7 @@ import type { Product } from '../../types'
 import { hapticFeedback } from '../../lib/haptics'
 import { ProductBadges } from '../ProductBadges'
 import { BlurImage } from '../BlurImage'
+import { ShareButton } from '../ShareButton'
 
 interface SwipeableProductCardProps {
   product: Product
@@ -130,6 +131,15 @@ export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false
               </span>
 
               <div className="flex items-center gap-2">
+                {/* Share */}
+                <div onClick={(e) => e.stopPropagation()}>
+                  <ShareButton
+                    product={product}
+                    variant="icon"
+                    className="flex h-8 w-8 items-center justify-center rounded-xl bg-white border border-mayssa-brown/10 shadow-sm text-mayssa-brown/40 hover:text-mayssa-brown"
+                  />
+                </div>
+
                 {/* Favorite button */}
                 {onToggleFavorite && (
                   <motion.button
