@@ -231,7 +231,7 @@ function App() {
   const [toasts, setToasts] = useState<Toast[]>([])
   const [isInstagramModalOpen, setIsInstagramModalOpen] = useState(false)
   const [suggestedProducts, setSuggestedProducts] = useState<Product[]>([])
-  const suggestTimerRef = useRef<ReturnType<typeof setTimeout>>()
+  const suggestTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const showComplementary = (addedProduct: Product) => {
     clearTimeout(suggestTimerRef.current)
