@@ -12,6 +12,7 @@ export default defineConfig({
           if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) return 'react'
           if (id.includes('node_modules/framer-motion')) return 'framer'
           if (id.includes('node_modules/lucide-react')) return 'lucide'
+          if (id.includes('node_modules/firebase')) return 'firebase'
         },
       },
     },
@@ -23,6 +24,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['logo.webp', 'favicon.ico'],
+      devOptions: { enabled: false },
       manifest: {
         name: 'Maison Mayssa',
         short_name: 'Maison Mayssa',
@@ -37,8 +39,9 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,woff2,png,jpg,jpeg,svg,webp}'],
-        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+        globPatterns: ['**/*.{js,css,html,ico}'],
+        globIgnores: ['**/node_modules/**', '**/sw.js', '**/workbox-*.js'],
+        maximumFileSizeToCacheInBytes: 512 * 1024,
         // Precache critical assets for offline access
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api/],
