@@ -1,6 +1,5 @@
 import { useMemo, useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { useVisitorNotification } from './hooks/useVisitorNotification'
 import { useFavorites } from './hooks/useFavorites'
 import { Navbar } from './components/Navbar'
 import { BirthdayBanner } from './components/BirthdayBanner'
@@ -122,9 +121,6 @@ function AppContent() {
   const isAuthenticatedRef = useRef(isAuthenticated)
   useEffect(() => { stockMapRef.current = stockMap }, [stockMap])
   useEffect(() => { isAuthenticatedRef.current = isAuthenticated }, [isAuthenticated])
-
-  // Notification de visite Telegram
-  useVisitorNotification()
 
   // Confetti effect
   const { trigger: confettiTrigger, origin: confettiOrigin, fire: fireConfetti } = useConfetti()

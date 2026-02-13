@@ -72,7 +72,28 @@
     <link rel="preload" href="/logo.webp" as="image" />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Placeholder visible pendant le chargement du JS (surtout mobile) -->
+      <div id="loading-placeholder" style="min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,#fef5ec 0%,#fff9f4 100%);font-family:system-ui,sans-serif;color:#5b3a29;">
+        <p style="font-size:16px;font-weight:500;">Chargement...</p>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      (function(){
+        var placeholder=document.getElementById('loading-placeholder');
+        var root=document.getElementById('root');
+        setTimeout(function(){
+          if(placeholder&&placeholder.parentNode){
+            placeholder.innerHTML='<p style="font-size:16px;margin-bottom:16px;">Le chargement prend du temps.</p><button onclick="location.reload()" style="padding:12px 24px;background:#5b3a29;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;">Réessayer</button>';
+          }
+        },8000);
+        setInterval(function(){
+          if(root&&root.children.length>1){
+            if(placeholder&&placeholder.parentNode)placeholder.remove();
+          }
+        },300);
+      })();
+    </script>
   </body>
 </html>
