@@ -2,7 +2,70 @@ import type { Product } from './types'
 
 export const PHONE_E164 = '33619871005'
 
+/** Précommande trompe l'oeil : à récupérer sous 3 j après préco. Dispo gérée par Firebase (jours + stock). */
+const TROMPE_LOEIL_PREORDER = { availableFrom: '2026-02-13', daysToPickup: 3 }
+
 export const PRODUCTS: Product[] = [
+    // Trompe l'oeil — Best sellers, bientôt disponibles, précommande à partir du 14/02/2026
+    {
+        id: 'trompe-loeil-mangue',
+        name: "Trompe l'oeil Mangue",
+        description: 'Morceaux de mangue fraîche, coulis de mangue, ganache mangue, pâte à sucre. Une création qui trompe l\'œil et régale les papilles.',
+        price: 4,
+        category: "Trompe l'oeil",
+        image: '/Trompe-loeil-mangue.png',
+        badges: ['best-seller'],
+        preorder: TROMPE_LOEIL_PREORDER,
+    },
+    {
+        id: 'trompe-loeil-citron',
+        name: "Trompe l'oeil Citron",
+        description: 'Zestes et jus de citron, crème au citron, ganache citron, pâte à sucre. Acidulé et frais, un trompe-l\'œil vitaminé.',
+        price: 4,
+        category: "Trompe l'oeil",
+        image: '/trompe-loeil-citron.png',
+        badges: ['best-seller'],
+        preorder: TROMPE_LOEIL_PREORDER,
+    },
+    {
+        id: 'trompe-loeil-pistache',
+        name: "Trompe l'oeil Pistache",
+        description: 'Pâte de pistache, crème pistache, ganache pistache, éclats de pistache, pâte à sucre. Onctueux et gourmand.',
+        price: 4,
+        category: "Trompe l'oeil",
+        image: '/trompe-loeil-pistache.png',
+        badges: ['best-seller'],
+        preorder: TROMPE_LOEIL_PREORDER,
+    },
+    {
+        id: 'trompe-loeil-passion',
+        name: "Trompe l'oeil Passion",
+        description: 'Fruit de la passion, coulis passion, crème passion, ganache passion, pâte à sucre. Exotique et intense.',
+        price: 4,
+        category: "Trompe l'oeil",
+        badges: ['best-seller'],
+        preorder: TROMPE_LOEIL_PREORDER,
+    },
+    {
+        id: 'trompe-loeil-framboise',
+        name: "Trompe l'oeil Framboise",
+        description: 'Framboises fraîches, coulis de framboise, crème framboise, ganache framboise, pâte à sucre. Fruité et délicat.',
+        price: 4,
+        category: "Trompe l'oeil",
+        image: '/trompe-loeil-framboise.PNG',
+        badges: ['best-seller'],
+        preorder: TROMPE_LOEIL_PREORDER,
+    },
+    {
+        id: 'trompe-loeil-cacahuete',
+        name: "Trompe l'oeil Cacahuète",
+        description: 'Cacahuètes caramélisées, praliné cacahuète, ganache cacahuète, crème au beurre de cacahuète, pâte à sucre. Croquant et gourmand.',
+        price: 4,
+        category: "Trompe l'oeil",
+        badges: ['best-seller'],
+        preorder: TROMPE_LOEIL_PREORDER,
+    },
+
     // Mini gourmandises (avec coulis au choix : Nutella, Crème Bueno, Spéculoos, Pistache)
     {
         id: 'mini-box-brownies',

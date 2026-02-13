@@ -1,17 +1,22 @@
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion'
-import { Phone, Instagram, Menu, X, Heart } from 'lucide-react'
+import { Phone, Instagram, Menu, X, Heart, User, Star, LogOut, ChevronDown } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useEffect, useState } from 'react'
 import { PHONE_E164 } from '../constants'
+import { useAuth } from '../hooks/useAuth'
+import { clientLogout } from '../lib/firebase'
 
 interface NavbarProps {
     favoritesCount?: number
+    onAccountClick: () => void
 }
 
-export function Navbar({ favoritesCount = 0 }: NavbarProps) {
+export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
     const [isScrolled, setIsScrolled] = useState(false)
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+    const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
     const { scrollY } = useScroll()
+    const { isAuthenticated, profile } = useAuth()
 
     const backgroundColor = useTransform(
         scrollY,
@@ -25,16 +30,29 @@ export function Navbar({ favoritesCount = 0 }: NavbarProps) {
         })
     }, [scrollY])
 
-    // Fermer le menu mobile quand on scroll
+    // Fermer les menus quand on scroll
     useEffect(() => {
         const handleScroll = () => {
             if (isMobileMenuOpen) {
                 setIsMobileMenuOpen(false)
             }
+            if (isUserMenuOpen) {
+                setIsUserMenuOpen(false)
+            }
         }
         window.addEventListener('scroll', handleScroll)
         return () => window.removeEventListener('scroll', handleScroll)
-    }, [isMobileMenuOpen])
+    }, [isMobileMenuOpen, isUserMenuOpen])
+
+    // Gérer la déconnexion
+    const handleLogout = async () => {
+        try {
+            await clientLogout()
+            setIsUserMenuOpen(false)
+        } catch (error) {
+            console.error('Error logging out:', error)
+        }
+    }
 
     return (
         <>
@@ -62,6 +80,63 @@ export function Navbar({ favoritesCount = 0 }: NavbarProps) {
                                 Favoris
                             </NavLinkWithBadge>
                             <NavLink href="#commande">Voir la commande</NavLink>
+                            
+                            {/* User Menu */}
+                            {isAuthenticated ? (
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                                        className="relative flex items-center gap-2 text-sm font-bold text-mayssa-brown/70 hover:text-mayssa-brown transition-all uppercase tracking-widest hover:scale-105 active:scale-95 cursor-pointer"
+                                    >
+                                        <User size={14} />
+                                        Mon Compte
+                                        <ChevronDown size={12} className={`transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+                                        {profile && (
+                                            <span className="flex items-center gap-1 ml-1 px-2 py-0.5 bg-mayssa-caramel/20 text-mayssa-caramel rounded-full text-[10px] font-bold normal-case">
+                                                <Star size={8} />
+                                                {profile.loyalty?.points || 0}
+                                            </span>
+                                        )}
+                                    </button>
+                                    <AnimatePresence>
+                                        {isUserMenuOpen && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0, y: 10 }}
+                                                className="absolute top-full right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-mayssa-brown/10 py-2 z-50"
+                                            >
+                                                <button
+                                                    onClick={() => {
+                                                        onAccountClick()
+                                                        setIsUserMenuOpen(false)
+                                                    }}
+                                                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-mayssa-brown hover:bg-mayssa-soft/50 transition-colors cursor-pointer"
+                                                >
+                                                    <User size={14} />
+                                                    Voir mon compte
+                                                </button>
+                                                <button
+                                                    onClick={handleLogout}
+                                                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                                                >
+                                                    <LogOut size={14} />
+                                                    Se déconnecter
+                                                </button>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={onAccountClick}
+                                    className="relative flex items-center gap-2 text-sm font-bold text-mayssa-brown/70 hover:text-mayssa-brown transition-all uppercase tracking-widest hover:scale-105 active:scale-95 cursor-pointer"
+                                >
+                                    <User size={14} />
+                                    Se Connecter
+                                </button>
+                            )}
+                            
                             <NavLink href="#temoignages">Témoignages</NavLink>
                             <NavLink href="#notre-histoire">Notre Histoire</NavLink>
                             <NavLink href="#contact">Contact</NavLink>
@@ -69,7 +144,7 @@ export function Navbar({ favoritesCount = 0 }: NavbarProps) {
 
                         <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
                             <a
-                                href="https://www.instagram.com/maison.mayssa74/"
+                                href="https://www.instagram.com/maison_mayssa74/"
                                 target="_blank"
                                 rel="noreferrer"
                                 className="p-1.5 sm:p-2 text-mayssa-brown hover:text-mayssa-caramel transition-colors rounded-lg hover:bg-mayssa-soft/50 active:scale-95 cursor-pointer"
@@ -142,6 +217,51 @@ export function Navbar({ favoritesCount = 0 }: NavbarProps) {
                                         Favoris
                                     </MobileNavLinkWithBadge>
                                     <MobileNavLink href="#commande" onClick={() => setIsMobileMenuOpen(false)}>Voir la commande</MobileNavLink>
+                                    
+                                    {isAuthenticated ? (
+                                        <>
+                                            <button
+                                                onClick={() => {
+                                                    onAccountClick()
+                                                    setIsMobileMenuOpen(false)
+                                                }}
+                                                className="flex items-center justify-between w-full rounded-2xl px-4 py-3 text-base font-bold text-mayssa-brown/80 hover:text-mayssa-brown hover:bg-mayssa-soft/50 active:bg-mayssa-soft active:scale-[0.99] transition-all uppercase tracking-widest cursor-pointer"
+                                            >
+                                                <span className="flex items-center gap-2">
+                                                    <User size={18} />
+                                                    Mon Compte
+                                                </span>
+                                                {profile && (
+                                                    <span className="flex items-center gap-1 px-2 py-1 bg-mayssa-caramel/20 text-mayssa-caramel rounded-full text-xs font-bold normal-case">
+                                                        <Star size={10} />
+                                                        {profile.loyalty?.points || 0} pts
+                                                    </span>
+                                                )}
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    handleLogout()
+                                                    setIsMobileMenuOpen(false)
+                                                }}
+                                                className="flex items-center w-full rounded-2xl px-4 py-3 text-base font-bold text-red-600 hover:text-red-700 hover:bg-red-50 active:bg-red-100 active:scale-[0.99] transition-all cursor-pointer"
+                                            >
+                                                <LogOut size={18} />
+                                                <span className="ml-2">Se Déconnecter</span>
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <button
+                                            onClick={() => {
+                                                onAccountClick()
+                                                setIsMobileMenuOpen(false)
+                                            }}
+                                            className="flex items-center w-full rounded-2xl px-4 py-3 text-base font-bold text-mayssa-brown/80 hover:text-mayssa-brown hover:bg-mayssa-soft/50 active:bg-mayssa-soft active:scale-[0.99] transition-all uppercase tracking-widest cursor-pointer"
+                                        >
+                                            <User size={18} />
+                                            <span className="ml-2">Se Connecter</span>
+                                        </button>
+                                    )}
+                                    
                                     <MobileNavLink href="#temoignages" onClick={() => setIsMobileMenuOpen(false)}>Témoignages</MobileNavLink>
                                     <MobileNavLink href="#notre-histoire" onClick={() => setIsMobileMenuOpen(false)}>Notre Histoire</MobileNavLink>
                                     <MobileNavLink href="#contact" onClick={() => setIsMobileMenuOpen(false)}>Contact</MobileNavLink>
@@ -161,7 +281,7 @@ export function Navbar({ favoritesCount = 0 }: NavbarProps) {
 
                                 <div className="flex gap-4 justify-center pt-4 border-t border-mayssa-brown/10">
                                     <a
-                                        href="https://www.instagram.com/maison.mayssa74/"
+                                        href="https://www.instagram.com/maison_mayssa74/"
                                         target="_blank"
                                         rel="noreferrer"
                                         className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white shadow-lg transition-all hover:scale-110 active:scale-95 cursor-pointer"

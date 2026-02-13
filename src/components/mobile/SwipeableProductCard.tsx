@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { motion, useMotionValue, useTransform } from 'framer-motion'
 import type { PanInfo } from 'framer-motion'
-import { Plus, Check, ShoppingBag, Heart } from 'lucide-react'
+import { Plus, Check, ShoppingBag, Heart, Calendar } from 'lucide-react'
 import type { Product } from '../../types'
 import { hapticFeedback } from '../../lib/haptics'
+import { isPreorderNotYetAvailable } from '../../lib/utils'
 import { ProductBadges } from '../ProductBadges'
 import { BlurImage } from '../BlurImage'
 import { ShareButton } from '../ShareButton'
+import { StockBadge } from '../StockBadge'
 
 interface SwipeableProductCardProps {
   product: Product
@@ -14,12 +16,19 @@ interface SwipeableProductCardProps {
   onTap?: (product: Product) => void
   isFavorite?: boolean
   onToggleFavorite?: (product: Product) => void
+  stock?: number | null
+  isPreorderDay?: boolean
+  dayNames?: string
 }
 
-export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false, onToggleFavorite }: SwipeableProductCardProps) {
+export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false, onToggleFavorite, stock = null, isPreorderDay = true, dayNames = '' }: SwipeableProductCardProps) {
   const [isAdded, setIsAdded] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const x = useMotionValue(0)
+  const isPreorderSoon = isPreorderNotYetAvailable(product)
+  const showBientotDispo = product.preorder && !product.image
+  const isStockManaged = stock !== null
+  const isUnavailable = isStockManaged && (!isPreorderDay || stock <= 0)
 
   // Transform for the background reveal
   const background = useTransform(
@@ -37,13 +46,12 @@ export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false
 
   const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     setIsDragging(false)
+    if (isPreorderSoon || isUnavailable) return
     // Swipe right to add
     if (info.offset.x > 80) {
       hapticFeedback('success')
       setIsAdded(true)
       onAdd(product)
-
-      // Reset after animation
       setTimeout(() => setIsAdded(false), 1500)
     }
   }
@@ -96,8 +104,9 @@ export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false
                 className="w-full h-full"
               />
             ) : (
-              <div className="flex items-center justify-center h-full">
-                <ShoppingBag size={24} className="text-mayssa-brown/20" />
+              <div className="flex flex-col items-center justify-center h-full text-mayssa-brown/40 text-[9px] font-bold uppercase">
+                {showBientotDispo ? 'Bientôt' : null}
+                <ShoppingBag size={20} className={showBientotDispo ? 'mt-0.5' : ''} />
               </div>
             )}
 
@@ -125,13 +134,21 @@ export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false
             <p className="text-xs text-mayssa-brown/60 line-clamp-1">
               {product.description || 'Pâtisserie artisanale'}
             </p>
+            {isStockManaged && (
+              <StockBadge stock={stock} isPreorderDay={isPreorderDay} dayNames={dayNames} compact />
+            )}
             <div className="mt-1 flex items-center justify-between">
-              <span className="text-lg font-display font-bold text-mayssa-caramel">
-                {product.price.toFixed(2).replace('.', ',')} €
-              </span>
+              {isPreorderSoon && product.preorder ? (
+                <span className="text-[10px] text-mayssa-brown/70 leading-tight">
+                  Préco. dès 14/02 • Récup. sous {product.preorder.daysToPickup} j
+                </span>
+              ) : (
+                <span className="text-lg font-display font-bold text-mayssa-caramel">
+                  {product.price.toFixed(2).replace('.', ',')} €
+                </span>
+              )}
 
               <div className="flex items-center gap-2">
-                {/* Share */}
                 <div onClick={(e) => e.stopPropagation()}>
                   <ShareButton
                     product={product}
@@ -140,7 +157,6 @@ export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false
                   />
                 </div>
 
-                {/* Favorite button */}
                 {onToggleFavorite && (
                   <motion.button
                     whileTap={{ scale: 0.85 }}
@@ -159,40 +175,47 @@ export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false
                   </motion.button>
                 )}
 
-                {/* Quick add button */}
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    hapticFeedback('medium')
-                    setIsAdded(true)
-                    onAdd(product)
-                    setTimeout(() => setIsAdded(false), 1500)
-                  }}
-                  className="flex h-8 w-8 items-center justify-center rounded-xl bg-mayssa-brown text-mayssa-cream"
-                >
-                  {isAdded ? <Check size={16} /> : <Plus size={16} />}
-                </motion.button>
+                {(isPreorderSoon || isUnavailable) ? (
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-mayssa-brown/30 text-mayssa-brown/50" title={isPreorderSoon ? 'Disponible à partir du 14 février' : !isPreorderDay ? `Dispo ${dayNames}` : 'Rupture de stock'}>
+                    <Calendar size={16} />
+                  </div>
+                ) : (
+                  <motion.button
+                    whileTap={{ scale: 0.9 }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      hapticFeedback('medium')
+                      setIsAdded(true)
+                      onAdd(product)
+                      setTimeout(() => setIsAdded(false), 1500)
+                    }}
+                    className="flex h-8 w-8 items-center justify-center rounded-xl bg-mayssa-brown text-mayssa-cream"
+                  >
+                    {isAdded ? <Check size={16} /> : <Plus size={16} />}
+                  </motion.button>
+                )}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Swipe hint */}
-        <motion.div
-          initial={{ opacity: 1 }}
-          animate={{ opacity: 0 }}
-          transition={{ delay: 2, duration: 0.5 }}
-          className="absolute bottom-1 right-3 text-[9px] text-mayssa-brown/40 flex items-center gap-1"
-        >
-          <span>Glisser pour ajouter</span>
-          <motion.span
-            animate={{ x: [0, 5, 0] }}
-            transition={{ duration: 1, repeat: 3 }}
+        {/* Swipe hint (masqué pour précommandes et indisponibles) */}
+        {!isPreorderSoon && !isUnavailable && (
+          <motion.div
+            initial={{ opacity: 1 }}
+            animate={{ opacity: 0 }}
+            transition={{ delay: 2, duration: 0.5 }}
+            className="absolute bottom-1 right-3 text-[9px] text-mayssa-brown/40 flex items-center gap-1"
           >
-            →
-          </motion.span>
-        </motion.div>
+            <span>Glisser pour ajouter</span>
+            <motion.span
+              animate={{ x: [0, 5, 0] }}
+              transition={{ duration: 1, repeat: 3 }}
+            >
+              →
+            </motion.span>
+          </motion.div>
+        )}
       </motion.div>
     </div>
   )

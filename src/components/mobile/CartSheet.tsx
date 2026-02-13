@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence, useDragControls } from 'framer-motion'
-import { X, Minus, Plus, Trash2, ShoppingBag, Send, Copy, MessageCircle, Instagram, User, Phone, MapPin, Truck, Calendar, Clock } from 'lucide-react'
+import { X, Minus, Plus, Trash2, ShoppingBag, Send, Copy, MessageCircle, Instagram, User, Phone, MapPin, Truck, Calendar, Clock, ClipboardCopy, Star, Gift } from 'lucide-react'
 import { hapticFeedback } from '../../lib/haptics'
 import { cn } from '../../lib/utils'
 import { AddressAutocomplete } from '../AddressAutocomplete'
+import { ReservationTimer } from '../ReservationTimer'
+import { useAuth } from '../../hooks/useAuth'
+import { REWARD_COSTS, REWARD_LABELS } from '../../lib/firebase'
 import type { CartItem, Channel, CustomerInfo } from '../../types'
 import {
   ANNECY_GARE,
@@ -30,6 +33,9 @@ interface CartSheetProps {
   onChannelChange: (channel: Channel) => void
   onCustomerChange: (customer: CustomerInfo) => void
   onSend: () => void
+  onAccountClick?: () => void
+  selectedReward?: { type: keyof typeof REWARD_COSTS; id: string } | null
+  onSelectReward?: (reward: { type: keyof typeof REWARD_COSTS; id: string } | null) => void
 }
 
 export function CartSheet({
@@ -45,10 +51,14 @@ export function CartSheet({
   onChannelChange,
   onCustomerChange,
   onSend,
+  onAccountClick,
+  selectedReward,
+  onSelectReward,
 }: CartSheetProps) {
   const dragControls = useDragControls()
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0)
   const hasItems = items.length > 0
+  const { isAuthenticated, profile } = useAuth()
 
   // Lock body scroll when open
   useEffect(() => {
@@ -77,6 +87,12 @@ export function CartSheet({
   const deliveryFee = useMemo(() => computeDeliveryFee(customer, total), [customer, total])
 
   const finalTotal = total + (deliveryFee ?? 0)
+
+  // Calcul des points de fidélité
+  const pointsToEarn = Math.round(finalTotal) // 1 € = 1 point
+  const availableRewards = isAuthenticated && profile 
+    ? Object.entries(REWARD_COSTS).filter(([_, cost]) => profile.loyalty.points >= cost)
+    : []
 
   const timeSlots = useMemo(() => generateTimeSlots(customer.wantsDelivery), [customer.wantsDelivery])
 
@@ -191,6 +207,14 @@ export function CartSheet({
                             </button>
                           </div>
                         </div>
+                        {item.reservationExpiresAt && (
+                          <div className="mt-1">
+                            <ReservationTimer
+                              expiresAt={item.reservationExpiresAt}
+                              confirmed={item.reservationConfirmed}
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -351,11 +375,106 @@ export function CartSheet({
                 />
               </div>
 
+              {/* Points & Récompenses */}
+              {isAuthenticated && profile && hasItems && (
+                <div className="space-y-3">
+                  {/* Points à gagner */}
+                  <div className="bg-mayssa-caramel/10 rounded-xl p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Star size={14} className="text-mayssa-caramel" />
+                        <span className="text-xs font-medium text-mayssa-brown">
+                          +{pointsToEarn} points avec cette commande
+                        </span>
+                      </div>
+                      <span className="text-xs font-bold text-mayssa-caramel">
+                        {profile.loyalty.points} pts
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Récompenses disponibles */}
+                  {availableRewards.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-mayssa-brown/80">Récompenses disponibles :</p>
+                      {availableRewards.slice(0, 2).map(([rewardType, cost]) => (
+                        <div
+                          key={rewardType}
+                          className={`flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer ${
+                            selectedReward?.type === rewardType
+                              ? 'border-mayssa-caramel bg-mayssa-caramel/10'
+                              : 'border-mayssa-brown/20 bg-white/80 hover:border-mayssa-caramel/50'
+                          }`}
+                          onClick={() => {
+                            if (onSelectReward) {
+                              hapticFeedback('light')
+                              onSelectReward(
+                                selectedReward?.type === rewardType
+                                  ? null
+                                  : { type: rewardType as keyof typeof REWARD_COSTS, id: `reward_${Date.now()}` }
+                              )
+                            }
+                          }}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Gift size={12} className="text-mayssa-caramel" />
+                            <span className="text-xs font-medium text-mayssa-brown">
+                              {REWARD_LABELS[rewardType as keyof typeof REWARD_LABELS]}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-mayssa-brown/60">{cost} pts</span>
+                            {selectedReward?.type === rewardType && (
+                              <div className="w-3 h-3 rounded-full bg-mayssa-caramel flex items-center justify-center">
+                                <span className="text-white text-[6px]">✓</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      {selectedReward && (
+                        <p className="text-[10px] text-emerald-600 font-medium bg-emerald-50 rounded-lg p-2 text-center">
+                          🎁 {REWARD_LABELS[selectedReward.type]} ajouté à ta commande
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Incitation connexion si pas connecté */}
+              {!isAuthenticated && hasItems && (
+                <div className="bg-gradient-to-r from-mayssa-caramel/10 to-mayssa-rose/10 rounded-xl p-3 border border-mayssa-caramel/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Star size={14} className="text-mayssa-caramel" />
+                    <span className="text-xs font-bold text-mayssa-brown">
+                      +{pointsToEarn} points avec cette commande !
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-mayssa-brown/70 mb-2">
+                    Crée ton compte pour des récompenses gratuites.
+                  </p>
+                  <button
+                    onClick={() => {
+                      if (onAccountClick) {
+                        hapticFeedback('light')
+                        onAccountClick()
+                        onClose()
+                      }
+                    }}
+                    className="w-full py-2 px-3 bg-mayssa-caramel text-white rounded-xl text-[10px] font-bold hover:bg-mayssa-brown transition-colors"
+                  >
+                    Créer mon compte (+15 pts bonus)
+                  </button>
+                </div>
+              )}
+
               {/* Channel */}
               <div className="flex gap-2">
                 {[
                   { id: 'whatsapp', icon: MessageCircle, label: 'WhatsApp', activeClass: 'bg-emerald-500 text-white' },
                   { id: 'instagram', icon: Instagram, label: 'Insta', activeClass: 'bg-gradient-to-br from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white' },
+                  { id: 'copier', icon: ClipboardCopy, label: 'Copier', activeClass: 'bg-mayssa-brown text-white' },
                 ].map((ch) => (
                   <button
                     key={ch.id}
@@ -370,6 +489,11 @@ export function CartSheet({
                   </button>
                 ))}
               </div>
+              {channel === 'copier' && (
+                <p className="text-[9px] text-mayssa-brown/70 text-center bg-mayssa-cream/60 rounded-lg px-2 py-1.5">
+                  Le message sera copié. Envoie-le à <strong>@maison.mayssa</strong> sur Snap, Insta ou WhatsApp.
+                </p>
+              )}
             </div>
 
             {/* Footer */}
@@ -414,7 +538,7 @@ export function CartSheet({
                 {channel === 'whatsapp' ? <Send size={18} /> : <Copy size={18} />}
                 {hasItems
                   ? isCustomerValid
-                    ? 'Envoyer ma commande'
+                    ? channel === 'copier' ? 'Copier ma commande' : 'Envoyer ma commande'
                     : 'Complète tes infos'
                   : 'Panier vide'}
               </motion.button>

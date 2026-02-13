@@ -1,7 +1,10 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { ShoppingBag, Minus, Plus, MessageCircle, Send, Copy, Instagram, User, Phone, MapPin, Truck, Calendar, Clock } from 'lucide-react'
+import { ShoppingBag, Minus, Plus, MessageCircle, Send, Copy, Instagram, User, Phone, MapPin, Truck, Calendar, Clock, ClipboardCopy, Star, Gift } from 'lucide-react'
 import type { CartItem, Channel, CustomerInfo } from '../types'
 import { cn } from '../lib/utils'
+import { ReservationTimer } from './ReservationTimer'
+import { useAuth } from '../hooks/useAuth'
+import { REWARD_COSTS, REWARD_LABELS } from '../lib/firebase'
 import { useEffect, useMemo, useState } from 'react'
 import { AddressAutocomplete } from './AddressAutocomplete'
 import {
@@ -27,6 +30,9 @@ interface CartProps {
     onChannelChange: (channel: Channel) => void
     onCustomerChange: (customer: CustomerInfo) => void
     onSend: () => void
+    onAccountClick?: () => void
+    selectedReward?: { type: keyof typeof REWARD_COSTS; id: string } | null
+    onSelectReward?: (reward: { type: keyof typeof REWARD_COSTS; id: string } | null) => void
 }
 
 export function Cart({
@@ -40,9 +46,13 @@ export function Cart({
     onChannelChange,
     onCustomerChange,
     onSend,
+    onAccountClick,
+    selectedReward,
+    onSelectReward,
 }: CartProps) {
     const hasItems = items.length > 0
     const itemCount = items.reduce((sum, item) => sum + item.quantity, 0)
+    const { isAuthenticated, profile } = useAuth()
 
     // Touched state for real-time validation feedback
     const [touched, setTouched] = useState<Partial<Record<keyof typeof customer, boolean>>>({})
@@ -58,6 +68,12 @@ export function Cart({
     const deliveryFee = useMemo(() => computeDeliveryFee(customer, total), [customer, total])
 
     const finalTotal = total + (deliveryFee ?? 0)
+
+    // Calcul des points de fidélité
+    const pointsToEarn = Math.round(finalTotal) // 1 € = 1 point
+    const availableRewards = isAuthenticated && profile 
+      ? Object.entries(REWARD_COSTS).filter(([_, cost]) => profile.loyalty.points >= cost)
+      : []
 
     const timeSlots = useMemo(() => generateTimeSlots(customer.wantsDelivery), [customer.wantsDelivery])
 
@@ -158,6 +174,14 @@ export function Cart({
                                                         = {(item.product.price * item.quantity).toFixed(2).replace('.', ',')} €
                                                     </p>
                                                 </div>
+                                                {item.reservationExpiresAt && (
+                                                    <div className="mt-1">
+                                                        <ReservationTimer
+                                                            expiresAt={item.reservationExpiresAt}
+                                                            confirmed={item.reservationConfirmed}
+                                                        />
+                                                    </div>
+                                                )}
                                             </div>
 
                                             <div className="flex flex-col items-center gap-2 flex-shrink-0">
@@ -382,12 +406,109 @@ export function Cart({
                                 </div>
                             </div>
 
+                            {/* Points & Récompenses */}
+                            {isAuthenticated && profile && hasItems && (
+                                <div className="space-y-3 pt-4 border-t border-mayssa-brown/10">
+                                    {/* Points à gagner */}
+                                    <div className="flex items-center justify-between bg-mayssa-caramel/10 rounded-xl p-3">
+                                        <div className="flex items-center gap-2">
+                                            <Star size={16} className="text-mayssa-caramel" />
+                                            <span className="text-sm font-medium text-mayssa-brown">
+                                                Tu gagneras <span className="font-bold">{pointsToEarn} points</span>
+                                            </span>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-xs text-mayssa-brown/60">Solde actuel</p>
+                                            <p className="font-bold text-mayssa-caramel">{profile.loyalty.points} pts</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Récompenses disponibles */}
+                                    {availableRewards.length > 0 && (
+                                        <div className="space-y-2">
+                                            <p className="text-xs font-medium text-mayssa-brown/80">
+                                                Récompenses disponibles :
+                                            </p>
+                                            <div className="grid gap-2">
+                                                {availableRewards.slice(0, 2).map(([rewardType, cost]) => (
+                                                    <div
+                                                        key={rewardType}
+                                                        className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all cursor-pointer ${
+                                                            selectedReward?.type === rewardType
+                                                                ? 'border-mayssa-caramel bg-mayssa-caramel/10'
+                                                                : 'border-mayssa-brown/20 bg-mayssa-soft/50 hover:border-mayssa-caramel/50'
+                                                        }`}
+                                                        onClick={() => {
+                                                            if (onSelectReward) {
+                                                                onSelectReward(
+                                                                    selectedReward?.type === rewardType
+                                                                        ? null
+                                                                        : { type: rewardType as keyof typeof REWARD_COSTS, id: `reward_${Date.now()}` }
+                                                                )
+                                                            }
+                                                        }}
+                                                    >
+                                                        <div className="flex items-center gap-2">
+                                                            <Gift size={14} className="text-mayssa-caramel" />
+                                                            <span className="text-xs font-medium text-mayssa-brown">
+                                                                {REWARD_LABELS[rewardType as keyof typeof REWARD_LABELS]}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-xs text-mayssa-brown/60">{cost} pts</span>
+                                                            {selectedReward?.type === rewardType && (
+                                                                <div className="w-4 h-4 rounded-full bg-mayssa-caramel flex items-center justify-center">
+                                                                    <span className="text-white text-[8px]">✓</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            {selectedReward && (
+                                                <p className="text-xs text-emerald-600 font-medium bg-emerald-50 rounded-lg p-2 text-center">
+                                                    🎁 {REWARD_LABELS[selectedReward.type]} sera ajouté à ta commande
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Incitation connexion si pas connecté */}
+                            {!isAuthenticated && hasItems && (
+                                <div className="bg-gradient-to-r from-mayssa-caramel/10 to-mayssa-rose/10 rounded-xl p-3 border border-mayssa-caramel/20">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Star size={16} className="text-mayssa-caramel" />
+                                        <span className="text-sm font-bold text-mayssa-brown">
+                                            Gagne {pointsToEarn} points avec cette commande !
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-mayssa-brown/70 mb-2">
+                                        Crée ton compte pour accumuler des points et débloquer des récompenses gratuites.
+                                    </p>
+                                    <button
+                                        onClick={onAccountClick}
+                                        className="w-full py-2 px-3 bg-mayssa-caramel text-white rounded-xl text-xs font-bold hover:bg-mayssa-brown transition-colors"
+                                    >
+                                        Créer mon compte (+15 pts bonus)
+                                    </button>
+                                </div>
+                            )}
+
                             <div className="space-y-3 pt-2">
                                 <p className="text-[10px] text-mayssa-brown/60 text-center font-medium">Choisissez un mode pour envoyer votre commande :</p>
                                 <div className="flex gap-2">
                                     <ChannelButton active={channel === 'whatsapp'} onClick={() => onChannelChange('whatsapp')} icon={<MessageCircle size={18} />} label="WhatsApp" activeClass="bg-emerald-500 text-white" />
                                     <ChannelButton active={channel === 'instagram'} onClick={() => onChannelChange('instagram')} icon={<Instagram size={18} />} label="Instagram" activeClass="bg-gradient-to-br from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white" />
+                                    <ChannelButton active={channel === 'copier'} onClick={() => onChannelChange('copier')} icon={<ClipboardCopy size={18} />} label="Copier" activeClass="bg-mayssa-brown text-white" />
                                 </div>
+
+                                {channel === 'copier' && (
+                                    <p className="text-[10px] text-mayssa-brown/70 text-center bg-mayssa-cream/60 rounded-xl px-3 py-2">
+                                        Le message sera copié. Envoie-le à <strong>@maison.mayssa</strong> sur Snap, Insta ou WhatsApp.
+                                    </p>
+                                )}
 
                                 <button
                                     onClick={onSend}
@@ -395,7 +516,7 @@ export function Cart({
                                     className="w-full flex items-center justify-center gap-3 rounded-[2rem] bg-mayssa-brown text-white py-5 text-base font-bold shadow-2xl transition-all hover:bg-mayssa-caramel hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:grayscale disabled:hover:scale-100 cursor-pointer"
                                 >
                                     {channel === 'whatsapp' ? <Send size={24} /> : <Copy size={24} />}
-                                    <span>{hasItems ? (isCustomerValid ? 'Commander maintenant' : 'Vérifiez le formulaire') : 'Votre panier est vide'}</span>
+                                    <span>{hasItems ? (isCustomerValid ? (channel === 'copier' ? 'Copier ma commande' : 'Commander maintenant') : 'Vérifiez le formulaire') : 'Votre panier est vide'}</span>
                                 </button>
                             </div>
                         </div>

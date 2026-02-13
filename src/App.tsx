@@ -9,7 +9,6 @@ import { Cart } from './components/Cart'
 import { Footer } from './components/Footer'
 import { ToastContainer, type Toast } from './components/Toast'
 import { PromoBanner } from './components/PromoBanner'
-import { WhatsAppFloatingButton } from './components/WhatsAppFloatingButton'
 import { Confetti, useConfetti } from './components/effects'
 import { FavorisSection } from './components/FavorisSection'
 import { OfflineIndicator } from './components/OfflineIndicator'
@@ -17,6 +16,12 @@ import { InstagramInstructionModal } from './components/InstagramInstructionModa
 import { FloatingCartBar } from './components/FloatingCartBar'
 import { ComplementarySuggestions } from './components/ComplementarySuggestions'
 import { PWAInstallPrompt } from './components/PWAInstallPrompt'
+import { AdminPanel } from './components/admin/AdminPanel'
+import { useStock } from './hooks/useStock'
+import { useAuth } from './hooks/useAuth'
+import { AuthModals } from './components/auth/AuthModals'
+import { AccountPage } from './components/auth/AccountPage'
+import { addUserPoints } from './lib/firebase'
 
 const VisualBackground = lazy(() => import('./components/effects/VisualBackground').then(m => ({ default: m.VisualBackground })))
 
@@ -42,6 +47,8 @@ const SizeSelectorModal = lazy(() => import('./components/SizeSelectorModal').th
 const TiramisuCustomizationModal = lazy(() => import('./components/TiramisuCustomizationModal').then(m => ({ default: m.TiramisuCustomizationModal })))
 const BoxCustomizationModal = lazy(() => import('./components/BoxCustomizationModal').then(m => ({ default: m.BoxCustomizationModal })))
 const BoxFlavorsModal = lazy(() => import('./components/BoxFlavorsModal').then(m => ({ default: m.BoxFlavorsModal })))
+import { TrompeLOeilModal } from './components/TrompeLOeilModal'
+import { createOrder, updateStock as firebaseUpdateStock, getStock as fetchAllStock, REWARD_COSTS, REWARD_LABELS, claimReward } from './lib/firebase'
 import { PRODUCTS, PHONE_E164 } from './constants'
 import type {
   Product,
@@ -57,7 +64,9 @@ import {
   DELIVERY_FEE,
   FREE_DELIVERY_THRESHOLD,
   calculateDistance,
+  computeDeliveryFee,
 } from './lib/delivery'
+import { isPreorderNotYetAvailable } from './lib/utils'
 import {
   Sparkles,
   Search,
@@ -67,10 +76,33 @@ import {
   Package,
   CakeSlice,
   CupSoda as Cup,
-  Cake
+  Cake,
+  Eye
 } from 'lucide-react'
 
+function AppRouter() {
+  const [isAdmin, setIsAdmin] = useState(window.location.hash === '#admin')
+  useEffect(() => {
+    const handler = () => setIsAdmin(window.location.hash === '#admin')
+    window.addEventListener('hashchange', handler)
+    return () => window.removeEventListener('hashchange', handler)
+  }, [])
+
+  if (isAdmin) return <AdminPanel />
+  return <App />
+}
+
 function App() {
+  // Stock management (Firebase real-time)
+  const { stock: stockMap, getStock, isPreorderDay, dayNames } = useStock()
+
+  // Client authentication
+  const { user, isAuthenticated } = useAuth()
+
+  // Refs pour accéder aux données courantes dans les timers (évite les closures stale)
+  const stockMapRef = useRef(stockMap)
+  useEffect(() => { stockMapRef.current = stockMap }, [stockMap])
+
   // Notification de visite Telegram
   useVisitorNotification()
 
@@ -157,6 +189,95 @@ function App() {
     localStorage.setItem('maison-mayssa-cart', JSON.stringify(cart))
   }, [cart])
 
+  // Ref panier pour le timer de réservation
+  const cartRef = useRef(cart)
+  useEffect(() => { cartRef.current = cart }, [cart])
+
+  // --- RÉSERVATION TROMPE L'ŒIL : nettoyage des réservations expirées ---
+  // Utilitaire : extraire l'ID produit original (sans le suffixe -timestamp)
+  const getOriginalProductId = (cartProductId: string) =>
+    cartProductId.replace(/-\d{13,}$/, '')
+
+  // Nettoyage au montage (réservations d'une session précédente)
+  const mountCleanupDone = useRef(false)
+  useEffect(() => {
+    if (mountCleanupDone.current) return
+    mountCleanupDone.current = true
+
+    const now = Date.now()
+    const savedCart: CartItem[] = cartRef.current
+    const expired = savedCart.filter(
+      (item) =>
+        item.reservationExpiresAt &&
+        !item.reservationConfirmed &&
+        now >= item.reservationExpiresAt,
+    )
+    if (expired.length === 0) return
+
+    // Relâcher le stock pour chaque item expiré (lecture directe Firebase)
+    ;(async () => {
+      try {
+        const currentStock = await fetchAllStock()
+        for (const item of expired) {
+          const origId = getOriginalProductId(item.product.id)
+          const qty = currentStock[origId] ?? 0
+          await firebaseUpdateStock(origId, qty + item.quantity)
+        }
+      } catch {
+        /* ignore */
+      }
+    })()
+
+    setCart((current) =>
+      current.filter(
+        (item) =>
+          !item.reservationExpiresAt ||
+          item.reservationConfirmed ||
+          now < item.reservationExpiresAt,
+      ),
+    )
+  }, [])
+
+  // Timer : toutes les secondes, vérifier si des réservations ont expiré
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now()
+      const current = cartRef.current
+      const expired = current.filter(
+        (item) =>
+          item.reservationExpiresAt &&
+          !item.reservationConfirmed &&
+          now >= item.reservationExpiresAt,
+      )
+      if (expired.length === 0) return
+
+      // Relâcher le stock
+      for (const item of expired) {
+        const origId = getOriginalProductId(item.product.id)
+        const qty = stockMapRef.current[origId] ?? 0
+        firebaseUpdateStock(origId, qty + item.quantity)
+      }
+
+      // Retirer du panier
+      setCart((prev) =>
+        prev.filter(
+          (item) =>
+            !item.reservationExpiresAt ||
+            item.reservationConfirmed ||
+            now < item.reservationExpiresAt,
+        ),
+      )
+
+      showToast(
+        'Temps écoulé ! Les trompe l\'œil réservés ont été retirés de ton panier.',
+        'error',
+        5000,
+      )
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Show recovery toast if cart was restored from localStorage
   const cartRecoveredRef = useRef(false)
   useEffect(() => {
@@ -228,10 +349,19 @@ function App() {
   const [selectedProductForTiramisu, setSelectedProductForTiramisu] = useState<Product | null>(null)
   const [selectedProductForBox, setSelectedProductForBox] = useState<Product | null>(null)
   const [selectedProductForBoxFlavors, setSelectedProductForBoxFlavors] = useState<Product | null>(null)
+  const [selectedProductForTrompeLoeil, setSelectedProductForTrompeLoeil] = useState<Product | null>(null)
   const [toasts, setToasts] = useState<Toast[]>([])
   const [isInstagramModalOpen, setIsInstagramModalOpen] = useState(false)
   const [suggestedProducts, setSuggestedProducts] = useState<Product[]>([])
   const suggestTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  // Auth & Account states
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
+  const [isAccountPageOpen, setIsAccountPageOpen] = useState(false)
+
+  // Reward selection state
+  const [selectedReward, setSelectedReward] = useState<{ type: keyof typeof REWARD_COSTS; id: string } | null>(null)
 
   const showComplementary = (addedProduct: Product) => {
     clearTimeout(suggestTimerRef.current)
@@ -243,6 +373,15 @@ function App() {
     if (suggestions.length === 0) return
     setSuggestedProducts(suggestions)
     suggestTimerRef.current = setTimeout(() => setSuggestedProducts([]), 6000)
+  }
+
+  const handleAccountClick = () => {
+    if (isAuthenticated) {
+      setIsAccountPageOpen(true)
+    } else {
+      setAuthMode('login')
+      setIsAuthModalOpen(true)
+    }
   }
 
   const showToast = (message: string, type: Toast['type'] = 'success', duration?: number, withConfetti?: boolean, product?: Product) => {
@@ -298,6 +437,7 @@ function App() {
   const getCategoryIcon = (category: string) => {
     switch (category) {
       case 'Tous': return <LayoutGrid size={20} />
+      case "Trompe l'oeil": return <Eye size={20} />
       case 'Mini Gourmandises': return <Sparkles size={20} />
       case 'Brownies': return <Cake size={20} />
       case 'Cookies': return <Cookie size={20} />
@@ -330,6 +470,23 @@ function App() {
   }, [activeCategory, searchQuery])
 
   const handleAddToCart = (product: Product) => {
+    if (isPreorderNotYetAvailable(product)) return
+
+    // Trompe l'oeil → modal dédiée (choix quantité + précommande)
+    if (product.category === "Trompe l'oeil") {
+      if (!isPreorderDay) {
+        showToast(`Précommande dispo ${dayNames} uniquement`, 'error')
+        return
+      }
+      const qty = getStock(product.id)
+      if (qty !== null && qty <= 0) {
+        showToast(`${product.name} est en rupture de stock`, 'error')
+        return
+      }
+      setSelectedProductForTrompeLoeil(product)
+      return
+    }
+
     // If product is a Tiramisu, open customization modal
     if (product.category === 'Tiramisus') {
       setSelectedProductForTiramisu(product)
@@ -470,14 +627,85 @@ function App() {
     setSelectedProductForBoxFlavors(null)
   }
 
-  const handleUpdateQuantity = (id: string, quantity: number) => {
+  const RESERVATION_DURATION_MS = 10 * 60 * 1000 // 10 minutes
+
+  const handleTrompeLOeilConfirm = async (product: Product, quantity: number) => {
+    // 1. Décrémenter le stock IMMÉDIATEMENT dans Firebase
+    const currentQty = getStock(product.id)
+    if (currentQty !== null) {
+      await firebaseUpdateStock(product.id, Math.max(0, currentQty - quantity))
+    }
+
+    // 2. Ajouter au panier avec un timer de réservation (10 min)
+    const cartProduct: Product = {
+      ...product,
+      id: `${product.id}-${Date.now()}`,
+    }
+    setCart((current) => {
+      pendingAddToastRef.current = {
+        message: `${product.name} ×${quantity} réservé pour 10 min !`,
+        product,
+      }
+      return [
+        ...current,
+        {
+          product: cartProduct,
+          quantity,
+          reservationExpiresAt: Date.now() + RESERVATION_DURATION_MS,
+          reservationConfirmed: false,
+        },
+      ]
+    })
+
+    // PAS de création de commande Firebase ici — elle sera créée à l'envoi
+    setSelectedProductForTrompeLoeil(null)
+  }
+
+  const handleUpdateQuantity = async (id: string, quantity: number) => {
+    const item = cart.find((i) => i.product.id === id)
+    const isTrompeReservation =
+      item?.reservationExpiresAt && !item.reservationConfirmed
+
     if (quantity <= 0) {
-      setCart((current) => current.filter((item) => item.product.id !== id))
+      // Relâcher le stock réservé si trompe l'oeil en cours de réservation
+      if (isTrompeReservation && item) {
+        const origId = getOriginalProductId(item.product.id)
+        const currentQty = getStock(origId)
+        if (currentQty !== null) {
+          await firebaseUpdateStock(origId, currentQty + item.quantity)
+        }
+      }
+      setCart((current) => current.filter((i) => i.product.id !== id))
       return
     }
+
+    // Ajustement de quantité pour un trompe l'oeil réservé
+    if (isTrompeReservation && item) {
+      const delta = quantity - item.quantity
+      if (delta !== 0) {
+        const origId = getOriginalProductId(item.product.id)
+        const currentQty = getStock(origId)
+        if (delta > 0) {
+          // Veut plus → vérifier le stock
+          if (currentQty !== null && currentQty < delta) {
+            showToast(`Stock insuffisant (${currentQty} restant${currentQty > 1 ? 's' : ''})`, 'error')
+            return
+          }
+          if (currentQty !== null) {
+            await firebaseUpdateStock(origId, currentQty - delta)
+          }
+        } else {
+          // Veut moins → remettre du stock
+          if (currentQty !== null) {
+            await firebaseUpdateStock(origId, currentQty + Math.abs(delta))
+          }
+        }
+      }
+    }
+
     setCart((current) =>
-      current.map((item) =>
-        item.product.id === id ? { ...item, quantity: Math.min(quantity, 99) } : item,
+      current.map((i) =>
+        i.product.id === id ? { ...i, quantity: Math.min(quantity, 99) } : i,
       ),
     )
   }
@@ -510,6 +738,7 @@ function App() {
       const p = item.product
       const name = stripEmoji(p.name)
       const cat = p.category
+      if (cat === "Trompe l'oeil") return `🎨 ${name} (PRÉCOMMANDE – à récupérer sous ${p.preorder?.daysToPickup ?? 3} j)`
       if (cat === 'Tiramisus') {
         const base = p.description ? p.description : ''
         return `Tiramisu – ${name}${base ? ` – ${base}` : ''}`
@@ -564,6 +793,12 @@ function App() {
       lines.push('')
     })
 
+    // Ajouter la récompense si sélectionnée
+    if (selectedReward && isAuthenticated) {
+      lines.push(`${cart.length + 1}. 🎁 ${REWARD_LABELS[selectedReward.type]} (récompense fidélité) → 0,00 €`)
+      lines.push('')
+    }
+
     // —— Récapitulatif ——
     lines.push('*RÉCAPITULATIF*', '')
     lines.push(`Sous-total : ${total.toFixed(2)} €`)
@@ -590,6 +825,14 @@ function App() {
     if (note.trim() && note.trim() !== 'Pour le … (date, créneau, adresse)') {
       lines.push('*INFOS COMPLÉMENTAIRES*', '')
       lines.push(note.trim(), '', '')
+    }
+
+    // Mention précommande si trompe l'oeil dans le panier
+    const hasTrompeLoeil = cart.some(i => i.product.category === "Trompe l'oeil")
+    if (hasTrompeLoeil) {
+      lines.push('⚠️ *PRÉCOMMANDE TROMPE L\'ŒIL*')
+      lines.push('Les trompe l\'œil sont à récupérer sous 3 jours après validation de la commande.')
+      lines.push('', '')
     }
 
     lines.push('Merci beaucoup, à très vite !')
@@ -634,13 +877,20 @@ function App() {
     cart.forEach((item, i) => {
       const name = stripEmoji(item.product.name)
       const cat = item.product.category
+      const isTrompeLoeil = cat === "Trompe l'oeil"
       // Include description only for Tiramisus (has customization info) and Boxes
       const needsDesc = cat === 'Tiramisus' || cat === 'Boxes' || cat === 'Mini Gourmandises'
       const desc = needsDesc && item.product.description ? ` (${item.product.description})` : ''
+      const precoTag = isTrompeLoeil ? ' [PRÉCO]' : ''
       const price = (item.product.price * item.quantity).toFixed(2).replace('.', ',')
       const qty = item.quantity > 1 ? `${item.quantity}× ` : ''
-      itemLines.push(`${i + 1}. ${qty}${name}${desc} → ${price}€`)
+      itemLines.push(`${i + 1}. ${qty}${name}${desc}${precoTag} → ${price}€`)
     })
+
+    // Ajouter la récompense si sélectionnée
+    if (selectedReward && isAuthenticated) {
+      itemLines.push(`${cart.length + 1}. 🎁 ${REWARD_LABELS[selectedReward.type]} [FIDÉLITÉ] → 0€`)
+    }
 
     // -- Footer (compact) --
     const footer: string[] = ['']
@@ -649,6 +899,10 @@ function App() {
       footer.push(`Livraison : ${delivLabel}`)
     }
     footer.push(`Total : ${finalTotal.toFixed(2).replace('.', ',')}€`)
+    const hasTrompeLoeilIG = cart.some(i => i.product.category === "Trompe l'oeil")
+    if (hasTrompeLoeilIG) {
+      footer.push(`⚠️ Trompe l'œil = précommande (récup. sous 3j)`)
+    }
     if (note.trim() && note.trim() !== 'Pour le … (date, créneau, adresse)') {
       footer.push(`Note : ${note.trim()}`)
     }
@@ -689,22 +943,116 @@ function App() {
 
   const [instagramParts, setInstagramParts] = useState<string[]>([])
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (channel === 'whatsapp') {
       const message = buildOrderMessage()
       if (!message) return
       const encoded = encodeURIComponent(message)
       window.open(`https://wa.me/${PHONE_E164}?text=${encoded}`, '_blank')
       showToast('Commande envoyée sur WhatsApp !', 'success')
-    } else {
+    } else if (channel === 'instagram') {
       const parts = buildInstagramMessages()
       if (parts.length === 0) return
       setInstagramParts(parts)
-      navigator.clipboard?.writeText(parts[0]).then(() => {
+      try {
+        await navigator.clipboard?.writeText(parts[0])
         setIsInstagramModalOpen(true)
-      }).catch(() => {
+      } catch {
         showToast('Erreur lors de la copie de la commande', 'error')
-      })
+        return
+      }
+    } else if (channel === 'copier') {
+      const message = buildOrderMessage()
+      if (!message) return
+      try {
+        await navigator.clipboard?.writeText(message)
+        showToast('Commande copiée ! Envoie-la à @maison.mayssa sur Snap, Insta ou WhatsApp.', 'success', 5000)
+      } catch {
+        showToast('Erreur lors de la copie', 'error')
+        return
+      }
+    }
+
+    // --- Confirmer les réservations trompe l'oeil (le stock reste décrémenté) ---
+    const trompeLOeilItems = cart.filter(
+      (item) =>
+        item.product.category === "Trompe l'oeil" &&
+        item.reservationExpiresAt &&
+        !item.reservationConfirmed,
+    )
+
+    if (trompeLOeilItems.length > 0) {
+      // Marquer les réservations comme confirmées (le timer ne les touchera plus)
+      setCart((current) =>
+        current.map((item) =>
+          item.reservationExpiresAt && !item.reservationConfirmed && item.product.category === "Trompe l'oeil"
+            ? { ...item, reservationConfirmed: true }
+            : item,
+        ),
+      )
+
+      // Créer la précommande dans Firebase pour l'admin
+      try {
+        await createOrder({
+          items: trompeLOeilItems.map((item) => ({
+            productId: getOriginalProductId(item.product.id),
+            name: item.product.name,
+            quantity: item.quantity,
+            price: item.product.price,
+          })),
+          customer: {
+            firstName: customer.firstName || 'Client',
+            lastName: customer.lastName || '',
+            phone: customer.phone || '',
+          },
+          total: trompeLOeilItems.reduce(
+            (sum, item) => sum + item.product.price * item.quantity,
+            0,
+          ),
+          status: 'en_attente',
+          createdAt: Date.now(),
+        })
+      } catch {
+        // Silently fail — commande quand même dans le panier
+      }
+    }
+
+    // --- Réclamation de la récompense sélectionnée ---
+    if (selectedReward && isAuthenticated && user) {
+      try {
+        const rewardId = await claimReward(user.uid, selectedReward.type, REWARD_COSTS[selectedReward.type])
+        if (rewardId) {
+          setSelectedReward(null) // Reset la sélection après réclamation
+          showToast(`Récompense ${REWARD_LABELS[selectedReward.type]} réclamée !`, 'success', 3000)
+        }
+      } catch (error) {
+        console.error('Error claiming reward:', error)
+        showToast('Erreur lors de la réclamation de la récompense', 'error')
+      }
+    }
+
+    // --- Attribution des points de fidélité (si connecté) ---
+    if (isAuthenticated && user && cart.length > 0) {
+      try {
+        const orderTotal = total + (computeDeliveryFee(customer, total) || 0) // Inclut les frais de livraison
+        const basePoints = Math.round(orderTotal) // 1 € = 1 point
+        
+        // Générer un ID de commande simple pour traçabilité
+        const orderId = `order_${Date.now()}`
+
+        await addUserPoints(user.uid, {
+          reason: 'order_points',
+          points: basePoints,
+          at: Date.now(),
+          amount: orderTotal,
+          orderId: orderId,
+        })
+
+        showToast(`+${basePoints} points gagnés avec cette commande !`, 'success', 4000)
+      } catch (error) {
+        console.error('Error adding loyalty points:', error)
+        // Ne pas faire échouer l'envoi pour cette erreur
+      }
     }
   }
 
@@ -719,7 +1067,7 @@ function App() {
       </Suspense>
       <Confetti trigger={confettiTrigger} originX={confettiOrigin.x} originY={confettiOrigin.y} />
 
-      <Navbar favoritesCount={favoritesCount} />
+      <Navbar favoritesCount={favoritesCount} onAccountClick={handleAccountClick} />
 
       {/* Background Decorative Elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -850,6 +1198,9 @@ function App() {
                         onAdd={handleAddToCart}
                         isFavorite={isFavorite(product.id)}
                         onToggleFavorite={toggleFavorite}
+                        stock={getStock(product.id)}
+                        isPreorderDay={isPreorderDay}
+                        dayNames={dayNames}
                       />
                     ))}
                   </AnimatePresence>
@@ -865,6 +1216,9 @@ function App() {
                       onTap={handleAddToCart}
                       isFavorite={isFavorite(product.id)}
                       onToggleFavorite={toggleFavorite}
+                      stock={getStock(product.id)}
+                      isPreorderDay={isPreorderDay}
+                      dayNames={dayNames}
                     />
                   ))}
                 </div>
@@ -900,6 +1254,9 @@ function App() {
               onChannelChange={setChannel}
               onCustomerChange={setCustomer}
               onSend={handleSend}
+              onAccountClick={handleAccountClick}
+              selectedReward={selectedReward}
+              onSelectReward={setSelectedReward}
             />
           </motion.section>
         </main>
@@ -1012,7 +1369,6 @@ function App() {
         <Footer />
       </div>
 
-      <WhatsAppFloatingButton />
 
       {/* Floating cart bar - Desktop only, appears when cart section is not visible */}
       <FloatingCartBar items={cart} total={total} />
@@ -1055,6 +1411,14 @@ function App() {
         </Suspense>
       )}
 
+      {/* Modal Trompe l'oeil (précommande) */}
+      <TrompeLOeilModal
+        product={selectedProductForTrompeLoeil}
+        stock={selectedProductForTrompeLoeil ? getStock(selectedProductForTrompeLoeil.id) : null}
+        onClose={() => setSelectedProductForTrompeLoeil(null)}
+        onConfirm={handleTrompeLOeilConfirm}
+      />
+
       {/* Mobile Components */}
       <BottomNav
         cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
@@ -1080,6 +1444,9 @@ function App() {
         onChannelChange={setChannel}
         onCustomerChange={setCustomer}
         onSend={handleSend}
+        onAccountClick={handleAccountClick}
+        selectedReward={selectedReward}
+        onSelectReward={setSelectedReward}
       />
       <FavoritesSheet
         isOpen={isFavoritesSheetOpen}
@@ -1113,6 +1480,9 @@ function App() {
         onAdd={handleAddToCart}
         isFavorite={isFavorite}
         onToggleFavorite={toggleFavorite}
+        stock={selectedProductForDetail ? getStock(selectedProductForDetail.id) : null}
+        isPreorderDay={isPreorderDay}
+        dayNames={dayNames}
       />
 
       {/* Instagram instruction modal - après envoi commande via Instagram */}
@@ -1129,8 +1499,44 @@ function App() {
       <Suspense fallback={null}>
         <OnboardingTour />
       </Suspense>
+
+      {/* Auth Modals */}
+      <AuthModals
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        mode={authMode}
+        onModeChange={setAuthMode}
+      />
+
+      {/* Account Page Modal */}
+      <AnimatePresence>
+        {isAccountPageOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsAccountPageOpen(false)}
+              className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 50, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 50, scale: 0.95 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="fixed inset-4 sm:inset-8 z-[51] bg-white rounded-3xl shadow-2xl overflow-hidden"
+            >
+              <div className="h-full overflow-y-auto">
+                <div className="p-4 sm:p-8">
+                  <AccountPage onClose={() => setIsAccountPageOpen(false)} />
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
 
-export default App
+export default AppRouter

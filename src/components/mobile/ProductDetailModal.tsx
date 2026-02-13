@@ -5,6 +5,7 @@ import { hapticFeedback } from '../../lib/haptics'
 import type { Product, ProductSize } from '../../types'
 import { ProductBadges } from '../ProductBadges'
 import { ShareButton } from '../ShareButton'
+import { StockBadge } from '../StockBadge'
 
 interface ProductDetailModalProps {
   product: Product | null
@@ -12,14 +13,19 @@ interface ProductDetailModalProps {
   onAdd: (product: Product) => void
   isFavorite?: (productId: string) => boolean
   onToggleFavorite?: (product: Product) => void
+  stock?: number | null
+  isPreorderDay?: boolean
+  dayNames?: string
 }
 
-export function ProductDetailModal({ product, onClose, onAdd, isFavorite, onToggleFavorite }: ProductDetailModalProps) {
+export function ProductDetailModal({ product, onClose, onAdd, isFavorite, onToggleFavorite, stock = null, isPreorderDay = true, dayNames = '' }: ProductDetailModalProps) {
   const [quantity, setQuantity] = useState(1)
   const [isZoomed, setIsZoomed] = useState(false)
   const [selectedSize, setSelectedSize] = useState<ProductSize | null>(null)
   const isLiked = product ? (isFavorite ? isFavorite(product.id) : false) : false
   const imageRef = useRef<HTMLDivElement>(null)
+  const isStockManaged = product?.category === "Trompe l'oeil" && stock !== null
+  const isUnavailable = isStockManaged && (!isPreorderDay || (stock !== null && stock <= 0))
 
   // Reset selected size when product changes
   useEffect(() => {
@@ -44,6 +50,7 @@ export function ProductDetailModal({ product, onClose, onAdd, isFavorite, onTogg
 
   const handleAdd = () => {
     if (!product) return
+    if (isUnavailable) return
     hapticFeedback('success')
 
     if (isBoxWithFlavors) {
@@ -216,6 +223,12 @@ export function ProductDetailModal({ product, onClose, onAdd, isFavorite, onTogg
               {product.description || "Pâtisserie artisanale préparée avec amour chez Maison Mayssa. Ingrédients frais et de qualité."}
             </p>
 
+            {isStockManaged && (
+              <div className="mb-4">
+                <StockBadge stock={stock ?? 0} isPreorderDay={isPreorderDay} dayNames={dayNames} compact={false} />
+              </div>
+            )}
+
             {/* Sizes if available (masqué pour les boxes parfums : taille + parfums dans la modal dédiée) */}
             {!isBoxWithFlavors && product.sizes && product.sizes.length > 0 && (
               <div className="mb-4">
@@ -254,7 +267,8 @@ export function ProductDetailModal({ product, onClose, onAdd, isFavorite, onTogg
                 <motion.button
                   whileTap={{ scale: 0.98 }}
                   onClick={handleAdd}
-                  className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-mayssa-brown text-mayssa-cream font-bold shadow-xl cursor-pointer"
+                  disabled={isUnavailable}
+                  className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold shadow-xl cursor-pointer ${isUnavailable ? 'bg-mayssa-brown/30 text-mayssa-brown/60 cursor-not-allowed' : 'bg-mayssa-brown text-mayssa-cream'}`}
                 >
                   <ShoppingBag size={18} />
                   <span>Choisir mes parfums</span>
@@ -297,10 +311,11 @@ export function ProductDetailModal({ product, onClose, onAdd, isFavorite, onTogg
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 onClick={handleAdd}
-                className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl bg-mayssa-brown text-mayssa-cream font-bold shadow-xl cursor-pointer"
+                disabled={isUnavailable}
+                className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl font-bold shadow-xl cursor-pointer ${isUnavailable ? 'bg-mayssa-brown/30 text-mayssa-brown/60 cursor-not-allowed' : 'bg-mayssa-brown text-mayssa-cream'}`}
               >
                 <ShoppingBag size={18} />
-                <span>Ajouter • {(currentPrice * quantity).toFixed(2).replace('.', ',')} €</span>
+                <span>{isUnavailable ? 'Indisponible' : `Ajouter • ${(currentPrice * quantity).toFixed(2).replace('.', ',')} €`}</span>
               </motion.button>
             </div>
             )}

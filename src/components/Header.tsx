@@ -85,7 +85,7 @@ L'excellence de la pâtisserie artisanale à Annecy.
                         </a>
 
                         <SocialLink
-                            href="https://www.instagram.com/maison.mayssa74/"
+                            href="https://www.instagram.com/maison_mayssa74/"
                             icon={<Instagram size={16} className="sm:w-[18px] sm:h-[18px]" />}
                             label="Instagram"
                             className="bg-gradient-to-br from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white w-full"
