@@ -1,6 +1,17 @@
 import { motion } from 'framer-motion'
 
 export function AnimatedGradient() {
+  // Sur mobile : gradient statique uniquement (pas d'animations lourdes)
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
+
+  if (isMobile) {
+    return (
+      <div className="fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-mayssa-cream via-white to-mayssa-cream/80" />
+      </div>
+    )
+  }
+
   return (
     <div className="fixed inset-0 -z-10 overflow-hidden">
       {/* Base gradient */}

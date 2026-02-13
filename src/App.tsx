@@ -17,7 +17,7 @@ import { SnapInstructionModal } from './components/SnapInstructionModal'
 import { FloatingCartBar } from './components/FloatingCartBar'
 import { ComplementarySuggestions } from './components/ComplementarySuggestions'
 import { PWAInstallPrompt } from './components/PWAInstallPrompt'
-import { AdminPanel } from './components/admin/AdminPanel'
+const AdminPanel = lazy(() => import('./components/admin/AdminPanel').then(m => ({ default: m.AdminPanel })))
 import { ResourcePreloader, defaultPreloadConfig } from './components/ResourcePreloader'
 import { AccessibilityProvider, AccessibilityControls } from './components/AccessibilityProvider'
 import { SkipLinks } from './components/SkipLinks'
@@ -25,9 +25,10 @@ import { FidelityWelcomeModal, FidelityWelcomeBanner } from './components/Fideli
 import { FidelityToast, FidelityCheckoutReminder } from './components/FidelityToast'
 import { useStock } from './hooks/useStock'
 import { useAuth } from './hooks/useAuth'
-import { AuthModals } from './components/auth/AuthModals'
-import { AccountPage } from './components/auth/AccountPage'
-import { addUserPoints } from './lib/firebase'
+const AuthModals = lazy(() => import('./components/auth/AuthModals').then(m => ({ default: m.AuthModals })))
+const AccountPage = lazy(() => import('./components/auth/AccountPage').then(m => ({ default: m.AccountPage })))
+// Firebase importé dynamiquement pour ne pas bloquer le premier affichage mobile
+// addUserPoints, createOrder, etc. sont importés via import() dans les handlers
 
 const VisualBackground = lazy(() => import('./components/effects/VisualBackground').then(m => ({ default: m.VisualBackground })))
 
@@ -54,7 +55,7 @@ const TiramisuCustomizationModal = lazy(() => import('./components/TiramisuCusto
 const BoxCustomizationModal = lazy(() => import('./components/BoxCustomizationModal').then(m => ({ default: m.BoxCustomizationModal })))
 const BoxFlavorsModal = lazy(() => import('./components/BoxFlavorsModal').then(m => ({ default: m.BoxFlavorsModal })))
 import { TrompeLOeilModal } from './components/TrompeLOeilModal'
-import { createOrder, updateStock as firebaseUpdateStock, getStock as fetchAllStock, REWARD_COSTS, REWARD_LABELS, claimReward } from './lib/firebase'
+import { REWARD_COSTS, REWARD_LABELS } from './lib/rewards'
 import { PHONE_E164, FIRST_PICKUP_DATE_CLASSIC, FIRST_PICKUP_DATE_CLASSIC_LABEL } from './constants'
 import { useProducts } from './hooks/useProducts'
 import type {
@@ -94,7 +95,7 @@ function AppRouter() {
     return () => window.removeEventListener('hashchange', handler)
   }, [])
 
-  if (isAdmin) return <AdminPanel />
+  if (isAdmin) return <Suspense fallback={<div className="flex items-center justify-center min-h-screen text-mayssa-brown">Chargement admin...</div>}><AdminPanel /></Suspense>
   return <App />
 }
 
@@ -233,11 +234,12 @@ function AppContent() {
     if (isAuthenticated) {
       ;(async () => {
         try {
-          const currentStock = await fetchAllStock()
+          const { getStock: fetchAll, updateStock } = await import('./lib/firebase')
+          const currentStock = await fetchAll()
           for (const item of expired) {
             const origId = getOriginalProductId(item.product.id)
             const qty = currentStock[origId] ?? 0
-            await firebaseUpdateStock(origId, qty + item.quantity)
+            await updateStock(origId, qty + item.quantity)
           }
         } catch {
           /* ignore */
@@ -270,11 +272,13 @@ function AppContent() {
 
       // Relâcher le stock (uniquement si connecté)
       if (isAuthenticatedRef.current) {
-        for (const item of expired) {
-          const origId = getOriginalProductId(item.product.id)
-          const qty = stockMapRef.current[origId] ?? 0
-          firebaseUpdateStock(origId, qty + item.quantity)
-        }
+        import('./lib/firebase').then(({ updateStock }) => {
+          for (const item of expired) {
+            const origId = getOriginalProductId(item.product.id)
+            const qty = stockMapRef.current[origId] ?? 0
+            updateStock(origId, qty + item.quantity)
+          }
+        })
       }
 
       // Retirer du panier
@@ -700,7 +704,8 @@ function AppContent() {
     if (isAuthenticated) {
       const currentQty = getStock(product.id)
       if (currentQty !== null) {
-        await firebaseUpdateStock(product.id, Math.max(0, currentQty - quantity))
+        const { updateStock } = await import('./lib/firebase')
+        await updateStock(product.id, Math.max(0, currentQty - quantity))
       }
     }
 
@@ -740,7 +745,8 @@ function AppContent() {
         const origId = getOriginalProductId(item.product.id)
         const currentQty = getStock(origId)
         if (currentQty !== null) {
-          await firebaseUpdateStock(origId, currentQty + item.quantity)
+          const { updateStock } = await import('./lib/firebase')
+          await updateStock(origId, currentQty + item.quantity)
         }
       }
       setCart((current) => current.filter((i) => i.product.id !== id))
@@ -753,17 +759,18 @@ function AppContent() {
       if (delta !== 0) {
         const origId = getOriginalProductId(item.product.id)
         const currentQty = getStock(origId)
+        const { updateStock } = await import('./lib/firebase')
         if (delta > 0) {
           if (currentQty !== null && currentQty < delta) {
             showToast(`Stock insuffisant (${currentQty} restant${currentQty > 1 ? 's' : ''})`, 'error')
             return
           }
           if (currentQty !== null) {
-            await firebaseUpdateStock(origId, currentQty - delta)
+            await updateStock(origId, currentQty - delta)
           }
         } else {
           if (currentQty !== null) {
-            await firebaseUpdateStock(origId, currentQty + Math.abs(delta))
+            await updateStock(origId, currentQty + Math.abs(delta))
           }
         }
       }
@@ -952,6 +959,7 @@ function AppContent() {
 
       // Créer la précommande dans Firebase pour l'admin
       try {
+        const { createOrder } = await import('./lib/firebase')
         await createOrder({
           items: trompeLOeilItems.map((item) => ({
             productId: getOriginalProductId(item.product.id),
@@ -979,6 +987,7 @@ function AppContent() {
     // --- Réclamation de la récompense sélectionnée ---
     if (selectedReward && isAuthenticated && user) {
       try {
+        const { claimReward } = await import('./lib/firebase')
         const rewardId = await claimReward(user.uid, selectedReward.type, REWARD_COSTS[selectedReward.type])
         if (rewardId) {
           setSelectedReward(null) // Reset la sélection après réclamation
@@ -999,6 +1008,7 @@ function AppContent() {
         // Générer un ID de commande simple pour traçabilité
         const orderId = `order_${Date.now()}`
 
+        const { addUserPoints } = await import('./lib/firebase')
         await addUserPoints(user.uid, {
           reason: 'order_points',
           points: basePoints,
@@ -1185,7 +1195,7 @@ function AppContent() {
                 {/* Desktop Grid */}
                 <div className="hidden md:grid gap-4 sm:gap-6 grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   <AnimatePresence mode="popLayout">
-                    {filteredProducts.map((product) => (
+                    {filteredProducts.map((product, index) => (
                       <ProductCard
                         key={product.id}
                         product={product}
@@ -1195,6 +1205,7 @@ function AppContent() {
                         stock={getStock(product.id)}
                         isPreorderDay={isPreorderDay}
                         dayNames={dayNames}
+                        priority={index < 6}
                       />
                     ))}
                   </AnimatePresence>
@@ -1202,7 +1213,7 @@ function AppContent() {
 
                 {/* Mobile Swipeable List — tap = ajout direct (pas de page détail / pavé) */}
                 <div className="md:hidden space-y-3">
-                  {filteredProducts.map((product) => (
+                  {filteredProducts.map((product, index) => (
                     <SwipeableProductCard
                       key={product.id}
                       product={product}
@@ -1213,6 +1224,7 @@ function AppContent() {
                       stock={getStock(product.id)}
                       isPreorderDay={isPreorderDay}
                       dayNames={dayNames}
+                      priority={index < 6}
                     />
                   ))}
                 </div>
@@ -1505,13 +1517,17 @@ function AppContent() {
         <OnboardingTour />
       </Suspense>
 
-      {/* Auth Modals */}
-      <AuthModals
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        mode={authMode}
-        onModeChange={setAuthMode}
-      />
+      {/* Auth Modals (lazy — Firebase chargé uniquement à l'ouverture) */}
+      {isAuthModalOpen && (
+        <Suspense fallback={null}>
+          <AuthModals
+            isOpen={isAuthModalOpen}
+            onClose={() => setIsAuthModalOpen(false)}
+            mode={authMode}
+            onModeChange={setAuthMode}
+          />
+        </Suspense>
+      )}
 
       {/* Account Page Modal */}
       <AnimatePresence>
@@ -1533,7 +1549,9 @@ function AppContent() {
             >
               <div className="h-full overflow-y-auto">
                 <div className="p-4 sm:p-8">
-                  <AccountPage onClose={() => setIsAccountPageOpen(false)} />
+                  <Suspense fallback={<div className="text-center py-12 text-mayssa-brown/60">Chargement...</div>}>
+                    <AccountPage onClose={() => setIsAccountPageOpen(false)} />
+                  </Suspense>
                 </div>
               </div>
             </motion.div>

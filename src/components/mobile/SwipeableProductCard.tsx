@@ -19,9 +19,11 @@ interface SwipeableProductCardProps {
   stock?: number | null
   isPreorderDay?: boolean
   dayNames?: string
+  /** LCP: charger l'image en priorité (premières cartes above-the-fold) */
+  priority?: boolean
 }
 
-export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false, onToggleFavorite, stock = null, isPreorderDay = true, dayNames = '' }: SwipeableProductCardProps) {
+export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false, onToggleFavorite, stock = null, isPreorderDay = true, dayNames = '', priority = false }: SwipeableProductCardProps) {
   const [isAdded, setIsAdded] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null)
@@ -203,6 +205,7 @@ export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false
                 src={product.image}
                 alt={product.name}
                 className="w-full h-full"
+                priority={priority}
               />
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-mayssa-brown/40 text-[9px] font-bold uppercase">

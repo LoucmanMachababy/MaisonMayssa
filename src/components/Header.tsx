@@ -18,6 +18,9 @@ export function Header() {
                         <img
                             src="/logo.webp"
                             alt="Maison Mayssa"
+                            width={128}
+                            height={128}
+                            fetchPriority="high"
                             className="relative h-20 w-20 sm:h-24 sm:w-24 md:h-28 md:w-28 lg:h-32 lg:w-32 rounded-3xl object-contain shadow-2xl ring-4 ring-white/50"
                         />
                     </motion.div>

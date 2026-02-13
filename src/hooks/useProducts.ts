@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
 import { PRODUCTS } from '../constants'
-import { listenProductOverrides } from '../lib/firebase'
 import type { Product, ProductOverrideMap } from '../types'
 
 export type ProductWithAvailability = Product & { available: boolean }
@@ -9,7 +8,19 @@ export function useProducts() {
   const [overrides, setOverrides] = useState<ProductOverrideMap>({})
 
   useEffect(() => {
-    return listenProductOverrides(setOverrides)
+    let unsub: (() => void) | undefined
+    let cancelled = false
+
+    // Importer Firebase de manière différée — les produits statiques s'affichent immédiatement
+    import('../lib/firebase').then(({ listenProductOverrides }) => {
+      if (cancelled) return
+      unsub = listenProductOverrides(setOverrides)
+    })
+
+    return () => {
+      cancelled = true
+      unsub?.()
+    }
   }, [])
 
   const allProducts = useMemo<ProductWithAvailability[]>(() => {

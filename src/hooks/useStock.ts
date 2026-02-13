@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { listenStock, listenSettings, isPreorderOpenNow, type StockMap, type Settings, type PreorderOpening } from '../lib/firebase'
+import { isPreorderOpenNow, type StockMap, type Settings, type PreorderOpening } from '../lib/preorder'
 
 export function useStock() {
   const [stock, setStock] = useState<StockMap>({})
@@ -9,21 +9,38 @@ export function useStock() {
   useEffect(() => {
     let stockLoaded = false
     let settingsLoaded = false
+    let cancelled = false
     const done = () => { if (stockLoaded && settingsLoaded) setLoading(false) }
 
-    const unsubStock = listenStock((data) => {
-      setStock(data)
-      stockLoaded = true
-      done()
+    let unsubStock: (() => void) | undefined
+    let unsubSettings: (() => void) | undefined
+
+    // Importer Firebase de manière différée pour ne pas bloquer le premier affichage
+    import('../lib/firebase').then(({ listenStock, listenSettings }) => {
+      if (cancelled) return
+
+      unsubStock = listenStock((data) => {
+        setStock(data)
+        stockLoaded = true
+        done()
+      })
+
+      unsubSettings = listenSettings((data) => {
+        setSettings(data)
+        settingsLoaded = true
+        done()
+      })
     })
 
-    const unsubSettings = listenSettings((data) => {
-      setSettings(data)
-      settingsLoaded = true
-      done()
-    })
+    // Si Firebase ne répond pas en 2s, débloquer quand même (réseau lent / mobile)
+    const fallback = setTimeout(() => setLoading(false), 2000)
 
-    return () => { unsubStock(); unsubSettings() }
+    return () => {
+      cancelled = true
+      clearTimeout(fallback)
+      unsubStock?.()
+      unsubSettings?.()
+    }
   }, [])
 
   const isPreorderDay = useMemo(() => {

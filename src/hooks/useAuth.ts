@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { User } from 'firebase/auth'
-import { onAuthChange, getUserProfile, type UserProfile } from '../lib/firebase'
+import type { UserProfile } from '../lib/firebase'
 
 export type AuthState = {
   user: User | null
@@ -19,7 +19,7 @@ let globalAuthState: AuthState = {
 const listeners = new Set<(state: AuthState) => void>()
 
 function notifyListeners() {
-  listeners.forEach((listener) => listener(globalAuthState))
+  listeners.forEach((listener) => listener({ ...globalAuthState }))
 }
 
 // Initialisation du listener Firebase Auth (une seule fois)
@@ -29,30 +29,40 @@ function initializeAuth() {
   if (authInitialized) return
   authInitialized = true
 
-  onAuthChange(async (user) => {
-    globalAuthState.user = user
-    globalAuthState.loading = true
-    notifyListeners()
+  // Importer Firebase de manière différée pour ne pas bloquer le premier affichage
+  import('../lib/firebase').then(({ onAuthChange, getUserProfile }) => {
+    onAuthChange(async (user) => {
+      globalAuthState.user = user
+      globalAuthState.loading = true
+      notifyListeners()
 
-    if (user) {
-      // Charger le profil client
-      try {
-        const profile = await getUserProfile(user.uid)
-        globalAuthState.profile = profile
-        globalAuthState.isAuthenticated = !!profile
-      } catch (error) {
-        console.error('Error loading user profile:', error)
+      if (user) {
+        try {
+          const profile = await getUserProfile(user.uid)
+          globalAuthState.profile = profile
+          globalAuthState.isAuthenticated = !!profile
+        } catch (error) {
+          console.error('Error loading user profile:', error)
+          globalAuthState.profile = null
+          globalAuthState.isAuthenticated = false
+        }
+      } else {
         globalAuthState.profile = null
         globalAuthState.isAuthenticated = false
       }
-    } else {
-      globalAuthState.profile = null
-      globalAuthState.isAuthenticated = false
-    }
 
-    globalAuthState.loading = false
-    notifyListeners()
+      globalAuthState.loading = false
+      notifyListeners()
+    })
   })
+
+  // Si Firebase ne charge pas en 2s, débloquer l'UI (mode invité)
+  setTimeout(() => {
+    if (globalAuthState.loading) {
+      globalAuthState.loading = false
+      notifyListeners()
+    }
+  }, 2000)
 }
 
 /**
@@ -88,6 +98,7 @@ export async function refreshUserProfile() {
   notifyListeners()
 
   try {
+    const { getUserProfile } = await import('../lib/firebase')
     const profile = await getUserProfile(globalAuthState.user.uid)
     globalAuthState.profile = profile
     globalAuthState.isAuthenticated = !!profile

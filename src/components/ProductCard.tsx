@@ -17,9 +17,11 @@ interface ProductCardProps {
     stock?: number | null
     isPreorderDay?: boolean
     dayNames?: string
+    /** LCP: charger l'image en priorité (premières cartes above-the-fold) */
+    priority?: boolean
 }
 
-export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavorite, stock = null, isPreorderDay = true, dayNames = '' }: ProductCardProps) {
+export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavorite, stock = null, isPreorderDay = true, dayNames = '', priority = false }: ProductCardProps) {
     const { ref, style, handlers } = use3DTilt(10)
     const isPreorderSoon = isPreorderNotYetAvailable(product)
     const showBientotDispo = product.preorder && !product.image
@@ -95,6 +97,7 @@ export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavori
                         src={product.image}
                         alt={product.name}
                         className="h-full w-full transition-transform duration-700 group-hover:scale-110"
+                        priority={priority}
                     />
                 ) : (
                     <div className="flex flex-col items-center justify-center h-full gap-2 text-mayssa-brown/50">

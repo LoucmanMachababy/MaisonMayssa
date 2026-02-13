@@ -5,7 +5,7 @@ import { cn, isBeforeOrderCutoff, isBeforeFirstPickupDate } from '../lib/utils'
 import { FIRST_PICKUP_DATE_CLASSIC, FIRST_PICKUP_DATE_CLASSIC_LABEL } from '../constants'
 import { ReservationTimer } from './ReservationTimer'
 import { useAuth } from '../hooks/useAuth'
-import { REWARD_COSTS, REWARD_LABELS } from '../lib/firebase'
+import { REWARD_COSTS, REWARD_LABELS } from '../lib/rewards'
 import { useEffect, useMemo, useState } from 'react'
 import { AddressAutocomplete } from './AddressAutocomplete'
 import {

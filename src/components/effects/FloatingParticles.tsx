@@ -12,10 +12,16 @@ interface Particle {
 
 export function FloatingParticles() {
   const [particles, setParticles] = useState<Particle[]>([])
+  const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
-    // Generate particles only on client
-    const newParticles: Particle[] = Array.from({ length: 25 }, (_, i) => ({
+    const mobile = window.innerWidth < 768
+    setIsMobile(mobile)
+
+    // Sur mobile : pas de particules (économie CPU/batterie)
+    if (mobile) return
+
+    const newParticles: Particle[] = Array.from({ length: 12 }, (_, i) => ({
       id: i,
       x: Math.random() * 100,
       y: Math.random() * 100,
@@ -25,6 +31,9 @@ export function FloatingParticles() {
     }))
     setParticles(newParticles)
   }, [])
+
+  // Pas de particules sur mobile
+  if (isMobile) return null
 
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
@@ -54,8 +63,8 @@ export function FloatingParticles() {
         />
       ))}
 
-      {/* Larger glowing orbs */}
-      {[...Array(5)].map((_, i) => (
+      {/* Larger glowing orbs - desktop only */}
+      {[...Array(3)].map((_, i) => (
         <motion.div
           key={`orb-${i}`}
           className="absolute rounded-full blur-xl"

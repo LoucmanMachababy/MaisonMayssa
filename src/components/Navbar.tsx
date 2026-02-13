@@ -4,7 +4,7 @@ import { cn } from '../lib/utils'
 import { useEffect, useState } from 'react'
 import { PHONE_E164 } from '../constants'
 import { useAuth } from '../hooks/useAuth'
-import { clientLogout } from '../lib/firebase'
+// clientLogout importé dynamiquement pour ne pas charger Firebase au démarrage
 import { hapticFeedback } from '../lib/haptics'
 
 interface NavbarProps {
@@ -48,6 +48,7 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
     // Gérer la déconnexion
     const handleLogout = async () => {
         try {
+            const { clientLogout } = await import('../lib/firebase')
             await clientLogout()
             setIsUserMenuOpen(false)
         } catch (error) {

@@ -75,3 +75,25 @@ export function isBeforeFirstPickupDate(firstPickupDateYyyyMmDd: string): boolea
   const today = `${y}-${m}-${d}`
   return today < firstPickupDateYyyyMmDd
 }
+
+// --- Anniversaire (pure functions, pas de dépendance Firebase) ---
+
+/** Vérifier si on est dans la semaine d'anniversaire (3 jours avant à 4 jours après) */
+export function isBirthdayWeek(birthday: string): boolean {
+  const now = new Date()
+  const parts = birthday.split('-').map(Number)
+  const month = parts[1]
+  const day = parts[2]
+  if (!month || !day) return false
+  const birthdayThisYear = new Date(now.getFullYear(), month - 1, day)
+  const diffMs = now.getTime() - birthdayThisYear.getTime()
+  const diffDays = diffMs / (1000 * 60 * 60 * 24)
+  return diffDays >= -3 && diffDays <= 4
+}
+
+/** Vérifier si c'est exactement l'anniversaire aujourd'hui */
+export function isBirthdayToday(birthday: string): boolean {
+  const now = new Date()
+  const parts = birthday.split('-').map(Number)
+  return now.getMonth() + 1 === parts[1] && now.getDate() === parts[2]
+}

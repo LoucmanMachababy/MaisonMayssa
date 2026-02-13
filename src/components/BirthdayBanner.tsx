@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Cake, MessageCircle, Instagram } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
-import { isBirthdayWeek, isBirthdayToday } from '../lib/firebase'
+import { isBirthdayWeek, isBirthdayToday } from '../lib/utils'
 import { PHONE_E164 } from '../constants'
 
 export function BirthdayBanner() {
