@@ -32,8 +32,9 @@ export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false
   
   const isPreorderSoon = isPreorderNotYetAvailable(product)
   const showBientotDispo = product.preorder && !product.image
+  const isTrompeLoeil = product.category === "Trompe l'oeil"
   const isStockManaged = stock !== null
-  const isUnavailable = isStockManaged && (!isPreorderDay || stock <= 0)
+  const isUnavailable = isStockManaged && (stock <= 0 || (isTrompeLoeil && !isPreorderDay))
 
   // Enhanced transforms with better thresholds
   const background = useTransform(
@@ -245,7 +246,7 @@ export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false
               {product.description || 'Pâtisserie artisanale'}
             </p>
             {isStockManaged && (
-              <StockBadge stock={stock} isPreorderDay={isPreorderDay} dayNames={dayNames} compact />
+              <StockBadge stock={stock} isPreorderDay={isPreorderDay} dayNames={dayNames} compact isPreorderProduct={isTrompeLoeil} />
             )}
             <div className="mt-1 flex items-center justify-between">
               {isPreorderSoon && product.preorder ? (

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence, useDragControls } from 'framer-motion'
-import { X, Minus, Plus, Trash2, ShoppingBag, Send, MessageCircle, User, Phone, MapPin, Truck, Calendar, Clock, Star, Gift } from 'lucide-react'
+import { X, Minus, Plus, Trash2, ShoppingBag, MessageCircle, User, Phone, MapPin, Truck, Calendar, Clock, Star, Gift } from 'lucide-react'
 import { hapticFeedback } from '../../lib/haptics'
 import { cn, isBeforeOrderCutoff, isBeforeFirstPickupDate } from '../../lib/utils'
 import { FIRST_PICKUP_DATE_CLASSIC, FIRST_PICKUP_DATE_CLASSIC_LABEL } from '../../constants'
@@ -8,7 +8,7 @@ import { AddressAutocomplete } from '../AddressAutocomplete'
 import { ReservationTimer } from '../ReservationTimer'
 import { useAuth } from '../../hooks/useAuth'
 import { REWARD_COSTS, REWARD_LABELS } from '../../lib/firebase'
-import type { CartItem, Channel, CustomerInfo } from '../../types'
+import type { CartItem, CustomerInfo } from '../../types'
 import {
   ANNECY_GARE,
   DELIVERY_RADIUS_KM,
@@ -27,11 +27,9 @@ interface CartSheetProps {
   items: CartItem[]
   total: number
   note: string
-  channel: Channel
   customer: CustomerInfo
   onUpdateQuantity: (id: string, quantity: number) => void
   onNoteChange: (note: string) => void
-  onChannelChange: (channel: Channel) => void
   onCustomerChange: (customer: CustomerInfo) => void
   onSend: () => void
   onAccountClick?: () => void
@@ -45,11 +43,9 @@ export function CartSheet({
   items,
   total,
   note,
-  channel,
   customer,
   onUpdateQuantity,
   onNoteChange,
-  onChannelChange,
   onCustomerChange,
   onSend,
   onAccountClick,

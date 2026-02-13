@@ -62,7 +62,6 @@ import type {
   Product,
   ProductSize,
   CartItem,
-  Channel,
   ProductCategory,
   CustomerInfo,
 } from './types'
@@ -183,20 +182,6 @@ function AppContent() {
       window.history.replaceState({}, '', cleanUrl)
     }, 300)
   }, [availableProducts])
-
-  // Remove initial loader once app is mounted
-  useEffect(() => {
-    const loader = document.getElementById('initial-loader')
-    if (loader) {
-      // Fade out animation
-      loader.style.transition = 'opacity 0.5s ease-out'
-      loader.style.opacity = '0'
-      setTimeout(() => {
-        loader.remove()
-      }, 500)
-    }
-  }, [])
-
 
   // Load cart from localStorage on mount
   const [cart, setCart] = useState<CartItem[]>(() => {
@@ -341,7 +326,6 @@ function AppContent() {
   }, [cart])
 
   const [note, setNote] = useState('')
-  const [channel, setChannel] = useState<Channel>('whatsapp')
   const [activeCategory, setActiveCategory] = useState<ProductCategory | 'Tous'>('Tous')
   const [searchQuery, setSearchQuery] = useState('')
   const [customer, setCustomer] = useState<CustomerInfo>(() => {
@@ -935,111 +919,7 @@ function AppContent() {
     return lines.join('\n')
   }
 
-  const buildInstagramMessages = (): string[] => {
-    if (cart.length === 0) return []
-
-    const distanceFromAnnecy = calculateDistance(customer.addressCoordinates, ANNECY_GARE)
-    const isWithinDeliveryZone = distanceFromAnnecy !== null && distanceFromAnnecy <= DELIVERY_RADIUS_KM
-    let deliveryFee = 0
-    if (customer.wantsDelivery) {
-      if (customer.addressCoordinates && isWithinDeliveryZone && total < FREE_DELIVERY_THRESHOLD) {
-        deliveryFee = DELIVERY_FEE
-      }
-    }
-    const finalTotal = total + deliveryFee
-    const mode = customer.wantsDelivery ? 'Livraison' : 'Retrait'
-
-    const stripEmoji = (s: string) => s.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '').replace(/\s+/g, ' ').trim()
-
-    // -- Header (compact) --
-    const header: string[] = []
-    header.push('Bonjour ! Commande via le site :')
-    header.push(`${customer.firstName} ${customer.lastName} · ${customer.phone}`)
-    header.push(`Mode : ${mode}`)
-    if (customer.wantsDelivery && customer.address.trim()) {
-      header.push(`Adr : ${customer.address.trim()}`)
-    }
-    if (customer.date && customer.time) {
-      const d = new Date(customer.date)
-      header.push(`Date : ${d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })} à ${customer.time}`)
-    }
-    header.push('')
-
-    // -- Item lines (compact) --
-    // Skip generic descriptions for products with size already in name (Layer Cups, etc.)
-    const itemLines: string[] = []
-    cart.forEach((item, i) => {
-      const name = stripEmoji(item.product.name)
-      const cat = item.product.category
-      const isTrompeLoeil = cat === "Trompe l'oeil"
-      // Include description only for Tiramisus (has customization info) and Boxes
-      const needsDesc = cat === 'Tiramisus' || cat === 'Boxes' || cat === 'Mini Gourmandises'
-      const desc = needsDesc && item.product.description ? ` (${item.product.description})` : ''
-      const precoTag = isTrompeLoeil ? ' [PRÉCO]' : ''
-      const price = (item.product.price * item.quantity).toFixed(2).replace('.', ',')
-      const qty = item.quantity > 1 ? `${item.quantity}× ` : ''
-      itemLines.push(`${i + 1}. ${qty}${name}${desc}${precoTag} → ${price}€`)
-    })
-
-    // Ajouter la récompense si sélectionnée
-    if (selectedReward && isAuthenticated) {
-      itemLines.push(`${cart.length + 1}. 🎁 ${REWARD_LABELS[selectedReward.type]} [FIDÉLITÉ] → 0€`)
-    }
-
-    // -- Footer (compact) --
-    const footer: string[] = ['']
-    if (customer.wantsDelivery) {
-      const delivLabel = deliveryFee > 0 ? `+${DELIVERY_FEE}€` : (!customer.addressCoordinates || !isWithinDeliveryZone) ? 'à définir' : 'offerte'
-      footer.push(`Livraison : ${delivLabel}`)
-    }
-    footer.push(`Total : ${finalTotal.toFixed(2).replace('.', ',')}€`)
-    const hasTrompeLoeilIG = cart.some(i => i.product.category === "Trompe l'oeil")
-    const hasClassicIG = cart.some(i => i.product.category !== "Trompe l'oeil")
-    if (hasTrompeLoeilIG) {
-      footer.push(`⚠️ Trompe l'œil = précommande (récup. sous 3j)`)
-    }
-    if (hasClassicIG && isBeforeFirstPickupDate(FIRST_PICKUP_DATE_CLASSIC)) {
-      footer.push(`📅 Précommande — récup. à partir du ${FIRST_PICKUP_DATE_CLASSIC_LABEL}`)
-    }
-    if (note.trim() && note.trim() !== 'Pour le … (date, créneau, adresse)') {
-      footer.push(`Note : ${note.trim()}`)
-    }
-
-    // Try to fit everything in one message
-    const full = [...header, ...itemLines, ...footer].join('\n')
-    if (full.length <= 950) return [full]
-
-    // Split into multiple messages
-    const IG_LIMIT = 900
-    const messages: string[] = []
-    let current = header.join('\n') + '\n'
-
-    for (const line of itemLines) {
-      if ((current + line + '\n').length > IG_LIMIT) {
-        messages.push(current.trim())
-        current = '(suite)\n'
-      }
-      current += line + '\n'
-    }
-
-    // Add footer to last chunk or new one
-    const footerStr = footer.join('\n')
-    if ((current + footerStr).length > IG_LIMIT) {
-      messages.push(current.trim())
-      messages.push(footerStr.trim())
-    } else {
-      current += footerStr
-      messages.push(current.trim())
-    }
-
-    // Label parts
-    if (messages.length > 1) {
-      return messages.map((m, i) => `[${i + 1}/${messages.length}]\n${m}`)
-    }
-    return messages
-  }
-
-  const [instagramParts, setInstagramParts] = useState<string[]>([])
+  const [instagramParts] = useState<string[]>([])
   const [isSnapModalOpen, setIsSnapModalOpen] = useState(false)
 
   const handleSend = async () => {
@@ -1373,11 +1253,9 @@ function AppContent() {
               items={cart}
               total={total}
               note={note}
-              channel={channel}
               customer={customer}
               onUpdateQuantity={handleUpdateQuantity}
               onNoteChange={setNote}
-              onChannelChange={setChannel}
               onCustomerChange={setCustomer}
               onSend={handleSend}
               onAccountClick={handleAccountClick}
@@ -1564,11 +1442,9 @@ function AppContent() {
         items={cart}
         total={total}
         note={note}
-        channel={channel}
         customer={customer}
         onUpdateQuantity={handleUpdateQuantity}
         onNoteChange={setNote}
-        onChannelChange={setChannel}
         onCustomerChange={setCustomer}
         onSend={handleSend}
         onAccountClick={handleAccountClick}

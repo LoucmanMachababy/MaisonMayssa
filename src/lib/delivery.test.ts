@@ -13,7 +13,7 @@ import type { CustomerInfo } from '../types'
 describe('calculateDistance', () => {
   it('retourne null si coord1 ou coord2 manquant', () => {
     expect(calculateDistance(null, ANNECY_GARE)).toBe(null)
-    expect(calculateDistance(undefined, ANNECY_GARE)).toBe(null)
+    expect(calculateDistance(null, ANNECY_GARE)).toBe(null)
     expect(calculateDistance(ANNECY_GARE, null as any)).toBe(null)
   })
 

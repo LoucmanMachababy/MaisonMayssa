@@ -359,8 +359,16 @@ function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormProps) {
     setLoading(true)
     setErrors({})
 
+    const email = formData.email.trim()
+    const password = formData.password.trim()
+    if (!email || !password) {
+      setErrors({ general: 'Email et mot de passe requis' })
+      setLoading(false)
+      return
+    }
+
     try {
-      await clientLogin(formData.email, formData.password)
+      await clientLogin(email, password)
       await refreshUserProfile()
       onSuccess()
     } catch (error: any) {

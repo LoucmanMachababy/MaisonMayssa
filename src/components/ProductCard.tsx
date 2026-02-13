@@ -23,8 +23,9 @@ export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavori
     const { ref, style, handlers } = use3DTilt(10)
     const isPreorderSoon = isPreorderNotYetAvailable(product)
     const showBientotDispo = product.preorder && !product.image
+    const isTrompeLoeil = product.category === "Trompe l'oeil"
     const isStockManaged = stock !== null
-    const isUnavailable = isStockManaged && (!isPreorderDay || stock <= 0)
+    const isUnavailable = isStockManaged && (stock <= 0 || (isTrompeLoeil && !isPreorderDay))
 
     return (
         <motion.article
@@ -119,7 +120,7 @@ export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavori
                         {product.description || 'Pâtisserie artisanale'}
                     </p>
                     {isStockManaged && (
-                        <StockBadge stock={stock} isPreorderDay={isPreorderDay} dayNames={dayNames} />
+                        <StockBadge stock={stock} isPreorderDay={isPreorderDay} dayNames={dayNames} isPreorderProduct={isTrompeLoeil} />
                     )}
                 </div>
 

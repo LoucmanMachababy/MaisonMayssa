@@ -135,15 +135,18 @@ export async function updateSettings(settings: Partial<Settings>) {
   await set(settingsRef, { ...(current.val() || {}), ...settings })
 }
 
-// --- Commandes (précommandes trompe l'oeil) ---
+// --- Commandes ---
 export type OrderItem = {
   productId: string
   name: string
   quantity: number
   price: number
+  sizeLabel?: string
 }
 
 export type OrderStatus = 'en_attente' | 'validee' | 'refusee'
+export type OrderSource = 'site' | 'whatsapp' | 'instagram' | 'snap'
+export type DeliveryMode = 'livraison' | 'retrait'
 
 export type Order = {
   id?: string
@@ -152,6 +155,11 @@ export type Order = {
   total: number
   status: OrderStatus
   createdAt: number
+  source?: OrderSource
+  deliveryMode?: DeliveryMode
+  requestedDate?: string
+  requestedTime?: string
+  adminNote?: string
 }
 
 const ordersRef = ref(db, 'orders')
@@ -174,6 +182,41 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus) {
 
 export async function deleteOrder(orderId: string) {
   await remove(ref(db, `orders/${orderId}`))
+}
+
+// Créer une commande hors-site (admin)
+export async function createOffSiteOrder(order: Omit<Order, 'id' | 'createdAt'>): Promise<string | null> {
+  const fullOrder: Omit<Order, 'id'> = {
+    ...order,
+    createdAt: Date.now(),
+  }
+  const newRef = push(ordersRef)
+  await set(newRef, fullOrder)
+  return newRef.key
+}
+
+// Décrémenter le stock pour plusieurs items (commande hors-site)
+export async function decrementStockBatch(items: { productId: string; quantity: number }[]): Promise<void> {
+  const currentStock = await getStock()
+  const updates: Record<string, number> = {}
+  for (const item of items) {
+    if (item.productId in currentStock) {
+      updates[`stock/${item.productId}`] = Math.max(0, (currentStock[item.productId] ?? 0) - item.quantity)
+    }
+  }
+  if (Object.keys(updates).length > 0) {
+    await update(ref(db), updates)
+  }
+}
+
+// Initialiser le suivi de stock pour un produit
+export async function initializeStock(productId: string, quantity: number): Promise<void> {
+  await set(ref(db, `stock/${productId}`), quantity)
+}
+
+// Supprimer le suivi de stock (redevient illimité)
+export async function removeStockTracking(productId: string): Promise<void> {
+  await remove(ref(db, `stock/${productId}`))
 }
 
 // --- Auth Admin ---

@@ -24,8 +24,9 @@ export function ProductDetailModal({ product, onClose, onAdd, isFavorite, onTogg
   const [selectedSize, setSelectedSize] = useState<ProductSize | null>(null)
   const isLiked = product ? (isFavorite ? isFavorite(product.id) : false) : false
   const imageRef = useRef<HTMLDivElement>(null)
-  const isStockManaged = product?.category === "Trompe l'oeil" && stock !== null
-  const isUnavailable = isStockManaged && (!isPreorderDay || (stock !== null && stock <= 0))
+  const isTrompeLoeil = product?.category === "Trompe l'oeil"
+  const isStockManaged = stock !== null
+  const isUnavailable = isStockManaged && ((stock !== null && stock <= 0) || (isTrompeLoeil && !isPreorderDay))
 
   // Reset selected size when product changes
   useEffect(() => {
@@ -225,7 +226,7 @@ export function ProductDetailModal({ product, onClose, onAdd, isFavorite, onTogg
 
             {isStockManaged && (
               <div className="mb-4">
-                <StockBadge stock={stock ?? 0} isPreorderDay={isPreorderDay} dayNames={dayNames} compact={false} />
+                <StockBadge stock={stock ?? 0} isPreorderDay={isPreorderDay} dayNames={dayNames} compact={false} isPreorderProduct={!!isTrompeLoeil} />
               </div>
             )}
 

@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { ShoppingBag, Minus, Plus, MessageCircle, Send, User, Phone, MapPin, Truck, Calendar, Clock, Star, Gift } from 'lucide-react'
-import type { CartItem, Channel, CustomerInfo } from '../types'
+import { ShoppingBag, Minus, Plus, MessageCircle, User, Phone, MapPin, Truck, Calendar, Clock, Star, Gift } from 'lucide-react'
+import type { CartItem, CustomerInfo } from '../types'
 import { cn, isBeforeOrderCutoff, isBeforeFirstPickupDate } from '../lib/utils'
 import { FIRST_PICKUP_DATE_CLASSIC, FIRST_PICKUP_DATE_CLASSIC_LABEL } from '../constants'
 import { ReservationTimer } from './ReservationTimer'
@@ -24,11 +24,9 @@ interface CartProps {
     items: CartItem[]
     total: number
     note: string
-    channel: Channel
     customer: CustomerInfo
     onUpdateQuantity: (id: string, quantity: number) => void
     onNoteChange: (note: string) => void
-    onChannelChange: (channel: Channel) => void
     onCustomerChange: (customer: CustomerInfo) => void
     onSend: () => void
     onAccountClick?: () => void
@@ -40,11 +38,9 @@ export function Cart({
     items,
     total,
     note,
-    channel,
     customer,
     onUpdateQuantity,
     onNoteChange,
-    onChannelChange,
     onCustomerChange,
     onSend,
     onAccountClick,

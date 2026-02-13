@@ -8,29 +8,31 @@ interface StockBadgeProps {
   compact?: boolean
   showTrend?: boolean
   popularityScore?: number // 0-100, pour indiquer la popularité
+  isPreorderProduct?: boolean
 }
 
-export function StockBadge({ 
-  stock, 
-  isPreorderDay, 
-  dayNames, 
-  compact = false, 
+export function StockBadge({
+  stock,
+  isPreorderDay,
+  dayNames,
+  compact = false,
   showTrend = false,
-  popularityScore = 0
+  popularityScore = 0,
+  isPreorderProduct = false,
 }: StockBadgeProps) {
   // Not a managed product
   if (stock === null) return null
 
-  const baseClasses = compact 
-    ? 'text-[8px] px-1.5 py-0.5 rounded-md gap-0.5' 
+  const baseClasses = compact
+    ? 'text-[8px] px-1.5 py-0.5 rounded-md gap-0.5'
     : 'text-[10px] px-2 py-1 rounded-lg gap-1'
 
   // Sold out - avec effet dramatique
   if (stock <= 0) {
     return (
-      <motion.span 
+      <motion.span
         className={`inline-flex items-center font-bold text-red-600 bg-red-50 border border-red-200 ${baseClasses}`}
-        animate={{ 
+        animate={{
           backgroundColor: ['#fef2f2', '#fee2e2', '#fef2f2'],
         }}
         transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
@@ -41,10 +43,10 @@ export function StockBadge({
     )
   }
 
-  // Not the right day - avec indicateur de temps
-  if (!isPreorderDay) {
+  // Not the right day - only for preorder products (Trompe l'oeil)
+  if (isPreorderProduct && !isPreorderDay) {
     return (
-      <motion.span 
+      <motion.span
         className={`inline-flex items-center font-bold text-orange-600 bg-orange-50 border border-orange-200 ${baseClasses}`}
         whileHover={{ scale: 1.05 }}
       >
