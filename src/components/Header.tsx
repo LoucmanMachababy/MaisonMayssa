@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Phone, Instagram, Clock, Truck, MapPin } from 'lucide-react'
+import { Phone, Instagram, Clock, Truck, MapPin, MessageCircle } from 'lucide-react'
 import { cn, isOpen } from '../lib/utils'
 import { PHONE_E164 } from '../constants'
 import { hapticFeedback } from '../lib/haptics'
@@ -76,26 +76,35 @@ L'excellence de la pâtisserie artisanale à Annecy.
                 >
                     <div className="flex flex-col w-full max-w-sm lg:max-w-none gap-3">
                         <a
-                            href={`https://wa.me/${PHONE_E164}`}
+                            href={`https://wa.me/${PHONE_E164}?text=${encodeURIComponent('Bonjour, je souhaite commander.')}`}
                             target="_blank"
                             rel="noreferrer"
                             onClick={() => hapticFeedback('medium')}
-                            className="group flex items-center justify-center gap-3 rounded-2xl bg-mayssa-brown px-5 sm:px-6 py-3 sm:py-4 text-sm sm:text-base text-mayssa-cream shadow-xl transition-all hover:-translate-y-1 hover:bg-mayssa-caramel active:scale-[0.98] cursor-pointer"
+                            className="group flex items-center justify-center gap-3 rounded-2xl bg-[#25D366] px-5 sm:px-6 py-3 sm:py-4 text-sm sm:text-base text-white shadow-xl transition-all hover:-translate-y-1 hover:bg-[#20bd5a] active:scale-[0.98] cursor-pointer"
                         >
-                            <Phone size={18} className="sm:w-5 sm:h-5 transition-transform group-hover:rotate-12" />
-                            <span className="font-bold">Appeler maintenant</span>
+                            <MessageCircle size={22} className="sm:w-6 sm:h-6 transition-transform group-hover:scale-110" />
+                            <span className="font-bold">Commander sur WhatsApp</span>
                         </a>
 
                         <SocialLink
                             href="https://www.instagram.com/maison_mayssa74/"
                             icon={<Instagram size={16} className="sm:w-[18px] sm:h-[18px]" />}
-                            label="Instagram"
+                            label="Nous suivre sur Instagram"
                             className="bg-gradient-to-br from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white w-full"
                         />
+
+                        <a
+                            href="tel:+33619871005"
+                            onClick={() => hapticFeedback('light')}
+                            className="flex items-center justify-center gap-2 text-xs sm:text-sm font-semibold text-mayssa-brown/70 hover:text-mayssa-caramel transition-colors cursor-pointer"
+                        >
+                            <Phone size={14} />
+                            Appeler
+                        </a>
                     </div>
 
                     <p className="text-center text-[10px] sm:text-xs font-semibold text-mayssa-brown/60 lg:text-right">
-                        Livraison offerte dès 45 € d'achat
+                        Livraison offerte dès 45 € · Commande par WhatsApp uniquement
                     </p>
                 </motion.div>
             </div>

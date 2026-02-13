@@ -33,12 +33,14 @@ export function ShareButton({ product, variant = 'icon', className = '' }: Share
   const [isOpen, setIsOpen] = useState(false)
   const [copied, setCopied] = useState(false)
 
-  // URL avec hash (#produit=id) pour que le lien survive aux redirections (http→https, www, etc.)
+  // ID catalogue : retirer suffixe timestamp (-1739…) ou taille (-400) pour que le lien ouvre le bon produit
+  const productIdForUrl = product.id.replace(/-\d+$/, '')
   const baseUrl = typeof window !== 'undefined'
     ? `${window.location.origin}${window.location.pathname}`
     : ''
-  const shareUrl = `${baseUrl}#produit=${encodeURIComponent(product.id)}`
-  const shareText = `Découvre ${product.name} chez Maison Mayssa - ${product.price.toFixed(2).replace('.', ',')}€`
+  // Query param au lieu de hash : les plateformes de messagerie (WhatsApp, iMessage…) suppriment souvent le fragment #
+  const shareUrl = `${baseUrl}?produit=${encodeURIComponent(productIdForUrl)}`
+  const shareText = `Découvre ${product.name} chez Maison Mayssa - ${product.price.toFixed(2).replace('.', ',')} €`
 
   const shareLinks = [
     {
@@ -93,7 +95,11 @@ export function ShareButton({ product, variant = 'icon', className = '' }: Share
   }
 
   const handleSocialClick = (url: string) => {
-    window.open(url, '_blank', 'width=600,height=400')
+    const w = window.open(url, '_blank', 'noopener,noreferrer')
+    if (!w) {
+      // Popup bloqué : ouvrir dans l'onglet courant
+      window.location.href = url
+    }
     hapticFeedback('medium')
     setIsOpen(false)
   }

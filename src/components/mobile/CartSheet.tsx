@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence, useDragControls } from 'framer-motion'
-import { X, Minus, Plus, Trash2, ShoppingBag, Send, Copy, MessageCircle, Instagram, User, Phone, MapPin, Truck, Calendar, Clock, Star, Gift } from 'lucide-react'
-import { SnapIcon } from '../SnapIcon'
+import { X, Minus, Plus, Trash2, ShoppingBag, Send, MessageCircle, User, Phone, MapPin, Truck, Calendar, Clock, Star, Gift } from 'lucide-react'
 import { hapticFeedback } from '../../lib/haptics'
 import { cn, isBeforeOrderCutoff, isBeforeFirstPickupDate } from '../../lib/utils'
 import { FIRST_PICKUP_DATE_CLASSIC, FIRST_PICKUP_DATE_CLASSIC_LABEL } from '../../constants'
@@ -485,31 +484,10 @@ export function CartSheet({
                 </div>
               )}
 
-              {/* Channel */}
-              <div className="flex gap-2">
-                {[
-                  { id: 'whatsapp', icon: MessageCircle, label: 'WhatsApp', activeClass: 'bg-emerald-500 text-white' },
-                  { id: 'instagram', icon: Instagram, label: 'Insta', activeClass: 'bg-gradient-to-br from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white' },
-                  { id: 'snap', icon: SnapIcon, label: 'Snap', activeClass: 'bg-[#FFFC00] text-black border-2 border-yellow-500/50' },
-                ].map((ch) => (
-                  <button
-                    key={ch.id}
-                    onClick={() => { hapticFeedback('light'); onChannelChange(ch.id as Channel) }}
-                    className={cn(
-                      "flex flex-1 flex-col items-center gap-1 rounded-xl p-2 text-[10px] font-bold transition-all",
-                      channel === ch.id ? ch.activeClass : "bg-white/80 text-mayssa-brown ring-1 ring-mayssa-brown/10"
-                    )}
-                  >
-                    <ch.icon size={16} />
-                    <span>{ch.label}</span>
-                  </button>
-                ))}
-              </div>
-              {channel === 'snap' && (
-                <p className="text-[9px] text-mayssa-brown/70 text-center bg-mayssa-cream/60 rounded-lg px-2 py-1.5">
-                  Le message sera copié. Colle-le sur Snapchat pour envoyer ta commande.
-                </p>
-              )}
+              <p className="text-[9px] text-mayssa-brown/60 text-center flex items-center justify-center gap-1">
+                <MessageCircle size={12} />
+                Commande par WhatsApp uniquement.
+              </p>
               {hasNonTrompeLoeil && isClassicPreorderPhase && (
                 <p className="text-[10px] text-mayssa-brown/80 text-center bg-mayssa-cream/80 rounded-lg px-2 py-1.5 border border-mayssa-caramel/30">
                   Précommandes — récup. à partir du {FIRST_PICKUP_DATE_CLASSIC_LABEL}.
@@ -557,14 +535,14 @@ export function CartSheet({
                 className={cn(
                   "w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base shadow-xl transition-all cursor-pointer",
                   canSend
-                    ? "bg-mayssa-brown text-mayssa-cream"
+                    ? "bg-[#25D366] text-white hover:bg-[#20bd5a]"
                     : "bg-mayssa-brown/30 text-mayssa-cream/70"
                 )}
               >
-                {channel === 'whatsapp' ? <Send size={18} /> : <Copy size={18} />}
+                <MessageCircle size={18} />
                 {hasItems
                   ? canSend
-                    ? channel === 'snap' ? 'Copier et envoyer sur Snap' : 'Envoyer ma commande'
+                    ? 'Envoyer sur WhatsApp'
                     : orderCutoffPassed && hasNonTrompeLoeil ? "Jusqu'à 23h" : 'Complète tes infos'
                   : 'Panier vide'}
               </motion.button>

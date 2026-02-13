@@ -1,6 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { ShoppingBag, Minus, Plus, MessageCircle, Send, Copy, Instagram, User, Phone, MapPin, Truck, Calendar, Clock, Star, Gift } from 'lucide-react'
-import { SnapIcon } from './SnapIcon'
+import { ShoppingBag, Minus, Plus, MessageCircle, Send, User, Phone, MapPin, Truck, Calendar, Clock, Star, Gift } from 'lucide-react'
 import type { CartItem, Channel, CustomerInfo } from '../types'
 import { cn, isBeforeOrderCutoff, isBeforeFirstPickupDate } from '../lib/utils'
 import { FIRST_PICKUP_DATE_CLASSIC, FIRST_PICKUP_DATE_CLASSIC_LABEL } from '../constants'
@@ -511,18 +510,10 @@ export function Cart({
                             )}
 
                             <div className="space-y-3 pt-2">
-                                <p className="text-[10px] text-mayssa-brown/60 text-center font-medium">Choisissez un mode pour envoyer votre commande :</p>
-                                <div className="flex gap-2">
-                                    <ChannelButton active={channel === 'whatsapp'} onClick={() => onChannelChange('whatsapp')} icon={<MessageCircle size={18} />} label="WhatsApp" activeClass="bg-emerald-500 text-white" />
-                                    <ChannelButton active={channel === 'instagram'} onClick={() => onChannelChange('instagram')} icon={<Instagram size={18} />} label="Instagram" activeClass="bg-gradient-to-br from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white" />
-                                    <ChannelButton active={channel === 'snap'} onClick={() => onChannelChange('snap')} icon={<SnapIcon size={18} />} label="Snap" activeClass="bg-[#FFFC00] text-black border-2 border-yellow-500/50" />
-                                </div>
-
-                                {channel === 'snap' && (
-                                    <p className="text-[10px] text-mayssa-brown/70 text-center bg-mayssa-cream/60 rounded-xl px-3 py-2">
-                                        Le message sera copié. Colle-le sur Snapchat pour envoyer ta commande.
-                                    </p>
-                                )}
+                                <p className="text-[10px] text-mayssa-brown/60 text-center font-medium flex items-center justify-center gap-1.5">
+                                    <MessageCircle size={14} />
+                                    Commande par WhatsApp uniquement — le bouton ouvre WhatsApp avec votre message.
+                                </p>
 
                                 {hasNonTrompeLoeil && isClassicPreorderPhase && (
                                     <p className="text-xs text-mayssa-brown/80 text-center bg-mayssa-cream/80 rounded-xl px-3 py-2 border border-mayssa-caramel/30">
@@ -538,10 +529,10 @@ export function Cart({
                                 <button
                                     onClick={onSend}
                                     disabled={!canSend}
-                                    className="w-full flex items-center justify-center gap-3 rounded-[2rem] bg-mayssa-brown text-white py-5 text-base font-bold shadow-2xl transition-all hover:bg-mayssa-caramel hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:grayscale disabled:hover:scale-100 cursor-pointer"
+                                    className="w-full flex items-center justify-center gap-3 rounded-[2rem] bg-[#25D366] text-white py-5 text-base font-bold shadow-2xl transition-all hover:bg-[#20bd5a] hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:grayscale disabled:hover:scale-100 cursor-pointer"
                                 >
-                                    {channel === 'whatsapp' ? <Send size={24} /> : <Copy size={24} />}
-                                    <span>{hasItems ? (canSend ? (channel === 'snap' ? 'Copier et envoyer sur Snap' : 'Commander maintenant') : orderCutoffPassed && hasNonTrompeLoeil ? 'Commandes jusqu\'à 23h' : 'Vérifiez le formulaire') : 'Votre panier est vide'}</span>
+                                    <MessageCircle size={24} />
+                                    <span>{hasItems ? (canSend ? 'Envoyer sur WhatsApp (ouvre l\'app)' : orderCutoffPassed && hasNonTrompeLoeil ? 'Commandes jusqu\'à 23h' : 'Vérifiez le formulaire') : 'Votre panier est vide'}</span>
                                 </button>
                             </div>
                         </div>
@@ -549,22 +540,5 @@ export function Cart({
                 </div>
             </div>
         </div>
-    )
-}
-
-function ChannelButton({ active, onClick, icon, label, activeClass }: any) {
-    return (
-        <button
-            onClick={onClick}
-            className={cn(
-                "flex flex-1 flex-col items-center gap-1.5 sm:gap-2 rounded-xl sm:rounded-2xl p-2 sm:p-3 text-[9px] sm:text-[10px] font-bold transition-all cursor-pointer",
-                active
-                    ? `${activeClass} scale-105`
-                    : "bg-mayssa-soft text-mayssa-brown hover:bg-white hover:-translate-y-1 hover:shadow-lg border border-mayssa-brown/5 active:scale-95"
-            )}
-        >
-            {icon}
-            <span className="text-center leading-tight">{label}</span>
-        </button>
     )
 }

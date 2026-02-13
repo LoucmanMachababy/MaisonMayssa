@@ -16,7 +16,7 @@ export function PWAInstallPrompt() {
     const dismissed = localStorage.getItem(DISMISS_KEY)
     if (dismissed && Date.now() - parseInt(dismissed) < 7 * 24 * 60 * 60 * 1000) return
 
-    // Show after a delay so it's not intrusive
+    // Show after a delay so it's not intrusive. L'avertissement Chrome "must call prompt()" disparaît dès que l'utilisateur clique sur "Installer".
     const timer = setTimeout(() => setShow(true), 10000)
     return () => clearTimeout(timer)
   }, [canInstall])

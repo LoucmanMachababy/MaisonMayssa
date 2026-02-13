@@ -120,7 +120,9 @@ function AppContent() {
 
   // Refs pour accéder aux données courantes dans les timers (évite les closures stale)
   const stockMapRef = useRef(stockMap)
+  const isAuthenticatedRef = useRef(isAuthenticated)
   useEffect(() => { stockMapRef.current = stockMap }, [stockMap])
+  useEffect(() => { isAuthenticatedRef.current = isAuthenticated }, [isAuthenticated])
 
   // Notification de visite Telegram
   useVisitorNotification()
@@ -159,25 +161,28 @@ function AppContent() {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // Ouvrir le produit depuis un lien partagé : ?produit= ou #produit= (hash survivant aux redirections)
+  // Ouvrir le produit depuis un lien partagé : ?produit= ou #produit=
+  const sharedProductHandled = useRef(false)
   useEffect(() => {
+    if (sharedProductHandled.current) return
     const fromSearch = new URLSearchParams(window.location.search).get('produit')
     const fromHash = new URLSearchParams(window.location.hash.slice(1)).get('produit')
     const productId = fromSearch || fromHash
-    if (productId) {
-      const product = availableProducts.find(p => p.id === productId)
-      if (product) {
-        setTimeout(() => {
-          if (window.innerWidth >= 768) {
-            setSelectedProductForDetail(product)
-          } else {
-            handleAddToCart(product)
-          }
-          window.history.replaceState({}, '', window.location.pathname)
-        }, 300)
+    if (!productId) return
+    const product = availableProducts.find(p => p.id === productId)
+    if (!product) return
+    sharedProductHandled.current = true
+    setTimeout(() => {
+      if (window.innerWidth >= 768) {
+        setSelectedProductForDetail(product)
+      } else {
+        handleAddToCart(product)
       }
-    }
-  }, [])
+      // Nettoyer l'URL sans recharger la page
+      const cleanUrl = window.location.origin + window.location.pathname
+      window.history.replaceState({}, '', cleanUrl)
+    }, 300)
+  }, [availableProducts])
 
   // Remove initial loader once app is mounted
   useEffect(() => {
@@ -243,19 +248,21 @@ function AppContent() {
     )
     if (expired.length === 0) return
 
-    // Relâcher le stock pour chaque item expiré (lecture directe Firebase)
-    ;(async () => {
-      try {
-        const currentStock = await fetchAllStock()
-        for (const item of expired) {
-          const origId = getOriginalProductId(item.product.id)
-          const qty = currentStock[origId] ?? 0
-          await firebaseUpdateStock(origId, qty + item.quantity)
+    // Relâcher le stock pour chaque item expiré (uniquement si connecté, sinon pas d'écriture Firebase)
+    if (isAuthenticated) {
+      ;(async () => {
+        try {
+          const currentStock = await fetchAllStock()
+          for (const item of expired) {
+            const origId = getOriginalProductId(item.product.id)
+            const qty = currentStock[origId] ?? 0
+            await firebaseUpdateStock(origId, qty + item.quantity)
+          }
+        } catch {
+          /* ignore */
         }
-      } catch {
-        /* ignore */
-      }
-    })()
+      })()
+    }
 
     setCart((current) =>
       current.filter(
@@ -280,11 +287,13 @@ function AppContent() {
       )
       if (expired.length === 0) return
 
-      // Relâcher le stock
-      for (const item of expired) {
-        const origId = getOriginalProductId(item.product.id)
-        const qty = stockMapRef.current[origId] ?? 0
-        firebaseUpdateStock(origId, qty + item.quantity)
+      // Relâcher le stock (uniquement si connecté)
+      if (isAuthenticatedRef.current) {
+        for (const item of expired) {
+          const origId = getOriginalProductId(item.product.id)
+          const qty = stockMapRef.current[origId] ?? 0
+          firebaseUpdateStock(origId, qty + item.quantity)
+        }
       }
 
       // Retirer du panier
@@ -707,10 +716,12 @@ function AppContent() {
   const RESERVATION_DURATION_MS = 10 * 60 * 1000 // 10 minutes
 
   const handleTrompeLOeilConfirm = async (product: Product, quantity: number) => {
-    // 1. Décrémenter le stock IMMÉDIATEMENT dans Firebase
-    const currentQty = getStock(product.id)
-    if (currentQty !== null) {
-      await firebaseUpdateStock(product.id, Math.max(0, currentQty - quantity))
+    // 1. Décrémenter le stock dans Firebase uniquement si connecté (règles : auth != null)
+    if (isAuthenticated) {
+      const currentQty = getStock(product.id)
+      if (currentQty !== null) {
+        await firebaseUpdateStock(product.id, Math.max(0, currentQty - quantity))
+      }
     }
 
     // 2. Ajouter au panier avec un timer de réservation (10 min)
@@ -744,8 +755,8 @@ function AppContent() {
       item?.reservationExpiresAt && !item.reservationConfirmed
 
     if (quantity <= 0) {
-      // Relâcher le stock réservé si trompe l'oeil en cours de réservation
-      if (isTrompeReservation && item) {
+      // Relâcher le stock réservé si trompe l'oeil en cours de réservation (uniquement si connecté)
+      if (isTrompeReservation && item && isAuthenticated) {
         const origId = getOriginalProductId(item.product.id)
         const currentQty = getStock(origId)
         if (currentQty !== null) {
@@ -756,14 +767,13 @@ function AppContent() {
       return
     }
 
-    // Ajustement de quantité pour un trompe l'oeil réservé
-    if (isTrompeReservation && item) {
+    // Ajustement de quantité pour un trompe l'oeil réservé (uniquement si connecté, sinon pas d'écriture Firebase)
+    if (isTrompeReservation && item && isAuthenticated) {
       const delta = quantity - item.quantity
       if (delta !== 0) {
         const origId = getOriginalProductId(item.product.id)
         const currentQty = getStock(origId)
         if (delta > 0) {
-          // Veut plus → vérifier le stock
           if (currentQty !== null && currentQty < delta) {
             showToast(`Stock insuffisant (${currentQty} restant${currentQty > 1 ? 's' : ''})`, 'error')
             return
@@ -772,7 +782,6 @@ function AppContent() {
             await firebaseUpdateStock(origId, currentQty - delta)
           }
         } else {
-          // Veut moins → remettre du stock
           if (currentQty !== null) {
             await firebaseUpdateStock(origId, currentQty + Math.abs(delta))
           }
@@ -921,7 +930,7 @@ function AppContent() {
     }
 
     lines.push('Merci beaucoup, à très vite !')
-    lines.push('— Site de précommande Maison Mayssa')
+    lines.push('— Site de précommande Maison Mayssa (WhatsApp uniquement)')
 
     return lines.join('\n')
   }
@@ -1040,34 +1049,12 @@ function AppContent() {
       return
     }
 
-    if (channel === 'whatsapp') {
-      const message = buildOrderMessage()
-      if (!message) return
-      const encoded = encodeURIComponent(message)
-      window.open(`https://wa.me/${PHONE_E164}?text=${encoded}`, '_blank')
-      showToast('Commande envoyée sur WhatsApp !', 'success')
-    } else if (channel === 'instagram') {
-      const parts = buildInstagramMessages()
-      if (parts.length === 0) return
-      setInstagramParts(parts)
-      try {
-        await navigator.clipboard?.writeText(parts[0])
-        setIsInstagramModalOpen(true)
-      } catch {
-        showToast('Erreur lors de la copie de la commande', 'error')
-        return
-      }
-    } else if (channel === 'snap') {
-      const message = buildOrderMessage()
-      if (!message) return
-      try {
-        await navigator.clipboard?.writeText(message)
-        setIsSnapModalOpen(true)
-      } catch {
-        showToast('Erreur lors de la copie', 'error')
-        return
-      }
-    }
+    // Envoi uniquement par WhatsApp — ouvre l'app avec le message prérempli
+    const message = buildOrderMessage()
+    if (!message) return
+    const encoded = encodeURIComponent(message)
+    window.open(`https://wa.me/${PHONE_E164}?text=${encoded}`, '_blank')
+    showToast('WhatsApp s\'ouvre avec votre commande — envoyez le message !', 'success')
 
     // --- Confirmer les réservations trompe l'oeil (le stock reste décrémenté) ---
     const trompeLOeilItems = cart.filter(
@@ -1447,7 +1434,7 @@ function AppContent() {
                 <li>• Des recettes maison, testées et approuvées au fil du temps</li>
                 <li>• Une carte courte mais travaillée, pour garantir la qualité</li>
                 <li>• Des portions généreuses, comme à la maison</li>
-                <li>• Un service de précommande simple, par WhatsApp ou réseaux</li>
+                <li>• Un service de précommande simple, par WhatsApp uniquement</li>
               </ul>
             </div>
           </div>
@@ -1495,7 +1482,7 @@ function AppContent() {
               <p className="mt-2 sm:mt-3 text-[10px] sm:text-xs text-mayssa-brown/60">
                 Pour toute question sur la zone de livraison ou un besoin particulier (grosse
                 commande, événement, Ramadan, etc.), le plus simple est d&apos;envoyer un message
-                directement via WhatsApp ou Instagram.
+                directement via WhatsApp (commande et contact par WhatsApp uniquement).
               </p>
             </div>
           </div>

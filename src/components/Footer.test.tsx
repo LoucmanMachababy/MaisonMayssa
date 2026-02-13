@@ -9,13 +9,13 @@ describe('Footer', () => {
     render(<Footer />)
     expect(screen.getByText('Maison Mayssa')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /La Carte/i })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Commander/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Commander sur WhatsApp/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Mentions légales/i })).toBeInTheDocument()
   })
 
   it('affiche les infos de livraison (45 €)', () => {
     render(<Footer />)
-    expect(screen.getByText(/Livraison offerte dès 45 €/)).toBeInTheDocument()
+    expect(screen.getByText(/Commande par WhatsApp uniquement/)).toBeInTheDocument()
   })
 
   it('le logo a un titre après 5 clics (accès admin)', () => {

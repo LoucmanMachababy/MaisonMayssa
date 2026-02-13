@@ -9,12 +9,25 @@ const vibrationPatterns: Record<HapticType, number | number[]> = {
   error: [30, 50, 30, 50, 30],
 }
 
+// Chrome bloque vibrate() tant que l'utilisateur n'a pas interagi avec la page (Intervention)
+let hasUserInteracted = false
+if (typeof window !== 'undefined') {
+  const markInteracted = () => {
+    hasUserInteracted = true
+    window.removeEventListener('click', markInteracted)
+    window.removeEventListener('touchstart', markInteracted)
+    window.removeEventListener('keydown', markInteracted)
+  }
+  window.addEventListener('click', markInteracted, { once: true, passive: true })
+  window.addEventListener('touchstart', markInteracted, { once: true, passive: true })
+  window.addEventListener('keydown', markInteracted, { once: true, passive: true })
+}
+
 export function hapticFeedback(type: HapticType = 'light') {
-  // Check if vibration API is available
   if (!('vibrate' in navigator)) return
+  if (!hasUserInteracted) return
 
   const pattern = vibrationPatterns[type]
-
   try {
     navigator.vibrate(pattern)
   } catch {

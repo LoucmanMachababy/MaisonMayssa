@@ -1,6 +1,7 @@
-import { Instagram, Phone, MapPin, Clock } from 'lucide-react'
+import { Instagram, Phone, MapPin, Clock, MessageCircle } from 'lucide-react'
 import { useState, useRef } from 'react'
 import { hapticFeedback } from '../lib/haptics'
+import { PHONE_E164 } from '../constants'
 
 export function Footer() {
     const [clickCount, setClickCount] = useState(0)
@@ -50,11 +51,23 @@ export function Footer() {
                         <h3 className="mb-4 sm:mb-6 font-display text-base sm:text-lg font-bold text-mayssa-brown">Liens Utiles</h3>
                         <ul className="space-y-2 sm:space-y-3">
                             <li><FooterLink href="#la-carte">La Carte</FooterLink></li>
-                            <li><FooterLink href="#commande">Commander</FooterLink></li>
+                            <li>
+                                <a
+                                    href={`https://wa.me/${PHONE_E164}?text=${encodeURIComponent('Bonjour, je souhaite commander.')}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    onClick={() => hapticFeedback('light')}
+                                    className="text-xs sm:text-sm text-mayssa-brown/60 hover:text-mayssa-caramel transition-all hover:scale-105 active:scale-95 cursor-pointer inline-flex items-center gap-1.5"
+                                >
+                                    <MessageCircle size={14} />
+                                    Commander sur WhatsApp
+                                </a>
+                            </li>
                             <li><FooterLink href="#temoignages">Témoignages</FooterLink></li>
                             <li><FooterLink href="#livraison">Zone de Livraison</FooterLink></li>
                             <li><FooterLink href="#contact">Contact</FooterLink></li>
                         </ul>
+                        <p className="mt-2 text-[10px] sm:text-xs text-mayssa-brown/50 italic">Commande par WhatsApp uniquement.</p>
                     </div>
 
                     {/* Contact Info */}

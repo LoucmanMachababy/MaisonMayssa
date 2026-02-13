@@ -1,5 +1,5 @@
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion'
-import { Phone, Instagram, Menu, X, Heart, User, Star, LogOut, ChevronDown, Gift } from 'lucide-react'
+import { Phone, Instagram, Menu, X, Heart, User, Star, LogOut, ChevronDown, Gift, MessageCircle } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useEffect, useState } from 'react'
 import { PHONE_E164 } from '../constants'
@@ -157,14 +157,14 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
                                 <Instagram size={18} className="sm:w-5 sm:h-5" />
                             </a>
                             <a
-                                href={`https://wa.me/${PHONE_E164}`}
+                                href={`https://wa.me/${PHONE_E164}?text=${encodeURIComponent('Bonjour, je souhaite commander.')}`}
                                 target="_blank"
                                 rel="noreferrer"
                                 onClick={() => hapticFeedback('light')}
-                                className="hidden sm:flex items-center gap-2 rounded-full bg-white/80 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-mayssa-brown shadow-sm ring-1 ring-mayssa-brown/5 hover:bg-white hover:text-mayssa-caramel transition-all active:scale-95 cursor-pointer"
+                                className="hidden sm:flex items-center gap-2 rounded-full bg-[#25D366] px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-white shadow-sm ring-1 ring-[#25D366]/80 hover:bg-[#20bd5a] transition-all active:scale-95 cursor-pointer"
                             >
-                                <Phone size={14} className="sm:w-4 sm:h-4" />
-                                <span className="hidden md:inline">Commander</span>
+                                <MessageCircle size={14} className="sm:w-4 sm:h-4" />
+                                <span className="hidden md:inline">Commander sur WhatsApp</span>
                             </a>
                             {/* Mobile Menu Button */}
                             <button
@@ -276,16 +276,24 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
                                     <MobileNavLink href="#contact" onClick={() => setIsMobileMenuOpen(false)}>Contact</MobileNavLink>
                                 </nav>
 
-                                <div className="pt-4 border-t border-mayssa-brown/10">
+                                <div className="pt-4 border-t border-mayssa-brown/10 space-y-2">
                                     <a
-                                        href={`https://wa.me/${PHONE_E164}`}
+                                        href={`https://wa.me/${PHONE_E164}?text=${encodeURIComponent('Bonjour, je souhaite commander.')}`}
                                         target="_blank"
                                         rel="noreferrer"
                                         onClick={() => hapticFeedback('medium')}
-                                        className="flex items-center justify-center gap-3 rounded-2xl bg-mayssa-brown px-6 py-4 text-mayssa-cream shadow-lg transition-all hover:bg-mayssa-caramel hover:-translate-y-0.5 active:scale-[0.98] w-full cursor-pointer"
+                                        className="flex items-center justify-center gap-3 rounded-2xl bg-[#25D366] px-6 py-4 text-white shadow-lg transition-all hover:bg-[#20bd5a] hover:-translate-y-0.5 active:scale-[0.98] w-full cursor-pointer"
                                     >
-                                        <Phone size={20} />
-                                        <span className="font-bold">Appeler maintenant</span>
+                                        <MessageCircle size={22} />
+                                        <span className="font-bold">Commander sur WhatsApp</span>
+                                    </a>
+                                    <a
+                                        href="tel:+33619871005"
+                                        onClick={() => hapticFeedback('light')}
+                                        className="flex items-center justify-center gap-2 text-sm text-mayssa-brown/70 hover:text-mayssa-caramel cursor-pointer"
+                                    >
+                                        <Phone size={16} />
+                                        Appeler
                                     </a>
                                 </div>
 

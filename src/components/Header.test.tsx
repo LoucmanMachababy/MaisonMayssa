@@ -9,14 +9,15 @@ describe('Header', () => {
 expect(screen.getByText(/Maison/)).toBeInTheDocument()
   })
 
-  it('affiche le CTA Appeler et le lien Instagram', () => {
+  it('affiche le CTA Commander sur WhatsApp et le lien Instagram', () => {
     render(<Header />)
-    expect(screen.getByRole('link', { name: /Appeler maintenant/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Commander sur WhatsApp/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Instagram/i })).toBeInTheDocument()
   })
 
-  it('affiche Livraison offerte dès 45 €', () => {
+  it('affiche Livraison offerte et WhatsApp uniquement', () => {
     render(<Header />)
     expect(screen.getByText(/Livraison offerte dès 45 €/)).toBeInTheDocument()
+    expect(screen.getByText(/Commande par WhatsApp uniquement/)).toBeInTheDocument()
   })
 })

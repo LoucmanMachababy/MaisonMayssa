@@ -17,13 +17,13 @@ export function ConfidentialiteSection() {
           <strong>Responsable du traitement</strong> : Maison Mayssa – Annecy (74), France.
         </p>
         <p>
-          <strong>Données collectées</strong> : Les informations que vous renseignez (prénom, nom, téléphone, adresse, date et heure de commande) sont utilisées uniquement pour traiter votre précommande et vous contacter si besoin. Elles ne sont pas enregistrées sur nos serveurs : elles servent à générer le message envoyé par vos soins sur WhatsApp ou Instagram.
+          <strong>Données collectées</strong> : Les informations que vous renseignez (prénom, nom, téléphone, adresse, date et heure de commande) sont utilisées uniquement pour traiter votre précommande et vous contacter si besoin. Elles ne sont pas enregistrées sur nos serveurs : elles servent à générer le message envoyé par vos soins sur WhatsApp (commande par WhatsApp uniquement).
         </p>
         <p>
           <strong>Cookies et stockage local</strong> : Le site utilise le stockage local du navigateur (localStorage) pour mémoriser le contenu de votre panier afin que vous ne le perdiez pas en fermant la page. Aucun cookie tiers ou outil de traçage publicitaire n’est utilisé.
         </p>
         <p>
-          <strong>Vos droits</strong> : Vous pouvez demander l’accès, la rectification ou l’effacement de vos données en nous contactant par message (WhatsApp, Instagram) ou par téléphone.
+          <strong>Vos droits</strong> : Vous pouvez demander l’accès, la rectification ou l’effacement de vos données en nous contactant par WhatsApp ou par téléphone.
         </p>
         <p className="text-sm text-mayssa-brown/60">
           Dernière mise à jour : {new Date().toLocaleDateString('fr-FR')}.
@@ -50,7 +50,7 @@ export function MentionsLegalesSection() {
           <strong>Éditeur du site</strong> : Maison Mayssa – Annecy et alentours (74), France.
         </p>
         <p>
-          <strong>Contact</strong> : 06 19 87 10 05 · Instagram : @maison.mayssa74.
+          <strong>Contact</strong> : 06 19 87 10 05 · Commande et contact : WhatsApp uniquement · Instagram : @maison_mayssa74 (réseaux).
         </p>
         <p>
           <strong>Hébergement</strong> : Le site est hébergé sur Vercel Inc., 440 N Barranca Ave #4133, Covina, CA 91723, États-Unis.
