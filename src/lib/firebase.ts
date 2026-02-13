@@ -21,6 +21,7 @@ const auth = getAuth(app)
 // --- Références DB ---
 export const stockRef = ref(db, 'stock')
 export const settingsRef = ref(db, 'settings')
+export const productsOverrideRef = ref(db, 'products')
 
 // --- Stock ---
 export type StockMap = Record<string, number>
@@ -31,8 +32,21 @@ export function listenStock(callback: (stock: StockMap) => void) {
   })
 }
 
+let _stockPermissionWarned = false
 export async function updateStock(productId: string, quantity: number) {
-  await set(ref(db, `stock/${productId}`), quantity)
+  try {
+    await set(ref(db, `stock/${productId}`), quantity)
+  } catch (err: unknown) {
+    const code = err && typeof (err as { code?: string }).code === 'string' ? (err as { code: string }).code : ''
+    if (code === 'PERMISSION_DENIED') {
+      if (!_stockPermissionWarned) {
+        _stockPermissionWarned = true
+        console.warn('[Firebase] Écriture stock refusée (règles). Vérifiez les règles Realtime Database pour /stock ou utilisez une Cloud Function.')
+      }
+      return
+    }
+    throw err
+  }
 }
 
 export async function getStock(): Promise<StockMap> {
@@ -40,15 +54,79 @@ export async function getStock(): Promise<StockMap> {
   return snapshot.val() || {}
 }
 
+// --- Product Overrides (admin) ---
+import type { ProductOverride, ProductOverrideMap } from '../types'
+
+export function listenProductOverrides(callback: (overrides: ProductOverrideMap) => void) {
+  return onValue(productsOverrideRef, (snapshot) => {
+    callback(snapshot.val() || {})
+  })
+}
+
+export async function updateProductOverride(productId: string, override: Partial<ProductOverride>) {
+  await update(ref(db, `products/${productId}`), override)
+}
+
+export async function setProductOverride(productId: string, override: ProductOverride) {
+  await set(ref(db, `products/${productId}`), override)
+}
+
+export async function deleteProductOverride(productId: string) {
+  await remove(ref(db, `products/${productId}`))
+}
+
 // --- Settings ---
+/** Ouverture de précommande : un jour (0=dim… 6=sam) et une heure à partir de laquelle on peut commander (HH:mm, "00:00" = toute la journée) */
+export type PreorderOpening = { day: number; fromTime: string }
+
 export type Settings = {
   preorderDays: number[]
+  /** Horaires d'ouverture des précommandes trompe-l'œil (ex. samedi 00:00, mercredi 12:00). Si absent, on utilise preorderDays avec 00:00. */
+  preorderOpenings?: PreorderOpening[]
   preorderMessage: string
+}
+
+const DEFAULT_PREORDER_OPENINGS: PreorderOpening[] = [
+  { day: 6, fromTime: '00:00' },   // Samedi toute la journée
+  { day: 3, fromTime: '12:00' },  // Mercredi à partir de midi
+]
+
+/** Parse "HH:mm" en minutes depuis minuit */
+function parseTimeToMinutes(time: string): number {
+  const [h, m] = time.split(':').map(Number)
+  return (h ?? 0) * 60 + (m ?? 0)
+}
+
+/** Précommande ouverte si la date donnée (ou maintenant) est dans une plage d'ouverture */
+export function isPreorderOpenNow(openings: PreorderOpening[], date?: Date): boolean {
+  const now = date ?? new Date()
+  const today = now.getDay()
+  const currentMinutes = now.getHours() * 60 + now.getMinutes()
+  for (const o of openings) {
+    if (o.day !== today) continue
+    if (o.fromTime === '00:00' || o.fromTime === '0:00') return true
+    const fromMinutes = parseTimeToMinutes(o.fromTime)
+    if (currentMinutes >= fromMinutes) return true
+  }
+  return false
+}
+
+function mergeSettings(val: unknown): Settings {
+  const raw = (val || {}) as Record<string, unknown>
+  const preorderDays = Array.isArray(raw.preorderDays) ? raw.preorderDays as number[] : [3, 6]
+  const preorderOpenings = Array.isArray(raw.preorderOpenings) && (raw.preorderOpenings as PreorderOpening[]).length > 0
+    ? (raw.preorderOpenings as PreorderOpening[])
+    : DEFAULT_PREORDER_OPENINGS
+  return {
+    preorderDays,
+    preorderOpenings,
+    preorderMessage: typeof raw.preorderMessage === 'string' ? raw.preorderMessage : '',
+  }
 }
 
 export function listenSettings(callback: (settings: Settings) => void) {
   return onValue(settingsRef, (snapshot) => {
-    callback(snapshot.val() || { preorderDays: [3, 6], preorderMessage: '' })
+    callback(mergeSettings(snapshot.val()))
   })
 }
 
@@ -161,8 +239,11 @@ export type UserProfile = {
   lastName: string
   phone?: string
   birthday?: string // Format: YYYY-MM-DD
+  address?: string
+  addressCoordinates?: { lat: number; lng: number } | null
   createdAt: number
   loyalty: UserLoyalty
+  birthdayGiftClaimed?: Record<string, boolean> // année -> cadeau offert (ex: "2026": true)
 }
 
 // --- Profils Clients (Database) ---
@@ -211,7 +292,7 @@ export function listenUserProfile(uid: string, callback: (profile: UserProfile |
 }
 
 // Mettre à jour le profil client (infos de base)
-export async function updateUserProfile(uid: string, updates: Partial<Pick<UserProfile, 'firstName' | 'lastName' | 'phone' | 'birthday'>>) {
+export async function updateUserProfile(uid: string, updates: Partial<Pick<UserProfile, 'firstName' | 'lastName' | 'phone' | 'birthday' | 'address' | 'addressCoordinates'>>) {
   await update(getUserRef(uid), updates)
 }
 
@@ -333,5 +414,43 @@ export const REWARD_LABELS = {
   mini_box: 'Mini box fidélité',
   box_fidelite: 'Box fidélité premium',
 } as const
+
+// --- Anniversaire ---
+
+// Vérifier si on est dans la semaine d'anniversaire (3 jours avant à 4 jours après)
+export function isBirthdayWeek(birthday: string): boolean {
+  const now = new Date()
+  const parts = birthday.split('-').map(Number)
+  const month = parts[1]
+  const day = parts[2]
+  if (!month || !day) return false
+  const birthdayThisYear = new Date(now.getFullYear(), month - 1, day)
+  const diffMs = now.getTime() - birthdayThisYear.getTime()
+  const diffDays = diffMs / (1000 * 60 * 60 * 24)
+  return diffDays >= -3 && diffDays <= 4
+}
+
+// Vérifier si c'est exactement l'anniversaire aujourd'hui
+export function isBirthdayToday(birthday: string): boolean {
+  const now = new Date()
+  const parts = birthday.split('-').map(Number)
+  return now.getMonth() + 1 === parts[1] && now.getDate() === parts[2]
+}
+
+// Marquer le cadeau d'anniversaire comme offert pour cette année
+export async function claimBirthdayGift(uid: string) {
+  const year = new Date().getFullYear().toString()
+  await update(getUserRef(uid), {
+    [`birthdayGiftClaimed/${year}`]: true,
+  })
+}
+
+// Écouter tous les utilisateurs (admin - gestion anniversaires)
+export function listenAllUsers(callback: (users: Record<string, UserProfile>) => void) {
+  const usersRef = ref(db, 'users')
+  return onValue(usersRef, (snapshot) => {
+    callback(snapshot.exists() ? snapshot.val() : {})
+  })
+}
 
 export { db, auth }

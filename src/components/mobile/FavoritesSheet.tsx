@@ -182,9 +182,16 @@ export function FavoritesSheet({
                           {product.category}
                         </p>
                         <div className="flex items-center justify-between">
-                          <span className="font-bold text-mayssa-caramel">
-                            {product.price.toFixed(2).replace('.', ',')} €
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-mayssa-caramel">
+                              {product.price.toFixed(2).replace('.', ',')} €
+                            </span>
+                            {product.originalPrice && (
+                              <span className="text-sm font-bold text-mayssa-brown/50 line-through">
+                                {product.originalPrice.toFixed(2).replace('.', ',')} €
+                              </span>
+                            )}
+                          </div>
                           <motion.button
                             whileTap={{ scale: 0.9 }}
                             onClick={() => handleAddToCart(product)}

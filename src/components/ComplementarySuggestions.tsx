@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, X } from 'lucide-react'
 import type { Product } from '../types'
+import { hapticFeedback } from '../lib/haptics'
 
 interface ComplementarySuggestionsProps {
   products: Product[]
@@ -23,7 +24,11 @@ export function ComplementarySuggestions({ products, onAdd, onDismiss }: Complem
               Tu pourrais aimer
             </p>
             <button
-              onClick={onDismiss}
+              type="button"
+              onClick={() => {
+                hapticFeedback('light')
+                onDismiss()
+              }}
               className="p-1 rounded-full hover:bg-mayssa-soft transition-colors cursor-pointer"
               aria-label="Fermer les suggestions"
             >
@@ -33,8 +38,12 @@ export function ComplementarySuggestions({ products, onAdd, onDismiss }: Complem
           <div className="px-3 pb-3 space-y-2">
             {products.map((product) => (
               <button
+                type="button"
                 key={product.id}
-                onClick={() => onAdd(product)}
+                onClick={() => {
+                  hapticFeedback('medium')
+                  onAdd(product)
+                }}
                 className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-mayssa-soft/50 transition-all group cursor-pointer"
               >
                 {product.image && (
@@ -46,7 +55,14 @@ export function ComplementarySuggestions({ products, onAdd, onDismiss }: Complem
                 )}
                 <div className="flex-1 text-left min-w-0">
                   <p className="text-xs font-semibold text-mayssa-brown truncate">{product.name}</p>
-                  <p className="text-[10px] text-mayssa-caramel font-bold">{product.price.toFixed(2).replace('.', ',')} €</p>
+                  <div className="flex items-center gap-1">
+                    <p className="text-[10px] text-mayssa-caramel font-bold">{product.price.toFixed(2).replace('.', ',')} €</p>
+                    {product.originalPrice && (
+                      <p className="text-[9px] text-mayssa-brown/50 font-bold line-through">
+                        {product.originalPrice.toFixed(2).replace('.', ',')} €
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <div className="flex-shrink-0 p-1.5 rounded-full bg-mayssa-caramel/10 group-hover:bg-mayssa-caramel/20 transition-colors">
                   <Plus size={14} className="text-mayssa-caramel" />

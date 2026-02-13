@@ -56,6 +56,7 @@ export function StickyCategoryTabs({
         <div className="flex gap-2 overflow-x-auto no-scrollbar scroll-smooth">
           {categories.map((category) => (
             <motion.button
+              type="button"
               key={category}
               whileTap={{ scale: 0.95 }}
               onClick={() => handleSelect(category)}

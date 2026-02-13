@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { Heart, Plus, Trash2, ShoppingBag } from 'lucide-react'
 import type { Product } from '../types'
+import { hapticFeedback } from '../lib/haptics'
 
 interface FavorisSectionProps {
   favorites: Product[]
@@ -36,7 +37,11 @@ export function FavorisSection({ favorites, onRemove, onAddToCart, onClear }: Fa
         {/* Clear all button - only show when there are favorites */}
         {!isEmpty && (
           <button
-            onClick={onClear}
+            type="button"
+            onClick={() => {
+              hapticFeedback('light')
+              onClear()
+            }}
             className="flex items-center gap-2 px-4 py-2 text-sm text-red-500 rounded-xl hover:bg-red-50 transition-colors cursor-pointer self-start sm:self-auto"
           >
             <Trash2 size={16} />
@@ -80,7 +85,10 @@ export function FavorisSection({ favorites, onRemove, onAddToCart, onClear }: Fa
                   {/* Remove from favorites button */}
                   <motion.button
                     type="button"
-                    onClick={() => onRemove(product.id)}
+                    onClick={() => {
+                      hapticFeedback('light')
+                      onRemove(product.id)
+                    }}
                     whileTap={{ scale: 0.85 }}
                     className="absolute top-3 right-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-md transition-all hover:scale-110 cursor-pointer"
                     aria-label="Retirer des favoris"
@@ -113,14 +121,24 @@ export function FavorisSection({ favorites, onRemove, onAddToCart, onClear }: Fa
                       {product.category}
                     </p>
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-base sm:text-lg font-display font-bold text-mayssa-caramel">
-                        {product.sizes ? 'À partir de ' : ''}
-                        {product.price.toFixed(2).replace('.', ',')} €
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-base sm:text-lg font-display font-bold text-mayssa-caramel">
+                          {product.sizes ? 'À partir de ' : ''}
+                          {product.price.toFixed(2).replace('.', ',')} €
+                        </span>
+                        {product.originalPrice && (
+                          <span className="text-sm font-display font-bold text-mayssa-brown/50 line-through">
+                            {product.originalPrice.toFixed(2).replace('.', ',')} €
+                          </span>
+                        )}
+                      </div>
                       <motion.button
                         type="button"
                         whileTap={{ scale: 0.9 }}
-                        onClick={() => onAddToCart(product)}
+                        onClick={() => {
+                          hapticFeedback('medium')
+                          onAddToCart(product)
+                        }}
                         className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl sm:rounded-2xl bg-mayssa-brown text-mayssa-cream shadow-lg transition-all hover:scale-110 hover:bg-mayssa-caramel cursor-pointer"
                         aria-label="Ajouter au panier"
                       >
@@ -136,8 +154,12 @@ export function FavorisSection({ favorites, onRemove, onAddToCart, onClear }: Fa
           {/* Add all to cart button */}
           <div className="flex justify-center pt-4">
             <motion.button
+              type="button"
               whileTap={{ scale: 0.98 }}
-              onClick={() => favorites.forEach(p => onAddToCart(p))}
+              onClick={() => {
+                hapticFeedback('medium')
+                favorites.forEach(p => onAddToCart(p))
+              }}
               className="flex items-center gap-3 px-6 py-3 rounded-2xl bg-gradient-to-r from-red-500 to-pink-500 text-white font-bold shadow-xl hover:shadow-2xl transition-shadow cursor-pointer"
             >
               <ShoppingBag size={20} />

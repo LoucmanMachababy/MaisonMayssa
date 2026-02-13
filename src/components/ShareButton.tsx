@@ -158,9 +158,16 @@ export function ShareButton({ product, variant = 'icon', className = '' }: Share
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-mayssa-brown truncate">{product.name}</p>
-                  <p className="text-sm text-mayssa-caramel font-semibold">
-                    {product.price.toFixed(2).replace('.', ',')} €
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-mayssa-caramel font-semibold">
+                      {product.price.toFixed(2).replace('.', ',')} €
+                    </p>
+                    {product.originalPrice && (
+                      <p className="text-xs text-mayssa-brown/50 font-semibold line-through">
+                        {product.originalPrice.toFixed(2).replace('.', ',')} €
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
 

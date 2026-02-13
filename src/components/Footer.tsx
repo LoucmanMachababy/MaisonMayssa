@@ -1,16 +1,18 @@
 import { Instagram, Phone, MapPin, Clock } from 'lucide-react'
 import { useState, useRef } from 'react'
+import { hapticFeedback } from '../lib/haptics'
 
 export function Footer() {
     const [clickCount, setClickCount] = useState(0)
-    const clickTimeoutRef = useRef<NodeJS.Timeout>()
+    const clickTimeoutRef = useRef<number | null>(null)
 
     const handleLogoClick = () => {
+        hapticFeedback('light')
         setClickCount(prev => prev + 1)
         
         // Reset counter after 2 seconds of no clicks
-        clearTimeout(clickTimeoutRef.current)
-        clickTimeoutRef.current = setTimeout(() => setClickCount(0), 2000)
+        if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current)
+        clickTimeoutRef.current = window.setTimeout(() => setClickCount(0), 2000)
         
         // After 5 clicks, go to admin
         if (clickCount + 1 >= 5) {
@@ -72,7 +74,7 @@ export function Footer() {
                             </li>
                             <li className="flex items-start gap-2 sm:gap-3 text-xs sm:text-sm text-mayssa-brown/60">
                                 <Phone size={16} className="sm:w-[18px] sm:h-[18px] shrink-0 text-mayssa-caramel mt-0.5" />
-                                <a href="tel:+33619871005" className="hover:text-mayssa-caramel transition-colors active:opacity-80 cursor-pointer">06 19 87 10 05</a>
+                                <a href="tel:+33619871005" onClick={() => hapticFeedback('light')} className="hover:text-mayssa-caramel transition-colors active:opacity-80 cursor-pointer">06 19 87 10 05</a>
                             </li>
                         </ul>
                     </div>
@@ -82,8 +84,8 @@ export function Footer() {
                         <h3 className="mb-4 sm:mb-6 font-display text-base sm:text-lg font-bold text-mayssa-brown">Livraison</h3>
                         <div className="rounded-xl sm:rounded-2xl bg-mayssa-soft/50 p-3 sm:p-4 border border-mayssa-brown/5">
                             <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-mayssa-caramel mb-2">Conditions</p>
-                            <p className="text-xs sm:text-sm text-mayssa-brown/60 mb-2 sm:mb-3">Livraison offerte dès 30 € d'achat.</p>
-                            <p className="text-xs sm:text-sm text-mayssa-brown/60">Forfait de 5 € pour les commandes inférieures à 30 € (Zone Annecy).</p>
+                            <p className="text-xs sm:text-sm text-mayssa-brown/60 mb-2 sm:mb-3">Livraison offerte dès 45 € d'achat.</p>
+                            <p className="text-xs sm:text-sm text-mayssa-brown/60">Forfait de 5 € pour les commandes inférieures à 45 € (Zone Annecy).</p>
                         </div>
                     </div>
                 </div>
@@ -93,7 +95,11 @@ export function Footer() {
                         <div className="flex items-center gap-2 text-[10px] sm:text-xs text-mayssa-brown/40 text-center sm:text-left">
                             <span>© {new Date().getFullYear()} Maison Mayssa • Tous droits réservés.</span>
                             <button
-                                onClick={() => window.location.hash = 'admin'}
+                                type="button"
+                                onClick={() => {
+                                    hapticFeedback('light')
+                                    window.location.hash = 'admin'
+                                }}
                                 className="text-mayssa-brown/20 hover:text-mayssa-caramel text-xs hover:scale-110 transition-all cursor-pointer"
                                 title="Administration"
                             >
@@ -117,6 +123,7 @@ function SocialIcon({ href, icon }: { href: string; icon: React.ReactNode }) {
             href={href}
             target="_blank"
             rel="noreferrer"
+            onClick={() => hapticFeedback('light')}
             className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-mayssa-brown text-mayssa-cream shadow-sm transition-all hover:-translate-y-1 hover:bg-mayssa-caramel active:scale-95 cursor-pointer"
         >
             {icon}
@@ -126,6 +133,7 @@ function SocialIcon({ href, icon }: { href: string; icon: React.ReactNode }) {
 
 function FooterLink({ href, children }: { href: string; children: React.ReactNode }) {
     const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+        hapticFeedback('light')
         if (href.startsWith('#')) {
             e.preventDefault()
             const targetId = href.replace('#', '')

@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react'
-import { 
-  User, Phone, Mail, Calendar, Star, Gift, Instagram, 
-  ExternalLink, LogOut, Edit, Save, X, Sparkles, Award, History, Eye
+import {
+  User, Phone, Mail, Calendar, Star, Gift, Instagram,
+  ExternalLink, LogOut, Edit, Save, X, Sparkles, Award, History, Eye, MapPin, Cake
 } from 'lucide-react'
 import { useAuth, refreshUserProfile } from '../../hooks/useAuth'
-import { 
+import {
   updateUserProfile, claimSocialPoints, getUserRewards, claimReward,
   type UserReward, REWARD_COSTS, REWARD_LABELS
 } from '../../lib/firebase'
 import { clientLogout } from '../../lib/firebase'
+import { AddressAutocomplete } from '../AddressAutocomplete'
+import type { Coordinates } from '../../types'
 
 interface AccountPageProps {
   onClose: () => void
@@ -17,12 +19,17 @@ interface AccountPageProps {
 export function AccountPage({ onClose }: AccountPageProps) {
   const { user, profile, loading } = useAuth()
   const [activeTab, setActiveTab] = useState<'profile' | 'rewards' | 'history'>('profile')
+  const PHONE_REGEX = /^(\+33|0)[1-9](\d{2}){4}$/
+
   const [editing, setEditing] = useState(false)
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({})
   const [editData, setEditData] = useState({
     firstName: '',
     lastName: '',
     phone: '',
     birthday: '',
+    address: '',
+    addressCoordinates: null as Coordinates,
   })
   const [rewards, setRewards] = useState<Record<string, UserReward>>({})
   const [loadingRewards, setLoadingRewards] = useState(false)
@@ -36,6 +43,8 @@ export function AccountPage({ onClose }: AccountPageProps) {
         lastName: profile.lastName || '',
         phone: profile.phone || '',
         birthday: profile.birthday || '',
+        address: profile.address || '',
+        addressCoordinates: profile.addressCoordinates || null,
       })
     }
   }, [profile])
@@ -62,12 +71,30 @@ export function AccountPage({ onClose }: AccountPageProps) {
   const handleSave = async () => {
     if (!user || !profile) return
 
+    // Validation
+    const errors: Record<string, string> = {}
+    if (!editData.phone.trim()) {
+      errors.phone = 'Téléphone requis'
+    } else if (!PHONE_REGEX.test(editData.phone.replace(/\s/g, ''))) {
+      errors.phone = 'Format invalide'
+    }
+    if (!editData.birthday) {
+      errors.birthday = 'Date de naissance requise'
+    }
+    if (Object.keys(errors).length > 0) {
+      setEditErrors(errors)
+      return
+    }
+
+    setEditErrors({})
     try {
       await updateUserProfile(user.uid, {
         firstName: editData.firstName,
         lastName: editData.lastName,
-        phone: editData.phone || undefined,
-        birthday: editData.birthday || undefined,
+        phone: editData.phone,
+        birthday: editData.birthday,
+        address: editData.address || undefined,
+        addressCoordinates: editData.addressCoordinates,
       })
       await refreshUserProfile()
       setEditing(false)
@@ -213,6 +240,47 @@ export function AccountPage({ onClose }: AccountPageProps) {
         </div>
       </div>
 
+      {/* Birthday Countdown */}
+      {profile.birthday && (() => {
+        const now = new Date()
+        const parts = profile.birthday!.split('-').map(Number)
+        const month = parts[1]
+        const day = parts[2]
+        let nextBirthday = new Date(now.getFullYear(), month - 1, day)
+        if (nextBirthday.getTime() < now.getTime() - 86400000) nextBirthday.setFullYear(now.getFullYear() + 1)
+        const daysUntil = Math.ceil((nextBirthday.getTime() - now.getTime()) / 86400000)
+        const claimed = profile.birthdayGiftClaimed?.[now.getFullYear().toString()]
+
+        if (daysUntil > 30) return null
+
+        return (
+          <div className="bg-gradient-to-r from-pink-50 to-rose-50 rounded-3xl p-5 mb-6 border border-pink-200">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 bg-pink-100 rounded-2xl flex items-center justify-center flex-shrink-0">
+                <Cake size={22} className="text-pink-500" />
+              </div>
+              <div>
+                {daysUntil <= 0 ? (
+                  <>
+                    <h3 className="font-bold text-pink-700">Joyeux anniversaire !</h3>
+                    <p className="text-sm text-pink-600">
+                      {claimed ? 'Votre cadeau a été réclamé' : 'Un produit offert vous attend ! Contactez-nous.'}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="font-bold text-mayssa-brown">
+                      Votre anniversaire dans <span className="text-pink-600">{daysUntil} jour{daysUntil > 1 ? 's' : ''}</span>
+                    </h3>
+                    <p className="text-sm text-mayssa-brown/60">Un produit de votre choix vous sera offert !</p>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       {/* Tabs */}
       <div className="flex gap-1 bg-mayssa-soft/50 rounded-2xl p-1 mb-6">
         {[
@@ -318,15 +386,18 @@ export function AccountPage({ onClose }: AccountPageProps) {
 
               {/* Téléphone */}
               <div>
-                <label className="block text-xs font-medium text-mayssa-brown/60 mb-1">Téléphone</label>
+                <label className="block text-xs font-medium text-mayssa-brown/60 mb-1">Téléphone *</label>
                 {editing ? (
-                  <input
-                    type="tel"
-                    value={editData.phone}
-                    onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
-                    placeholder="06 12 34 56 78"
-                    className="w-full p-3 rounded-xl bg-mayssa-soft/30 text-sm text-mayssa-brown focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
-                  />
+                  <>
+                    <input
+                      type="tel"
+                      value={editData.phone}
+                      onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
+                      placeholder="06 12 34 56 78"
+                      className={`w-full p-3 rounded-xl bg-mayssa-soft/30 text-sm text-mayssa-brown focus:outline-none focus:ring-2 ${editErrors.phone ? 'ring-2 ring-red-300' : 'focus:ring-mayssa-caramel'}`}
+                    />
+                    {editErrors.phone && <p className="text-xs text-red-400 mt-1">{editErrors.phone}</p>}
+                  </>
                 ) : (
                   <div className="flex items-center gap-2 p-3 rounded-xl bg-mayssa-soft/30">
                     <Phone size={16} className="text-mayssa-caramel" />
@@ -336,27 +407,51 @@ export function AccountPage({ onClose }: AccountPageProps) {
               </div>
 
               {/* Anniversaire */}
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-medium text-mayssa-brown/60 mb-1">Anniversaire (optionnel)</label>
+              <div>
+                <label className="block text-xs font-medium text-mayssa-brown/60 mb-1">Anniversaire *</label>
                 {editing ? (
-                  <input
-                    type="date"
-                    value={editData.birthday}
-                    onChange={(e) => setEditData({ ...editData, birthday: e.target.value })}
-                    className="w-full p-3 rounded-xl bg-mayssa-soft/30 text-sm text-mayssa-brown focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
-                  />
+                  <>
+                    <input
+                      type="date"
+                      value={editData.birthday}
+                      onChange={(e) => setEditData({ ...editData, birthday: e.target.value })}
+                      max={new Date(Date.now() - 13 * 365.25 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+                      min="1920-01-01"
+                      className={`w-full p-3 rounded-xl bg-mayssa-soft/30 text-sm text-mayssa-brown focus:outline-none focus:ring-2 ${editErrors.birthday ? 'ring-2 ring-red-300' : 'focus:ring-mayssa-caramel'}`}
+                    />
+                    {editErrors.birthday && <p className="text-xs text-red-400 mt-1">{editErrors.birthday}</p>}
+                  </>
                 ) : (
                   <div className="flex items-center gap-2 p-3 rounded-xl bg-mayssa-soft/30">
                     <Calendar size={16} className="text-mayssa-caramel" />
                     <span className="text-sm text-mayssa-brown">
-                      {profile.birthday 
-                        ? new Date(profile.birthday).toLocaleDateString('fr-FR', { 
-                            day: 'numeric', 
-                            month: 'long' 
+                      {profile.birthday
+                        ? new Date(profile.birthday).toLocaleDateString('fr-FR', {
+                            day: 'numeric',
+                            month: 'long'
                           })
                         : 'Non renseigné'
                       }
                     </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Adresse */}
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-medium text-mayssa-brown/60 mb-1">Adresse</label>
+                {editing ? (
+                  <div className="rounded-xl bg-mayssa-soft/30 p-3">
+                    <AddressAutocomplete
+                      value={editData.address}
+                      onChange={(address, coordinates) => setEditData({ ...editData, address, addressCoordinates: coordinates })}
+                      placeholder="Votre adresse..."
+                    />
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 p-3 rounded-xl bg-mayssa-soft/30">
+                    <MapPin size={16} className="text-mayssa-caramel flex-shrink-0" />
+                    <span className="text-sm text-mayssa-brown truncate">{profile.address || 'Non renseigné'}</span>
                   </div>
                 )}
               </div>

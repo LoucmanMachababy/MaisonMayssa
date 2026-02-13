@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence, useDragControls } from 'framer-motion'
-import { X, Minus, Plus, Trash2, ShoppingBag, Send, Copy, MessageCircle, Instagram, User, Phone, MapPin, Truck, Calendar, Clock, ClipboardCopy, Star, Gift } from 'lucide-react'
+import { X, Minus, Plus, Trash2, ShoppingBag, Send, Copy, MessageCircle, Instagram, User, Phone, MapPin, Truck, Calendar, Clock, Star, Gift } from 'lucide-react'
+import { SnapIcon } from '../SnapIcon'
 import { hapticFeedback } from '../../lib/haptics'
-import { cn } from '../../lib/utils'
+import { cn, isBeforeOrderCutoff, isBeforeFirstPickupDate } from '../../lib/utils'
+import { FIRST_PICKUP_DATE_CLASSIC, FIRST_PICKUP_DATE_CLASSIC_LABEL } from '../../constants'
 import { AddressAutocomplete } from '../AddressAutocomplete'
 import { ReservationTimer } from '../ReservationTimer'
 import { useAuth } from '../../hooks/useAuth'
@@ -103,7 +105,13 @@ export function CartSheet({
     touched[field] && validationErrors[field as keyof CustomerInfo]
 
   const isCustomerValid = Object.keys(validationErrors).length === 0
-  const canSend = hasItems && isCustomerValid
+  const hasNonTrompeLoeil = items.some((item) => item.product.category !== "Trompe l'oeil")
+  const orderCutoffPassed = !isBeforeOrderCutoff()
+  const isClassicPreorderPhase = isBeforeFirstPickupDate(FIRST_PICKUP_DATE_CLASSIC)
+  const canSend =
+    hasItems &&
+    isCustomerValid &&
+    (!hasNonTrompeLoeil || !orderCutoffPassed)
 
   const handleDragEnd = (_: any, info: { velocity: { y: number }; offset: { y: number } }) => {
     if (info.velocity.y > 500 || info.offset.y > 200) {
@@ -317,12 +325,20 @@ export function CartSheet({
                 </div>
 
                 {customer.wantsDelivery && (
-                  <div className={cn("rounded-xl bg-white/80 px-3 py-2.5 ring-1", validationErrors.address ? "ring-red-300" : "ring-mayssa-caramel/30")}>
-                    <AddressAutocomplete
-                      value={customer.address}
-                      onChange={(address, coordinates) => onCustomerChange({ ...customer, address, addressCoordinates: coordinates })}
-                      placeholder="Tape ton adresse..."
-                    />
+                  <div>
+                    <div className={cn("rounded-xl bg-white/80 px-3 py-2.5 ring-1", validationErrors.address ? "ring-red-300" : "ring-mayssa-caramel/30")}>
+                      <AddressAutocomplete
+                        value={customer.address}
+                        onChange={(address, coordinates) => onCustomerChange({ ...customer, address, addressCoordinates: coordinates })}
+                        placeholder="Tape ton adresse..."
+                      />
+                    </div>
+                    {isAuthenticated && profile?.address && customer.address === profile.address && (
+                      <p className="mt-1.5 text-[10px] text-emerald-600 bg-emerald-50 rounded-lg px-2 py-1 flex items-center gap-1">
+                        <MapPin size={10} />
+                        Adresse pré-remplie depuis ton profil
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -474,7 +490,7 @@ export function CartSheet({
                 {[
                   { id: 'whatsapp', icon: MessageCircle, label: 'WhatsApp', activeClass: 'bg-emerald-500 text-white' },
                   { id: 'instagram', icon: Instagram, label: 'Insta', activeClass: 'bg-gradient-to-br from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white' },
-                  { id: 'copier', icon: ClipboardCopy, label: 'Copier', activeClass: 'bg-mayssa-brown text-white' },
+                  { id: 'snap', icon: SnapIcon, label: 'Snap', activeClass: 'bg-[#FFFC00] text-black border-2 border-yellow-500/50' },
                 ].map((ch) => (
                   <button
                     key={ch.id}
@@ -489,9 +505,19 @@ export function CartSheet({
                   </button>
                 ))}
               </div>
-              {channel === 'copier' && (
+              {channel === 'snap' && (
                 <p className="text-[9px] text-mayssa-brown/70 text-center bg-mayssa-cream/60 rounded-lg px-2 py-1.5">
-                  Le message sera copié. Envoie-le à <strong>@maison.mayssa</strong> sur Snap, Insta ou WhatsApp.
+                  Le message sera copié. Colle-le sur Snapchat pour envoyer ta commande.
+                </p>
+              )}
+              {hasNonTrompeLoeil && isClassicPreorderPhase && (
+                <p className="text-[10px] text-mayssa-brown/80 text-center bg-mayssa-cream/80 rounded-lg px-2 py-1.5 border border-mayssa-caramel/30">
+                  Précommandes — récup. à partir du {FIRST_PICKUP_DATE_CLASSIC_LABEL}.
+                </p>
+              )}
+              {orderCutoffPassed && hasNonTrompeLoeil && (
+                <p className="text-[10px] text-amber-700 text-center bg-amber-50 rounded-lg px-2 py-1.5 border border-amber-200">
+                  Commandes (pâtisseries, cookies…) jusqu&apos;à 23h. Trompe-l&apos;œil toujours dispo.
                 </p>
               )}
             </div>
@@ -537,9 +563,9 @@ export function CartSheet({
               >
                 {channel === 'whatsapp' ? <Send size={18} /> : <Copy size={18} />}
                 {hasItems
-                  ? isCustomerValid
-                    ? channel === 'copier' ? 'Copier ma commande' : 'Envoyer ma commande'
-                    : 'Complète tes infos'
+                  ? canSend
+                    ? channel === 'snap' ? 'Copier et envoyer sur Snap' : 'Envoyer ma commande'
+                    : orderCutoffPassed && hasNonTrompeLoeil ? "Jusqu'à 23h" : 'Complète tes infos'
                   : 'Panier vide'}
               </motion.button>
             </div>

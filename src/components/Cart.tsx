@@ -1,7 +1,9 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { ShoppingBag, Minus, Plus, MessageCircle, Send, Copy, Instagram, User, Phone, MapPin, Truck, Calendar, Clock, ClipboardCopy, Star, Gift } from 'lucide-react'
+import { ShoppingBag, Minus, Plus, MessageCircle, Send, Copy, Instagram, User, Phone, MapPin, Truck, Calendar, Clock, Star, Gift } from 'lucide-react'
+import { SnapIcon } from './SnapIcon'
 import type { CartItem, Channel, CustomerInfo } from '../types'
-import { cn } from '../lib/utils'
+import { cn, isBeforeOrderCutoff, isBeforeFirstPickupDate } from '../lib/utils'
+import { FIRST_PICKUP_DATE_CLASSIC, FIRST_PICKUP_DATE_CLASSIC_LABEL } from '../constants'
 import { ReservationTimer } from './ReservationTimer'
 import { useAuth } from '../hooks/useAuth'
 import { REWARD_COSTS, REWARD_LABELS } from '../lib/firebase'
@@ -107,7 +109,13 @@ export function Cart({
         touched[field] && validationErrors[field as keyof CustomerInfo]
 
     const isCustomerValid = Object.keys(validationErrors).length === 0
-    const canSend = hasItems && isCustomerValid
+    const hasNonTrompeLoeil = items.some((item) => item.product.category !== "Trompe l'oeil")
+    const orderCutoffPassed = !isBeforeOrderCutoff()
+    const isClassicPreorderPhase = isBeforeFirstPickupDate(FIRST_PICKUP_DATE_CLASSIC)
+    const canSend =
+      hasItems &&
+      isCustomerValid &&
+      (!hasNonTrompeLoeil || !orderCutoffPassed)
 
     return (
         <div className="flex flex-col min-w-0 w-full overflow-hidden section-shell bg-white/95 !p-4 sm:!p-8 md:!p-10 premium-shadow">
@@ -335,6 +343,12 @@ export function Cart({
                                 <p className="mt-3 text-[10px] text-mayssa-brown/50 leading-relaxed italic">
                                     🚗 Livraison gratuite dès {FREE_DELIVERY_THRESHOLD}€ (rayon de {DELIVERY_RADIUS_KM}km).
                                 </p>
+                                {isAuthenticated && profile?.address && customer.address === profile.address && (
+                                    <p className="mt-2 text-[10px] text-emerald-600 bg-emerald-50 rounded-lg px-2 py-1 flex items-center gap-1">
+                                        <MapPin size={10} />
+                                        Adresse pré-remplie depuis votre profil
+                                    </p>
+                                )}
                             </div>
                         )}
 
@@ -501,12 +515,23 @@ export function Cart({
                                 <div className="flex gap-2">
                                     <ChannelButton active={channel === 'whatsapp'} onClick={() => onChannelChange('whatsapp')} icon={<MessageCircle size={18} />} label="WhatsApp" activeClass="bg-emerald-500 text-white" />
                                     <ChannelButton active={channel === 'instagram'} onClick={() => onChannelChange('instagram')} icon={<Instagram size={18} />} label="Instagram" activeClass="bg-gradient-to-br from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white" />
-                                    <ChannelButton active={channel === 'copier'} onClick={() => onChannelChange('copier')} icon={<ClipboardCopy size={18} />} label="Copier" activeClass="bg-mayssa-brown text-white" />
+                                    <ChannelButton active={channel === 'snap'} onClick={() => onChannelChange('snap')} icon={<SnapIcon size={18} />} label="Snap" activeClass="bg-[#FFFC00] text-black border-2 border-yellow-500/50" />
                                 </div>
 
-                                {channel === 'copier' && (
+                                {channel === 'snap' && (
                                     <p className="text-[10px] text-mayssa-brown/70 text-center bg-mayssa-cream/60 rounded-xl px-3 py-2">
-                                        Le message sera copié. Envoie-le à <strong>@maison.mayssa</strong> sur Snap, Insta ou WhatsApp.
+                                        Le message sera copié. Colle-le sur Snapchat pour envoyer ta commande.
+                                    </p>
+                                )}
+
+                                {hasNonTrompeLoeil && isClassicPreorderPhase && (
+                                    <p className="text-xs text-mayssa-brown/80 text-center bg-mayssa-cream/80 rounded-xl px-3 py-2 border border-mayssa-caramel/30">
+                                        Précommandes — récupération à partir du {FIRST_PICKUP_DATE_CLASSIC_LABEL}.
+                                    </p>
+                                )}
+                                {orderCutoffPassed && hasNonTrompeLoeil && (
+                                    <p className="text-xs text-amber-700 text-center bg-amber-50 rounded-xl px-3 py-2 border border-amber-200">
+                                        Commandes (pâtisseries, cookies…) possibles jusqu&apos;à 23h. Les précommandes trompe-l&apos;œil restent disponibles.
                                     </p>
                                 )}
 
@@ -516,7 +541,7 @@ export function Cart({
                                     className="w-full flex items-center justify-center gap-3 rounded-[2rem] bg-mayssa-brown text-white py-5 text-base font-bold shadow-2xl transition-all hover:bg-mayssa-caramel hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:grayscale disabled:hover:scale-100 cursor-pointer"
                                 >
                                     {channel === 'whatsapp' ? <Send size={24} /> : <Copy size={24} />}
-                                    <span>{hasItems ? (isCustomerValid ? (channel === 'copier' ? 'Copier ma commande' : 'Commander maintenant') : 'Vérifiez le formulaire') : 'Votre panier est vide'}</span>
+                                    <span>{hasItems ? (canSend ? (channel === 'snap' ? 'Copier et envoyer sur Snap' : 'Commander maintenant') : orderCutoffPassed && hasNonTrompeLoeil ? 'Commandes jusqu\'à 23h' : 'Vérifiez le formulaire') : 'Votre panier est vide'}</span>
                                 </button>
                             </div>
                         </div>

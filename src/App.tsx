@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useVisitorNotification } from './hooks/useVisitorNotification'
 import { useFavorites } from './hooks/useFavorites'
 import { Navbar } from './components/Navbar'
+import { BirthdayBanner } from './components/BirthdayBanner'
 import { Header } from './components/Header'
 import { ProductCard } from './components/ProductCard'
 import { Cart } from './components/Cart'
@@ -13,10 +14,16 @@ import { Confetti, useConfetti } from './components/effects'
 import { FavorisSection } from './components/FavorisSection'
 import { OfflineIndicator } from './components/OfflineIndicator'
 import { InstagramInstructionModal } from './components/InstagramInstructionModal'
+import { SnapInstructionModal } from './components/SnapInstructionModal'
 import { FloatingCartBar } from './components/FloatingCartBar'
 import { ComplementarySuggestions } from './components/ComplementarySuggestions'
 import { PWAInstallPrompt } from './components/PWAInstallPrompt'
 import { AdminPanel } from './components/admin/AdminPanel'
+import { ResourcePreloader, defaultPreloadConfig } from './components/ResourcePreloader'
+import { AccessibilityProvider, AccessibilityControls } from './components/AccessibilityProvider'
+import { SkipLinks } from './components/SkipLinks'
+import { FidelityWelcomeModal, FidelityWelcomeBanner } from './components/FidelityWelcomeModal'
+import { FidelityToast, FidelityCheckoutReminder } from './components/FidelityToast'
 import { useStock } from './hooks/useStock'
 import { useAuth } from './hooks/useAuth'
 import { AuthModals } from './components/auth/AuthModals'
@@ -49,7 +56,8 @@ const BoxCustomizationModal = lazy(() => import('./components/BoxCustomizationMo
 const BoxFlavorsModal = lazy(() => import('./components/BoxFlavorsModal').then(m => ({ default: m.BoxFlavorsModal })))
 import { TrompeLOeilModal } from './components/TrompeLOeilModal'
 import { createOrder, updateStock as firebaseUpdateStock, getStock as fetchAllStock, REWARD_COSTS, REWARD_LABELS, claimReward } from './lib/firebase'
-import { PRODUCTS, PHONE_E164 } from './constants'
+import { PHONE_E164, FIRST_PICKUP_DATE_CLASSIC, FIRST_PICKUP_DATE_CLASSIC_LABEL } from './constants'
+import { useProducts } from './hooks/useProducts'
 import type {
   Product,
   ProductSize,
@@ -66,7 +74,7 @@ import {
   calculateDistance,
   computeDeliveryFee,
 } from './lib/delivery'
-import { isPreorderNotYetAvailable } from './lib/utils'
+import { isPreorderNotYetAvailable, isBeforeOrderCutoff, isBeforeFirstPickupDate } from './lib/utils'
 import {
   Sparkles,
   Search,
@@ -93,11 +101,22 @@ function AppRouter() {
 }
 
 function App() {
+  return (
+    <AccessibilityProvider>
+      <AppContent />
+    </AccessibilityProvider>
+  )
+}
+
+function AppContent() {
   // Stock management (Firebase real-time)
   const { stock: stockMap, getStock, isPreorderDay, dayNames } = useStock()
 
   // Client authentication
-  const { user, isAuthenticated } = useAuth()
+  const { user, isAuthenticated, profile } = useAuth()
+
+  // Products with Firebase overrides
+  const { availableProducts } = useProducts()
 
   // Refs pour accéder aux données courantes dans les timers (évite les closures stale)
   const stockMapRef = useRef(stockMap)
@@ -126,7 +145,7 @@ function App() {
     toggleFavorite,
     clearFavorites,
     count: favoritesCount,
-  } = useFavorites()
+  } = useFavorites(availableProducts)
 
   // Voice search
   const { isVoiceActive, toggleVoice, handleVoiceResult } = useVoiceSearch((query) => {
@@ -146,7 +165,7 @@ function App() {
     const fromHash = new URLSearchParams(window.location.hash.slice(1)).get('produit')
     const productId = fromSearch || fromHash
     if (productId) {
-      const product = PRODUCTS.find(p => p.id === productId)
+      const product = availableProducts.find(p => p.id === productId)
       if (product) {
         setTimeout(() => {
           if (window.innerWidth >= 768) {
@@ -188,6 +207,16 @@ function App() {
   useEffect(() => {
     localStorage.setItem('maison-mayssa-cart', JSON.stringify(cart))
   }, [cart])
+
+  // À la connexion (invité → compte), vider le panier pour ne pas garder celui d'un autre compte
+  const wasGuestRef = useRef(!isAuthenticated)
+  useEffect(() => {
+    if (isAuthenticated && wasGuestRef.current) {
+      wasGuestRef.current = false
+      setCart([])
+    }
+    if (!isAuthenticated) wasGuestRef.current = true
+  }, [isAuthenticated])
 
   // Ref panier pour le timer de réservation
   const cartRef = useRef(cart)
@@ -345,6 +374,27 @@ function App() {
       wantsDelivery: customer.wantsDelivery,
     }))
   }, [customer.firstName, customer.lastName, customer.phone, customer.address, customer.wantsDelivery])
+
+  // Auto-remplir les infos client depuis le profil Firebase quand l'utilisateur est connecté
+  const profileSyncedRef = useRef(false)
+  useEffect(() => {
+    if (!isAuthenticated || !profile || profileSyncedRef.current) return
+    profileSyncedRef.current = true
+    setCustomer(prev => ({
+      ...prev,
+      firstName: prev.firstName || profile.firstName || '',
+      lastName: prev.lastName || profile.lastName || '',
+      phone: prev.phone || profile.phone || '',
+      address: prev.address || profile.address || '',
+      addressCoordinates: prev.addressCoordinates || profile.addressCoordinates || null,
+    }))
+  }, [isAuthenticated, profile])
+
+  // Réinitialiser le flag de sync quand l'utilisateur se déconnecte
+  useEffect(() => {
+    if (!isAuthenticated) profileSyncedRef.current = false
+  }, [isAuthenticated])
+
   const [selectedProductForSize, setSelectedProductForSize] = useState<Product | null>(null)
   const [selectedProductForTiramisu, setSelectedProductForTiramisu] = useState<Product | null>(null)
   const [selectedProductForBox, setSelectedProductForBox] = useState<Product | null>(null)
@@ -363,10 +413,13 @@ function App() {
   // Reward selection state
   const [selectedReward, setSelectedReward] = useState<{ type: keyof typeof REWARD_COSTS; id: string } | null>(null)
 
+  // Fidelity toast trigger
+  const [fidelityToastTrigger, setFidelityToastTrigger] = useState({ trigger: false, productName: '' })
+
   const showComplementary = (addedProduct: Product) => {
     clearTimeout(suggestTimerRef.current)
     const cartIds = new Set(cart.map(i => i.product.id))
-    const suggestions = PRODUCTS
+    const suggestions = availableProducts
       .filter(p => p.category !== addedProduct.category && !cartIds.has(p.id) && p.id !== addedProduct.id)
       .sort(() => Math.random() - 0.5)
       .slice(0, 3)
@@ -382,6 +435,16 @@ function App() {
       setAuthMode('login')
       setIsAuthModalOpen(true)
     }
+  }
+
+  const handleFidelityLogin = () => {
+    setAuthMode('login')
+    setIsAuthModalOpen(true)
+  }
+
+  const handleFidelityRegister = () => {
+    setAuthMode('register')
+    setIsAuthModalOpen(true)
   }
 
   const showToast = (message: string, type: Toast['type'] = 'success', duration?: number, withConfetti?: boolean, product?: Product) => {
@@ -430,9 +493,9 @@ function App() {
   )
 
   const categories = useMemo(() => {
-    const cats = Array.from(new Set(PRODUCTS.map((p) => p.category)))
+    const cats = Array.from(new Set(availableProducts.map((p) => p.category)))
     return ['Tous', ...cats] as const
-  }, [])
+  }, [availableProducts])
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
@@ -449,7 +512,7 @@ function App() {
   }
 
   const filteredProducts = useMemo(() => {
-    let filtered = PRODUCTS
+    let filtered = availableProducts
 
     // Filter by category
     if (activeCategory !== 'Tous') {
@@ -467,7 +530,7 @@ function App() {
     }
 
     return filtered
-  }, [activeCategory, searchQuery])
+  }, [activeCategory, searchQuery, availableProducts])
 
   const handleAddToCart = (product: Product) => {
     if (isPreorderNotYetAvailable(product)) return
@@ -516,11 +579,25 @@ function App() {
       if (existing) {
         const newQty = existing.quantity + 1
         pendingAddToastRef.current = { message: `${product.name} ajouté au panier (quantité: ${newQty})`, product }
+        
+        // Déclencher le FidelityToast si pas connecté
+        if (!isAuthenticated) {
+          setFidelityToastTrigger({ trigger: true, productName: product.name })
+          setTimeout(() => setFidelityToastTrigger({ trigger: false, productName: '' }), 100)
+        }
+        
         return current.map((item) =>
           item.product.id === product.id ? { ...item, quantity: newQty } : item,
         )
       }
       pendingAddToastRef.current = { message: `${product.name} ajouté au panier`, product }
+      
+      // Déclencher le FidelityToast si pas connecté
+      if (!isAuthenticated) {
+        setFidelityToastTrigger({ trigger: true, productName: product.name })
+        setTimeout(() => setFidelityToastTrigger({ trigger: false, productName: '' }), 100)
+      }
+      
       return [...current, { product, quantity: 1 }]
     })
   }
@@ -835,6 +912,14 @@ function App() {
       lines.push('', '')
     }
 
+    // Précommande produits classiques (cookies, brownies, minibox…) — récupération à partir du 18/02
+    const hasClassic = cart.some(i => i.product.category !== "Trompe l'oeil")
+    if (hasClassic && isBeforeFirstPickupDate(FIRST_PICKUP_DATE_CLASSIC)) {
+      lines.push('📅 *PRÉCOMMANDE*')
+      lines.push(`Récupération des pâtisseries, cookies, boxes… à partir du ${FIRST_PICKUP_DATE_CLASSIC_LABEL}.`)
+      lines.push('', '')
+    }
+
     lines.push('Merci beaucoup, à très vite !')
     lines.push('— Site de précommande Maison Mayssa')
 
@@ -900,8 +985,12 @@ function App() {
     }
     footer.push(`Total : ${finalTotal.toFixed(2).replace('.', ',')}€`)
     const hasTrompeLoeilIG = cart.some(i => i.product.category === "Trompe l'oeil")
+    const hasClassicIG = cart.some(i => i.product.category !== "Trompe l'oeil")
     if (hasTrompeLoeilIG) {
       footer.push(`⚠️ Trompe l'œil = précommande (récup. sous 3j)`)
+    }
+    if (hasClassicIG && isBeforeFirstPickupDate(FIRST_PICKUP_DATE_CLASSIC)) {
+      footer.push(`📅 Précommande — récup. à partir du ${FIRST_PICKUP_DATE_CLASSIC_LABEL}`)
     }
     if (note.trim() && note.trim() !== 'Pour le … (date, créneau, adresse)') {
       footer.push(`Note : ${note.trim()}`)
@@ -942,8 +1031,15 @@ function App() {
   }
 
   const [instagramParts, setInstagramParts] = useState<string[]>([])
+  const [isSnapModalOpen, setIsSnapModalOpen] = useState(false)
 
   const handleSend = async () => {
+    const hasNonTrompeLoeil = cart.some((item) => item.product.category !== "Trompe l'oeil")
+    if (hasNonTrompeLoeil && !isBeforeOrderCutoff()) {
+      showToast('Commandes (pâtisseries, cookies…) possibles jusqu\'à 23h. Les précommandes trompe-l\'œil restent disponibles.', 'error', 5000)
+      return
+    }
+
     if (channel === 'whatsapp') {
       const message = buildOrderMessage()
       if (!message) return
@@ -961,12 +1057,12 @@ function App() {
         showToast('Erreur lors de la copie de la commande', 'error')
         return
       }
-    } else if (channel === 'copier') {
+    } else if (channel === 'snap') {
       const message = buildOrderMessage()
       if (!message) return
       try {
         await navigator.clipboard?.writeText(message)
-        showToast('Commande copiée ! Envoie-la à @maison.mayssa sur Snap, Insta ou WhatsApp.', 'success', 5000)
+        setIsSnapModalOpen(true)
       } catch {
         showToast('Erreur lors de la copie', 'error')
         return
@@ -1054,10 +1150,31 @@ function App() {
         // Ne pas faire échouer l'envoi pour cette erreur
       }
     }
+
+    // Vider le panier après envoi (évite qu'un autre compte voie l'ancienne commande)
+    setCart([])
+
+    // Message dédié pour les invités (non connectés)
+    if (!isAuthenticated) {
+      showToast(
+        'Merci pour votre commande, nous vous confirmerons si celle-ci a été validée en privé.',
+        'success',
+        8000
+      )
+    }
   }
 
   return (
     <div className="min-h-screen bg-mayssa-soft selection:bg-mayssa-caramel/30 font-sans overflow-x-hidden">
+      {/* Skip links for accessibility */}
+      <SkipLinks />
+      
+      {/* Resource preloader for critical assets */}
+      <ResourcePreloader {...defaultPreloadConfig} />
+      
+      {/* Accessibility controls */}
+      <AccessibilityControls />
+      
       {/* Offline indicator for PWA */}
       <OfflineIndicator />
 
@@ -1068,6 +1185,7 @@ function App() {
       <Confetti trigger={confettiTrigger} originX={confettiOrigin.x} originY={confettiOrigin.y} />
 
       <Navbar favoritesCount={favoritesCount} onAccountClick={handleAccountClick} />
+      <BirthdayBanner />
 
       {/* Background Decorative Elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -1079,7 +1197,7 @@ function App() {
         <PromoBanner />
         <Header />
 
-        <main className="mt-8 sm:mt-12 flex flex-col gap-12 sm:gap-20 md:gap-28 items-center">
+        <main id="main-content" className="mt-8 sm:mt-12 flex flex-col gap-12 sm:gap-20 md:gap-28 items-center" role="main" aria-label="Contenu principal">
           {/* Menu Section */}
           <motion.section
             id="la-carte"
@@ -1113,8 +1231,13 @@ function App() {
                   />
                   {searchQuery && (
                     <button
-                      onClick={() => setSearchQuery('')}
+                      type="button"
+                      onClick={() => {
+                        hapticFeedback('light')
+                        setSearchQuery('')
+                      }}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-mayssa-brown/40 hover:text-mayssa-brown transition-colors cursor-pointer"
+                      aria-label="Effacer la recherche"
                     >
                       <X size={16} />
                     </button>
@@ -1139,8 +1262,12 @@ function App() {
                   const isActive = activeCategory === cat
                   return (
                     <button
+                      type="button"
                       key={cat}
-                      onClick={() => setActiveCategory(cat as any)}
+                      onClick={() => {
+                        hapticFeedback('light')
+                        setActiveCategory(cat as any)
+                      }}
                       className={`group relative flex flex-col items-center justify-center gap-2 sm:gap-3 rounded-xl sm:rounded-2xl p-3 sm:p-4 transition-all duration-300 cursor-pointer ${isActive
                         ? 'bg-mayssa-brown text-white shadow-xl shadow-mayssa-brown/20 -translate-y-1'
                         : 'bg-white/60 text-mayssa-brown hover:bg-white hover:shadow-lg hover:-translate-y-1 border border-mayssa-brown/5'
@@ -1179,7 +1306,11 @@ function App() {
                 </p>
                 {searchQuery && (
                   <button
-                    onClick={() => setSearchQuery('')}
+                    type="button"
+                    onClick={() => {
+                      hapticFeedback('light')
+                      setSearchQuery('')
+                    }}
                     className="mt-4 text-mayssa-caramel hover:text-mayssa-brown text-sm font-semibold underline cursor-pointer"
                   >
                     Réinitialiser la recherche
@@ -1243,6 +1374,14 @@ function App() {
             transition={{ duration: 0.6, ease: "easeOut" }}
             className="w-full max-w-4xl lg:max-w-5xl mx-auto px-2 sm:px-4"
           >
+            {/* Fidelity Checkout Reminder */}
+            {!isAuthenticated && cart.length > 0 && (
+              <FidelityCheckoutReminder 
+                totalAmount={total}
+                onSignUpClick={handleFidelityRegister}
+              />
+            )}
+
             <Cart
               items={cart}
               total={total}
@@ -1334,7 +1473,7 @@ function App() {
               <p className="text-xs sm:text-sm leading-relaxed text-mayssa-brown/80">
                 Les commandes sont préparées à Annecy. La livraison est proposée sur Annecy et
                 proches alentours, avec un forfait de 5&nbsp;€ pour les commandes inférieures à
-                30&nbsp;€. À partir de 30&nbsp;€ d&apos;achat, la livraison est offerte sur la zone
+                {FREE_DELIVERY_THRESHOLD}&nbsp;€. À partir de {FREE_DELIVERY_THRESHOLD}&nbsp;€ d&apos;achat, la livraison est offerte sur la zone
                 habituelle.
               </p>
               <p className="text-xs sm:text-sm leading-relaxed text-mayssa-brown/80">
@@ -1349,7 +1488,7 @@ function App() {
               <ul className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-mayssa-brown/80">
                 <li>• Service de 18h30 à 2h du matin</li>
                 <li>• Livraison Annecy & alentours</li>
-                <li>• Livraison offerte dès 30&nbsp;€ d&apos;achat</li>
+                <li>• Livraison offerte dès {FREE_DELIVERY_THRESHOLD}&nbsp;€ d&apos;achat</li>
                 <li>• Précommande uniquement, pas de paiement en ligne</li>
                 <li>• Règlement à la livraison ou au retrait</li>
               </ul>
@@ -1405,6 +1544,7 @@ function App() {
         <Suspense fallback={null}>
           <BoxFlavorsModal
             product={selectedProductForBoxFlavors}
+            products={availableProducts}
             onClose={() => setSelectedProductForBoxFlavors(null)}
             onSelect={handleBoxFlavorsSelect}
           />
@@ -1492,6 +1632,12 @@ function App() {
         messageParts={instagramParts}
       />
 
+      {/* Snap instruction modal - après copie pour Snapchat */}
+      <SnapInstructionModal
+        isOpen={isSnapModalOpen}
+        onClose={() => setIsSnapModalOpen(false)}
+      />
+
       {/* PWA install prompt */}
       <PWAInstallPrompt />
 
@@ -1535,6 +1681,28 @@ function App() {
           </>
         )}
       </AnimatePresence>
+
+      {/* Fidelity Welcome Modal - Desktop */}
+      <div className="hidden md:block">
+        <FidelityWelcomeModal 
+          onLoginClick={handleFidelityLogin}
+          onRegisterClick={handleFidelityRegister}
+        />
+      </div>
+
+      {/* Fidelity Welcome Banner - Mobile */}
+      <div className="md:hidden">
+        <FidelityWelcomeBanner 
+          onRegisterClick={handleFidelityRegister}
+        />
+      </div>
+
+      {/* Fidelity Toast - Triggered on add to cart */}
+      <FidelityToast
+        trigger={fidelityToastTrigger.trigger}
+        productName={fidelityToastTrigger.productName}
+        onSignUpClick={handleFidelityRegister}
+      />
     </div>
   )
 }

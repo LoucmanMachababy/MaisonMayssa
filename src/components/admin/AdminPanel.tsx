@@ -1,13 +1,18 @@
-import { useState, useEffect } from 'react'
-import { LogOut, Package, Minus, Plus, Calendar, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { LogOut, Package, Minus, Plus, Calendar, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag } from 'lucide-react'
 import {
   adminLogin, adminLogout, onAuthChange,
   listenStock, updateStock, listenSettings, updateSettings,
   listenOrders, updateOrderStatus, deleteOrder,
-  type StockMap, type Settings, type Order
+  listenAllUsers, claimBirthdayGift, listenProductOverrides,
+  isPreorderOpenNow,
+  type StockMap, type Settings, type Order, type UserProfile, type PreorderOpening
 } from '../../lib/firebase'
 import { PRODUCTS } from '../../constants'
+import type { ProductOverrideMap } from '../../types'
 import type { User } from 'firebase/auth'
+import { useProducts } from '../../hooks/useProducts'
+import { AdminProductsTab } from './AdminProductsTab'
 
 const TROMPE_LOEIL_PRODUCTS = PRODUCTS.filter(p => p.category === "Trompe l'oeil")
 const DAY_LABELS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
@@ -142,14 +147,40 @@ function Dashboard({ user }: { user: User }) {
   const [settings, setSettings] = useState<Settings>({ preorderDays: [3, 6], preorderMessage: '' })
   const [orders, setOrders] = useState<Record<string, Order>>({})
   const [saving, setSaving] = useState<string | null>(null)
-  const [tab, setTab] = useState<'commandes' | 'stock' | 'jours'>('commandes')
+  const [tab, setTab] = useState<'commandes' | 'stock' | 'jours' | 'anniversaires' | 'produits'>('commandes')
+  const [allUsers, setAllUsers] = useState<Record<string, UserProfile>>({})
+  const [productOverrides, setProductOverrides] = useState<ProductOverrideMap>({})
+  const { allProducts } = useProducts()
 
   useEffect(() => {
     const unsub1 = listenStock(setStock)
     const unsub2 = listenSettings(setSettings)
     const unsub3 = listenOrders(setOrders)
-    return () => { unsub1(); unsub2(); unsub3() }
+    const unsub4 = listenAllUsers(setAllUsers)
+    const unsub5 = listenProductOverrides(setProductOverrides)
+    return () => { unsub1(); unsub2(); unsub3(); unsub4(); unsub5() }
   }, [])
+
+  // Anniversaires à venir (30 jours)
+  const upcomingBirthdays = useMemo(() => {
+    const now = new Date()
+    return Object.entries(allUsers)
+      .filter(([, u]) => u.birthday)
+      .map(([uid, u]) => {
+        const parts = u.birthday!.split('-').map(Number)
+        const month = parts[1]
+        const day = parts[2]
+        const birthdayThisYear = new Date(now.getFullYear(), month - 1, day)
+        if (birthdayThisYear.getTime() < now.getTime() - 86400000) {
+          birthdayThisYear.setFullYear(now.getFullYear() + 1)
+        }
+        const daysUntil = Math.ceil((birthdayThisYear.getTime() - now.getTime()) / 86400000)
+        const claimed = u.birthdayGiftClaimed?.[now.getFullYear().toString()] ?? false
+        return { uid, profile: u, daysUntil, claimed }
+      })
+      .filter(b => b.daysUntil <= 30 && b.daysUntil >= 0)
+      .sort((a, b) => a.daysUntil - b.daysUntil)
+  }, [allUsers])
 
   const handleStockChange = async (productId: string, delta: number) => {
     const current = stock[productId] ?? 0
@@ -167,11 +198,32 @@ function Dashboard({ user }: { user: User }) {
     setSaving(null)
   }
 
-  const toggleDay = async (day: number) => {
-    const days = settings.preorderDays.includes(day)
-      ? settings.preorderDays.filter(d => d !== day)
-      : [...settings.preorderDays, day].sort()
-    await updateSettings({ preorderDays: days })
+  const openings = settings.preorderOpenings && settings.preorderOpenings.length > 0
+    ? settings.preorderOpenings
+    : (settings.preorderDays || [3, 6]).map((d: number) => ({ day: d, fromTime: '00:00' as string }))
+
+  const updateOpenings = async (next: PreorderOpening[]) => {
+    await updateSettings({ preorderOpenings: next })
+  }
+
+  const addOpening = () => {
+    const next = [...openings, { day: 6, fromTime: '00:00' }]
+    updateOpenings(next)
+  }
+
+  const removeOpening = (index: number) => {
+    const next = openings.filter((_, i) => i !== index)
+    updateOpenings(next)
+  }
+
+  const setOpeningDay = (index: number, day: number) => {
+    const next = openings.map((o, i) => (i === index ? { ...o, day } : o))
+    updateOpenings(next)
+  }
+
+  const setOpeningTime = (index: number, fromTime: string) => {
+    const next = openings.map((o, i) => (i === index ? { ...o, fromTime } : o))
+    updateOpenings(next)
   }
 
   const handleValidateOrder = async (orderId: string, _order: Order) => {
@@ -199,7 +251,7 @@ function Dashboard({ user }: { user: User }) {
   }
 
   const today = new Date().getDay()
-  const isPreorderDay = settings.preorderDays.includes(today)
+  const isPreorderDay = isPreorderOpenNow(openings)
 
   // Trier les commandes : en_attente d'abord, puis par date décroissante
   const sortedOrders = Object.entries(orders).sort(([, a], [, b]) => {
@@ -236,6 +288,8 @@ function Dashboard({ user }: { user: User }) {
             { id: 'commandes', icon: ClipboardList, label: 'Commandes', badge: pendingCount },
             { id: 'stock', icon: Package, label: 'Stock' },
             { id: 'jours', icon: Calendar, label: 'Jours' },
+            { id: 'anniversaires', icon: Cake, label: 'Anniv.', badge: upcomingBirthdays.filter(b => !b.claimed).length },
+            { id: 'produits', icon: ShoppingBag, label: 'Produits' },
           ] as const).map((t) => (
             <button
               key={t.id}
@@ -264,7 +318,11 @@ function Dashboard({ user }: { user: User }) {
           <p className={`text-xs font-bold ${isPreorderDay ? 'text-emerald-700' : 'text-orange-700'}`}>
             {isPreorderDay
               ? 'Précommandes ouvertes aujourd\'hui'
-              : `Fermé — prochaine ouverture : ${DAY_LABELS[settings.preorderDays.find(d => d > today) ?? settings.preorderDays[0]] ?? 'bientôt'}`
+              : (() => {
+                  const next = openings.find(o => o.day > today) ?? openings[0]
+                  const label = next ? `${DAY_LABELS[next.day]}${next.fromTime && next.fromTime !== '00:00' ? ` ${next.fromTime}` : ''}` : 'bientôt'
+                  return `Fermé — prochaine ouverture : ${label}`
+                })()
             }
           </p>
         </div>
@@ -432,26 +490,118 @@ function Dashboard({ user }: { user: User }) {
           </section>
         )}
 
-        {/* ===== JOURS ===== */}
+        {/* ===== JOURS (horaires précommandes trompe-l'œil) ===== */}
         {tab === 'jours' && (
           <section className="bg-white rounded-2xl p-5 shadow-sm space-y-4">
-            <p className="text-xs text-mayssa-brown/60">Sélectionne les jours où les précommandes sont ouvertes :</p>
-            <div className="grid grid-cols-7 gap-1.5">
-              {DAY_LABELS.map((label, i) => (
-                <button
-                  key={i}
-                  onClick={() => toggleDay(i)}
-                  className={`py-3 rounded-xl text-[10px] font-bold transition-all cursor-pointer ${
-                    settings.preorderDays.includes(i)
-                      ? 'bg-mayssa-caramel text-white shadow-md'
-                      : 'bg-mayssa-soft/50 text-mayssa-brown/40 hover:bg-mayssa-soft'
-                  }`}
-                >
-                  {label.slice(0, 3)}
-                </button>
+            <p className="text-xs text-mayssa-brown/60">
+              Jours et horaires d&apos;ouverture des précommandes (ex. Samedi toute la journée, Mercredi à partir de midi) :
+            </p>
+            <div className="space-y-2">
+              {openings.map((o, index) => (
+                <div key={index} className="flex items-center gap-2 flex-wrap">
+                  <select
+                    value={o.day}
+                    onChange={(e) => setOpeningDay(index, Number(e.target.value))}
+                    className="rounded-xl border border-mayssa-brown/10 px-3 py-2 text-xs font-bold text-mayssa-brown bg-white"
+                  >
+                    {DAY_LABELS.map((label, i) => (
+                      <option key={i} value={i}>{label}</option>
+                    ))}
+                  </select>
+                  <span className="text-[10px] text-mayssa-brown/50">à partir de</span>
+                  <input
+                    type="time"
+                    value={o.fromTime === '00:00' || o.fromTime === '0:00' ? '00:00' : o.fromTime}
+                    onChange={(e) => setOpeningTime(index, e.target.value || '00:00')}
+                    className="rounded-xl border border-mayssa-brown/10 px-3 py-2 text-xs font-bold text-mayssa-brown bg-white w-24"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeOpening(index)}
+                    className="p-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                    aria-label="Supprimer"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               ))}
+              <button
+                type="button"
+                onClick={addOpening}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-mayssa-soft text-mayssa-brown text-xs font-bold hover:bg-mayssa-caramel/20 transition-colors cursor-pointer"
+              >
+                <Plus size={14} />
+                Ajouter un créneau
+              </button>
             </div>
           </section>
+        )}
+
+        {tab === 'anniversaires' && (
+          <section className="bg-white rounded-2xl p-5 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-mayssa-brown text-sm">Anniversaires à venir (30 jours)</h3>
+              <span className="text-[10px] text-mayssa-brown/50">{upcomingBirthdays.length} client{upcomingBirthdays.length > 1 ? 's' : ''}</span>
+            </div>
+
+            {upcomingBirthdays.length === 0 ? (
+              <p className="text-sm text-mayssa-brown/50 text-center py-6">
+                Aucun anniversaire dans les 30 prochains jours
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {upcomingBirthdays.map(({ uid, profile: u, daysUntil, claimed }) => (
+                  <div
+                    key={uid}
+                    className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
+                      daysUntil === 0
+                        ? 'border-pink-300 bg-pink-50'
+                        : daysUntil <= 7
+                          ? 'border-mayssa-caramel/30 bg-mayssa-caramel/5'
+                          : 'border-mayssa-brown/10 bg-white'
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-sm text-mayssa-brown truncate">
+                        {u.firstName} {u.lastName}
+                      </p>
+                      <p className="text-[10px] text-mayssa-brown/60 truncate">
+                        {u.phone || 'Pas de tel.'} &middot; {u.email}
+                      </p>
+                      <p className={`text-xs font-medium mt-0.5 ${
+                        daysUntil === 0 ? 'text-pink-600' : 'text-mayssa-caramel'
+                      }`}>
+                        {daysUntil === 0
+                          ? "Aujourd'hui !"
+                          : daysUntil === 1
+                            ? 'Demain'
+                            : `Dans ${daysUntil} jours`}
+                      </p>
+                    </div>
+                    <div className="flex-shrink-0 ml-3">
+                      {claimed ? (
+                        <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-1 rounded-lg flex items-center gap-1">
+                          <Gift size={10} />
+                          Cadeau offert
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => claimBirthdayGift(uid)}
+                          className="text-[10px] font-bold px-3 py-1.5 rounded-lg bg-mayssa-caramel text-white hover:bg-mayssa-brown transition-colors cursor-pointer"
+                        >
+                          Marquer cadeau offert
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {tab === 'produits' && (
+          <AdminProductsTab allProducts={allProducts} overrides={productOverrides} />
         )}
 
         <a

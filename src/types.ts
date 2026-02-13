@@ -1,4 +1,4 @@
-export type Channel = 'whatsapp' | 'instagram' | 'copier'
+export type Channel = 'whatsapp' | 'instagram' | 'snap'
 
 export type ProductCategory =
     | "Trompe l'oeil"
@@ -28,6 +28,8 @@ export type Product = {
     name: string
     description?: string
     price: number
+    /** Prix original avant promotion (affiché barré si défini) */
+    originalPrice?: number
     category: ProductCategory
     image?: string
     sizes?: ProductSize[]
@@ -61,6 +63,25 @@ export type CustomerInfo = {
     date: string
     time: string
 }
+
+// --- Product Overrides (admin) ---
+export type ProductOverride = {
+    name?: string
+    description?: string
+    price?: number
+    originalPrice?: number
+    image?: string
+    badges?: ProductBadge[]
+    sizes?: ProductSize[]
+    /** false = rupture de stock */
+    available?: boolean
+    /** Requis pour les produits créés par l'admin */
+    category?: ProductCategory
+    /** true = produit créé par l'admin (pas dans constants.ts) */
+    isCustom?: boolean
+}
+
+export type ProductOverrideMap = Record<string, ProductOverride>
 
 // --- Types Fidélité ---
 export type LoyaltyTier = 'Douceur' | 'Gourmand' | 'Prestige'

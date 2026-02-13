@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { Phone, Instagram, Clock, Truck, MapPin } from 'lucide-react'
 import { cn, isOpen } from '../lib/utils'
 import { PHONE_E164 } from '../constants'
+import { hapticFeedback } from '../lib/haptics'
 
 export function Header() {
     return (
@@ -78,6 +79,7 @@ L'excellence de la pâtisserie artisanale à Annecy.
                             href={`https://wa.me/${PHONE_E164}`}
                             target="_blank"
                             rel="noreferrer"
+                            onClick={() => hapticFeedback('medium')}
                             className="group flex items-center justify-center gap-3 rounded-2xl bg-mayssa-brown px-5 sm:px-6 py-3 sm:py-4 text-sm sm:text-base text-mayssa-cream shadow-xl transition-all hover:-translate-y-1 hover:bg-mayssa-caramel active:scale-[0.98] cursor-pointer"
                         >
                             <Phone size={18} className="sm:w-5 sm:h-5 transition-transform group-hover:rotate-12" />
@@ -93,7 +95,7 @@ L'excellence de la pâtisserie artisanale à Annecy.
                     </div>
 
                     <p className="text-center text-[10px] sm:text-xs font-semibold text-mayssa-brown/60 lg:text-right">
-                        Livraison offerte dès 30 € d'achat
+                        Livraison offerte dès 45 € d'achat
                     </p>
                 </motion.div>
             </div>
@@ -122,6 +124,7 @@ function SocialLink({ href, icon, label, className }: { href: string; icon: Reac
             href={href}
             target="_blank"
             rel="noreferrer"
+            onClick={() => hapticFeedback('light')}
             className={cn(
                 "flex items-center justify-center gap-1.5 sm:gap-2 rounded-2xl p-2.5 sm:p-3 shadow-lg transition-transform hover:-translate-y-1 active:scale-95 cursor-pointer",
                 className

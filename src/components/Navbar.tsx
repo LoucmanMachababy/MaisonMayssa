@@ -1,10 +1,11 @@
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion'
-import { Phone, Instagram, Menu, X, Heart, User, Star, LogOut, ChevronDown } from 'lucide-react'
+import { Phone, Instagram, Menu, X, Heart, User, Star, LogOut, ChevronDown, Gift } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useEffect, useState } from 'react'
 import { PHONE_E164 } from '../constants'
 import { useAuth } from '../hooks/useAuth'
 import { clientLogout } from '../lib/firebase'
+import { hapticFeedback } from '../lib/haptics'
 
 interface NavbarProps {
     favoritesCount?: number
@@ -25,7 +26,7 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
     )
 
     useEffect(() => {
-        return scrollY.onChange((latest) => {
+        return scrollY.on('change', (latest) => {
             setIsScrolled(latest > 50)
         })
     }, [scrollY])
@@ -130,10 +131,13 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
                             ) : (
                                 <button
                                     onClick={onAccountClick}
-                                    className="relative flex items-center gap-2 text-sm font-bold text-mayssa-brown/70 hover:text-mayssa-brown transition-all uppercase tracking-widest hover:scale-105 active:scale-95 cursor-pointer"
+                                    className="relative flex items-center gap-2 text-sm font-bold text-mayssa-caramel hover:text-mayssa-brown transition-all uppercase tracking-widest hover:scale-105 active:scale-95 cursor-pointer"
                                 >
-                                    <User size={14} />
-                                    Se Connecter
+                                    <Gift size={14} />
+                                    S&apos;inscrire / Se connecter
+                                    <span className="px-1.5 py-0.5 bg-mayssa-caramel/20 text-mayssa-caramel rounded-full text-[9px] font-bold normal-case animate-pulse">
+                                      +15 pts
+                                    </span>
                                 </button>
                             )}
                             
@@ -147,6 +151,7 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
                                 href="https://www.instagram.com/maison_mayssa74/"
                                 target="_blank"
                                 rel="noreferrer"
+                                onClick={() => hapticFeedback('light')}
                                 className="p-1.5 sm:p-2 text-mayssa-brown hover:text-mayssa-caramel transition-colors rounded-lg hover:bg-mayssa-soft/50 active:scale-95 cursor-pointer"
                             >
                                 <Instagram size={18} className="sm:w-5 sm:h-5" />
@@ -155,6 +160,7 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
                                 href={`https://wa.me/${PHONE_E164}`}
                                 target="_blank"
                                 rel="noreferrer"
+                                onClick={() => hapticFeedback('light')}
                                 className="hidden sm:flex items-center gap-2 rounded-full bg-white/80 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-mayssa-brown shadow-sm ring-1 ring-mayssa-brown/5 hover:bg-white hover:text-mayssa-caramel transition-all active:scale-95 cursor-pointer"
                             >
                                 <Phone size={14} className="sm:w-4 sm:h-4" />
@@ -255,10 +261,13 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
                                                 onAccountClick()
                                                 setIsMobileMenuOpen(false)
                                             }}
-                                            className="flex items-center w-full rounded-2xl px-4 py-3 text-base font-bold text-mayssa-brown/80 hover:text-mayssa-brown hover:bg-mayssa-soft/50 active:bg-mayssa-soft active:scale-[0.99] transition-all uppercase tracking-widest cursor-pointer"
+                                            className="flex items-center w-full rounded-2xl px-4 py-3 text-base font-bold text-mayssa-caramel hover:text-mayssa-brown hover:bg-mayssa-soft/50 active:bg-mayssa-soft active:scale-[0.99] transition-all uppercase tracking-widest cursor-pointer"
                                         >
-                                            <User size={18} />
-                                            <span className="ml-2">Se Connecter</span>
+                                            <Gift size={18} />
+                                            <span className="ml-2">S&apos;inscrire / Se connecter</span>
+                                            <span className="ml-auto px-2 py-0.5 bg-mayssa-caramel/20 text-mayssa-caramel rounded-full text-[10px] font-bold normal-case animate-pulse">
+                                              +15 pts
+                                            </span>
                                         </button>
                                     )}
                                     
@@ -272,6 +281,7 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
                                         href={`https://wa.me/${PHONE_E164}`}
                                         target="_blank"
                                         rel="noreferrer"
+                                        onClick={() => hapticFeedback('medium')}
                                         className="flex items-center justify-center gap-3 rounded-2xl bg-mayssa-brown px-6 py-4 text-mayssa-cream shadow-lg transition-all hover:bg-mayssa-caramel hover:-translate-y-0.5 active:scale-[0.98] w-full cursor-pointer"
                                     >
                                         <Phone size={20} />
@@ -284,6 +294,7 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
                                         href="https://www.instagram.com/maison_mayssa74/"
                                         target="_blank"
                                         rel="noreferrer"
+                                        onClick={() => hapticFeedback('light')}
                                         className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white shadow-lg transition-all hover:scale-110 active:scale-95 cursor-pointer"
                                     >
                                         <Instagram size={20} />
@@ -300,6 +311,7 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
 
 function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
     const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+        hapticFeedback('light')
         e.preventDefault()
         const targetId = href.replace('#', '')
         const element = document.getElementById(targetId)
@@ -329,6 +341,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
 
 function MobileNavLink({ href, children, onClick }: { href: string; children: React.ReactNode; onClick: () => void }) {
     const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+        hapticFeedback('light')
         e.preventDefault()
         const targetId = href.replace('#', '')
         const element = document.getElementById(targetId)
@@ -359,6 +372,7 @@ function MobileNavLink({ href, children, onClick }: { href: string; children: Re
 
 function NavLinkWithBadge({ href, children, count, icon }: { href: string; children: React.ReactNode; count: number; icon?: React.ReactNode }) {
     const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+        hapticFeedback('light')
         e.preventDefault()
         const targetId = href.replace('#', '')
         const element = document.getElementById(targetId)
@@ -394,6 +408,7 @@ function NavLinkWithBadge({ href, children, count, icon }: { href: string; child
 
 function MobileNavLinkWithBadge({ href, children, count, onClick }: { href: string; children: React.ReactNode; count: number; onClick: () => void }) {
     const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+        hapticFeedback('light')
         e.preventDefault()
         const targetId = href.replace('#', '')
         const element = document.getElementById(targetId)

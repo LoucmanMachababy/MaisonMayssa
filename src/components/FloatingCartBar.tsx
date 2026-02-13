@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ShoppingBag, ArrowDown } from 'lucide-react'
 import type { CartItem } from '../types'
+import { hapticFeedback } from '../lib/haptics'
 
 interface FloatingCartBarProps {
   items: CartItem[]
@@ -38,6 +39,7 @@ export function FloatingCartBar({ items, total }: FloatingCartBarProps) {
   }, [itemCount])
 
   const scrollToCart = () => {
+    hapticFeedback('light')
     document.getElementById('commande')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 

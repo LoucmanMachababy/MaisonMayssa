@@ -1,26 +1,61 @@
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { cn } from '../../lib/utils'
 
 interface SkeletonProps {
   className?: string
+  variant?: 'default' | 'pulse' | 'shimmer'
 }
 
-export function Skeleton({ className }: SkeletonProps) {
+export function Skeleton({ className, variant = 'shimmer' }: SkeletonProps) {
+  const shouldReduceMotion = useReducedMotion()
+
+  // Si l'utilisateur préfère réduire les mouvements, on utilise une version statique
+  if (shouldReduceMotion) {
+    return (
+      <div
+        className={cn(
+          'bg-mayssa-cream/60 rounded-lg',
+          className
+        )}
+        aria-label="Chargement en cours"
+      />
+    )
+  }
+
+  const getAnimation = () => {
+    switch (variant) {
+      case 'shimmer':
+        return { backgroundPosition: ['200% 0', '-200% 0'] }
+      case 'pulse':
+        return { opacity: [0.5, 1, 0.5] }
+      default:
+        return { opacity: [0.5, 1, 0.5] }
+    }
+  }
+
+  const getTransition = () => {
+    switch (variant) {
+      case 'shimmer':
+        return { duration: 1.8, repeat: Infinity, ease: "linear" as const }
+      case 'pulse':
+        return { duration: 2, repeat: Infinity, ease: "easeInOut" as const }
+      default:
+        return { duration: 2, repeat: Infinity, ease: "easeInOut" as const }
+    }
+  }
+
   return (
     <motion.div
       className={cn(
-        'bg-gradient-to-r from-mayssa-cream via-white to-mayssa-cream bg-[length:200%_100%]',
+        variant === 'shimmer' 
+          ? 'bg-gradient-to-r from-mayssa-cream/40 via-mayssa-cream/80 to-mayssa-cream/40 bg-[length:200%_100%]'
+          : 'bg-mayssa-cream/60',
         'rounded-lg',
         className
       )}
-      animate={{
-        backgroundPosition: ['200% 0', '-200% 0'],
-      }}
-      transition={{
-        duration: 1.5,
-        repeat: Infinity,
-        ease: 'linear',
-      }}
+      animate={getAnimation()}
+      transition={getTransition()}
+      aria-label="Chargement en cours"
     />
   )
 }

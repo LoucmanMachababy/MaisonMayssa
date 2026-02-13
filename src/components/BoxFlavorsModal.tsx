@@ -4,18 +4,13 @@ import { useState, useMemo } from 'react'
 import type { Product, ProductSize } from '../types'
 import { cn } from '../lib/utils'
 import { useEscapeKey } from '../hooks/useEscapeKey'
-import { PRODUCTS } from '../constants'
 
 interface BoxFlavorsModalProps {
   product: Product | null
+  products?: Product[]
   onClose: () => void
   onSelect: (product: Product, size: ProductSize, flavorDescription: string, totalPrice: number) => void
 }
-
-const COOKIE_FLAVORS = PRODUCTS.filter((p) => p.category === 'Cookies').map((p) => p.name)
-const BROWNIE_FLAVORS = PRODUCTS.filter((p) => p.category === 'Brownies').map((p) => p.name)
-const COOKIE_UNIT_PRICE = Math.min(...PRODUCTS.filter((p) => p.category === 'Cookies').map((p) => p.price))
-const BROWNIE_UNIT_PRICE = Math.min(...PRODUCTS.filter((p) => p.category === 'Brownies').map((p) => p.price))
 
 /** Compte les occurrences et retourne "Nom (×2), Autre (×1)" */
 function formatWithCounts(items: string[]): string {
@@ -28,10 +23,23 @@ function formatWithCounts(items: string[]): string {
     .join(', ')
 }
 
-export function BoxFlavorsModal({ product, onClose, onSelect }: BoxFlavorsModalProps) {
+export function BoxFlavorsModal({ product, products, onClose, onSelect }: BoxFlavorsModalProps) {
   const [selectedSize, setSelectedSize] = useState<ProductSize | null>(null)
   const [selectedCookies, setSelectedCookies] = useState<string[]>([])
   const [selectedBrownies, setSelectedBrownies] = useState<string[]>([])
+
+  // Derive flavors and unit prices from products prop (or fallback empty)
+  const { cookieFlavors, brownieFlavors, cookieUnitPrice, brownieUnitPrice } = useMemo(() => {
+    const catalog = products || []
+    const cookies = catalog.filter(p => p.category === 'Cookies')
+    const brownies = catalog.filter(p => p.category === 'Brownies')
+    return {
+      cookieFlavors: cookies.map(p => p.name),
+      brownieFlavors: brownies.map(p => p.name),
+      cookieUnitPrice: cookies.length > 0 ? Math.min(...cookies.map(p => p.price)) : 3,
+      brownieUnitPrice: brownies.length > 0 ? Math.min(...brownies.map(p => p.price)) : 3.5,
+    }
+  }, [products])
 
   useEscapeKey(onClose, !!product)
 
@@ -54,12 +62,12 @@ export function BoxFlavorsModal({ product, onClose, onSelect }: BoxFlavorsModalP
       extraCookies = Math.max(0, selectedCookies.length - cookiesIncluded)
       extraBrownies = Math.max(0, selectedBrownies.length - browniesIncluded)
     }
-    const supp = extraCookies * COOKIE_UNIT_PRICE + extraBrownies * BROWNIE_UNIT_PRICE
+    const supp = extraCookies * cookieUnitPrice + extraBrownies * brownieUnitPrice
     const parts: string[] = []
-    if (extraCookies > 0) parts.push(`${extraCookies} cookie(s) supp. (+${(extraCookies * COOKIE_UNIT_PRICE).toFixed(2).replace('.', ',')} €)`)
-    if (extraBrownies > 0) parts.push(`${extraBrownies} brownie(s) supp. (+${(extraBrownies * BROWNIE_UNIT_PRICE).toFixed(2).replace('.', ',')} €)`)
+    if (extraCookies > 0) parts.push(`${extraCookies} cookie(s) supp. (+${(extraCookies * cookieUnitPrice).toFixed(2).replace('.', ',')} €)`)
+    if (extraBrownies > 0) parts.push(`${extraBrownies} brownie(s) supp. (+${(extraBrownies * brownieUnitPrice).toFixed(2).replace('.', ',')} €)`)
     return { supplement: supp, supplementDetail: parts.join(' • ') }
-  }, [selectedSize, isBoxCookies, isBoxBrownies, isBoxMixte, selectedCookies.length, selectedBrownies.length])
+  }, [selectedSize, isBoxCookies, isBoxBrownies, isBoxMixte, selectedCookies.length, selectedBrownies.length, cookieUnitPrice, brownieUnitPrice])
 
   const totalPrice = selectedSize ? selectedSize.price + supplement : 0
 
@@ -216,7 +224,7 @@ export function BoxFlavorsModal({ product, onClose, onSelect }: BoxFlavorsModalP
                           {cookieCount > 0 && ` · ${cookieCount} choisi(s)`}
                         </p>
                         <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
-                          {COOKIE_FLAVORS.map((name) => (
+                          {cookieFlavors.map((name) => (
                             <button
                               key={name}
                               type="button"
@@ -265,7 +273,7 @@ export function BoxFlavorsModal({ product, onClose, onSelect }: BoxFlavorsModalP
                           {brownieCount > 0 && ` · ${brownieCount} choisi(s)`}
                         </p>
                         <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
-                          {BROWNIE_FLAVORS.map((name) => (
+                          {brownieFlavors.map((name) => (
                             <button
                               key={name}
                               type="button"

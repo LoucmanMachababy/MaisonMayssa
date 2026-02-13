@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { listenStock, listenSettings, type StockMap, type Settings } from '../lib/firebase'
+import { listenStock, listenSettings, isPreorderOpenNow, type StockMap, type Settings, type PreorderOpening } from '../lib/firebase'
 
 export function useStock() {
   const [stock, setStock] = useState<StockMap>({})
@@ -27,14 +27,25 @@ export function useStock() {
   }, [])
 
   const isPreorderDay = useMemo(() => {
-    const today = new Date().getDay() // 0=Sun, 1=Mon, ..., 3=Wed, 6=Sat
-    return settings.preorderDays.includes(today)
-  }, [settings.preorderDays])
+    const openings: PreorderOpening[] = settings.preorderOpenings && settings.preorderOpenings.length > 0
+      ? settings.preorderOpenings
+      : (settings.preorderDays || [3, 6]).map((day: number) => ({ day, fromTime: '00:00' }))
+    return isPreorderOpenNow(openings)
+  }, [settings.preorderOpenings, settings.preorderDays])
 
   const dayNames = useMemo(() => {
     const names = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.']
-    return settings.preorderDays.map(d => names[d]).join(' et ')
-  }, [settings.preorderDays])
+    const openings = settings.preorderOpenings && settings.preorderOpenings.length > 0
+      ? settings.preorderOpenings
+      : (settings.preorderDays || [3, 6]).map((day: number) => ({ day, fromTime: '00:00' }))
+    return openings
+      .map((o: { day: number; fromTime: string }) =>
+        o.fromTime === '00:00' || o.fromTime === '0:00'
+          ? names[o.day]
+          : `${names[o.day]} ${o.fromTime}`
+      )
+      .join(' et ')
+  }, [settings.preorderOpenings, settings.preorderDays])
 
   const getStock = (productId: string): number | null => {
     // Returns null if product doesn't have managed stock

@@ -7,6 +7,7 @@ import { ProductBadges } from './ProductBadges'
 import { ShareButton } from './ShareButton'
 import { BlurImage } from './BlurImage'
 import { StockBadge } from './StockBadge'
+import { hapticFeedback } from '../lib/haptics'
 
 interface ProductCardProps {
     product: Product
@@ -30,11 +31,19 @@ export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavori
             layout
             role="button"
             tabIndex={0}
-            onClick={() => !isPreorderSoon && !isUnavailable && onAdd(product)}
+            onClick={() => {
+                if (!isPreorderSoon && !isUnavailable) {
+                    hapticFeedback('medium')
+                    onAdd(product)
+                }
+            }}
             onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault()
-                    if (!isPreorderSoon && !isUnavailable) onAdd(product)
+                    if (!isPreorderSoon && !isUnavailable) {
+                        hapticFeedback('medium')
+                        onAdd(product)
+                    }
                 }
             }}
             initial={{ opacity: 0, y: 20 }}
@@ -49,6 +58,7 @@ export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavori
                         type="button"
                         onClick={(e) => {
                             e.stopPropagation()
+                            hapticFeedback('light')
                             onToggleFavorite(product)
                         }}
                         whileTap={{ scale: 0.85 }}
@@ -127,11 +137,18 @@ export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavori
                         ) : (
                             <>
                                 <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-mayssa-caramel">
-                                    {product.sizes ? 'À partir de' : 'Prix'}
+                                    {product.sizes ? 'À partir de' : product.originalPrice ? 'Promo' : 'Prix'}
                                 </span>
-                                <span className="text-lg sm:text-xl font-display font-bold text-mayssa-brown">
-                                    {product.price.toFixed(2).replace('.', ',')} €
-                                </span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-lg sm:text-xl font-display font-bold text-mayssa-brown">
+                                        {product.price.toFixed(2).replace('.', ',')} €
+                                    </span>
+                                    {product.originalPrice && (
+                                        <span className="text-sm sm:text-base font-display font-bold text-mayssa-brown/50 line-through">
+                                            {product.originalPrice.toFixed(2).replace('.', ',')} €
+                                        </span>
+                                    )}
+                                </div>
                             </>
                         )}
                     </div>

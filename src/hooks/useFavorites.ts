@@ -4,14 +4,15 @@ import type { Product } from '../types'
 
 const STORAGE_KEY = 'maison-mayssa-favorites'
 
-export function useFavorites() {
+export function useFavorites(products?: Product[]) {
+  const catalog = products || PRODUCTS
   const [favorites, setFavorites] = useState<Product[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY)
       if (saved) {
         const parsed: Product[] = JSON.parse(saved)
         // Validate against current catalog (remove stale favorites)
-        const validIds = new Set(PRODUCTS.map(p => p.id))
+        const validIds = new Set(catalog.map(p => p.id))
         return parsed.filter(p => validIds.has(p.id))
       }
       return []

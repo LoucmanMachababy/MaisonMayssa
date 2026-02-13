@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, User, Mail, Lock, Phone, Eye, EyeOff, Gift } from 'lucide-react'
+import { X, User, Mail, Lock, Phone, Eye, EyeOff, Gift, Calendar, Cake } from 'lucide-react'
 import { clientRegister, clientLogin, createUserProfile, resetPassword } from '../../lib/firebase'
 import { refreshUserProfile } from '../../hooks/useAuth'
+import { AddressAutocomplete } from '../AddressAutocomplete'
+import type { Coordinates } from '../../types'
 
 interface AuthModalsProps {
   isOpen: boolean
@@ -60,12 +62,17 @@ interface RegisterFormProps {
 }
 
 function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) {
+  const PHONE_REGEX = /^(\+33|0)[1-9](\d{2}){4}$/
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     firstName: '',
     lastName: '',
     phone: '',
+    birthday: '',
+    address: '',
+    addressCoordinates: null as Coordinates,
   })
   const [showPassword, setShowPassword] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -75,12 +82,27 @@ function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) {
     e.preventDefault()
     if (loading) return
 
-    // Validation simple
+    // Validation
     const newErrors: Record<string, string> = {}
     if (!formData.email) newErrors.email = 'Email requis'
     if (!formData.password || formData.password.length < 6) newErrors.password = 'Au moins 6 caractères'
     if (!formData.firstName) newErrors.firstName = 'Prénom requis'
     if (!formData.lastName) newErrors.lastName = 'Nom requis'
+    if (!formData.phone.trim()) {
+      newErrors.phone = 'Téléphone requis'
+    } else if (!PHONE_REGEX.test(formData.phone.replace(/\s/g, ''))) {
+      newErrors.phone = 'Format invalide (ex: 06 12 34 56 78)'
+    }
+    if (!formData.birthday) {
+      newErrors.birthday = 'Date de naissance requise'
+    } else {
+      const birthDate = new Date(formData.birthday)
+      const age = (Date.now() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
+      if (age < 13) newErrors.birthday = 'Vous devez avoir au moins 13 ans'
+    }
+    if (!formData.address.trim()) {
+      newErrors.address = 'Adresse requise'
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
@@ -99,7 +121,10 @@ function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) {
         email: formData.email,
         firstName: formData.firstName,
         lastName: formData.lastName,
-        phone: formData.phone || undefined,
+        phone: formData.phone,
+        birthday: formData.birthday,
+        address: formData.address,
+        addressCoordinates: formData.addressCoordinates,
       })
 
       // Rafraîchir le profil dans le hook useAuth
@@ -131,7 +156,7 @@ function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) {
         </div>
         <h2 className="text-2xl font-display font-bold text-mayssa-brown">Créer mon compte</h2>
         <p className="text-sm text-mayssa-brown/60 mt-2">
-          Gagne <span className="font-bold text-mayssa-caramel">15 points</span> de bienvenue !
+          <span className="font-bold text-mayssa-caramel">15 points</span> de bienvenue + un <span className="font-bold text-mayssa-caramel">cadeau d'anniversaire</span> !
         </p>
       </div>
 
@@ -216,18 +241,64 @@ function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) {
           {errors.password && <p className="text-xs text-red-400 mt-1 pl-2">{errors.password}</p>}
         </div>
 
-        {/* Téléphone (optionnel) */}
+        {/* Téléphone */}
         <div>
-          <div className="flex items-center gap-2 rounded-xl bg-mayssa-soft/50 px-3 py-3 ring-1 ring-mayssa-brown/10">
+          <div className={`flex items-center gap-2 rounded-xl bg-mayssa-soft/50 px-3 py-3 ring-1 ${errors.phone ? 'ring-red-300' : 'ring-mayssa-brown/10'}`}>
             <Phone size={16} className="text-mayssa-caramel" />
             <input
               type="tel"
-              placeholder="Téléphone (optionnel)"
+              placeholder="Téléphone *"
               value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              onChange={(e) => {
+                let value = e.target.value.replace(/[^\d+\s]/g, '')
+                const digits = value.replace(/\s/g, '')
+                if (digits.length > 2 && !digits.startsWith('+')) {
+                  value = digits.match(/.{1,2}/g)?.join(' ') || value
+                }
+                setFormData({ ...formData, phone: value })
+              }}
               className="w-full bg-transparent text-sm font-medium text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
+              required
             />
           </div>
+          {errors.phone && <p className="text-xs text-red-400 mt-1 pl-2">{errors.phone}</p>}
+        </div>
+
+        {/* Date de naissance */}
+        <div>
+          <div className={`flex items-center gap-2 rounded-xl bg-mayssa-soft/50 px-3 py-3 ring-1 ${errors.birthday ? 'ring-red-300' : 'ring-mayssa-brown/10'}`}>
+            <Calendar size={16} className="text-mayssa-caramel" />
+            <input
+              type="date"
+              value={formData.birthday}
+              onChange={(e) => setFormData({ ...formData, birthday: e.target.value })}
+              max={new Date(Date.now() - 13 * 365.25 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+              min="1920-01-01"
+              className="w-full bg-transparent text-sm font-medium text-mayssa-brown focus:outline-none [&::-webkit-calendar-picker-indicator]:opacity-50"
+              required
+            />
+          </div>
+          <p className="text-[10px] text-mayssa-brown/50 mt-1 pl-2 flex items-center gap-1">
+            <Cake size={10} />
+            Un cadeau vous attend le jour de votre anniversaire !
+          </p>
+          {errors.birthday && <p className="text-xs text-red-400 mt-1 pl-2">{errors.birthday}</p>}
+        </div>
+
+        {/* Adresse */}
+        <div>
+          <div className={`rounded-xl ring-1 ${errors.address ? 'ring-red-300' : 'ring-mayssa-brown/10'}`}>
+            <AddressAutocomplete
+              value={formData.address}
+              onChange={(address, coordinates) => setFormData({ ...formData, address, addressCoordinates: coordinates })}
+              placeholder="Votre adresse *"
+              className="bg-mayssa-soft/50 rounded-xl"
+            />
+          </div>
+          <p className="text-[10px] text-mayssa-brown/50 mt-1 pl-2">
+            Sera pré-remplie automatiquement lors de vos commandes
+          </p>
+          {errors.address && <p className="text-xs text-red-400 mt-1 pl-2">{errors.address}</p>}
         </div>
 
         {/* Submit */}

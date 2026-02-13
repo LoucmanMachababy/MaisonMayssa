@@ -4,7 +4,7 @@ import type { Coordinates, CustomerInfo } from '../types'
 export const ANNECY_GARE: NonNullable<Coordinates> = { lat: 45.9017, lng: 6.1217 }
 export const DELIVERY_RADIUS_KM = 5
 export const DELIVERY_FEE = 5
-export const FREE_DELIVERY_THRESHOLD = 30
+export const FREE_DELIVERY_THRESHOLD = 45
 
 // ── Calcul de distance (Haversine) ────────────────────────────────
 export function calculateDistance(coord1: Coordinates, coord2: NonNullable<Coordinates>): number | null {

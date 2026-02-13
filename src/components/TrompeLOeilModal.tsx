@@ -71,8 +71,17 @@ export function TrompeLOeilModal({ product, stock, onClose, onConfirm }: TrompeL
 
               {/* Prix unitaire */}
               <div className="flex items-center justify-between">
-                <span className="text-sm text-mayssa-brown/60">Prix unitaire</span>
-                <span className="text-lg font-bold text-mayssa-caramel">{product.price.toFixed(2).replace('.', ',')} €</span>
+                <span className="text-sm text-mayssa-brown/60">
+                  {product.originalPrice ? 'Prix promo' : 'Prix unitaire'}
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-bold text-mayssa-caramel">{product.price.toFixed(2).replace('.', ',')} €</span>
+                  {product.originalPrice && (
+                    <span className="text-sm font-bold text-mayssa-brown/50 line-through">
+                      {product.originalPrice.toFixed(2).replace('.', ',')} €
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Délai */}
