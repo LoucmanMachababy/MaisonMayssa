@@ -288,12 +288,14 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
                                         <span className="font-bold">Commander sur WhatsApp</span>
                                     </a>
                                     <a
-                                        href="tel:+33619871005"
+                                        href={`https://wa.me/${PHONE_E164}`}
+                                        target="_blank"
+                                        rel="noreferrer"
                                         onClick={() => hapticFeedback('light')}
                                         className="flex items-center justify-center gap-2 text-sm text-mayssa-brown/70 hover:text-mayssa-caramel cursor-pointer"
                                     >
                                         <Phone size={16} />
-                                        Appeler
+                                        Contacter
                                     </a>
                                 </div>
 

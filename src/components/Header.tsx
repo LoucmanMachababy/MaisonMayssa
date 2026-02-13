@@ -94,12 +94,14 @@ L'excellence de la pâtisserie artisanale à Annecy.
                         />
 
                         <a
-                            href="tel:+33619871005"
+                            href={`https://wa.me/${PHONE_E164}`}
+                            target="_blank"
+                            rel="noreferrer"
                             onClick={() => hapticFeedback('light')}
                             className="flex items-center justify-center gap-2 text-xs sm:text-sm font-semibold text-mayssa-brown/70 hover:text-mayssa-caramel transition-colors cursor-pointer"
                         >
                             <Phone size={14} />
-                            Appeler
+                            Contacter
                         </a>
                     </div>
 

@@ -42,7 +42,7 @@ export function Footer() {
                         </p>
                         <div className="flex gap-3 sm:gap-4">
                             <SocialIcon href="https://www.instagram.com/maison_mayssa74/" icon={<Instagram size={16} className="sm:w-[18px] sm:h-[18px]" />} />
-                            <SocialIcon href="tel:+33619871005" icon={<Phone size={16} className="sm:w-[18px] sm:h-[18px]" />} />
+                            <SocialIcon href={`https://wa.me/${PHONE_E164}`} icon={<Phone size={16} className="sm:w-[18px] sm:h-[18px]" />} />
                         </div>
                     </div>
 
@@ -87,7 +87,7 @@ export function Footer() {
                             </li>
                             <li className="flex items-start gap-2 sm:gap-3 text-xs sm:text-sm text-mayssa-brown/60">
                                 <Phone size={16} className="sm:w-[18px] sm:h-[18px] shrink-0 text-mayssa-caramel mt-0.5" />
-                                <a href="tel:+33619871005" onClick={() => hapticFeedback('light')} className="hover:text-mayssa-caramel transition-colors active:opacity-80 cursor-pointer">06 19 87 10 05</a>
+                                <a href={`https://wa.me/${PHONE_E164}`} target="_blank" rel="noreferrer" onClick={() => hapticFeedback('light')} className="hover:text-mayssa-caramel transition-colors active:opacity-80 cursor-pointer">06 19 87 10 05</a>
                             </li>
                         </ul>
                     </div>

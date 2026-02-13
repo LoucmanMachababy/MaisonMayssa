@@ -14,16 +14,45 @@ export function isOpen(): boolean {
   return (h > 18 || (h === 18 && m >= 30)) || h < 3
 }
 
-/** Heure à Paris (pour la limite de commande). */
-function getParisHour(): number {
-  const now = new Date()
-  const rtf = new Intl.DateTimeFormat('fr', { timeZone: 'Europe/Paris', hour: 'numeric', hour12: false })
-  return parseInt(rtf.format(now), 10)
+/** Date et heure actuelles à Paris (pour la limite de commande). */
+function getParisDateParts(): { hour: number; minute: number; year: string; month: string; day: string } {
+  const rtf = new Intl.DateTimeFormat('fr-CA', {
+    timeZone: 'Europe/Paris',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+  const parts = rtf.formatToParts(new Date())
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '0'
+  return {
+    hour: parseInt(get('hour'), 10),
+    minute: parseInt(get('minute'), 10),
+    year: get('year'),
+    month: get('month'),
+    day: get('day'),
+  }
 }
 
-/** Commandes pâtisseries/cookies possibles jusqu'à 23h (pas les trompe-l'œil). Après 23h → false. */
+/** Commandes pâtisseries/cookies possibles jusqu'à 23h (heure de Paris, jour J uniquement). Après 23h → false. */
 export function isBeforeOrderCutoff(): boolean {
-  return getParisHour() < 23
+  const { hour } = getParisDateParts()
+  return hour < 23
+}
+
+/** Vérifie si la date+heure choisie est dans le passé (basé sur l'heure actuelle Paris). */
+export function isSelectedDateTimeInPast(dateYyyyMmDd: string, timeHhMm: string): boolean {
+  if (!dateYyyyMmDd || !timeHhMm) return false
+  const [h, m] = timeHhMm.split(':').map((x) => parseInt(x || '0', 10))
+  const paris = getParisDateParts()
+  const todayParis = `${paris.year}-${paris.month}-${paris.day}`
+  if (dateYyyyMmDd < todayParis) return true
+  if (dateYyyyMmDd > todayParis) return false
+  const nowMinutes = paris.hour * 60 + paris.minute
+  const selectedMinutes = h * 60 + m
+  return selectedMinutes <= nowMinutes
 }
 
 /** Précommande pas encore disponible (date availableFrom dans le futur). */

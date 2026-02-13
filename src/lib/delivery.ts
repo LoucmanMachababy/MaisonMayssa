@@ -1,4 +1,5 @@
 import type { Coordinates, CustomerInfo } from '../types'
+import { isSelectedDateTimeInPast } from './utils'
 
 // ── Constantes livraison ──────────────────────────────────────────
 export const ANNECY_GARE: NonNullable<Coordinates> = { lat: 45.9017, lng: 6.1217 }
@@ -36,10 +37,17 @@ export function generateTimeSlots(wantsDelivery: boolean): string[] {
   return slots
 }
 
-// ── Date minimum (aujourd'hui) ────────────────────────────────────
+// ── Date minimum (aujourd'hui à Paris) ────────────────────────────
 export function getMinDate(): string {
-  const today = new Date()
-  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  const rtf = new Intl.DateTimeFormat('fr-CA', {
+    timeZone: 'Europe/Paris',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+  const parts = rtf.formatToParts(new Date())
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '01'
+  return `${get('year')}-${get('month')}-${get('day')}`
 }
 
 // ── Validation client ─────────────────────────────────────────────
@@ -60,6 +68,9 @@ export function validateCustomer(customer: CustomerInfo): Partial<Record<keyof C
   }
   if (!customer.date.trim()) errors.date = 'La date est requise'
   if (!customer.time.trim()) errors.time = "L'heure est requise"
+  if (customer.date && customer.time && isSelectedDateTimeInPast(customer.date, customer.time)) {
+    errors.time = "La date et l'heure choisies sont déjà passées"
+  }
 
   return errors
 }

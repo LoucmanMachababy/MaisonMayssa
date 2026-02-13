@@ -81,9 +81,13 @@ export function AddressAutocomplete({
       setIsLoading(true)
       setFetchError(false)
       try {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 5000)
         const response = await fetch(
-          `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=5&type=housenumber&autocomplete=1`
+          `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=5&type=housenumber&autocomplete=1`,
+          { signal: controller.signal }
         )
+        clearTimeout(timeoutId)
         if (!response.ok) throw new Error(`HTTP ${response.status}`)
         const data = await response.json()
 
@@ -103,10 +107,11 @@ export function AddressAutocomplete({
           setSuggestions([])
           setShowSuggestions(false)
         }
-      } catch {
+      } catch (e) {
         setSuggestions([])
         setFetchError(true)
         setShowSuggestions(true)
+        // Timeout ou 504: l'utilisateur peut saisir l'adresse manuellement
       } finally {
         setIsLoading(false)
       }
