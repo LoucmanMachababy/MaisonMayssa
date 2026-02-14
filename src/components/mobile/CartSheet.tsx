@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence, useDragControls } from 'framer-motion'
-import { X, Minus, Plus, Trash2, ShoppingBag, MessageCircle, User, Phone, MapPin, Truck, Calendar, Clock, Star, Gift } from 'lucide-react'
+import { X, Minus, Plus, Trash2, ShoppingBag, MessageCircle, User, Phone, MapPin, Truck, Calendar, Clock, Star, Gift, Instagram } from 'lucide-react'
+import { SnapIcon } from '../SnapIcon'
 import { hapticFeedback } from '../../lib/haptics'
 import { cn, isBeforeOrderCutoff, isBeforeFirstPickupDate } from '../../lib/utils'
 import { FIRST_PICKUP_DATE_CLASSIC, FIRST_PICKUP_DATE_CLASSIC_LABEL } from '../../constants'
@@ -32,6 +33,8 @@ interface CartSheetProps {
   onNoteChange: (note: string) => void
   onCustomerChange: (customer: CustomerInfo) => void
   onSend: () => void
+  onSendInstagram: () => void
+  onSendSnap: () => void
   onAccountClick?: () => void
   selectedReward?: { type: keyof typeof REWARD_COSTS; id: string } | null
   onSelectReward?: (reward: { type: keyof typeof REWARD_COSTS; id: string } | null) => void
@@ -48,6 +51,8 @@ export function CartSheet({
   onNoteChange,
   onCustomerChange,
   onSend,
+  onSendInstagram,
+  onSendSnap,
   onAccountClick,
   selectedReward,
   onSelectReward,
@@ -482,7 +487,7 @@ export function CartSheet({
 
               <p className="text-[9px] text-mayssa-brown/60 text-center flex items-center justify-center gap-1">
                 <MessageCircle size={12} />
-                Commande par WhatsApp uniquement.
+                Commande via WhatsApp, Instagram ou Snapchat.
               </p>
               {hasNonTrompeLoeil && isClassicPreorderPhase && (
                 <p className="text-[10px] text-mayssa-brown/80 text-center bg-mayssa-cream/80 rounded-lg px-2 py-1.5 border border-mayssa-caramel/30">
@@ -542,6 +547,49 @@ export function CartSheet({
                     : orderCutoffPassed && hasNonTrompeLoeil ? "Jusqu'à 23h" : 'Complète tes infos'
                   : 'Panier vide'}
               </motion.button>
+
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    if (canSend) {
+                      hapticFeedback('success')
+                      onSendInstagram()
+                      onClose()
+                    }
+                  }}
+                  disabled={!canSend}
+                  className={cn(
+                    "flex items-center justify-center gap-1.5 py-3 rounded-xl font-bold text-xs shadow-lg transition-all cursor-pointer",
+                    canSend
+                      ? "bg-gradient-to-r from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white"
+                      : "bg-mayssa-brown/20 text-mayssa-cream/70"
+                  )}
+                >
+                  <Instagram size={16} />
+                  Instagram
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    if (canSend) {
+                      hapticFeedback('success')
+                      onSendSnap()
+                      onClose()
+                    }
+                  }}
+                  disabled={!canSend}
+                  className={cn(
+                    "flex items-center justify-center gap-1.5 py-3 rounded-xl font-bold text-xs shadow-lg transition-all cursor-pointer",
+                    canSend
+                      ? "bg-[#FFFC00] text-black"
+                      : "bg-mayssa-brown/20 text-mayssa-cream/70"
+                  )}
+                >
+                  <SnapIcon size={16} />
+                  Snapchat
+                </motion.button>
+              </div>
             </div>
           </motion.div>
         </>

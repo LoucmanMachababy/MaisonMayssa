@@ -922,7 +922,7 @@ function AppContent() {
     return lines.join('\n')
   }
 
-  const [instagramParts] = useState<string[]>([])
+  const [instagramParts, setInstagramParts] = useState<string[]>([])
   const [isSnapModalOpen, setIsSnapModalOpen] = useState(false)
 
   const handleSend = async () => {
@@ -1035,6 +1035,61 @@ function AppContent() {
         8000
       )
     }
+  }
+
+  const handleSendInstagram = async () => {
+    const hasNonTrompeLoeil = cart.some((item) => item.product.category !== "Trompe l'oeil")
+    if (hasNonTrompeLoeil && !isBeforeOrderCutoff()) {
+      showToast('Commandes (pâtisseries, cookies…) possibles jusqu\'à 23h.', 'error', 5000)
+      return
+    }
+
+    const message = buildOrderMessage()
+    if (!message) return
+
+    // Instagram DM a une limite de ~1000 caractères par message
+    const INSTAGRAM_LIMIT = 1000
+    const parts: string[] = []
+    if (message.length <= INSTAGRAM_LIMIT) {
+      parts.push(message)
+    } else {
+      const lines = message.split('\n')
+      let current = ''
+      for (const line of lines) {
+        if (current.length + line.length + 1 > INSTAGRAM_LIMIT && current.length > 0) {
+          parts.push(current.trimEnd())
+          current = ''
+        }
+        current += line + '\n'
+      }
+      if (current.trim()) parts.push(current.trimEnd())
+    }
+
+    // Copier la première partie dans le presse-papier
+    try {
+      await navigator.clipboard.writeText(parts[0])
+    } catch { /* fallback: l'utilisateur copiera manuellement */ }
+
+    setInstagramParts(parts)
+    setIsInstagramModalOpen(true)
+  }
+
+  const handleSendSnap = async () => {
+    const hasNonTrompeLoeil = cart.some((item) => item.product.category !== "Trompe l'oeil")
+    if (hasNonTrompeLoeil && !isBeforeOrderCutoff()) {
+      showToast('Commandes (pâtisseries, cookies…) possibles jusqu\'à 23h.', 'error', 5000)
+      return
+    }
+
+    const message = buildOrderMessage()
+    if (!message) return
+
+    // Copier le message dans le presse-papier
+    try {
+      await navigator.clipboard.writeText(message)
+    } catch { /* fallback: l'utilisateur copiera manuellement */ }
+
+    setIsSnapModalOpen(true)
   }
 
   return (
@@ -1266,6 +1321,8 @@ function AppContent() {
               onNoteChange={setNote}
               onCustomerChange={setCustomer}
               onSend={handleSend}
+              onSendInstagram={handleSendInstagram}
+              onSendSnap={handleSendSnap}
               onAccountClick={handleAccountClick}
               selectedReward={selectedReward}
               onSelectReward={setSelectedReward}
@@ -1455,6 +1512,8 @@ function AppContent() {
         onNoteChange={setNote}
         onCustomerChange={setCustomer}
         onSend={handleSend}
+        onSendInstagram={handleSendInstagram}
+        onSendSnap={handleSendSnap}
         onAccountClick={handleAccountClick}
         selectedReward={selectedReward}
         onSelectReward={setSelectedReward}

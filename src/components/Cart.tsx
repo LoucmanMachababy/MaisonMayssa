@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { ShoppingBag, Minus, Plus, MessageCircle, User, Phone, MapPin, Truck, Calendar, Clock, Star, Gift } from 'lucide-react'
+import { ShoppingBag, Minus, Plus, MessageCircle, User, Phone, MapPin, Truck, Calendar, Clock, Star, Gift, Instagram } from 'lucide-react'
+import { SnapIcon } from './SnapIcon'
 import type { CartItem, CustomerInfo } from '../types'
 import { cn, isBeforeOrderCutoff, isBeforeFirstPickupDate } from '../lib/utils'
 import { FIRST_PICKUP_DATE_CLASSIC, FIRST_PICKUP_DATE_CLASSIC_LABEL } from '../constants'
@@ -29,6 +30,8 @@ interface CartProps {
     onNoteChange: (note: string) => void
     onCustomerChange: (customer: CustomerInfo) => void
     onSend: () => void
+    onSendInstagram: () => void
+    onSendSnap: () => void
     onAccountClick?: () => void
     selectedReward?: { type: keyof typeof REWARD_COSTS; id: string } | null
     onSelectReward?: (reward: { type: keyof typeof REWARD_COSTS; id: string } | null) => void
@@ -43,6 +46,8 @@ export function Cart({
     onNoteChange,
     onCustomerChange,
     onSend,
+    onSendInstagram,
+    onSendSnap,
     onAccountClick,
     selectedReward,
     onSelectReward,
@@ -508,7 +513,7 @@ export function Cart({
                             <div className="space-y-3 pt-2">
                                 <p className="text-[10px] text-mayssa-brown/60 text-center font-medium flex items-center justify-center gap-1.5">
                                     <MessageCircle size={14} />
-                                    Commande par WhatsApp uniquement — le bouton ouvre WhatsApp avec votre message.
+                                    Envoyez votre commande via WhatsApp, Instagram ou Snapchat.
                                 </p>
 
                                 {hasNonTrompeLoeil && isClassicPreorderPhase && (
@@ -528,8 +533,27 @@ export function Cart({
                                     className="w-full flex items-center justify-center gap-3 rounded-[2rem] bg-[#25D366] text-white py-5 text-base font-bold shadow-2xl transition-all hover:bg-[#20bd5a] hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:grayscale disabled:hover:scale-100 cursor-pointer"
                                 >
                                     <MessageCircle size={24} />
-                                    <span>{hasItems ? (canSend ? 'Envoyer sur WhatsApp (ouvre l\'app)' : orderCutoffPassed && hasNonTrompeLoeil ? 'Commandes jusqu\'à 23h' : 'Vérifiez le formulaire') : 'Votre panier est vide'}</span>
+                                    <span>{hasItems ? (canSend ? 'Envoyer sur WhatsApp' : orderCutoffPassed && hasNonTrompeLoeil ? 'Commandes jusqu\'à 23h' : 'Vérifiez le formulaire') : 'Votre panier est vide'}</span>
                                 </button>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        onClick={onSendInstagram}
+                                        disabled={!canSend}
+                                        className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white py-4 text-sm font-bold shadow-lg transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:grayscale disabled:hover:scale-100 cursor-pointer"
+                                    >
+                                        <Instagram size={20} />
+                                        <span>Instagram</span>
+                                    </button>
+                                    <button
+                                        onClick={onSendSnap}
+                                        disabled={!canSend}
+                                        className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#FFFC00] text-black py-4 text-sm font-bold shadow-lg transition-all hover:scale-[1.02] hover:brightness-105 active:scale-95 disabled:opacity-50 disabled:grayscale disabled:hover:scale-100 cursor-pointer"
+                                    >
+                                        <SnapIcon size={20} />
+                                        <span>Snapchat</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
