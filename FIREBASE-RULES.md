@@ -26,7 +26,9 @@
     },
     "orders": {
       ".read": "auth != null",
-      ".write": "auth != null"
+      "$orderId": {
+        ".write": "auth != null || (!data.exists() && newData.exists())"
+      }
     },
     "users": {
       ".read": "auth != null",
@@ -46,10 +48,11 @@
 | `stock`   | Tout le monde        | Utilisateurs connectés      |
 | `settings`| Tout le monde        | Utilisateurs connectés      |
 | `products`| Tout le monde        | Utilisateurs connectés      |
-| `orders`  | Utilisateurs connectés | Utilisateurs connectés   |
+| `orders`  | Utilisateurs connectés (admin) | Création : tout le monde (clients invités) ; modification/suppression : admin |
 | `users` (liste complète) | Utilisateurs connectés (admin) | — |
 | `users/{uid}` | Uniquement le propriétaire | Propriétaire ou admin (email roumayssaghazi213@gmail.com) |
 
+- **Orders** : les clients invités (non connectés) peuvent **créer** des commandes (WhatsApp/Insta/Snap). Seul l’admin peut modifier/valider/refuser les commandes.
 - **Stock** : les réservations / mises à jour de stock ne fonctionnent que pour les **utilisateurs connectés**. Si un visiteur non connecté réserve un trompe‑l’œil, il aura une erreur de permission.
 - Pour autoriser aussi les **invités** à réserver (sans compte), tu peux mettre pour `stock` : `".write": true`. Attention : n’importe qui pourrait alors modifier le stock depuis la console ou un script.
 

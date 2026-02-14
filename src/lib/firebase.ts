@@ -184,12 +184,20 @@ export async function deleteOrder(orderId: string) {
   await remove(ref(db, `orders/${orderId}`))
 }
 
+/** Retire les propriétés undefined (Firebase les refuse) */
+function stripUndefined<T extends Record<string, unknown>>(obj: T): T {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, v]) => v !== undefined)
+  ) as T
+}
+
 // Créer une commande hors-site (admin)
 export async function createOffSiteOrder(order: Omit<Order, 'id' | 'createdAt'>): Promise<string | null> {
-  const fullOrder: Omit<Order, 'id'> = {
+  const fullOrder = stripUndefined({
     ...order,
+    items: order.items.map((item) => stripUndefined({ ...item } as Record<string, unknown>)),
     createdAt: Date.now(),
-  }
+  } as Omit<Order, 'id'>)
   const newRef = push(ordersRef)
   await set(newRef, fullOrder)
   return newRef.key

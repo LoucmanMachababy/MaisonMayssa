@@ -14,7 +14,9 @@
     },
     "orders": {
       ".read": "auth != null",
-      ".write": "auth != null"
+      "$orderId": {
+        ".write": "auth != null || (!data.exists() && newData.exists())"
+      }
     },
     "users": {
       ".read": "auth != null",

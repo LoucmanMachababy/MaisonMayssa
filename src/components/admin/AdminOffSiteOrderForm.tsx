@@ -138,8 +138,14 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
 
       onOrderCreated()
       onClose()
-    } catch {
-      setError('Erreur lors de la sauvegarde')
+    } catch (err: unknown) {
+      const msg = err && typeof err === 'object' && 'message' in err ? String((err as { message: string }).message) : ''
+      const code = err && typeof err === 'object' && 'code' in err ? (err as { code: string }).code : ''
+      if (code === 'PERMISSION_DENIED' || msg.includes('permission')) {
+        setError('Permission refusée par Firebase. Vérifiez les règles de la base.')
+      } else {
+        setError(msg || 'Erreur lors de la sauvegarde')
+      }
     } finally {
       setSaving(false)
     }
