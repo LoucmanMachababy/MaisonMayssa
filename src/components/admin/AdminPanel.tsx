@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { motion } from 'framer-motion'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { LogOut, Package, Plus, Minus, Calendar, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp, Pencil } from 'lucide-react'
+import { LogOut, Package, Plus, Minus, Calendar, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp, Pencil, Search, Download, Bell, MessageSquare, Filter, XCircle } from 'lucide-react'
 import {
   adminLogin, adminLogout, onAuthChange,
   listenStock, updateStock, listenSettings, updateSettings,
@@ -19,6 +20,59 @@ import { AdminOffSiteOrderForm } from './AdminOffSiteOrderForm'
 import { AdminEditOrderModal } from './AdminEditOrderModal'
 
 const DAY_LABELS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
+
+// Son de notification pour nouvelle commande (Web Audio API)
+function playNewOrderSound() {
+  try {
+    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+    if (!Ctx) return
+    const ctx = new Ctx()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.frequency.value = 880
+    osc.type = 'sine'
+    gain.gain.setValueAtTime(0.25, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + 0.4)
+  } catch { /* ignore */ }
+}
+
+// Export CSV pour Excel (séparateur ;, BOM UTF-8)
+function exportOrdersToCSV(entries: [string, Order][]): void {
+  const SEP = ';'
+  const BOM = '\uFEFF'
+  const header = ['Date', 'Heure', 'Client', 'Téléphone', 'Source', 'Statut', 'Mode', 'Adresse', 'Distance km', 'Date retrait', 'Note client', 'Articles', 'Frais livr.', 'Total (€)'].join(SEP)
+  const rows = entries.map(([, o]) => {
+    const date = o.createdAt ? new Date(o.createdAt) : null
+    const dateStr = date ? date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
+    const timeStr = date ? date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''
+    const client = [o.customer?.firstName, o.customer?.lastName].filter(Boolean).join(' ')
+    const phone = o.customer?.phone ?? ''
+    const source = o.source === 'snap' ? 'Snap' : o.source === 'instagram' ? 'Insta' : o.source === 'whatsapp' ? 'WhatsApp' : 'Site'
+    const status = o.status === 'en_attente' ? 'En attente' : o.status === 'validee' ? 'Validée' : 'Refusée'
+    const mode = o.deliveryMode === 'livraison' ? 'Livraison' : 'Retrait'
+    const adresse = (o.customer?.address ?? '').replace(/"/g, '""')
+    const distanceKm = o.distanceKm != null ? o.distanceKm.toFixed(1) : ''
+    const retrait = o.requestedDate
+      ? new Date(o.requestedDate + 'T00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) + (o.requestedTime ? ` ${o.requestedTime}` : '')
+      : ''
+    const clientNote = (o.clientNote ?? '').replace(/"/g, '""')
+    const items = (o.items ?? []).map((i) => `${i.quantity}× ${i.name}`).join(' | ')
+    const deliveryFee = (o.deliveryFee ?? 0) > 0 ? (o.deliveryFee ?? 0).toFixed(2).replace('.', ',') : ''
+    const total = (o.total ?? 0).toFixed(2).replace('.', ',')
+    return [dateStr, timeStr, client, phone, source, status, mode, `"${adresse}"`, distanceKm, retrait, `"${clientNote}"`, `"${items.replace(/"/g, '""')}"`, deliveryFee, total].join(SEP)
+  })
+  const csv = BOM + header + '\n' + rows.join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = `commandes-maison-mayssa-${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  URL.revokeObjectURL(a.href)
+}
 
 export function AdminPanel() {
   const [user, setUser] = useState<User | null>(null)
@@ -157,6 +211,46 @@ function Dashboard({ user }: { user: User }) {
   const [showOffSiteForm, setShowOffSiteForm] = useState(false)
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null)
   const [sourceFilter, setSourceFilter] = useState<OrderSource | 'all'>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'en_attente' | 'validee' | 'refusee'>('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [soundEnabled, setSoundEnabled] = useState(true)
+
+  const setDatePreset = (preset: 'today' | '7d' | '30d' | 'month') => {
+    const now = new Date()
+    const d = new Date(now)
+    d.setHours(0, 0, 0, 0)
+    if (preset === 'today') {
+      setDateFrom(d.toISOString().slice(0, 10))
+      setDateTo(d.toISOString().slice(0, 10))
+    } else if (preset === '7d') {
+      const start = new Date(d)
+      start.setDate(start.getDate() - 6)
+      setDateFrom(start.toISOString().slice(0, 10))
+      setDateTo(now.toISOString().slice(0, 10))
+    } else if (preset === '30d') {
+      const start = new Date(d)
+      start.setDate(start.getDate() - 29)
+      setDateFrom(start.toISOString().slice(0, 10))
+      setDateTo(now.toISOString().slice(0, 10))
+    } else {
+      const first = new Date(now.getFullYear(), now.getMonth(), 1)
+      const last = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+      setDateFrom(first.toISOString().slice(0, 10))
+      setDateTo(last.toISOString().slice(0, 10))
+    }
+  }
+  const clearFilters = () => {
+    setSearchQuery('')
+    setDateFrom('')
+    setDateTo('')
+    setSourceFilter('all')
+    setStatusFilter('all')
+  }
+  const hasActiveFilters = searchQuery.trim() || dateFrom || dateTo || sourceFilter !== 'all' || statusFilter !== 'all'
+  const previousPendingIdsRef = useRef<Set<string>>(new Set())
+  const isInitialLoadRef = useRef(true)
 
   useEffect(() => {
     const unsub1 = listenStock(setStock)
@@ -166,6 +260,30 @@ function Dashboard({ user }: { user: User }) {
     const unsub5 = listenProductOverrides(setProductOverrides)
     return () => { unsub1(); unsub2(); unsub3(); unsub4(); unsub5() }
   }, [])
+
+  // Notification son + navigateur quand nouvelle commande en attente
+  useEffect(() => {
+    const pending = Object.entries(orders).filter(([, o]) => o.status === 'en_attente')
+    const pendingIds = new Set(pending.map(([id]) => id))
+    if (isInitialLoadRef.current) {
+      previousPendingIdsRef.current = pendingIds
+      isInitialLoadRef.current = false
+      return
+    }
+    const prev = previousPendingIdsRef.current
+    const newIds = [...pendingIds].filter((id) => !prev.has(id))
+    previousPendingIdsRef.current = pendingIds
+    if (newIds.length > 0 && soundEnabled) {
+      playNewOrderSound()
+      if (Notification.permission === 'granted') {
+        const count = newIds.length
+        new Notification('Nouvelle commande !', {
+          body: count === 1 ? 'Une nouvelle commande est en attente.' : `${count} nouvelles commandes en attente.`,
+          icon: '/logo.webp',
+        })
+      }
+    }
+  }, [orders, soundEnabled])
 
   // Anniversaires à venir (30 jours)
   const upcomingBirthdays = useMemo(() => {
@@ -246,15 +364,41 @@ function Dashboard({ user }: { user: User }) {
   const today = new Date().getDay()
   const isPreorderDay = isPreorderOpenNow(openings)
 
-  // Commandes à valider (toutes en_attente, toutes sources)
-  const ordersToValidate = Object.entries(orders).filter(
-    ([, o]) => o.status === 'en_attente' && (sourceFilter === 'all' || (o.source ?? 'site') === sourceFilter)
-  )
-  const pendingCount = ordersToValidate.length
+  // Filtre par recherche (nom, téléphone) et dates
+  const matchesSearch = (o: Order) => {
+    if (!searchQuery.trim()) return true
+    const q = searchQuery.trim().toLowerCase()
+    const name = `${o.customer?.firstName ?? ''} ${o.customer?.lastName ?? ''}`.toLowerCase()
+    const phone = (o.customer?.phone ?? '').replace(/\s/g, '')
+    const qClean = q.replace(/\s/g, '')
+    return name.includes(q) || phone.includes(qClean)
+  }
+  const matchesDateRange = (o: Order) => {
+    const ts = o.createdAt
+    if (!ts) return true
+    if (dateFrom) {
+      const from = new Date(dateFrom).getTime()
+      if (ts < from) return false
+    }
+    if (dateTo) {
+      const to = new Date(dateTo).setHours(23, 59, 59, 999)
+      if (ts > to) return false
+    }
+    return true
+  }
 
-  // Toutes les commandes triées (pour historique)
+  const matchesStatus = (o: Order) => statusFilter === 'all' || o.status === statusFilter
+
+  // Commandes à valider (toutes en_attente, toutes sources)
+  const ordersToValidate = Object.entries(orders)
+    .filter(([, o]) => o.status === 'en_attente' && (sourceFilter === 'all' || (o.source ?? 'site') === sourceFilter))
+    .filter(([, o]) => matchesSearch(o) && matchesDateRange(o))
+  const pendingCount = Object.entries(orders).filter(([, o]) => o.status === 'en_attente').length
+
+  // Toutes les commandes triées (pour historique) avec filtres
   const sortedOrders = Object.entries(orders)
-    .filter(([, o]) => sourceFilter === 'all' || (o.source ?? 'site') === sourceFilter)
+    .filter(([, o]) => (sourceFilter === 'all' || (o.source ?? 'site') === sourceFilter) && matchesStatus(o))
+    .filter(([, o]) => matchesSearch(o) && matchesDateRange(o))
     .sort(([, a], [, b]) => (b.createdAt || 0) - (a.createdAt || 0))
 
   // Stats CA (commandes validées uniquement)
@@ -344,27 +488,44 @@ function Dashboard({ user }: { user: User }) {
   }, [validatedOrders])
 
   return (
-    <div className="min-h-screen bg-mayssa-soft">
-      {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
+    <div className="min-h-screen bg-slate-50">
+      {/* Header premium */}
+      <header className="bg-mayssa-brown text-white sticky top-0 z-20 shadow-lg">
+        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-display font-bold text-mayssa-brown">Admin Maison Mayssa</h1>
-            <p className="text-[10px] text-mayssa-brown/50">{user.email}</p>
+            <h1 className="text-base font-display font-bold tracking-tight">Dashboard Maison Mayssa</h1>
+            <p className="text-[10px] text-white/60">{user.email}</p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-mayssa-brown/60 hover:bg-mayssa-soft transition-colors cursor-pointer"
-          >
-            <LogOut size={16} />
-            Déco.
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                if (soundEnabled && Notification.permission === 'default') {
+                  Notification.requestPermission()
+                }
+                setSoundEnabled((s) => !s)
+              }}
+              className={`flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                soundEnabled ? 'bg-emerald-500/20 text-emerald-200' : 'bg-white/10 text-white/50'
+              }`}
+              title={soundEnabled ? 'Son activé' : 'Son désactivé'}
+            >
+              <Bell size={14} />
+              {soundEnabled ? 'On' : 'Off'}
+            </button>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-white/80 hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              <LogOut size={16} />
+              Déconnexion
+            </button>
+          </div>
         </div>
       </header>
 
       {/* Tabs */}
       <div className="max-w-2xl mx-auto px-4 pt-4">
-        <div className="flex gap-2 bg-white rounded-2xl p-1.5 shadow-sm">
+        <div className="flex gap-1.5 bg-white/80 backdrop-blur rounded-2xl p-1.5 shadow-md border border-mayssa-brown/5 overflow-x-auto">
           {([
             { id: 'commandes', icon: ClipboardList, label: 'À valider', badge: pendingCount },
             { id: 'historique', icon: History, label: 'Historique' },
@@ -378,10 +539,10 @@ function Dashboard({ user }: { user: User }) {
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`flex-shrink-0 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 tab === t.id
                   ? 'bg-mayssa-brown text-white shadow-md'
-                  : 'text-mayssa-brown/50 hover:bg-mayssa-soft'
+                  : 'text-mayssa-brown/60 hover:bg-mayssa-soft/80'
               }`}
             >
               <t.icon size={14} />
@@ -396,10 +557,10 @@ function Dashboard({ user }: { user: User }) {
         </div>
       </div>
 
-      <main className="max-w-2xl mx-auto px-4 py-4 space-y-4">
+      <main className="max-w-2xl mx-auto px-4 py-4 space-y-4 pb-8">
         {/* Status banner */}
-        <div className={`rounded-2xl p-3 text-center ${isPreorderDay ? 'bg-emerald-50 border border-emerald-200' : 'bg-orange-50 border border-orange-200'}`}>
-          <p className={`text-xs font-bold ${isPreorderDay ? 'text-emerald-700' : 'text-orange-700'}`}>
+        <div className={`rounded-2xl p-4 text-center shadow-sm ${isPreorderDay ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'}`}>
+          <p className={`text-sm font-bold ${isPreorderDay ? 'text-emerald-800' : 'text-amber-800'}`}>
             {isPreorderDay
               ? 'Précommandes ouvertes aujourd\'hui'
               : (() => {
@@ -413,44 +574,109 @@ function Dashboard({ user }: { user: User }) {
 
         {/* ===== COMMANDES À VALIDER ===== */}
         {tab === 'commandes' && (
-          <section className="space-y-3">
-            <p className="text-xs text-mayssa-brown/70">
-              Toutes les commandes (WhatsApp, Insta, Snap) en attente de validation
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowOffSiteForm(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-mayssa-brown text-white text-xs font-bold hover:bg-mayssa-caramel transition-colors cursor-pointer"
-              >
-                <Plus size={14} />
-                Commande hors-site
-              </button>
-              <div className="flex-1" />
-              <select
-                value={sourceFilter}
-                onChange={e => setSourceFilter(e.target.value as OrderSource | 'all')}
-                className="rounded-xl border border-mayssa-brown/10 px-2 py-2 text-[10px] font-bold text-mayssa-brown bg-white"
-              >
-                <option value="all">Toutes</option>
-                <option value="site">Site</option>
-                <option value="snap">Snap</option>
-                <option value="instagram">Insta</option>
-                <option value="whatsapp">WhatsApp</option>
-              </select>
+          <motion.section
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-4"
+          >
+            {/* KPI + Actions */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="bg-white rounded-xl px-4 py-2 shadow-sm border border-mayssa-brown/5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">En attente</span>
+                  <p className="text-lg font-display font-bold text-mayssa-brown">{pendingCount}</p>
+                </div>
+                <button
+                  onClick={() => setShowOffSiteForm(true)}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-mayssa-brown text-white text-xs font-bold hover:bg-mayssa-brown/90 shadow-md transition-all cursor-pointer"
+                >
+                  <Plus size={16} />
+                  Commande hors-site
+                </button>
+              </div>
+            </div>
+
+            {/* Filtres premium */}
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-mayssa-brown/5 space-y-3">
+              <div className="flex items-center gap-2 text-mayssa-brown/70">
+                <Filter size={14} />
+                <span className="text-xs font-bold uppercase tracking-wider">Filtres</span>
+                {hasActiveFilters && (
+                  <button
+                    onClick={clearFilters}
+                    className="ml-auto flex items-center gap-1 text-[10px] font-bold text-amber-600 hover:text-amber-700 cursor-pointer"
+                  >
+                    <XCircle size={12} />
+                    Effacer
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative flex-1 min-w-[130px]">
+                  <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-mayssa-brown/40" />
+                  <input
+                    type="text"
+                    placeholder="Nom ou téléphone..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-mayssa-brown/10 text-xs text-mayssa-brown bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel focus:border-transparent"
+                  />
+                </div>
+                <div className="flex gap-1">
+                  {(['today', '7d', '30d', 'month'] as const).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setDatePreset(p)}
+                      className="px-2.5 py-2 rounded-lg text-[10px] font-bold bg-slate-100 text-mayssa-brown/70 hover:bg-mayssa-soft transition-colors cursor-pointer"
+                    >
+                      {p === 'today' ? "Aujourd'hui" : p === '7d' ? '7 j' : p === '30d' ? '30 j' : 'Ce mois'}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="rounded-xl border border-mayssa-brown/10 px-2.5 py-2 text-xs font-medium text-mayssa-brown bg-white w-32"
+                  title="Du"
+                />
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="rounded-xl border border-mayssa-brown/10 px-2.5 py-2 text-xs font-medium text-mayssa-brown bg-white w-32"
+                  title="Au"
+                />
+                <select
+                  value={sourceFilter}
+                  onChange={e => setSourceFilter(e.target.value as OrderSource | 'all')}
+                  className="rounded-xl border border-mayssa-brown/10 px-3 py-2 text-xs font-bold text-mayssa-brown bg-white"
+                >
+                  <option value="all">Toutes sources</option>
+                  <option value="site">Site</option>
+                  <option value="snap">Snap</option>
+                  <option value="instagram">Insta</option>
+                  <option value="whatsapp">WhatsApp</option>
+                </select>
+              </div>
             </div>
 
             {ordersToValidate.length === 0 ? (
-              <div className="bg-white rounded-2xl p-8 shadow-sm text-center">
-                <ClipboardList size={40} className="mx-auto text-mayssa-brown/20 mb-3" />
-                <p className="text-sm text-mayssa-brown/50">Aucune commande en attente</p>
+              <div className="bg-white rounded-2xl p-12 shadow-sm border border-mayssa-brown/5 text-center">
+                <ClipboardList size={48} className="mx-auto text-mayssa-brown/15 mb-4" />
+                <p className="text-sm font-medium text-mayssa-brown/60">Aucune commande en attente</p>
+                <p className="text-xs text-mayssa-brown/40 mt-1">{hasActiveFilters ? 'Essayez d\'effacer les filtres' : 'Les nouvelles commandes apparaîtront ici'}</p>
               </div>
             ) : (
               ordersToValidate.map(([id, order]) => {
                 const orderSource = order.source ?? 'site'
                 return (
-                <div
+                <motion.div
                   key={id}
-                  className={`bg-white rounded-2xl p-4 shadow-sm border-l-4 ${
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`bg-white rounded-2xl p-4 shadow-md border border-mayssa-brown/5 border-l-4 ${
                     order.status === 'en_attente'
                       ? 'border-l-amber-400'
                       : order.status === 'validee'
@@ -465,7 +691,6 @@ function Dashboard({ user }: { user: User }) {
                         <p className="text-sm font-bold text-mayssa-brown">
                           {order.customer?.firstName} {order.customer?.lastName}
                         </p>
-                        {/* Source badge */}
                         <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold border ${
                           orderSource === 'snap' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
                           orderSource === 'instagram' ? 'bg-pink-50 text-pink-700 border-pink-200' :
@@ -476,9 +701,11 @@ function Dashboard({ user }: { user: User }) {
                         </span>
                       </div>
                       {order.customer?.phone && (
-                        <p className="text-[10px] text-mayssa-brown/50">{order.customer.phone}</p>
+                        <p className="text-[10px] text-mayssa-brown/50 flex items-center gap-1">
+                          <Phone size={10} />
+                          {order.customer.phone}
+                        </p>
                       )}
-                      {/* Delivery mode + date/time */}
                       {(order.deliveryMode || order.requestedDate) && (
                         <div className="flex items-center gap-2 mt-1">
                           {order.deliveryMode && (
@@ -512,9 +739,32 @@ function Dashboard({ user }: { user: User }) {
                     </div>
                   </div>
 
+                  {/* Adresse livraison + infos détaillées */}
+                  {(order.customer?.address || order.clientNote || (order.deliveryMode === 'livraison' && order.distanceKm != null)) && (
+                    <div className="mb-3 p-3 rounded-xl bg-blue-50/50 border border-blue-100 space-y-2">
+                      {order.customer?.address && order.deliveryMode === 'livraison' && (
+                        <p className="text-xs text-mayssa-brown flex items-start gap-1.5">
+                          <MapPin size={12} className="flex-shrink-0 mt-0.5" />
+                          <span>{order.customer.address}</span>
+                        </p>
+                      )}
+                      {order.distanceKm != null && order.deliveryMode === 'livraison' && (
+                        <p className="text-[10px] text-mayssa-brown/70">
+                          📍 {order.distanceKm.toFixed(1)} km depuis Annecy
+                        </p>
+                      )}
+                      {order.clientNote && (
+                        <p className="text-xs text-mayssa-brown flex items-start gap-1.5">
+                          <MessageSquare size={12} className="flex-shrink-0 mt-0.5" />
+                          <span className="italic">&quot;{order.clientNote}&quot;</span>
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   {/* Admin note */}
                   {order.adminNote && (
-                    <p className="text-[10px] text-mayssa-brown/60 italic mb-2 px-1">📝 {order.adminNote}</p>
+                    <p className="text-[10px] text-mayssa-brown/60 italic mb-2 px-1">📝 Admin : {order.adminNote}</p>
                   )}
 
                   {/* Items */}
@@ -529,6 +779,12 @@ function Dashboard({ user }: { user: User }) {
                         </span>
                       </div>
                     ))}
+                    {(order.deliveryFee ?? 0) > 0 && (
+                      <div className="flex items-center justify-between text-xs pt-1 border-t border-mayssa-brown/10">
+                        <span className="text-mayssa-brown/70">Frais de livraison</span>
+                        <span className="font-bold text-mayssa-brown">+{(order.deliveryFee ?? 0).toFixed(2).replace('.', ',')} €</span>
+                      </div>
+                    )}
                     <div className="border-t border-mayssa-brown/10 pt-1 mt-1 flex justify-between">
                       <span className="text-xs font-bold text-mayssa-brown">Total</span>
                       <span className="text-sm font-bold text-mayssa-caramel">
@@ -573,7 +829,7 @@ function Dashboard({ user }: { user: User }) {
                       </button>
                     )}
                   </div>
-                </div>
+                </motion.div>
                 )
               })
             )}
@@ -587,39 +843,121 @@ function Dashboard({ user }: { user: User }) {
                 onOrderCreated={() => setShowOffSiteForm(false)}
               />
             )}
-          </section>
+          </motion.section>
         )}
 
         {/* ===== HISTORIQUE DES COMMANDES ===== */}
         {tab === 'historique' && (
-          <section className="bg-white rounded-2xl p-5 shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-mayssa-brown text-sm flex items-center gap-2">
-                <History size={18} />
-                Historique des commandes
-              </h3>
-              <select
-                value={sourceFilter}
-                onChange={e => setSourceFilter(e.target.value as OrderSource | 'all')}
-                className="rounded-xl border border-mayssa-brown/10 px-2 py-1.5 text-[10px] font-bold text-mayssa-brown bg-white"
+          <motion.section
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-4"
+          >
+            {/* KPI + Export */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="bg-white rounded-xl px-4 py-2 shadow-sm border border-mayssa-brown/5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">Résultats</span>
+                <p className="text-lg font-display font-bold text-mayssa-brown">{sortedOrders.length} commande{sortedOrders.length !== 1 ? 's' : ''}</p>
+              </div>
+              <button
+                onClick={() => exportOrdersToCSV(sortedOrders)}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow-md transition-all cursor-pointer"
               >
-                <option value="all">Toutes sources</option>
-                <option value="site">Site</option>
-                <option value="snap">Snap</option>
-                <option value="instagram">Insta</option>
-                <option value="whatsapp">WhatsApp</option>
-              </select>
+                <Download size={16} />
+                Export CSV
+              </button>
             </div>
 
+            {/* Filtres premium avec statut */}
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-mayssa-brown/5 space-y-3">
+              <div className="flex items-center gap-2 text-mayssa-brown/70">
+                <Filter size={14} />
+                <span className="text-xs font-bold uppercase tracking-wider">Filtres</span>
+                {hasActiveFilters && (
+                  <button
+                    onClick={clearFilters}
+                    className="ml-auto flex items-center gap-1 text-[10px] font-bold text-amber-600 hover:text-amber-700 cursor-pointer"
+                  >
+                    <XCircle size={12} />
+                    Effacer
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative flex-1 min-w-[130px]">
+                  <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-mayssa-brown/40" />
+                  <input
+                    type="text"
+                    placeholder="Nom ou téléphone..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-mayssa-brown/10 text-xs text-mayssa-brown bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
+                  />
+                </div>
+                <select
+                  value={statusFilter}
+                  onChange={e => setStatusFilter(e.target.value as typeof statusFilter)}
+                  className="rounded-xl border border-mayssa-brown/10 px-3 py-2 text-xs font-bold text-mayssa-brown bg-white"
+                >
+                  <option value="all">Tous statuts</option>
+                  <option value="en_attente">En attente</option>
+                  <option value="validee">Validées</option>
+                  <option value="refusee">Refusées</option>
+                </select>
+                <div className="flex gap-1">
+                  {(['today', '7d', '30d', 'month'] as const).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setDatePreset(p)}
+                      className="px-2.5 py-2 rounded-lg text-[10px] font-bold bg-slate-100 text-mayssa-brown/70 hover:bg-mayssa-soft transition-colors cursor-pointer"
+                    >
+                      {p === 'today' ? "Aujourd'hui" : p === '7d' ? '7 j' : p === '30d' ? '30 j' : 'Ce mois'}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="rounded-xl border border-mayssa-brown/10 px-2.5 py-2 text-xs font-medium text-mayssa-brown bg-white w-32"
+                />
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="rounded-xl border border-mayssa-brown/10 px-2.5 py-2 text-xs font-medium text-mayssa-brown bg-white w-32"
+                />
+                <select
+                  value={sourceFilter}
+                  onChange={e => setSourceFilter(e.target.value as OrderSource | 'all')}
+                  className="rounded-xl border border-mayssa-brown/10 px-3 py-2 text-xs font-bold text-mayssa-brown bg-white"
+                >
+                  <option value="all">Toutes sources</option>
+                  <option value="site">Site</option>
+                  <option value="snap">Snap</option>
+                  <option value="instagram">Insta</option>
+                  <option value="whatsapp">WhatsApp</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-5 shadow-sm border border-mayssa-brown/5">
             {sortedOrders.length === 0 ? (
-              <p className="text-sm text-mayssa-brown/50 text-center py-6">Aucune commande enregistrée</p>
+              <div className="py-12 text-center">
+                <History size={40} className="mx-auto text-mayssa-brown/15 mb-3" />
+                <p className="text-sm font-medium text-mayssa-brown/60">Aucune commande trouvée</p>
+                <p className="text-xs text-mayssa-brown/40 mt-1">{hasActiveFilters ? 'Effacez les filtres ou élargissez la période' : 'Les commandes validées ou refusées apparaissent ici'}</p>
+              </div>
             ) : (
               <div className="space-y-2 max-h-[60vh] overflow-y-auto">
                 {sortedOrders.map(([id, order]) => {
                   const orderSource = order.source ?? 'site'
                   return (
-                    <div
+                    <motion.div
                       key={id}
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
                       className={`p-3 rounded-xl border text-left ${
                         order.status === 'validee'
                           ? 'border-emerald-200 bg-emerald-50/50'
@@ -645,9 +983,11 @@ function Dashboard({ user }: { user: User }) {
                             </span>
                           </div>
                           {order.customer?.phone && (
-                            <p className="text-[10px] text-mayssa-brown/50">{order.customer.phone}</p>
+                            <p className="text-[10px] text-mayssa-brown/50 flex items-center gap-1">
+                              <Phone size={10} />
+                              {order.customer.phone}
+                            </p>
                           )}
-                          {/* Delivery mode + date/time */}
                           {(order.deliveryMode || order.requestedDate) && (
                             <div className="flex items-center gap-2 mt-1">
                               {order.deliveryMode && (
@@ -681,9 +1021,32 @@ function Dashboard({ user }: { user: User }) {
                         </div>
                       </div>
 
+                      {/* Adresse livraison + infos détaillées */}
+                      {(order.customer?.address || order.clientNote || (order.deliveryMode === 'livraison' && order.distanceKm != null)) && (
+                        <div className="mt-2 p-3 rounded-xl bg-blue-50/50 border border-blue-100 space-y-2">
+                          {order.customer?.address && order.deliveryMode === 'livraison' && (
+                            <p className="text-xs text-mayssa-brown flex items-start gap-1.5">
+                              <MapPin size={12} className="flex-shrink-0 mt-0.5" />
+                              <span>{order.customer.address}</span>
+                            </p>
+                          )}
+                          {order.distanceKm != null && order.deliveryMode === 'livraison' && (
+                            <p className="text-[10px] text-mayssa-brown/70">
+                              📍 {order.distanceKm.toFixed(1)} km depuis Annecy
+                            </p>
+                          )}
+                          {order.clientNote && (
+                            <p className="text-xs text-mayssa-brown flex items-start gap-1.5">
+                              <MessageSquare size={12} className="flex-shrink-0 mt-0.5" />
+                              <span className="italic">&quot;{order.clientNote}&quot;</span>
+                            </p>
+                          )}
+                        </div>
+                      )}
+
                       {/* Admin note */}
                       {order.adminNote && (
-                        <p className="text-[10px] text-mayssa-brown/60 italic mt-2 px-1">📝 {order.adminNote}</p>
+                        <p className="text-[10px] text-mayssa-brown/60 italic mt-2 px-1">📝 Admin : {order.adminNote}</p>
                       )}
 
                       {/* Items */}
@@ -698,6 +1061,12 @@ function Dashboard({ user }: { user: User }) {
                             </span>
                           </div>
                         ))}
+                        {(order.deliveryFee ?? 0) > 0 && (
+                          <div className="flex items-center justify-between text-xs pt-1 border-t border-mayssa-brown/10">
+                            <span className="text-mayssa-brown/70">Frais de livraison</span>
+                            <span className="font-bold text-mayssa-brown">+{(order.deliveryFee ?? 0).toFixed(2).replace('.', ',')} €</span>
+                          </div>
+                        )}
                         <div className="border-t border-mayssa-brown/10 pt-1 mt-1 flex justify-between">
                           <span className="text-xs font-bold text-mayssa-brown">Total</span>
                           <span className="text-sm font-bold text-mayssa-caramel">
@@ -732,24 +1101,30 @@ function Dashboard({ user }: { user: User }) {
                           Supprimer
                         </button>
                       </div>
-                    </div>
+                    </motion.div>
                   )
                 })}
               </div>
             )}
-          </section>
+            </div>
+          </motion.section>
         )}
 
         {/* ===== CHIFFRE D'AFFAIRES ===== */}
         {tab === 'ca' && (
-          <section className="bg-white rounded-2xl p-5 shadow-sm space-y-5">
+          <motion.section
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+            className="bg-white rounded-2xl p-6 shadow-sm border border-mayssa-brown/5 space-y-6"
+          >
             <h3 className="font-bold text-mayssa-brown text-sm flex items-center gap-2">
               <TrendingUp size={18} />
               Suivi du chiffre d&apos;affaires
             </h3>
 
             {/* KPIs */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               <div className="rounded-xl bg-mayssa-caramel/10 border border-mayssa-caramel/20 p-4">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">CA total (validé)</p>
                 <p className="text-xl font-display font-bold text-mayssa-caramel">{caTotal.toFixed(2).replace('.', ',')} €</p>
@@ -762,7 +1137,7 @@ function Dashboard({ user }: { user: User }) {
                 <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">Cette semaine</p>
                 <p className="text-xl font-display font-bold text-blue-700">{caSemaine.toFixed(2).replace('.', ',')} €</p>
               </div>
-              <div className="rounded-xl bg-mayssa-soft/80 border border-mayssa-brown/10 p-4">
+              <div className="rounded-xl bg-mayssa-soft/80 border border-mayssa-brown/10 p-4 shadow-sm">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">Nb commandes validées</p>
                 <p className="text-xl font-display font-bold text-mayssa-brown">{validatedOrders.length}</p>
               </div>
@@ -836,7 +1211,10 @@ function Dashboard({ user }: { user: User }) {
             <div className="space-y-3">
               <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">Produits les plus vendus</p>
               {topProducts.length === 0 ? (
-                <p className="text-sm text-mayssa-brown/50 text-center py-4">Aucune donnée</p>
+                <div className="py-10 text-center rounded-xl bg-mayssa-soft/20 border border-mayssa-brown/5">
+                  <Package size={36} className="mx-auto text-mayssa-brown/20 mb-2" />
+                  <p className="text-sm text-mayssa-brown/50">Aucune donnée</p>
+                </div>
               ) : (
                 <div className="h-56 rounded-xl bg-mayssa-soft/30 border border-mayssa-brown/5 overflow-hidden">
                   <ResponsiveContainer width="100%" height="100%">
@@ -856,17 +1234,28 @@ function Dashboard({ user }: { user: User }) {
                 </div>
               )}
             </div>
-          </section>
+          </motion.section>
         )}
 
         {/* ===== STOCK ===== */}
         {tab === 'stock' && (
-          <AdminStockTab allProducts={allProducts} stock={stock} />
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <AdminStockTab allProducts={allProducts} stock={stock} />
+          </motion.div>
         )}
 
         {/* ===== JOURS (horaires précommandes trompe-l'œil) ===== */}
         {tab === 'jours' && (
-          <section className="bg-white rounded-2xl p-5 shadow-sm space-y-4">
+          <motion.section
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+            className="bg-white rounded-2xl p-6 shadow-sm border border-mayssa-brown/5 space-y-4"
+          >
             <p className="text-xs text-mayssa-brown/60">
               Jours et horaires d&apos;ouverture des précommandes (ex. Samedi toute la journée, Mercredi à partir de midi) :
             </p>
@@ -908,20 +1297,27 @@ function Dashboard({ user }: { user: User }) {
                 Ajouter un créneau
               </button>
             </div>
-          </section>
+          </motion.section>
         )}
 
+        {/* ===== ANNIVERSAIRES ===== */}
         {tab === 'anniversaires' && (
-          <section className="bg-white rounded-2xl p-5 shadow-sm space-y-4">
+          <motion.section
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+            className="bg-white rounded-2xl p-6 shadow-sm border border-mayssa-brown/5 space-y-4"
+          >
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-mayssa-brown text-sm">Anniversaires à venir (30 jours)</h3>
               <span className="text-[10px] text-mayssa-brown/50">{upcomingBirthdays.length} client{upcomingBirthdays.length > 1 ? 's' : ''}</span>
             </div>
 
             {upcomingBirthdays.length === 0 ? (
-              <p className="text-sm text-mayssa-brown/50 text-center py-6">
-                Aucun anniversaire dans les 30 prochains jours
-              </p>
+              <div className="py-12 text-center rounded-xl bg-mayssa-soft/20 border border-mayssa-brown/5">
+                <Cake size={40} className="mx-auto text-mayssa-brown/15 mb-3" />
+                <p className="text-sm font-medium text-mayssa-brown/60">Aucun anniversaire dans les 30 prochains jours</p>
+              </div>
             ) : (
               <div className="space-y-2">
                 {upcomingBirthdays.map(({ uid, profile: u, daysUntil, claimed }) => (
@@ -971,11 +1367,17 @@ function Dashboard({ user }: { user: User }) {
                 ))}
               </div>
             )}
-          </section>
+          </motion.section>
         )}
 
+        {/* ===== INSCRITS ===== */}
         {tab === 'inscrits' && (
-          <section className="bg-white rounded-2xl p-5 shadow-sm space-y-4">
+          <motion.section
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+            className="bg-white rounded-2xl p-6 shadow-sm border border-mayssa-brown/5 space-y-4"
+          >
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-mayssa-brown text-sm flex items-center gap-2">
                 <Users size={18} />
@@ -985,9 +1387,10 @@ function Dashboard({ user }: { user: User }) {
             </div>
 
             {Object.keys(allUsers).length === 0 ? (
-              <p className="text-sm text-mayssa-brown/50 text-center py-6">
-                Aucun client inscrit pour le moment
-              </p>
+              <div className="py-12 text-center rounded-xl bg-mayssa-soft/20 border border-mayssa-brown/5">
+                <Users size={40} className="mx-auto text-mayssa-brown/15 mb-3" />
+                <p className="text-sm font-medium text-mayssa-brown/60">Aucun client inscrit pour le moment</p>
+              </div>
             ) : (
               <div className="space-y-2">
                 {Object.entries(allUsers)
@@ -1071,11 +1474,18 @@ function Dashboard({ user }: { user: User }) {
                   ))}
               </div>
             )}
-          </section>
+          </motion.section>
         )}
 
+        {/* ===== PRODUITS ===== */}
         {tab === 'produits' && (
-          <AdminProductsTab allProducts={allProducts} overrides={productOverrides} />
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <AdminProductsTab allProducts={allProducts} overrides={productOverrides} />
+          </motion.div>
         )}
 
         {/* Edit order modal (toujours affiché si on édite, quel que soit l'onglet) */}

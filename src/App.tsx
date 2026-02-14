@@ -863,7 +863,13 @@ function AppContent() {
       }
     }
 
-    if (customer.date && customer.time) {
+    const hasTrompeLoeil = cart.some(i => i.product.category === "Trompe l'oeil")
+    if (hasTrompeLoeil) {
+      lines.push(`Date de récupération : ${getTrompeLOeilPickupLabel()}`)
+      if (customer.time) {
+        lines.push(`Heure souhaitée : ${customer.time}`)
+      }
+    } else if (customer.date && customer.time) {
       const dateObj = new Date(customer.date)
       const dateFormatted = dateObj.toLocaleDateString('fr-FR', {
         weekday: 'long',
@@ -872,6 +878,15 @@ function AppContent() {
       })
       lines.push(`Date souhaitée : ${dateFormatted}`)
       lines.push(`Heure souhaitée : ${customer.time}`)
+    } else if (customer.date) {
+      const dateObj = new Date(customer.date)
+      const dateFormatted = dateObj.toLocaleDateString('fr-FR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+      })
+      lines.push(`Date souhaitée : ${dateFormatted}`)
+      if (customer.time) lines.push(`Heure souhaitée : ${customer.time}`)
     }
 
     lines.push('', '')
@@ -921,7 +936,6 @@ function AppContent() {
     }
 
     // Mention précommande si trompe l'oeil dans le panier
-    const hasTrompeLoeil = cart.some(i => i.product.category === "Trompe l'oeil")
     if (hasTrompeLoeil) {
       lines.push('⚠️ *PRÉCOMMANDE TROMPE L\'ŒIL*')
       lines.push(`Récupération des trompe-l'œil : ${getTrompeLOeilPickupLabel()}.`)
@@ -950,6 +964,11 @@ function AppContent() {
     const orderTotal = total + (computeDeliveryFee(customer, total) || 0)
     try {
       const { createOrder } = await import('./lib/firebase')
+      const deliveryFee = computeDeliveryFee(customer, total) ?? 0
+      const distanceKm = customer.wantsDelivery && customer.addressCoordinates
+        ? calculateDistance(customer.addressCoordinates, ANNECY_GARE)
+        : undefined
+
       await createOrder({
         items: cart.map((item) => ({
           productId: getOriginalProductId(item.product.id),
@@ -961,6 +980,8 @@ function AppContent() {
           firstName: customer.firstName || 'Client',
           lastName: customer.lastName || '',
           phone: customer.phone || '',
+          ...(customer.wantsDelivery && customer.address.trim() && { address: customer.address.trim() }),
+          ...(customer.wantsDelivery && customer.addressCoordinates && { addressCoordinates: customer.addressCoordinates }),
         },
         total: orderTotal,
         status: 'en_attente',
@@ -968,6 +989,9 @@ function AppContent() {
         deliveryMode: customer.wantsDelivery ? 'livraison' : 'retrait',
         requestedDate: customer.date || undefined,
         requestedTime: customer.time || undefined,
+        ...(deliveryFee > 0 && { deliveryFee }),
+        ...(distanceKm != null && { distanceKm }),
+        ...(note.trim() && note.trim() !== 'Pour le … (date, créneau, adresse)' && { clientNote: note.trim() }),
         createdAt: Date.now(),
       })
     } catch (err) {

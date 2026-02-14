@@ -35,6 +35,7 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
   const [phone, setPhone] = useState('')
   const [cart, setCart] = useState<CartEntry[]>([])
   const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>('retrait')
+  const [address, setAddress] = useState('')
   const [requestedDate, setRequestedDate] = useState('')
   const [requestedTime, setRequestedTime] = useState('')
   const [adminNote, setAdminNote] = useState('')
@@ -122,7 +123,12 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
 
       await createOffSiteOrder({
         items,
-        customer: { firstName: firstName.trim(), lastName: lastName.trim(), phone: phone.trim() },
+        customer: {
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          phone: phone.trim(),
+          ...(deliveryMode === 'livraison' && address.trim() && { address: address.trim() }),
+        },
         total,
         status: 'validee',
         source,
@@ -348,6 +354,19 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
               ))}
             </div>
           </div>
+
+          {deliveryMode === 'livraison' && (
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60 mb-2 block">Adresse de livraison</label>
+              <input
+                type="text"
+                placeholder="Adresse complète..."
+                value={address}
+                onChange={e => setAddress(e.target.value)}
+                className="w-full rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm text-mayssa-brown border border-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
+              />
+            </div>
+          )}
 
           {/* Date / Heure */}
           <div>

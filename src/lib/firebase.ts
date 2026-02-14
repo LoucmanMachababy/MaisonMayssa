@@ -148,10 +148,18 @@ export type OrderStatus = 'en_attente' | 'validee' | 'refusee'
 export type OrderSource = 'site' | 'whatsapp' | 'instagram' | 'snap'
 export type DeliveryMode = 'livraison' | 'retrait'
 
+export type OrderCustomer = {
+  firstName: string
+  lastName: string
+  phone: string
+  address?: string
+  addressCoordinates?: { lat: number; lng: number } | null
+}
+
 export type Order = {
   id?: string
   items: OrderItem[]
-  customer: { firstName: string; lastName: string; phone: string }
+  customer: OrderCustomer
   total: number
   status: OrderStatus
   createdAt: number
@@ -160,6 +168,12 @@ export type Order = {
   requestedDate?: string
   requestedTime?: string
   adminNote?: string
+  /** Note saisie par le client (ex. créneau, consignes) */
+  clientNote?: string
+  /** Frais de livraison en € */
+  deliveryFee?: number
+  /** Distance en km depuis Annecy (livraison) */
+  distanceKm?: number
 }
 
 const ordersRef = ref(db, 'orders')
@@ -180,7 +194,7 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus) {
   await update(ref(db, `orders/${orderId}`), { status })
 }
 
-export type OrderUpdate = Partial<Pick<Order, 'customer' | 'items' | 'total' | 'status' | 'deliveryMode' | 'requestedDate' | 'requestedTime' | 'adminNote' | 'source'>>
+export type OrderUpdate = Partial<Pick<Order, 'customer' | 'items' | 'total' | 'status' | 'deliveryMode' | 'requestedDate' | 'requestedTime' | 'adminNote' | 'clientNote' | 'deliveryFee' | 'distanceKm' | 'source'>>
 
 export async function updateOrder(orderId: string, updates: OrderUpdate) {
   const clean = stripUndefined(updates as Record<string, unknown>)

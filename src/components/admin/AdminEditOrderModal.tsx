@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { X, Minus, Plus, Trash2, Truck, MapPin } from 'lucide-react'
-import { updateOrder, getStock, updateStock, type Order, type OrderItem, type DeliveryMode, type StockMap } from '../../lib/firebase'
+import { updateOrder, updateStock, type Order, type OrderItem, type DeliveryMode, type StockMap } from '../../lib/firebase'
 
 interface AdminEditOrderModalProps {
   orderId: string
@@ -15,8 +15,10 @@ export function AdminEditOrderModal({ orderId, order, stock, onClose, onSaved }:
   const [lastName, setLastName] = useState(order.customer?.lastName ?? '')
   const [phone, setPhone] = useState(order.customer?.phone ?? '')
   const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>(order.deliveryMode ?? 'retrait')
+  const [address, setAddress] = useState(order.customer?.address ?? '')
   const [requestedDate, setRequestedDate] = useState(order.requestedDate ?? '')
   const [requestedTime, setRequestedTime] = useState(order.requestedTime ?? '')
+  const [clientNote, setClientNote] = useState(order.clientNote ?? '')
   const [adminNote, setAdminNote] = useState(order.adminNote ?? '')
   const [items, setItems] = useState<OrderItem[]>(() =>
     (order.items ?? []).map((i) => ({ ...i }))
@@ -68,25 +70,30 @@ export function AdminEditOrderModal({ orderId, order, stock, onClose, onSaved }:
       }
 
       const allProductIds = new Set([...Object.keys(oldByProduct), ...Object.keys(newByProduct)])
-      const currentStock = await getStock()
 
       for (const productId of allProductIds) {
-        if (!(productId in currentStock)) continue
+        if (!(productId in stock)) continue
         const oldQty = oldByProduct[productId] ?? 0
         const newQty = newByProduct[productId] ?? 0
         const diff = oldQty - newQty
         if (diff === 0) continue
-        const qty = Math.max(0, (currentStock[productId] ?? 0) + diff)
+        const qty = Math.max(0, (stock[productId] ?? 0) + diff)
         await updateStock(productId, qty)
       }
 
       await updateOrder(orderId, {
-        customer: { firstName: firstName.trim(), lastName: lastName.trim(), phone: phone.trim() },
+        customer: {
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          phone: phone.trim(),
+          ...(deliveryMode === 'livraison' && address.trim() && { address: address.trim() }),
+        },
         items,
         total,
         deliveryMode,
         requestedDate: requestedDate || undefined,
         requestedTime: requestedTime || undefined,
+        clientNote: clientNote.trim() || undefined,
         adminNote: adminNote.trim() || undefined,
       })
 
@@ -161,6 +168,19 @@ export function AdminEditOrderModal({ orderId, order, stock, onClose, onSaved }:
             </div>
           </div>
 
+          {deliveryMode === 'livraison' && (
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60 mb-2 block">Adresse de livraison</label>
+              <input
+                type="text"
+                placeholder="Adresse complète..."
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                className="w-full rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm text-mayssa-brown border border-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
+              />
+            </div>
+          )}
+
           {/* Date / Heure */}
           <div>
             <label className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60 mb-2 block">Date / Heure</label>
@@ -228,9 +248,21 @@ export function AdminEditOrderModal({ orderId, order, stock, onClose, onSaved }:
             </p>
           </div>
 
+          {/* Note client */}
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60 mb-2 block">Note client (consignes, créneau...)</label>
+            <textarea
+              value={clientNote}
+              onChange={(e) => setClientNote(e.target.value)}
+              placeholder="Note du client..."
+              rows={2}
+              className="w-full rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm text-mayssa-brown border border-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel resize-none"
+            />
+          </div>
+
           {/* Note admin */}
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60 mb-2 block">Note (optionnel)</label>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60 mb-2 block">Note admin (interne)</label>
             <textarea
               value={adminNote}
               onChange={(e) => setAdminNote(e.target.value)}
