@@ -55,8 +55,11 @@ const TiramisuCustomizationModal = lazy(() => import('./components/TiramisuCusto
 const BoxCustomizationModal = lazy(() => import('./components/BoxCustomizationModal').then(m => ({ default: m.BoxCustomizationModal })))
 const BoxFlavorsModal = lazy(() => import('./components/BoxFlavorsModal').then(m => ({ default: m.BoxFlavorsModal })))
 import { TrompeLOeilModal } from './components/TrompeLOeilModal'
+import { OrderConfirmation } from './components/OrderConfirmation'
+import { OrderStatusPage } from './components/OrderStatusPage'
+import { DeliveryZoneMap } from './components/DeliveryZoneMap'
 import { REWARD_COSTS, REWARD_LABELS } from './lib/rewards'
-import { PHONE_E164, FIRST_PICKUP_DATE_CLASSIC, FIRST_PICKUP_DATE_CLASSIC_LABEL } from './constants'
+import { FIRST_PICKUP_DATE_CLASSIC, FIRST_PICKUP_DATE_CLASSIC_LABEL } from './constants'
 import { useProducts } from './hooks/useProducts'
 import type {
   Product,
@@ -89,13 +92,31 @@ import {
 
 function AppRouter() {
   const [isAdmin, setIsAdmin] = useState(window.location.hash === '#admin')
+  const [orderStatusId, setOrderStatusId] = useState<string | null>(null)
+
   useEffect(() => {
-    const handler = () => setIsAdmin(window.location.hash === '#admin')
+    const handler = () => {
+      const hash = window.location.hash
+      setIsAdmin(hash === '#admin')
+      const match = hash.match(/^#\/commande\/([a-zA-Z0-9_-]+)$/)
+      setOrderStatusId(match ? match[1] : null)
+    }
+    handler()
     window.addEventListener('hashchange', handler)
     return () => window.removeEventListener('hashchange', handler)
   }, [])
 
   if (isAdmin) return <Suspense fallback={<div className="flex items-center justify-center min-h-screen text-mayssa-brown">Chargement admin...</div>}><AdminPanel /></Suspense>
+  if (orderStatusId) {
+    return (
+      <div className="min-h-screen bg-mayssa-soft">
+        <OrderStatusPage
+          orderId={orderStatusId}
+          onBack={() => { window.location.hash = '' }}
+        />
+      </div>
+    )
+  }
   return <App />
 }
 
@@ -567,6 +588,9 @@ function AppContent() {
       return
     }
 
+    import('./lib/analytics').then(({ AnalyticsEvents }) => {
+      AnalyticsEvents.add_to_cart(product.id, product.name, product.price, 1)
+    }).catch(() => {})
     setCart((current) => {
       const existing = current.find((item) => item.product.id === product.id)
       if (existing) {
@@ -958,9 +982,20 @@ function AppContent() {
 
   const [instagramParts, setInstagramParts] = useState<string[]>([])
   const [isSnapModalOpen, setIsSnapModalOpen] = useState(false)
+  const [orderConfirmation, setOrderConfirmation] = useState<{
+    orderId: string
+    total: number
+    deliveryFee?: number
+    customer: { firstName: string; lastName: string; phone: string }
+    items: { name: string; quantity: number; price: number }[]
+    deliveryMode?: 'livraison' | 'retrait'
+    requestedDate?: string
+    requestedTime?: string
+    whatsappMessage: string
+  } | null>(null)
 
-  const saveOrderToFirebase = async (source: 'whatsapp' | 'instagram' | 'snap') => {
-    if (cart.length === 0) return
+  const saveOrderToFirebase = async (source: 'whatsapp' | 'instagram' | 'snap'): Promise<string | null> => {
+    if (cart.length === 0) return null
     const orderTotal = total + (computeDeliveryFee(customer, total) || 0)
     try {
       const { createOrder } = await import('./lib/firebase')
@@ -969,7 +1004,7 @@ function AppContent() {
         ? calculateDistance(customer.addressCoordinates, ANNECY_GARE)
         : undefined
 
-      await createOrder({
+      const orderId = await createOrder({
         items: cart.map((item) => ({
           productId: getOriginalProductId(item.product.id),
           name: item.product.name,
@@ -994,8 +1029,10 @@ function AppContent() {
         ...(note.trim() && note.trim() !== 'Pour le … (date, créneau, adresse)' && { clientNote: note.trim() }),
         createdAt: Date.now(),
       })
+      return orderId
     } catch (err) {
       console.error('[Firebase] Erreur sauvegarde commande:', err)
+      return null
     }
   }
 
@@ -1006,15 +1043,43 @@ function AppContent() {
       return
     }
 
-    // Envoi uniquement par WhatsApp — ouvre l'app avec le message prérempli
     const message = buildOrderMessage()
     if (!message) return
-    const encoded = encodeURIComponent(message)
-    window.open(`https://wa.me/${PHONE_E164}?text=${encoded}`, '_blank')
-    showToast('WhatsApp s\'ouvre avec votre commande — envoyez le message !', 'success')
 
-    // --- Enregistrer la commande complète dans Firebase pour l'admin ---
-    await saveOrderToFirebase('whatsapp')
+    // --- Enregistrer la commande dans Firebase d'abord (pour obtenir l'ID) ---
+    const orderId = await saveOrderToFirebase('whatsapp')
+    if (!orderId) {
+      showToast('Erreur lors de l\'enregistrement de la commande.', 'error')
+      return
+    }
+
+    // --- Analytics ---
+    try {
+      const { AnalyticsEvents } = await import('./lib/analytics')
+      AnalyticsEvents.send_to_whatsapp(orderId, total + (computeDeliveryFee(customer, total) ?? 0))
+    } catch { /* ignore */ }
+
+    // --- Afficher l'écran de confirmation (WhatsApp + PayPal + lien statut) ---
+    const deliveryFeeVal = computeDeliveryFee(customer, total) ?? 0
+    setOrderConfirmation({
+      orderId,
+      total,
+      deliveryFee: deliveryFeeVal > 0 ? deliveryFeeVal : undefined,
+      customer: {
+        firstName: customer.firstName || 'Client',
+        lastName: customer.lastName || '',
+        phone: customer.phone || '',
+      },
+      items: cart.map((i) => ({
+        name: i.product.name,
+        quantity: i.quantity,
+        price: i.product.price,
+      })),
+      deliveryMode: customer.wantsDelivery ? 'livraison' : 'retrait',
+      requestedDate: customer.date || undefined,
+      requestedTime: customer.time || undefined,
+      whatsappMessage: message,
+    })
 
     // --- Confirmer les réservations trompe l'oeil (le stock reste décrémenté) ---
     const trompeLOeilItems = cart.filter(
@@ -1076,14 +1141,8 @@ function AppContent() {
     // Vider le panier après envoi (évite qu'un autre compte voie l'ancienne commande)
     setCart([])
 
-    // Message dédié pour les invités (non connectés)
-    if (!isAuthenticated) {
-      showToast(
-        'Merci pour votre commande, nous vous confirmerons si celle-ci a été validée en privé.',
-        'success',
-        8000
-      )
-    }
+    // Vider le panier (la confirmation est déjà affichée)
+    setCart([])
   }
 
   const handleSendInstagram = async () => {
@@ -1472,8 +1531,8 @@ function AppContent() {
                 <li>• Service de 18h30 à 2h du matin</li>
                 <li>• Livraison Annecy & alentours</li>
                 <li>• Livraison offerte dès {FREE_DELIVERY_THRESHOLD}&nbsp;€ d&apos;achat</li>
-                <li>• Précommande uniquement, pas de paiement en ligne</li>
-                <li>• Règlement à la livraison ou au retrait</li>
+                <li>• Précommande uniquement — paiement par PayPal (optionnel) ou sur place</li>
+                <li>• Règlement à la livraison, au retrait ou par PayPal</li>
               </ul>
               <p className="mt-2 sm:mt-3 text-[10px] sm:text-xs text-mayssa-brown/60">
                 Pour toute question sur la zone de livraison ou un besoin particulier (grosse
@@ -1481,6 +1540,9 @@ function AppContent() {
                 directement via WhatsApp (commande et contact par WhatsApp uniquement).
               </p>
             </div>
+          </div>
+          <div className="mt-6">
+            <DeliveryZoneMap />
           </div>
         </motion.section>
 
@@ -1620,6 +1682,15 @@ function AppContent() {
         isOpen={isSnapModalOpen}
         onClose={() => setIsSnapModalOpen(false)}
       />
+
+      {/* Écran confirmation commande (numéro, récap, PayPal, lien statut) */}
+      {orderConfirmation && (
+        <OrderConfirmation
+          data={orderConfirmation}
+          whatsappMessage={orderConfirmation.whatsappMessage}
+          onClose={() => setOrderConfirmation(null)}
+        />
+      )}
 
       {/* PWA install prompt */}
       <PWAInstallPrompt />

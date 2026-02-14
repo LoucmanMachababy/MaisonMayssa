@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { LogOut, Package, Plus, Minus, Calendar, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp, Pencil, Search, Download, Bell, MessageSquare, Filter, XCircle } from 'lucide-react'
+import type { OrderStatus } from '../../lib/firebase'
 import {
   adminLogin, adminLogout, onAuthChange,
   listenStock, updateStock, listenSettings, updateSettings,
@@ -20,6 +21,15 @@ import { AdminOffSiteOrderForm } from './AdminOffSiteOrderForm'
 import { AdminEditOrderModal } from './AdminEditOrderModal'
 
 const DAY_LABELS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
+
+const ORDER_STATUS_LABELS: Record<string, string> = {
+  en_attente: 'En attente',
+  en_preparation: 'En préparation',
+  pret: 'Prête',
+  livree: 'Livrée',
+  validee: 'Validée',
+  refusee: 'Refusée',
+}
 
 // Son de notification pour nouvelle commande (Web Audio API)
 function playNewOrderSound() {
@@ -52,7 +62,7 @@ function exportOrdersToCSV(entries: [string, Order][]): void {
     const client = [o.customer?.firstName, o.customer?.lastName].filter(Boolean).join(' ')
     const phone = o.customer?.phone ?? ''
     const source = o.source === 'snap' ? 'Snap' : o.source === 'instagram' ? 'Insta' : o.source === 'whatsapp' ? 'WhatsApp' : 'Site'
-    const status = o.status === 'en_attente' ? 'En attente' : o.status === 'validee' ? 'Validée' : 'Refusée'
+    const status = o.status === 'en_attente' ? 'En attente' : o.status === 'en_preparation' ? 'En préparation' : o.status === 'pret' ? 'Prête' : o.status === 'livree' ? 'Livrée' : o.status === 'validee' ? 'Validée' : 'Refusée'
     const mode = o.deliveryMode === 'livraison' ? 'Livraison' : 'Retrait'
     const adresse = (o.customer?.address ?? '').replace(/"/g, '""')
     const distanceKm = o.distanceKm != null ? o.distanceKm.toFixed(1) : ''
@@ -211,7 +221,7 @@ function Dashboard({ user }: { user: User }) {
   const [showOffSiteForm, setShowOffSiteForm] = useState(false)
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null)
   const [sourceFilter, setSourceFilter] = useState<OrderSource | 'all'>('all')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'en_attente' | 'validee' | 'refusee'>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'en_attente' | 'en_preparation' | 'pret' | 'livree' | 'validee' | 'refusee'>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -902,6 +912,9 @@ function Dashboard({ user }: { user: User }) {
                 >
                   <option value="all">Tous statuts</option>
                   <option value="en_attente">En attente</option>
+                  <option value="en_preparation">En préparation</option>
+                  <option value="pret">Prête</option>
+                  <option value="livree">Livrée</option>
                   <option value="validee">Validées</option>
                   <option value="refusee">Refusées</option>
                 </select>
@@ -1009,11 +1022,17 @@ function Dashboard({ user }: { user: User }) {
                           <span className={`inline-block px-2 py-1 rounded-lg text-[10px] font-bold ${
                             order.status === 'en_attente'
                               ? 'bg-amber-50 text-amber-700'
-                              : order.status === 'validee'
-                                ? 'bg-emerald-50 text-emerald-700'
-                                : 'bg-red-50 text-red-600'
+                              : order.status === 'en_preparation'
+                                ? 'bg-blue-50 text-blue-700'
+                                : order.status === 'pret'
+                                  ? 'bg-emerald-50 text-emerald-700'
+                                  : order.status === 'livree' || order.status === 'validee'
+                                    ? 'bg-emerald-50 text-emerald-700'
+                                    : order.status === 'refusee'
+                                      ? 'bg-red-50 text-red-600'
+                                      : 'bg-slate-50 text-slate-600'
                           }`}>
-                            {order.status === 'en_attente' ? 'En attente' : order.status === 'validee' ? 'Validée' : 'Refusée'}
+                            {ORDER_STATUS_LABELS[order.status] ?? order.status}
                           </span>
                           <p className="text-[9px] text-mayssa-brown/40 mt-1">
                             {order.createdAt ? new Date(order.createdAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
@@ -1075,8 +1094,20 @@ function Dashboard({ user }: { user: User }) {
                         </div>
                       </div>
 
-                      {/* Actions Modifier / Annuler / Supprimer */}
-                      <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-mayssa-brown/10">
+                      {/* Statut + Actions */}
+                      <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-mayssa-brown/10">
+                        <select
+                          value={order.status}
+                          onChange={(e) => updateOrderStatus(id, e.target.value as OrderStatus)}
+                          className="rounded-lg border border-mayssa-brown/10 px-2 py-1.5 text-[10px] font-bold text-mayssa-brown bg-white cursor-pointer"
+                        >
+                          <option value="en_attente">En attente</option>
+                          <option value="en_preparation">En préparation</option>
+                          <option value="pret">Prête</option>
+                          <option value="livree">Livrée</option>
+                          <option value="validee">Validée</option>
+                          <option value="refusee">Refusée</option>
+                        </select>
                         <button
                           onClick={() => setEditingOrderId(id)}
                           className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-mayssa-brown/10 text-mayssa-brown text-xs font-bold hover:bg-mayssa-brown/20 transition-colors cursor-pointer"

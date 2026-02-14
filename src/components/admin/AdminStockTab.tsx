@@ -68,10 +68,15 @@ export function AdminStockTab({ allProducts, stock }: AdminStockTabProps) {
 
   const handleResetCategory = async (cat: string, qty: number) => {
     const products = productsByCategory[cat] ?? []
-    for (const p of products) {
-      if (p.id in stock) {
-        await updateStock(p.id, qty)
-      }
+    const toReset = products.filter(p => p.id in stock)
+    if (toReset.length === 0) return
+
+    const label = qty === 0 ? '0 (rupture)' : String(qty)
+    const msg = `Mettre le stock de tous les ${cat} à ${label} ?\n\n${toReset.length} produit(s) concerné(s).`
+    if (!window.confirm(msg)) return
+
+    for (const p of toReset) {
+      await updateStock(p.id, qty)
     }
   }
 

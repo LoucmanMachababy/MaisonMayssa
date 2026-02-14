@@ -2,6 +2,9 @@ import type { Product } from './types'
 
 export const PHONE_E164 = '33619871005'
 
+/** PayPal.Me : paiement optionnel après commande */
+export const PAYPAL_ME_USER = 'RoumayssaGhazi'
+
 /** Précommande trompe l'oeil : à récupérer sous 3 j après préco. Dispo gérée par Firebase (jours + stock). */
 const TROMPE_LOEIL_PREORDER = { availableFrom: '2026-02-13', daysToPickup: 3 }
 

@@ -13,10 +13,12 @@ npm run dev
 ```
 
 Variables d'environnement : copier `.env.example` vers `.env` et renseigner les clés Firebase (`VITE_FIREBASE_*`).
+Optionnelles : `VITE_SENTRY_DSN` (monitoring erreurs Sentry).
 
 - **Build** : `npm run build`
 - **Preview build** : `npm run preview`
 - **Tests** : `npm run test` (watch) / `npm run test:run` (une fois) / `npm run test:coverage`
+- **Tests E2E** : `npm run test:e2e` (Playwright, parcours commande)
 - **Lint** : `npm run lint`
 
 ---

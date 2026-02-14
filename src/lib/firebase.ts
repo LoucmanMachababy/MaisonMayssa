@@ -144,7 +144,7 @@ export type OrderItem = {
   sizeLabel?: string
 }
 
-export type OrderStatus = 'en_attente' | 'validee' | 'refusee'
+export type OrderStatus = 'en_attente' | 'en_preparation' | 'pret' | 'livree' | 'validee' | 'refusee'
 export type OrderSource = 'site' | 'whatsapp' | 'instagram' | 'snap'
 export type DeliveryMode = 'livraison' | 'retrait'
 
@@ -184,10 +184,18 @@ export function listenOrders(callback: (orders: Record<string, Order>) => void) 
   })
 }
 
-export async function createOrder(order: Omit<Order, 'id'>) {
+export async function createOrder(order: Omit<Order, 'id'>): Promise<string | null> {
   const newRef = push(ordersRef)
   await set(newRef, order)
   return newRef.key
+}
+
+/** Lecture d'une commande par ID (publique pour page statut) */
+export async function getOrder(orderId: string): Promise<Order | null> {
+  const snapshot = await get(ref(db, `orders/${orderId}`))
+  const val = snapshot.val()
+  if (!val) return null
+  return { ...val, id: orderId } as Order
 }
 
 export async function updateOrderStatus(orderId: string, status: OrderStatus) {
@@ -575,4 +583,4 @@ export function listenAllUsers(callback: (users: Record<string, UserProfile>) =>
   })
 }
 
-export { db, auth }
+export { db, auth, app }

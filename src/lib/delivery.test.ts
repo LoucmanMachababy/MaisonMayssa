@@ -84,6 +84,11 @@ describe('computeDeliveryFee', () => {
   it('retourne les frais si total < seuil', () => {
     expect(computeDeliveryFee({ wantsDelivery: true, addressCoordinates: inZone } as CustomerInfo, 20)).toBe(DELIVERY_FEE)
   })
+
+  it('retourne null si hors zone (distance > rayon)', () => {
+    const farAway = { lat: 46.0, lng: 6.5 }
+    expect(computeDeliveryFee({ wantsDelivery: true, addressCoordinates: farAway } as CustomerInfo, 20)).toBe(null)
+  })
 })
 
 describe('generateTimeSlots', () => {
