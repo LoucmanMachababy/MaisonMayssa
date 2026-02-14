@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { LogOut, Package, Plus, Calendar, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin } from 'lucide-react'
+import { LogOut, Package, Plus, Calendar, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone } from 'lucide-react'
 import {
   adminLogin, adminLogout, onAuthChange,
   listenStock, updateStock, listenSettings, updateSettings,
@@ -146,7 +146,7 @@ function Dashboard({ user }: { user: User }) {
   const [stock, setStock] = useState<StockMap>({})
   const [settings, setSettings] = useState<Settings>({ preorderDays: [3, 6], preorderMessage: '' })
   const [orders, setOrders] = useState<Record<string, Order>>({})
-  const [tab, setTab] = useState<'commandes' | 'stock' | 'jours' | 'anniversaires' | 'produits'>('commandes')
+  const [tab, setTab] = useState<'commandes' | 'stock' | 'jours' | 'anniversaires' | 'inscrits' | 'produits'>('commandes')
   const [allUsers, setAllUsers] = useState<Record<string, UserProfile>>({})
   const [productOverrides, setProductOverrides] = useState<ProductOverrideMap>({})
   const { allProducts } = useProducts()
@@ -276,6 +276,7 @@ function Dashboard({ user }: { user: User }) {
             { id: 'stock', icon: Package, label: 'Stock' },
             { id: 'jours', icon: Calendar, label: 'Jours' },
             { id: 'anniversaires', icon: Cake, label: 'Anniv.', badge: upcomingBirthdays.filter(b => !b.claimed).length },
+            { id: 'inscrits', icon: Users, label: 'Inscrits', badge: Object.keys(allUsers).length },
             { id: 'produits', icon: ShoppingBag, label: 'Produits' },
           ] as const).map((t) => (
             <button
@@ -592,6 +593,49 @@ function Dashboard({ user }: { user: User }) {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {tab === 'inscrits' && (
+          <section className="bg-white rounded-2xl p-5 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-mayssa-brown text-sm flex items-center gap-2">
+                <Users size={18} />
+                Clients inscrits
+              </h3>
+              <span className="text-[10px] text-mayssa-brown/50">{Object.keys(allUsers).length} inscrit{Object.keys(allUsers).length !== 1 ? 's' : ''}</span>
+            </div>
+
+            {Object.keys(allUsers).length === 0 ? (
+              <p className="text-sm text-mayssa-brown/50 text-center py-6">
+                Aucun client inscrit pour le moment
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {Object.entries(allUsers)
+                  .sort(([, a], [, b]) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
+                  .map(([uid, u]) => (
+                    <div
+                      key={uid}
+                      className="flex items-center justify-between p-3 rounded-xl border border-mayssa-brown/10 bg-white hover:bg-mayssa-soft/30 transition-colors"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-sm text-mayssa-brown">
+                          {u.firstName} {u.lastName}
+                        </p>
+                        <p className="text-xs text-mayssa-brown/70 mt-0.5 flex items-center gap-1.5">
+                          <Phone size={12} className="flex-shrink-0" />
+                          {u.phone || <span className="text-mayssa-brown/40 italic">Pas de téléphone</span>}
+                        </p>
+                        <p className="text-[10px] text-mayssa-brown/50 truncate mt-0.5">{u.email}</p>
+                      </div>
+                      <div className="text-[10px] text-mayssa-brown/40 flex-shrink-0 ml-3">
+                        {u.createdAt ? new Date(u.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                      </div>
+                    </div>
+                  ))}
               </div>
             )}
           </section>
