@@ -925,6 +925,36 @@ function AppContent() {
   const [instagramParts, setInstagramParts] = useState<string[]>([])
   const [isSnapModalOpen, setIsSnapModalOpen] = useState(false)
 
+  const saveOrderToFirebase = async (source: 'whatsapp' | 'instagram' | 'snap') => {
+    if (cart.length === 0) return
+    const orderTotal = total + (computeDeliveryFee(customer, total) || 0)
+    try {
+      const { createOrder } = await import('./lib/firebase')
+      await createOrder({
+        items: cart.map((item) => ({
+          productId: getOriginalProductId(item.product.id),
+          name: item.product.name,
+          quantity: item.quantity,
+          price: item.product.price,
+        })),
+        customer: {
+          firstName: customer.firstName || 'Client',
+          lastName: customer.lastName || '',
+          phone: customer.phone || '',
+        },
+        total: orderTotal,
+        status: 'en_attente',
+        source,
+        deliveryMode: customer.wantsDelivery ? 'livraison' : 'retrait',
+        requestedDate: customer.date || undefined,
+        requestedTime: customer.time || undefined,
+        createdAt: Date.now(),
+      })
+    } catch {
+      /* ignore — la commande est envoyée côté client */
+    }
+  }
+
   const handleSend = async () => {
     const hasNonTrompeLoeil = cart.some((item) => item.product.category !== "Trompe l'oeil")
     if (hasNonTrompeLoeil && !isBeforeOrderCutoff()) {
@@ -939,6 +969,9 @@ function AppContent() {
     window.open(`https://wa.me/${PHONE_E164}?text=${encoded}`, '_blank')
     showToast('WhatsApp s\'ouvre avec votre commande — envoyez le message !', 'success')
 
+    // --- Enregistrer la commande complète dans Firebase pour l'admin ---
+    await saveOrderToFirebase('whatsapp')
+
     // --- Confirmer les réservations trompe l'oeil (le stock reste décrémenté) ---
     const trompeLOeilItems = cart.filter(
       (item) =>
@@ -946,9 +979,7 @@ function AppContent() {
         item.reservationExpiresAt &&
         !item.reservationConfirmed,
     )
-
     if (trompeLOeilItems.length > 0) {
-      // Marquer les réservations comme confirmées (le timer ne les touchera plus)
       setCart((current) =>
         current.map((item) =>
           item.reservationExpiresAt && !item.reservationConfirmed && item.product.category === "Trompe l'oeil"
@@ -956,32 +987,6 @@ function AppContent() {
             : item,
         ),
       )
-
-      // Créer la précommande dans Firebase pour l'admin
-      try {
-        const { createOrder } = await import('./lib/firebase')
-        await createOrder({
-          items: trompeLOeilItems.map((item) => ({
-            productId: getOriginalProductId(item.product.id),
-            name: item.product.name,
-            quantity: item.quantity,
-            price: item.product.price,
-          })),
-          customer: {
-            firstName: customer.firstName || 'Client',
-            lastName: customer.lastName || '',
-            phone: customer.phone || '',
-          },
-          total: trompeLOeilItems.reduce(
-            (sum, item) => sum + item.product.price * item.quantity,
-            0,
-          ),
-          status: 'en_attente',
-          createdAt: Date.now(),
-        })
-      } catch {
-        // Silently fail — commande quand même dans le panier
-      }
     }
 
     // --- Réclamation de la récompense sélectionnée ---
@@ -1047,6 +1052,8 @@ function AppContent() {
     const message = buildOrderMessage()
     if (!message) return
 
+    await saveOrderToFirebase('instagram')
+
     // Instagram DM a une limite de ~1000 caractères par message
     const INSTAGRAM_LIMIT = 1000
     const parts: string[] = []
@@ -1083,6 +1090,8 @@ function AppContent() {
 
     const message = buildOrderMessage()
     if (!message) return
+
+    await saveOrderToFirebase('snap')
 
     // Copier le message dans le presse-papier
     try {

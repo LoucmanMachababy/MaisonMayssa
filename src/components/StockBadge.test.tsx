@@ -15,8 +15,8 @@ describe('StockBadge', () => {
     expect(screen.getByText(/Rupture de stock/)).toBeInTheDocument()
   })
 
-  it('affiche Dispo {dayNames} si pas le bon jour', () => {
-    render(<StockBadge stock={5} isPreorderDay={false} dayNames="sam. et mer." />)
+  it('affiche Dispo {dayNames} si pas le bon jour (produit précommande)', () => {
+    render(<StockBadge stock={5} isPreorderDay={false} dayNames="sam. et mer." isPreorderProduct />)
     expect(screen.getByText(/Dispo sam\. et mer\./)).toBeInTheDocument()
   })
 

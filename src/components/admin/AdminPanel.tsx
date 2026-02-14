@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from 'react'
-import { LogOut, Package, Plus, Calendar, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone } from 'lucide-react'
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { LogOut, Package, Plus, Calendar, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp } from 'lucide-react'
 import {
   adminLogin, adminLogout, onAuthChange,
   listenStock, updateStock, listenSettings, updateSettings,
   listenOrders, updateOrderStatus, deleteOrder,
-  listenAllUsers, claimBirthdayGift, listenProductOverrides,
+  listenAllUsers, claimBirthdayGift, listenProductOverrides, deleteUserProfile,
   isPreorderOpenNow,
   type StockMap, type Settings, type Order, type OrderSource, type UserProfile, type PreorderOpening
 } from '../../lib/firebase'
@@ -146,7 +147,8 @@ function Dashboard({ user }: { user: User }) {
   const [stock, setStock] = useState<StockMap>({})
   const [settings, setSettings] = useState<Settings>({ preorderDays: [3, 6], preorderMessage: '' })
   const [orders, setOrders] = useState<Record<string, Order>>({})
-  const [tab, setTab] = useState<'commandes' | 'stock' | 'jours' | 'anniversaires' | 'inscrits' | 'produits'>('commandes')
+  const [tab, setTab] = useState<'commandes' | 'historique' | 'ca' | 'stock' | 'jours' | 'anniversaires' | 'inscrits' | 'produits'>('commandes')
+  const [caPeriod, setCaPeriod] = useState<'jour' | 'semaine' | 'mois'>('semaine')
   const [allUsers, setAllUsers] = useState<Record<string, UserProfile>>({})
   const [productOverrides, setProductOverrides] = useState<ProductOverrideMap>({})
   const { allProducts } = useProducts()
@@ -219,10 +221,12 @@ function Dashboard({ user }: { user: User }) {
 
   const handleRefuseOrder = async (orderId: string, order: Order) => {
     await updateOrderStatus(orderId, 'refusee')
-    // Remettre le stock car la commande est refusée
+    // Remettre le stock uniquement pour les produits suivis (trompe l'oeil)
     for (const item of order.items) {
-      const currentQty = stock[item.productId] ?? 0
-      await updateStock(item.productId, currentQty + item.quantity)
+      if (item.productId in stock) {
+        const currentQty = stock[item.productId] ?? 0
+        await updateStock(item.productId, currentQty + item.quantity)
+      }
     }
   }
 
@@ -238,16 +242,102 @@ function Dashboard({ user }: { user: User }) {
   const today = new Date().getDay()
   const isPreorderDay = isPreorderOpenNow(openings)
 
-  // Trier les commandes : en_attente d'abord, puis par date décroissante
+  // Commandes à valider (toutes en_attente, toutes sources)
+  const ordersToValidate = Object.entries(orders).filter(
+    ([, o]) => o.status === 'en_attente' && (sourceFilter === 'all' || (o.source ?? 'site') === sourceFilter)
+  )
+  const pendingCount = ordersToValidate.length
+
+  // Toutes les commandes triées (pour historique)
   const sortedOrders = Object.entries(orders)
     .filter(([, o]) => sourceFilter === 'all' || (o.source ?? 'site') === sourceFilter)
-    .sort(([, a], [, b]) => {
-      if (a.status === 'en_attente' && b.status !== 'en_attente') return -1
-      if (a.status !== 'en_attente' && b.status === 'en_attente') return 1
-      return (b.createdAt || 0) - (a.createdAt || 0)
-    })
+    .sort(([, a], [, b]) => (b.createdAt || 0) - (a.createdAt || 0))
 
-  const pendingCount = Object.values(orders).filter(o => o.status === 'en_attente').length
+  // Stats CA (commandes validées uniquement)
+  const validatedOrders = Object.values(orders).filter((o) => o.status === 'validee')
+  const caTotal = validatedOrders.reduce((s, o) => s + (o.total ?? 0), 0)
+  const now = new Date()
+  const startOfWeek = new Date(now)
+  startOfWeek.setDate(now.getDate() - now.getDay())
+  startOfWeek.setHours(0, 0, 0, 0)
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
+  const caSemaine = validatedOrders
+    .filter((o) => o.createdAt && o.createdAt >= startOfWeek.getTime())
+    .reduce((s, o) => s + (o.total ?? 0), 0)
+  const caMois = validatedOrders
+    .filter((o) => o.createdAt && o.createdAt >= startOfMonth)
+    .reduce((s, o) => s + (o.total ?? 0), 0)
+
+  // Données graphiques CA (courbe)
+  const caChartData = useMemo(() => {
+    const data: { label: string; ca: number; date: number }[] = []
+    const now = new Date()
+    if (caPeriod === 'jour') {
+      for (let i = 13; i >= 0; i--) {
+        const d = new Date(now)
+        d.setDate(d.getDate() - i)
+        d.setHours(0, 0, 0, 0)
+        const end = new Date(d)
+        end.setHours(23, 59, 59, 999)
+        const total = validatedOrders
+          .filter((o) => o.createdAt && o.createdAt >= d.getTime() && o.createdAt <= end.getTime())
+          .reduce((s, o) => s + (o.total ?? 0), 0)
+        data.push({
+          label: d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }),
+          ca: total,
+          date: d.getTime(),
+        })
+      }
+    } else if (caPeriod === 'semaine') {
+      for (let i = 7; i >= 0; i--) {
+        const d = new Date(now)
+        d.setDate(d.getDate() - i * 7)
+        d.setDate(d.getDate() - d.getDay())
+        d.setHours(0, 0, 0, 0)
+        const end = new Date(d)
+        end.setDate(end.getDate() + 6)
+        end.setHours(23, 59, 59, 999)
+        const total = validatedOrders
+          .filter((o) => o.createdAt && o.createdAt >= d.getTime() && o.createdAt <= end.getTime())
+          .reduce((s, o) => s + (o.total ?? 0), 0)
+        data.push({
+          label: d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
+          ca: total,
+          date: d.getTime(),
+        })
+      }
+    } else {
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+        const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999)
+        const total = validatedOrders
+          .filter((o) => o.createdAt && o.createdAt >= d.getTime() && o.createdAt <= end.getTime())
+          .reduce((s, o) => s + (o.total ?? 0), 0)
+        data.push({
+          label: d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }),
+          ca: total,
+          date: d.getTime(),
+        })
+      }
+    }
+    return data
+  }, [validatedOrders, caPeriod])
+
+  // Produits les plus vendus (commandes validées)
+  const topProducts = useMemo(() => {
+    const counts: Record<string, { name: string; qty: number; ca: number }> = {}
+    for (const order of validatedOrders) {
+      for (const item of order.items ?? []) {
+        const key = item.name || item.productId || 'Inconnu'
+        if (!counts[key]) counts[key] = { name: key.length > 25 ? key.slice(0, 22) + '…' : key, qty: 0, ca: 0 }
+        counts[key].qty += item.quantity
+        counts[key].ca += item.price * item.quantity
+      }
+    }
+    return Object.values(counts)
+      .sort((a, b) => b.qty - a.qty)
+      .slice(0, 10)
+  }, [validatedOrders])
 
   return (
     <div className="min-h-screen bg-mayssa-soft">
@@ -272,7 +362,9 @@ function Dashboard({ user }: { user: User }) {
       <div className="max-w-2xl mx-auto px-4 pt-4">
         <div className="flex gap-2 bg-white rounded-2xl p-1.5 shadow-sm">
           {([
-            { id: 'commandes', icon: ClipboardList, label: 'Commandes', badge: pendingCount },
+            { id: 'commandes', icon: ClipboardList, label: 'À valider', badge: pendingCount },
+            { id: 'historique', icon: History, label: 'Historique' },
+            { id: 'ca', icon: TrendingUp, label: 'CA' },
             { id: 'stock', icon: Package, label: 'Stock' },
             { id: 'jours', icon: Calendar, label: 'Jours' },
             { id: 'anniversaires', icon: Cake, label: 'Anniv.', badge: upcomingBirthdays.filter(b => !b.claimed).length },
@@ -315,10 +407,12 @@ function Dashboard({ user }: { user: User }) {
           </p>
         </div>
 
-        {/* ===== COMMANDES ===== */}
+        {/* ===== COMMANDES À VALIDER ===== */}
         {tab === 'commandes' && (
           <section className="space-y-3">
-            {/* Bouton + Filtre */}
+            <p className="text-xs text-mayssa-brown/70">
+              Toutes les commandes (WhatsApp, Insta, Snap) en attente de validation
+            </p>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowOffSiteForm(true)}
@@ -341,13 +435,13 @@ function Dashboard({ user }: { user: User }) {
               </select>
             </div>
 
-            {sortedOrders.length === 0 ? (
+            {ordersToValidate.length === 0 ? (
               <div className="bg-white rounded-2xl p-8 shadow-sm text-center">
                 <ClipboardList size={40} className="mx-auto text-mayssa-brown/20 mb-3" />
-                <p className="text-sm text-mayssa-brown/50">Aucune commande pour le moment</p>
+                <p className="text-sm text-mayssa-brown/50">Aucune commande en attente</p>
               </div>
             ) : (
-              sortedOrders.map(([id, order]) => {
+              ordersToValidate.map(([id, order]) => {
                 const orderSource = order.source ?? 'site'
                 return (
                 <div
@@ -480,6 +574,207 @@ function Dashboard({ user }: { user: User }) {
                 onOrderCreated={() => setShowOffSiteForm(false)}
               />
             )}
+          </section>
+        )}
+
+        {/* ===== HISTORIQUE DES COMMANDES ===== */}
+        {tab === 'historique' && (
+          <section className="bg-white rounded-2xl p-5 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-mayssa-brown text-sm flex items-center gap-2">
+                <History size={18} />
+                Historique des commandes
+              </h3>
+              <select
+                value={sourceFilter}
+                onChange={e => setSourceFilter(e.target.value as OrderSource | 'all')}
+                className="rounded-xl border border-mayssa-brown/10 px-2 py-1.5 text-[10px] font-bold text-mayssa-brown bg-white"
+              >
+                <option value="all">Toutes sources</option>
+                <option value="site">Site</option>
+                <option value="snap">Snap</option>
+                <option value="instagram">Insta</option>
+                <option value="whatsapp">WhatsApp</option>
+              </select>
+            </div>
+
+            {sortedOrders.length === 0 ? (
+              <p className="text-sm text-mayssa-brown/50 text-center py-6">Aucune commande enregistrée</p>
+            ) : (
+              <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+                {sortedOrders.map(([id, order]) => {
+                  const orderSource = order.source ?? 'site'
+                  return (
+                    <div
+                      key={id}
+                      className={`p-3 rounded-xl border text-left ${
+                        order.status === 'validee'
+                          ? 'border-emerald-200 bg-emerald-50/50'
+                          : order.status === 'refusee'
+                            ? 'border-red-200 bg-red-50/30'
+                            : 'border-amber-200 bg-amber-50/50'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-bold text-sm text-mayssa-brown">
+                            {order.customer?.firstName} {order.customer?.lastName}
+                          </p>
+                          <p className="text-[10px] text-mayssa-brown/50">{order.customer?.phone}</p>
+                          <span className={`inline-block mt-1 px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                            orderSource === 'snap' ? 'bg-yellow-100 text-yellow-800' :
+                            orderSource === 'instagram' ? 'bg-pink-100 text-pink-800' :
+                            orderSource === 'whatsapp' ? 'bg-green-100 text-green-800' :
+                            'bg-gray-100 text-gray-600'
+                          }`}>
+                            {orderSource === 'snap' ? 'Snap' : orderSource === 'instagram' ? 'Insta' : orderSource === 'whatsapp' ? 'WhatsApp' : 'Site'}
+                          </span>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-sm font-bold text-mayssa-caramel">
+                            {(order.total ?? 0).toFixed(2).replace('.', ',')} €
+                          </p>
+                          <span className={`text-[9px] font-bold ${
+                            order.status === 'validee' ? 'text-emerald-600' :
+                            order.status === 'refusee' ? 'text-red-600' : 'text-amber-600'
+                          }`}>
+                            {order.status === 'en_attente' ? 'En attente' : order.status === 'validee' ? 'Validée' : 'Refusée'}
+                          </span>
+                          <p className="text-[9px] text-mayssa-brown/40 mt-0.5">
+                            {order.createdAt ? new Date(order.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-2 text-[10px] text-mayssa-brown/60">
+                        {order.items?.slice(0, 3).map((item, i) => (
+                          <span key={i}>{item.quantity}× {item.name}{i < Math.min(2, (order.items?.length ?? 1) - 1) ? ', ' : ''}</span>
+                        ))}
+                        {(order.items?.length ?? 0) > 3 && <span> +{(order.items?.length ?? 0) - 3} autre(s)</span>}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ===== CHIFFRE D'AFFAIRES ===== */}
+        {tab === 'ca' && (
+          <section className="bg-white rounded-2xl p-5 shadow-sm space-y-5">
+            <h3 className="font-bold text-mayssa-brown text-sm flex items-center gap-2">
+              <TrendingUp size={18} />
+              Suivi du chiffre d&apos;affaires
+            </h3>
+
+            {/* KPIs */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-mayssa-caramel/10 border border-mayssa-caramel/20 p-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">CA total (validé)</p>
+                <p className="text-xl font-display font-bold text-mayssa-caramel">{caTotal.toFixed(2).replace('.', ',')} €</p>
+              </div>
+              <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">Ce mois</p>
+                <p className="text-xl font-display font-bold text-emerald-700">{caMois.toFixed(2).replace('.', ',')} €</p>
+              </div>
+              <div className="rounded-xl bg-blue-50 border border-blue-200 p-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">Cette semaine</p>
+                <p className="text-xl font-display font-bold text-blue-700">{caSemaine.toFixed(2).replace('.', ',')} €</p>
+              </div>
+              <div className="rounded-xl bg-mayssa-soft/80 border border-mayssa-brown/10 p-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">Nb commandes validées</p>
+                <p className="text-xl font-display font-bold text-mayssa-brown">{validatedOrders.length}</p>
+              </div>
+            </div>
+
+            {/* CA moyen */}
+            <div className="rounded-xl bg-mayssa-soft/50 p-4 border border-mayssa-brown/5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">Panier moyen (validé)</p>
+              <p className="text-lg font-display font-bold text-mayssa-brown">
+                {validatedOrders.length > 0
+                  ? (caTotal / validatedOrders.length).toFixed(2).replace('.', ',') + ' €'
+                  : '—'}
+              </p>
+            </div>
+
+            {/* Par source */}
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">CA par source (validé)</p>
+              <div className="space-y-2">
+                {(['site', 'whatsapp', 'instagram', 'snap'] as const).map((src) => {
+                  const ordersSrc = validatedOrders.filter((o) => (o.source ?? 'site') === src)
+                  const totalSrc = ordersSrc.reduce((s, o) => s + (o.total ?? 0), 0)
+                  const label = src === 'snap' ? 'Snap' : src === 'instagram' ? 'Insta' : src === 'whatsapp' ? 'WhatsApp' : 'Site'
+                  return (
+                    <div key={src} className="flex items-center justify-between py-2 px-3 rounded-xl bg-mayssa-soft/30">
+                      <span className="text-sm font-medium text-mayssa-brown">{label}</span>
+                      <span className="text-sm font-bold text-mayssa-caramel">{totalSrc.toFixed(2).replace('.', ',')} €</span>
+                      <span className="text-[10px] text-mayssa-brown/50">{ordersSrc.length} cmd.</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Courbe CA */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">Courbe CA</p>
+                <div className="flex gap-1">
+                  {(['jour', 'semaine', 'mois'] as const).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setCaPeriod(p)}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+                        caPeriod === p ? 'bg-mayssa-caramel text-white' : 'bg-mayssa-soft/50 text-mayssa-brown/60 hover:bg-mayssa-soft'
+                      }`}
+                    >
+                      {p === 'jour' ? 'Jours' : p === 'semaine' ? 'Semaines' : 'Mois'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="h-48 rounded-xl bg-mayssa-soft/30 border border-mayssa-brown/5 overflow-hidden">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={caChartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#d4a57430" />
+                    <XAxis dataKey="label" tick={{ fontSize: 9 }} stroke="#5b3a29" />
+                    <YAxis tick={{ fontSize: 9 }} stroke="#5b3a29" tickFormatter={(v) => `${v}€`} />
+                    <Tooltip
+                      formatter={(value: number | undefined) => [`${(value ?? 0).toFixed(2).replace('.', ',')} €`, 'CA']}
+                      labelFormatter={(label) => label}
+                      contentStyle={{ fontSize: 11, borderRadius: 8 }}
+                    />
+                    <Line type="monotone" dataKey="ca" stroke="#a67c52" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} name="CA" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Produits les plus vendus */}
+            <div className="space-y-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">Produits les plus vendus</p>
+              {topProducts.length === 0 ? (
+                <p className="text-sm text-mayssa-brown/50 text-center py-4">Aucune donnée</p>
+              ) : (
+                <div className="h-56 rounded-xl bg-mayssa-soft/30 border border-mayssa-brown/5 overflow-hidden">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={topProducts} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#d4a57430" horizontal={false} />
+                      <XAxis type="number" tick={{ fontSize: 9 }} stroke="#5b3a29" tickFormatter={(v) => `${v}`} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 9 }} stroke="#5b3a29" width={100} />
+                      <Tooltip
+                        formatter={(value: number | undefined, _: unknown, props: { payload?: { qty: number; ca: number } }) =>
+                          props?.payload ? [`${props.payload.qty} vendu(s) · ${props.payload.ca.toFixed(2).replace('.', ',')} €`, 'Total'] : [value ?? 0, 'Qté']
+                        }
+                        contentStyle={{ fontSize: 11, borderRadius: 8 }}
+                      />
+                      <Bar dataKey="qty" fill="#a67c52" radius={[0, 4, 4, 0]} name="Qté vendue" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </div>
           </section>
         )}
 
@@ -619,7 +914,7 @@ function Dashboard({ user }: { user: User }) {
                   .map(([uid, u]) => (
                     <div
                       key={uid}
-                      className="flex items-center justify-between p-3 rounded-xl border border-mayssa-brown/10 bg-white hover:bg-mayssa-soft/30 transition-colors"
+                      className="flex items-center justify-between p-3 rounded-xl border border-mayssa-brown/10 bg-white hover:bg-mayssa-soft/30 transition-colors gap-2"
                     >
                       <div className="min-w-0 flex-1">
                         <p className="font-bold text-sm text-mayssa-brown">
@@ -631,8 +926,25 @@ function Dashboard({ user }: { user: User }) {
                         </p>
                         <p className="text-[10px] text-mayssa-brown/50 truncate mt-0.5">{u.email}</p>
                       </div>
-                      <div className="text-[10px] text-mayssa-brown/40 flex-shrink-0 ml-3">
-                        {u.createdAt ? new Date(u.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="text-[10px] text-mayssa-brown/40">
+                          {u.createdAt ? new Date(u.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!window.confirm(`Supprimer ${u.firstName} ${u.lastName} ? Le profil (points, adresse) sera effacé.`)) return
+                            try {
+                              await deleteUserProfile(uid)
+                            } catch (err) {
+                              console.error('Erreur suppression client:', err)
+                            }
+                          }}
+                          className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                          aria-label={`Supprimer ${u.firstName} ${u.lastName}`}
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     </div>
                   ))}

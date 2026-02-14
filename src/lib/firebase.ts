@@ -339,6 +339,11 @@ export async function updateUserProfile(uid: string, updates: Partial<Pick<UserP
   await update(getUserRef(uid), updates)
 }
 
+// Supprimer un client (admin) — supprime le profil Realtime Database
+export async function deleteUserProfile(uid: string): Promise<void> {
+  await remove(getUserRef(uid))
+}
+
 // Ajouter des points (avec entrée dans l'historique)
 export async function addUserPoints(uid: string, entry: LoyaltyHistoryEntry) {
   const profile = await getUserProfile(uid)

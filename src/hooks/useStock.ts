@@ -44,11 +44,13 @@ export function useStock() {
   }, [])
 
   const isPreorderDay = useMemo(() => {
+    // Optimiste pendant le chargement Firebase : permettre l'ajout pour éviter de bloquer
+    if (loading) return true
     const openings: PreorderOpening[] = settings.preorderOpenings && settings.preorderOpenings.length > 0
       ? settings.preorderOpenings
       : (settings.preorderDays || [3, 6]).map((day: number) => ({ day, fromTime: '00:00' }))
     return isPreorderOpenNow(openings)
-  }, [settings.preorderOpenings, settings.preorderDays])
+  }, [loading, settings.preorderOpenings, settings.preorderDays])
 
   const dayNames = useMemo(() => {
     const names = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.']

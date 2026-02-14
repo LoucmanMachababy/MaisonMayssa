@@ -29,9 +29,10 @@
       ".write": "auth != null"
     },
     "users": {
+      ".read": "auth != null",
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && auth.uid === $uid"
+        ".write": "auth != null && (auth.uid === $uid || auth.token.email === 'roumayssaghazi213@gmail.com')"
       }
     }
   }
@@ -46,7 +47,8 @@
 | `settings`| Tout le monde        | Utilisateurs connectés      |
 | `products`| Tout le monde        | Utilisateurs connectés      |
 | `orders`  | Utilisateurs connectés | Utilisateurs connectés   |
-| `users/{uid}` | Uniquement le propriétaire | Uniquement le propriétaire |
+| `users` (liste complète) | Utilisateurs connectés (admin) | — |
+| `users/{uid}` | Uniquement le propriétaire | Propriétaire ou admin (email roumayssaghazi213@gmail.com) |
 
 - **Stock** : les réservations / mises à jour de stock ne fonctionnent que pour les **utilisateurs connectés**. Si un visiteur non connecté réserve un trompe‑l’œil, il aura une erreur de permission.
 - Pour autoriser aussi les **invités** à réserver (sans compte), tu peux mettre pour `stock` : `".write": true`. Attention : n’importe qui pourrait alors modifier le stock depuis la console ou un script.
