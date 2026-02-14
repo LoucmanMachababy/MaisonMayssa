@@ -1,12 +1,15 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import legacy from '@vitejs/plugin-legacy'
 // PWA désactivé temporairement — cause fréquente de page blanche/lente sur mobile (service worker)
 // import { VitePWA } from 'vite-plugin-pwa'
 
-// https://vite.dev/config/
+// https://vitejs.dev/config/
 export default defineConfig({
   build: {
+    // plugin-legacy gère la cible pour Safari iOS
+    cssTarget: 'safari13.1',
     rollupOptions: {
       output: {
         manualChunks: (id) => {
@@ -22,5 +25,9 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    legacy({
+      targets: ['defaults', 'iOS >= 12', 'Safari >= 12'],
+      modernPolyfills: true,
+    }),
   ],
 })
