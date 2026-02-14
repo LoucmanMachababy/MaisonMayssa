@@ -807,11 +807,31 @@ function AppContent() {
     // Retire les emojis des noms pour un message WhatsApp lisible
     const stripEmoji = (s: string) => s.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '').replace(/\s+/g, ' ').trim()
 
+    // Calcule la date de récup trompe-l'oeil : samedi→mercredi, mercredi→samedi
+    const getTrompeLOeilPickupLabel = (): string => {
+      const now = new Date()
+      const day = now.getDay() // 0=dim, 3=mer, 6=sam
+      // Nombre de jours jusqu'au prochain créneau de récup
+      let daysUntil: number
+      if (day === 6) {
+        // Samedi → mercredi (3 jours + 1 = mercredi)
+        daysUntil = 4 // sam→dim→lun→mar→mer
+      } else if (day === 3) {
+        // Mercredi → samedi
+        daysUntil = 3 // mer→jeu→ven→sam
+      } else {
+        daysUntil = 3 // fallback
+      }
+      const pickup = new Date(now)
+      pickup.setDate(pickup.getDate() + daysUntil)
+      return pickup.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+    }
+
     const getOrderLineLabel = (item: CartItem): string => {
       const p = item.product
       const name = stripEmoji(p.name)
       const cat = p.category
-      if (cat === "Trompe l'oeil") return `🎨 ${name} (PRÉCOMMANDE – à récupérer sous ${p.preorder?.daysToPickup ?? 3} j)`
+      if (cat === "Trompe l'oeil") return `🎨 ${name} (PRÉCOMMANDE – récupération ${getTrompeLOeilPickupLabel()})`
       if (cat === 'Tiramisus') {
         const base = p.description ? p.description : ''
         return `Tiramisu – ${name}${base ? ` – ${base}` : ''}`
@@ -904,7 +924,7 @@ function AppContent() {
     const hasTrompeLoeil = cart.some(i => i.product.category === "Trompe l'oeil")
     if (hasTrompeLoeil) {
       lines.push('⚠️ *PRÉCOMMANDE TROMPE L\'ŒIL*')
-      lines.push('Les trompe l\'œil sont à récupérer sous 3 jours après validation de la commande.')
+      lines.push(`Récupération des trompe-l'œil : ${getTrompeLOeilPickupLabel()}.`)
       lines.push('', '')
     }
 
@@ -950,8 +970,8 @@ function AppContent() {
         requestedTime: customer.time || undefined,
         createdAt: Date.now(),
       })
-    } catch {
-      /* ignore — la commande est envoyée côté client */
+    } catch (err) {
+      console.error('[Firebase] Erreur sauvegarde commande:', err)
     }
   }
 

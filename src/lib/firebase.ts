@@ -180,6 +180,19 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus) {
   await update(ref(db, `orders/${orderId}`), { status })
 }
 
+export type OrderUpdate = Partial<Pick<Order, 'customer' | 'items' | 'total' | 'status' | 'deliveryMode' | 'requestedDate' | 'requestedTime' | 'adminNote' | 'source'>>
+
+export async function updateOrder(orderId: string, updates: OrderUpdate) {
+  const clean = stripUndefined(updates as Record<string, unknown>)
+  if (Object.keys(clean).length === 0) return
+  if (clean.items) {
+    (clean as Record<string, unknown>).items = (clean.items as OrderItem[]).map((item) =>
+      stripUndefined({ ...item } as Record<string, unknown>)
+    )
+  }
+  await update(ref(db, `orders/${orderId}`), clean)
+}
+
 export async function deleteOrder(orderId: string) {
   await remove(ref(db, `orders/${orderId}`))
 }

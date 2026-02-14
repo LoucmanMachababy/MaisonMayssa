@@ -135,7 +135,14 @@ export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavori
                                     <Calendar size={12} /> Précommande
                                 </span>
                                 <span className="text-[10px] sm:text-xs text-mayssa-brown/70">
-                                    Dès le 14/02 • À récupérer sous {product.preorder.daysToPickup} j après préco.
+                                    Récup. {(() => {
+                                        const now = new Date()
+                                        const day = now.getDay()
+                                        const daysUntil = day === 6 ? 4 : day === 3 ? 3 : 3
+                                        const pickup = new Date(now)
+                                        pickup.setDate(pickup.getDate() + daysUntil)
+                                        return pickup.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' })
+                                    })()}
                                 </span>
                             </>
                         ) : (

@@ -254,7 +254,14 @@ export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false
             <div className="mt-1 flex items-center justify-between">
               {isPreorderSoon && product.preorder ? (
                 <span className="text-[10px] text-mayssa-brown/70 leading-tight">
-                  Préco. dès 14/02 • Récup. sous {product.preorder.daysToPickup} j
+                  Récup. {(() => {
+                    const now = new Date()
+                    const day = now.getDay()
+                    const daysUntil = day === 6 ? 4 : day === 3 ? 3 : 3
+                    const pickup = new Date(now)
+                    pickup.setDate(pickup.getDate() + daysUntil)
+                    return pickup.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' })
+                  })()}
                 </span>
               ) : (
                 <div className="flex items-center gap-2">

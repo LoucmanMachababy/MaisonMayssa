@@ -70,6 +70,13 @@
     </noscript>
   </head>
   <body>
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(regs) {
+          regs.forEach(function(r) { r.unregister(); });
+        });
+      }
+    </script>
     <div id="root" style="min-height:100vh;min-height:100dvh;background:linear-gradient(135deg,#fef5ec 0%,#fff9f4 100%);"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

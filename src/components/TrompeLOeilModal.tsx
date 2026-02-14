@@ -88,7 +88,14 @@ export function TrompeLOeilModal({ product, stock, onClose, onConfirm }: TrompeL
               <div className="flex items-center gap-2 bg-mayssa-caramel/10 rounded-xl px-3 py-2">
                 <Clock size={14} className="text-mayssa-caramel flex-shrink-0" />
                 <span className="text-xs text-mayssa-brown font-medium">
-                  Précommande — à récupérer sous {product.preorder?.daysToPickup ?? 3} jours
+                  Précommande — récupération {(() => {
+                    const now = new Date()
+                    const day = now.getDay()
+                    const daysUntil = day === 6 ? 4 : day === 3 ? 3 : 3
+                    const pickup = new Date(now)
+                    pickup.setDate(pickup.getDate() + daysUntil)
+                    return pickup.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+                  })()}
                 </span>
               </div>
 

@@ -139,6 +139,7 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
       onOrderCreated()
       onClose()
     } catch (err: unknown) {
+      console.error('[OffSite] Erreur sauvegarde commande:', err)
       const msg = err && typeof err === 'object' && 'message' in err ? String((err as { message: string }).message) : ''
       const code = err && typeof err === 'object' && 'code' in err ? (err as { code: string }).code : ''
       if (code === 'PERMISSION_DENIED' || msg.includes('permission')) {

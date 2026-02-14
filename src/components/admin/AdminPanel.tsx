@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { LogOut, Package, Plus, Minus, Calendar, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp } from 'lucide-react'
+import { LogOut, Package, Plus, Minus, Calendar, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp, Pencil } from 'lucide-react'
 import {
   adminLogin, adminLogout, onAuthChange,
   listenStock, updateStock, listenSettings, updateSettings,
@@ -16,6 +16,7 @@ import { useProducts } from '../../hooks/useProducts'
 import { AdminProductsTab } from './AdminProductsTab'
 import { AdminStockTab } from './AdminStockTab'
 import { AdminOffSiteOrderForm } from './AdminOffSiteOrderForm'
+import { AdminEditOrderModal } from './AdminEditOrderModal'
 
 const DAY_LABELS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
 
@@ -154,6 +155,7 @@ function Dashboard({ user }: { user: User }) {
   const [productOverrides, setProductOverrides] = useState<ProductOverrideMap>({})
   const { allProducts } = useProducts()
   const [showOffSiteForm, setShowOffSiteForm] = useState(false)
+  const [editingOrderId, setEditingOrderId] = useState<string | null>(null)
   const [sourceFilter, setSourceFilter] = useState<OrderSource | 'all'>('all')
 
   useEffect(() => {
@@ -232,6 +234,7 @@ function Dashboard({ user }: { user: User }) {
   }
 
   const handleDeleteOrder = async (orderId: string) => {
+    if (!window.confirm("T'es sûr ? Cette commande sera définitivement supprimée.")) return
     await deleteOrder(orderId)
   }
 
@@ -535,32 +538,41 @@ function Dashboard({ user }: { user: User }) {
                   </div>
 
                   {/* Actions */}
-                  {order.status === 'en_attente' ? (
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleValidateOrder(id, order)}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 transition-colors cursor-pointer"
-                      >
-                        <Check size={14} />
-                        Valider
-                      </button>
-                      <button
-                        onClick={() => handleRefuseOrder(id, order)}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-red-50 text-red-600 text-xs font-bold hover:bg-red-100 transition-colors cursor-pointer"
-                      >
-                        <X size={14} />
-                        Refuser
-                      </button>
-                    </div>
-                  ) : (
+                  <div className="flex flex-wrap gap-2">
                     <button
-                      onClick={() => handleDeleteOrder(id)}
-                      className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-mayssa-soft/50 text-mayssa-brown/40 text-[10px] font-bold hover:bg-red-50 hover:text-red-400 transition-colors cursor-pointer"
+                      onClick={() => setEditingOrderId(id)}
+                      className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-mayssa-brown/10 text-mayssa-brown text-xs font-bold hover:bg-mayssa-brown/20 transition-colors cursor-pointer"
                     >
-                      <Trash2 size={12} />
-                      Supprimer
+                      <Pencil size={14} />
+                      Modifier
                     </button>
-                  )}
+                    {order.status === 'en_attente' ? (
+                      <>
+                        <button
+                          onClick={() => handleValidateOrder(id, order)}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 transition-colors cursor-pointer"
+                        >
+                          <Check size={14} />
+                          Valider
+                        </button>
+                        <button
+                          onClick={() => handleRefuseOrder(id, order)}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-red-50 text-red-600 text-xs font-bold hover:bg-red-100 transition-colors cursor-pointer"
+                        >
+                          <X size={14} />
+                          Refuser
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => handleDeleteOrder(id)}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-mayssa-soft/50 text-mayssa-brown/40 text-[10px] font-bold hover:bg-red-50 hover:text-red-400 transition-colors cursor-pointer"
+                      >
+                        <Trash2 size={12} />
+                        Supprimer
+                      </button>
+                    )}
+                  </div>
                 </div>
                 )
               })
@@ -616,41 +628,109 @@ function Dashboard({ user }: { user: User }) {
                             : 'border-amber-200 bg-amber-50/50'
                       }`}
                     >
+                      {/* Header */}
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <p className="font-bold text-sm text-mayssa-brown">
-                            {order.customer?.firstName} {order.customer?.lastName}
-                          </p>
-                          <p className="text-[10px] text-mayssa-brown/50">{order.customer?.phone}</p>
-                          <span className={`inline-block mt-1 px-1.5 py-0.5 rounded text-[9px] font-bold ${
-                            orderSource === 'snap' ? 'bg-yellow-100 text-yellow-800' :
-                            orderSource === 'instagram' ? 'bg-pink-100 text-pink-800' :
-                            orderSource === 'whatsapp' ? 'bg-green-100 text-green-800' :
-                            'bg-gray-100 text-gray-600'
-                          }`}>
-                            {orderSource === 'snap' ? 'Snap' : orderSource === 'instagram' ? 'Insta' : orderSource === 'whatsapp' ? 'WhatsApp' : 'Site'}
-                          </span>
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <p className="font-bold text-sm text-mayssa-brown">
+                              {order.customer?.firstName} {order.customer?.lastName}
+                            </p>
+                            <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                              orderSource === 'snap' ? 'bg-yellow-100 text-yellow-800' :
+                              orderSource === 'instagram' ? 'bg-pink-100 text-pink-800' :
+                              orderSource === 'whatsapp' ? 'bg-green-100 text-green-800' :
+                              'bg-gray-100 text-gray-600'
+                            }`}>
+                              {orderSource === 'snap' ? 'Snap' : orderSource === 'instagram' ? 'Insta' : orderSource === 'whatsapp' ? 'WhatsApp' : 'Site'}
+                            </span>
+                          </div>
+                          {order.customer?.phone && (
+                            <p className="text-[10px] text-mayssa-brown/50">{order.customer.phone}</p>
+                          )}
+                          {/* Delivery mode + date/time */}
+                          {(order.deliveryMode || order.requestedDate) && (
+                            <div className="flex items-center gap-2 mt-1">
+                              {order.deliveryMode && (
+                                <span className="inline-flex items-center gap-0.5 text-[9px] text-mayssa-brown/50">
+                                  {order.deliveryMode === 'livraison' ? <Truck size={9} /> : <MapPin size={9} />}
+                                  {order.deliveryMode === 'livraison' ? 'Livraison' : 'Retrait'}
+                                </span>
+                              )}
+                              {order.requestedDate && (
+                                <span className="text-[9px] text-mayssa-brown/50">
+                                  {new Date(order.requestedDate + 'T00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                                  {order.requestedTime && ` à ${order.requestedTime}`}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <div className="text-right flex-shrink-0">
-                          <p className="text-sm font-bold text-mayssa-caramel">
-                            {(order.total ?? 0).toFixed(2).replace('.', ',')} €
-                          </p>
-                          <span className={`text-[9px] font-bold ${
-                            order.status === 'validee' ? 'text-emerald-600' :
-                            order.status === 'refusee' ? 'text-red-600' : 'text-amber-600'
+                          <span className={`inline-block px-2 py-1 rounded-lg text-[10px] font-bold ${
+                            order.status === 'en_attente'
+                              ? 'bg-amber-50 text-amber-700'
+                              : order.status === 'validee'
+                                ? 'bg-emerald-50 text-emerald-700'
+                                : 'bg-red-50 text-red-600'
                           }`}>
                             {order.status === 'en_attente' ? 'En attente' : order.status === 'validee' ? 'Validée' : 'Refusée'}
                           </span>
-                          <p className="text-[9px] text-mayssa-brown/40 mt-0.5">
-                            {order.createdAt ? new Date(order.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
+                          <p className="text-[9px] text-mayssa-brown/40 mt-1">
+                            {order.createdAt ? new Date(order.createdAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
                           </p>
                         </div>
                       </div>
-                      <div className="mt-2 text-[10px] text-mayssa-brown/60">
-                        {order.items?.slice(0, 3).map((item, i) => (
-                          <span key={i}>{item.quantity}× {item.name}{i < Math.min(2, (order.items?.length ?? 1) - 1) ? ', ' : ''}</span>
+
+                      {/* Admin note */}
+                      {order.adminNote && (
+                        <p className="text-[10px] text-mayssa-brown/60 italic mt-2 px-1">📝 {order.adminNote}</p>
+                      )}
+
+                      {/* Items */}
+                      <div className="bg-mayssa-soft/30 rounded-xl p-3 mt-2 space-y-1">
+                        {order.items?.map((item, i) => (
+                          <div key={i} className="flex items-center justify-between text-xs">
+                            <span className="text-mayssa-brown">
+                              {item.quantity}× {item.name}
+                            </span>
+                            <span className="font-bold text-mayssa-brown">
+                              {(item.price * item.quantity).toFixed(2).replace('.', ',')} €
+                            </span>
+                          </div>
                         ))}
-                        {(order.items?.length ?? 0) > 3 && <span> +{(order.items?.length ?? 0) - 3} autre(s)</span>}
+                        <div className="border-t border-mayssa-brown/10 pt-1 mt-1 flex justify-between">
+                          <span className="text-xs font-bold text-mayssa-brown">Total</span>
+                          <span className="text-sm font-bold text-mayssa-caramel">
+                            {(order.total ?? 0).toFixed(2).replace('.', ',')} €
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Actions Modifier / Annuler / Supprimer */}
+                      <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-mayssa-brown/10">
+                        <button
+                          onClick={() => setEditingOrderId(id)}
+                          className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-mayssa-brown/10 text-mayssa-brown text-xs font-bold hover:bg-mayssa-brown/20 transition-colors cursor-pointer"
+                        >
+                          <Pencil size={14} />
+                          Modifier
+                        </button>
+                        {order.status === 'validee' && (
+                          <button
+                            onClick={() => handleRefuseOrder(id, order)}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-amber-50 text-amber-700 text-xs font-bold hover:bg-amber-100 transition-colors cursor-pointer"
+                          >
+                            <X size={14} />
+                            Annuler
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeleteOrder(id)}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-mayssa-soft/50 text-mayssa-brown/60 text-xs font-bold hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer"
+                        >
+                          <Trash2 size={14} />
+                          Supprimer
+                        </button>
                       </div>
                     </div>
                   )
@@ -996,6 +1076,17 @@ function Dashboard({ user }: { user: User }) {
 
         {tab === 'produits' && (
           <AdminProductsTab allProducts={allProducts} overrides={productOverrides} />
+        )}
+
+        {/* Edit order modal (toujours affiché si on édite, quel que soit l'onglet) */}
+        {editingOrderId && orders[editingOrderId] && (
+          <AdminEditOrderModal
+            orderId={editingOrderId}
+            order={orders[editingOrderId]}
+            stock={stock}
+            onClose={() => setEditingOrderId(null)}
+            onSaved={() => setEditingOrderId(null)}
+          />
         )}
 
         <a
