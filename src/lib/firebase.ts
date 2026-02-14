@@ -259,11 +259,12 @@ export async function resetPassword(email: string) {
 
 // --- Types Profils Clients & Fidélité ---
 export type LoyaltyHistoryEntry = {
-  reason: 'creation_compte' | 'instagram_follow' | 'tiktok_follow' | 'order_points' | 'review_bonus' | 'ramadan_bonus' | 'anniversary_bonus' | 'birthday_bonus'
+  reason: 'creation_compte' | 'instagram_follow' | 'tiktok_follow' | 'order_points' | 'review_bonus' | 'ramadan_bonus' | 'anniversary_bonus' | 'birthday_bonus' | 'admin_ajout' | 'admin_retrait'
   points: number
   at: number
   amount?: number // Pour order_points (montant € de la commande)
   orderId?: string // Pour order_points
+  adminNote?: string // Pour admin_ajout / admin_retrait
 }
 
 export type UserLoyalty = {
@@ -402,6 +403,44 @@ export async function claimSocialPoints(uid: string, platform: 'instagram' | 'ti
   await addUserPoints(uid, entry)
   await update(getUserRef(uid), {
     [`loyalty/${claimedAtField}`]: now,
+  })
+}
+
+// Ajouter des points manuellement (admin)
+export async function adminAddPoints(uid: string, points: number, note?: string): Promise<void> {
+  if (points <= 0) return
+  const entry: LoyaltyHistoryEntry = {
+    reason: 'admin_ajout',
+    points,
+    at: Date.now(),
+    ...(note?.trim() && { adminNote: note.trim() }),
+  }
+  await addUserPoints(uid, entry)
+}
+
+// Retirer des points manuellement (admin) — ne touche pas aux lifetimePoints
+export async function adminRemovePoints(uid: string, points: number, note?: string): Promise<void> {
+  if (points <= 0) return
+  const profile = await getUserProfile(uid)
+  if (!profile) return
+
+  const toRemove = Math.min(points, profile.loyalty.points)
+  if (toRemove <= 0) return
+
+  const newPoints = profile.loyalty.points - toRemove
+  const entry: LoyaltyHistoryEntry = {
+    reason: 'admin_retrait',
+    points: -toRemove,
+    at: Date.now(),
+    ...(note?.trim() && { adminNote: note.trim() }),
+  }
+  const newHistory = Array.isArray(profile.loyalty.history)
+    ? [...profile.loyalty.history, entry]
+    : [...Object.values(profile.loyalty.history || {}), entry]
+
+  await update(getUserRef(uid), {
+    'loyalty/points': Math.max(0, newPoints),
+    'loyalty/history': newHistory,
   })
 }
 

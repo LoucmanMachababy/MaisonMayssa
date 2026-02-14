@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from 'react'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { LogOut, Package, Plus, Calendar, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp } from 'lucide-react'
+import { LogOut, Package, Plus, Minus, Calendar, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp } from 'lucide-react'
 import {
   adminLogin, adminLogout, onAuthChange,
   listenStock, updateStock, listenSettings, updateSettings,
   listenOrders, updateOrderStatus, deleteOrder,
   listenAllUsers, claimBirthdayGift, listenProductOverrides, deleteUserProfile,
+  adminAddPoints, adminRemovePoints,
   isPreorderOpenNow,
   type StockMap, type Settings, type Order, type OrderSource, type UserProfile, type PreorderOpening
 } from '../../lib/firebase'
@@ -927,6 +928,46 @@ function Dashboard({ user }: { user: User }) {
                         <p className="text-[10px] text-mayssa-brown/50 truncate mt-0.5">{u.email}</p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="text-[10px] font-semibold text-mayssa-caramel bg-mayssa-caramel/10 px-2 py-1 rounded-lg flex items-center gap-1" title="Points fidélité">
+                          <Gift size={12} />
+                          {u.loyalty?.points ?? 0} pts
+                        </span>
+                        <div className="flex items-center gap-0.5">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const raw = window.prompt(`Points à ajouter pour ${u.firstName} ${u.lastName} ?`)
+                              const pts = parseInt(raw ?? '', 10)
+                              if (Number.isNaN(pts) || pts <= 0) return
+                              try {
+                                await adminAddPoints(uid, pts)
+                              } catch (err) {
+                                console.error('Erreur ajout points:', err)
+                              }
+                            }}
+                            className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition-colors cursor-pointer"
+                            aria-label="Ajouter des points"
+                          >
+                            <Plus size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const raw = window.prompt(`Points à retirer pour ${u.firstName} ${u.lastName} ? (max ${u.loyalty?.points ?? 0})`)
+                              const pts = parseInt(raw ?? '', 10)
+                              if (Number.isNaN(pts) || pts <= 0) return
+                              try {
+                                await adminRemovePoints(uid, pts)
+                              } catch (err) {
+                                console.error('Erreur retrait points:', err)
+                              }
+                            }}
+                            className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 transition-colors cursor-pointer"
+                            aria-label="Retirer des points"
+                          >
+                            <Minus size={14} />
+                          </button>
+                        </div>
                         <span className="text-[10px] text-mayssa-brown/40">
                           {u.createdAt ? new Date(u.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
                         </span>

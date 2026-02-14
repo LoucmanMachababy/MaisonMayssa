@@ -635,6 +635,8 @@ export function AccountPage({ onClose }: AccountPageProps) {
                     case 'ramadan_bonus': return 'Bonus Ramadan'
                     case 'anniversary_bonus': return 'Anniversaire Maison Mayssa'
                     case 'birthday_bonus': return 'Anniversaire client'
+                    case 'admin_ajout': return 'Ajout manuel (admin)'
+                    case 'admin_retrait': return 'Retrait manuel (admin)'
                     default: return reason
                   }
                 }
@@ -645,6 +647,8 @@ export function AccountPage({ onClose }: AccountPageProps) {
                     case 'instagram_follow': return <Instagram size={14} />
                     case 'tiktok_follow': return <Eye size={14} />
                     case 'order_points': return <Gift size={14} />
+                    case 'admin_ajout': return <Gift size={14} />
+                    case 'admin_retrait': return <Gift size={14} />
                     default: return <Star size={14} />
                   }
                 }
@@ -670,8 +674,8 @@ export function AccountPage({ onClose }: AccountPageProps) {
                         </p>
                       </div>
                     </div>
-                    <span className="font-bold text-emerald-600">
-                      +{entry.points} pts
+                    <span className={`font-bold ${entry.points >= 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                      {entry.points >= 0 ? '+' : ''}{entry.points} pts
                     </span>
                   </div>
                 )
