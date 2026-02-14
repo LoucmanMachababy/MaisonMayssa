@@ -75,18 +75,18 @@ export function BoxCustomizationModal({ product, onClose, onSelect }: BoxCustomi
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={onClose}
-                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]"
                     />
 
-                    {/* Modal */}
+                    {/* Modal — z-[60] au-dessus de la bottom nav mobile */}
                     <motion.div
                         initial={{ opacity: 0, scale: 0.9, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9, y: 20 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                        className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 mx-auto max-w-md max-h-[90vh] overflow-y-auto"
+                        className="fixed inset-x-4 top-4 bottom-4 sm:top-1/2 sm:bottom-auto sm:-translate-y-1/2 z-[60] mx-auto max-w-md max-h-[calc(100vh-2rem)] sm:max-h-[90vh] flex flex-col"
                     >
-                        <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl">
+                        <div className="relative flex flex-col flex-1 min-h-0 overflow-hidden rounded-3xl bg-white shadow-2xl">
                             {/* Close button */}
                             <button
                                 onClick={onClose}
@@ -107,8 +107,8 @@ export function BoxCustomizationModal({ product, onClose, onSelect }: BoxCustomi
                                 </div>
                             )}
 
-                            {/* Content */}
-                            <div className="p-5 sm:p-6 space-y-5 sm:space-y-6">
+                            {/* Contenu scrollable */}
+                            <div className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-6 space-y-5 sm:space-y-6">
                                 <div className="text-center space-y-1">
                                     <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-mayssa-caramel">
                                         {product.category}
@@ -287,8 +287,10 @@ export function BoxCustomizationModal({ product, onClose, onSelect }: BoxCustomi
                                         </div>
                                     </div>
                                 )}
+                            </div>
 
-                                {/* Add to cart button */}
+                            {/* Bouton fixe en bas — toujours visible sur mobile */}
+                            <div className="flex-shrink-0 p-4 pt-2 pb-6 sm:pb-4 border-t border-mayssa-brown/5 bg-white rounded-b-3xl">
                                 <button
                                     onClick={handleAddToCart}
                                     disabled={!canAddToCart}

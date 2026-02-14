@@ -132,16 +132,16 @@ export function BoxFlavorsModal({ product, products, onClose, onSelect }: BoxFla
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]"
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 mx-auto max-w-md max-h-[90vh] overflow-y-auto"
+            className="fixed inset-x-4 top-4 bottom-4 sm:top-1/2 sm:bottom-auto sm:-translate-y-1/2 z-[60] mx-auto max-w-md max-h-[calc(100vh-2rem)] sm:max-h-[90vh] flex flex-col"
           >
-            <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <div className="relative flex flex-col flex-1 min-h-0 overflow-hidden rounded-3xl bg-white shadow-2xl">
               <button
                 onClick={onClose}
                 className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-mayssa-brown/60 shadow-lg backdrop-blur-sm transition-all hover:bg-white hover:text-mayssa-brown hover:scale-110 active:scale-95 cursor-pointer"
@@ -160,7 +160,7 @@ export function BoxFlavorsModal({ product, products, onClose, onSelect }: BoxFla
                 </div>
               )}
 
-              <div className="p-5 sm:p-6 space-y-5">
+              <div className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-6 space-y-5">
                 <div className="text-center space-y-1">
                   <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-mayssa-caramel">
                     {product.category}
@@ -349,7 +349,10 @@ export function BoxFlavorsModal({ product, products, onClose, onSelect }: BoxFla
                     </span>
                   </div>
                 </div>
+              </div>
 
+              {/* Bouton fixe en bas — toujours visible sur mobile */}
+              <div className="flex-shrink-0 p-4 pt-2 pb-6 sm:pb-4 border-t border-mayssa-brown/5 bg-white rounded-b-3xl">
                 <button
                   onClick={handleAddToCart}
                   disabled={!canAddToCart}
