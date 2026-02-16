@@ -982,6 +982,7 @@ function AppContent() {
 
   const [instagramParts, setInstagramParts] = useState<string[]>([])
   const [isSnapModalOpen, setIsSnapModalOpen] = useState(false)
+  const [snapMessage, setSnapMessage] = useState('')
   const [orderConfirmation, setOrderConfirmation] = useState<{
     orderId: string
     total: number
@@ -1195,12 +1196,7 @@ function AppContent() {
     if (!message) return
 
     await saveOrderToFirebase('snap')
-
-    // Copier le message dans le presse-papier
-    try {
-      await navigator.clipboard.writeText(message)
-    } catch { /* fallback: l'utilisateur copiera manuellement */ }
-
+    setSnapMessage(message)
     setIsSnapModalOpen(true)
   }
 
@@ -1677,10 +1673,11 @@ function AppContent() {
         messageParts={instagramParts}
       />
 
-      {/* Snap instruction modal - après copie pour Snapchat */}
+      {/* Snap instruction modal — le client doit copier le message puis le coller sur Snapchat */}
       <SnapInstructionModal
         isOpen={isSnapModalOpen}
         onClose={() => setIsSnapModalOpen(false)}
+        message={snapMessage}
       />
 
       {/* Écran confirmation commande (numéro, récap, PayPal, lien statut) */}

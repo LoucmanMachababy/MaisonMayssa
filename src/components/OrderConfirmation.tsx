@@ -94,7 +94,7 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
             </ol>
           </div>
 
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             <a
               href={`https://wa.me/${PHONE_E164}?text=${encodeURIComponent(whatsappMessage)}`}
               target="_blank"
@@ -105,29 +105,26 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
               Envoyer sur WhatsApp
             </a>
 
-            <div className="border border-mayssa-brown/10 rounded-xl p-4 bg-mayssa-soft/30">
-              <p className="text-xs font-bold text-mayssa-brown/70 mb-2">Payer par PayPal (optionnel)</p>
-              <a
-                href={paypalUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-[#003087] text-white font-bold hover:bg-[#003087]/90 transition-colors text-sm"
-              >
-                <CreditCard size={18} />
-                Payer {finalTotal.toFixed(2).replace('.', ',')} € via PayPal
-              </a>
-              <p className="text-[10px] text-mayssa-brown/50 mt-2">
-                Indiquez bien &quot;Commande {data.orderId}&quot; dans la note PayPal pour que nous puissions faire le lien.
-              </p>
-              <button
-                type="button"
-                onClick={copyPaypalNote}
-                className="mt-2 flex items-center gap-1 text-[10px] text-mayssa-caramel hover:underline cursor-pointer"
-              >
-                <Copy size={12} />
-                Copier la note à inclure
-              </button>
-            </div>
+            <a
+              href={paypalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#003087] text-white font-bold hover:bg-[#003087]/90 transition-colors border-2 border-[#0070ba]"
+            >
+              <CreditCard size={20} />
+              Commander via PayPal — {finalTotal.toFixed(2).replace('.', ',')} €
+            </a>
+            <p className="text-[10px] text-mayssa-brown/50 text-center -mt-1">
+              Indiquez &quot;Commande {data.orderId}&quot; dans la note PayPal.
+            </p>
+            <button
+              type="button"
+              onClick={copyPaypalNote}
+              className="flex items-center justify-center gap-1 text-[10px] text-mayssa-caramel hover:underline cursor-pointer"
+            >
+              <Copy size={12} />
+              Copier la note à inclure sur PayPal
+            </button>
 
             <div className="border border-mayssa-brown/10 rounded-xl p-3 bg-slate-50">
               <p className="text-[10px] font-bold text-mayssa-brown/60 mb-2">Suivre ma commande</p>

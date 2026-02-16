@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Minus, Plus, ChevronDown, ChevronUp, Infinity, X } from 'lucide-react'
+import { Minus, Plus, ChevronDown, ChevronUp, Infinity, X, ArrowDownAZ } from 'lucide-react'
 import { updateStock, initializeStock, removeStockTracking, type StockMap } from '../../lib/firebase'
 import type { ProductWithAvailability } from '../../hooks/useProducts'
 import type { ProductCategory } from '../../types'
@@ -7,6 +7,8 @@ import type { ProductCategory } from '../../types'
 const ALL_CATEGORIES: ProductCategory[] = [
   "Trompe l'oeil", 'Mini Gourmandises', 'Brownies', 'Cookies', 'Layer Cups', 'Boxes', 'Tiramisus',
 ]
+
+type SortOption = 'name-asc' | 'name-desc' | 'stock-asc' | 'stock-desc'
 
 interface AdminStockTabProps {
   allProducts: ProductWithAvailability[]
@@ -17,6 +19,7 @@ export function AdminStockTab({ allProducts, stock }: AdminStockTabProps) {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(["Trompe l'oeil"]))
   const [saving, setSaving] = useState<string | null>(null)
   const [initQty, setInitQty] = useState<Record<string, string>>({})
+  const [sortBy, setSortBy] = useState<SortOption>('stock-desc')
 
   const productsByCategory = useMemo(() => {
     const grouped: Record<string, ProductWithAvailability[]> = {}
@@ -84,6 +87,15 @@ export function AdminStockTab({ allProducts, stock }: AdminStockTabProps) {
     return (productsByCategory[cat] ?? []).filter(p => p.id in stock).length
   }
 
+  const sortProducts = (products: ProductWithAvailability[]): ProductWithAvailability[] => {
+    const sorted = [...products]
+    if (sortBy === 'name-asc') return sorted.sort((a, b) => a.name.localeCompare(b.name))
+    if (sortBy === 'name-desc') return sorted.sort((a, b) => b.name.localeCompare(a.name))
+    if (sortBy === 'stock-asc') return sorted.sort((a, b) => (stock[a.id] ?? 0) - (stock[b.id] ?? 0))
+    if (sortBy === 'stock-desc') return sorted.sort((a, b) => (stock[b.id] ?? 0) - (stock[a.id] ?? 0))
+    return sorted
+  }
+
   return (
     <section className="space-y-3">
       {Object.entries(productsByCategory).map(([cat, products]) => {
@@ -108,6 +120,23 @@ export function AdminStockTab({ allProducts, stock }: AdminStockTabProps) {
 
             {isExpanded && (
               <div className="px-4 pb-4 space-y-2">
+                {/* Tri (surtout utile pour Trompe l'oeil) */}
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <span className="text-[10px] font-bold text-mayssa-brown/60 flex items-center gap-1">
+                    <ArrowDownAZ size={12} />
+                    Tri
+                  </span>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as SortOption)}
+                    className="rounded-lg border border-mayssa-brown/10 px-2.5 py-1.5 text-[10px] font-bold text-mayssa-brown bg-white"
+                  >
+                    <option value="stock-desc">Stock ↓ (priorité rupture)</option>
+                    <option value="stock-asc">Stock ↑</option>
+                    <option value="name-asc">Nom A-Z</option>
+                    <option value="name-desc">Nom Z-A</option>
+                  </select>
+                </div>
                 {/* Bulk actions for tracked products */}
                 {trackedCount > 0 && (
                   <div className="flex gap-2 mb-2">
@@ -132,7 +161,7 @@ export function AdminStockTab({ allProducts, stock }: AdminStockTabProps) {
                   </div>
                 )}
 
-                {products.map(product => {
+                {sortProducts(products).map(product => {
                   const isTracked = product.id in stock
                   const qty = stock[product.id] ?? 0
                   const isSaving = saving === product.id

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { X, Minus, Plus, Search, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
-import { createOffSiteOrder, decrementStockBatch, type OrderSource, type OrderItem, type DeliveryMode, type StockMap } from '../../lib/firebase'
+import { createOffSiteOrder, decrementStockBatch, isTrompeLoeilProductId, type OrderSource, type OrderItem, type DeliveryMode, type StockMap } from '../../lib/firebase'
 import type { ProductWithAvailability } from '../../hooks/useProducts'
 import type { ProductCategory } from '../../types'
 
@@ -39,6 +39,7 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
   const [requestedDate, setRequestedDate] = useState('')
   const [requestedTime, setRequestedTime] = useState('')
   const [adminNote, setAdminNote] = useState('')
+  const [excludeTrompeLoeilStock, setExcludeTrompeLoeilStock] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
   const [sizePickerFor, setSizePickerFor] = useState<string | null>(null)
@@ -110,6 +111,7 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
     if (!source) { setError('Choisissez une source'); return }
     if (!firstName.trim() || !lastName.trim() || !phone.trim()) { setError('Remplissez les infos client'); return }
     if (cart.length === 0) { setError('Ajoutez au moins un produit'); return }
+    if (deliveryMode === 'livraison' && !address.trim()) { setError('L\'adresse est obligatoire pour une livraison'); return }
 
     setSaving(true)
     try {
@@ -136,11 +138,16 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
         ...(requestedDate && { requestedDate }),
         ...(requestedTime && { requestedTime }),
         ...(adminNote.trim() && { adminNote: adminNote.trim() }),
+        ...(excludeTrompeLoeilStock && { excludeTrompeLoeilStock: true }),
       })
 
-      await decrementStockBatch(
-        cart.map(entry => ({ productId: entry.product.id, quantity: entry.quantity }))
-      )
+      // Ne déduire que les produits dont le stock doit être mis à jour (exclure trompes l'oeil si coché)
+      const itemsToDecrement = excludeTrompeLoeilStock
+        ? cart.filter(entry => !isTrompeLoeilProductId(entry.product.id)).map(entry => ({ productId: entry.product.id, quantity: entry.quantity }))
+        : cart.map(entry => ({ productId: entry.product.id, quantity: entry.quantity }))
+      if (itemsToDecrement.length > 0) {
+        await decrementStockBatch(itemsToDecrement)
+      }
 
       onOrderCreated()
       onClose()
@@ -357,7 +364,7 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
 
           {deliveryMode === 'livraison' && (
             <div>
-              <label className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60 mb-2 block">Adresse de livraison</label>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60 mb-2 block">Adresse de livraison (obligatoire)</label>
               <input
                 type="text"
                 placeholder="Adresse complète..."
@@ -386,6 +393,19 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
               />
             </div>
           </div>
+
+          {/* Exclure trompes l'oeil du stock */}
+          {cart.some(e => isTrompeLoeilProductId(e.product.id)) && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={excludeTrompeLoeilStock}
+                onChange={e => setExcludeTrompeLoeilStock(e.target.checked)}
+                className="rounded border-mayssa-brown/20 text-mayssa-caramel focus:ring-mayssa-caramel"
+              />
+              <span className="text-xs text-mayssa-brown">Ne pas déduire le stock des trompes l&apos;œil</span>
+            </label>
+          )}
 
           {/* Note admin */}
           <div>

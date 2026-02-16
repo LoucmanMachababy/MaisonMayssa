@@ -9,7 +9,7 @@ import {
   listenOrders, updateOrderStatus, deleteOrder,
   listenAllUsers, claimBirthdayGift, listenProductOverrides, deleteUserProfile,
   adminAddPoints, adminRemovePoints,
-  isPreorderOpenNow,
+  isPreorderOpenNow, isTrompeLoeilProductId,
   type StockMap, type Settings, type Order, type OrderSource, type UserProfile, type PreorderOpening
 } from '../../lib/firebase'
 import type { ProductOverrideMap } from '../../types'
@@ -17,6 +17,7 @@ import type { User } from 'firebase/auth'
 import { useProducts } from '../../hooks/useProducts'
 import { AdminProductsTab } from './AdminProductsTab'
 import { AdminStockTab } from './AdminStockTab'
+import { AdminLivraisonTab } from './AdminLivraisonTab'
 import { AdminOffSiteOrderForm } from './AdminOffSiteOrderForm'
 import { AdminEditOrderModal } from './AdminEditOrderModal'
 
@@ -213,7 +214,7 @@ function Dashboard({ user }: { user: User }) {
   const [stock, setStock] = useState<StockMap>({})
   const [settings, setSettings] = useState<Settings>({ preorderDays: [3, 6], preorderMessage: '' })
   const [orders, setOrders] = useState<Record<string, Order>>({})
-  const [tab, setTab] = useState<'commandes' | 'historique' | 'ca' | 'stock' | 'jours' | 'anniversaires' | 'inscrits' | 'produits'>('commandes')
+  const [tab, setTab] = useState<'commandes' | 'historique' | 'livraison' | 'ca' | 'stock' | 'jours' | 'anniversaires' | 'inscrits' | 'produits'>('commandes')
   const [caPeriod, setCaPeriod] = useState<'jour' | 'semaine' | 'mois'>('semaine')
   const [allUsers, setAllUsers] = useState<Record<string, UserProfile>>({})
   const [productOverrides, setProductOverrides] = useState<ProductOverrideMap>({})
@@ -352,8 +353,10 @@ function Dashboard({ user }: { user: User }) {
 
   const handleRefuseOrder = async (orderId: string, order: Order) => {
     await updateOrderStatus(orderId, 'refusee')
-    // Remettre le stock uniquement pour les produits suivis (trompe l'oeil)
+    // Remettre le stock uniquement pour les produits suivis (trompe l'oeil), sauf si la commande est exclue
+    const skipTrompeLoeil = order.excludeTrompeLoeilStock === true
     for (const item of order.items) {
+      if (skipTrompeLoeil && isTrompeLoeilProductId(item.productId)) continue
       if (item.productId in stock) {
         const currentQty = stock[item.productId] ?? 0
         await updateStock(item.productId, currentQty + item.quantity)
@@ -539,6 +542,7 @@ function Dashboard({ user }: { user: User }) {
           {([
             { id: 'commandes', icon: ClipboardList, label: 'À valider', badge: pendingCount },
             { id: 'historique', icon: History, label: 'Historique' },
+            { id: 'livraison', icon: Truck, label: 'Livraison', badge: Object.values(orders).filter(o => o.deliveryMode === 'livraison' && o.status !== 'refusee').length },
             { id: 'ca', icon: TrendingUp, label: 'CA' },
             { id: 'stock', icon: Package, label: 'Stock' },
             { id: 'jours', icon: Calendar, label: 'Jours' },
@@ -1139,6 +1143,11 @@ function Dashboard({ user }: { user: User }) {
             )}
             </div>
           </motion.section>
+        )}
+
+        {/* ===== LIVRAISON ===== */}
+        {tab === 'livraison' && (
+          <AdminLivraisonTab orders={orders} onEditOrder={(id) => setEditingOrderId(id)} />
         )}
 
         {/* ===== CHIFFRE D'AFFAIRES ===== */}

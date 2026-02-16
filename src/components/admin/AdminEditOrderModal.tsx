@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { X, Minus, Plus, Trash2, Truck, MapPin } from 'lucide-react'
-import { updateOrder, updateStock, type Order, type OrderItem, type DeliveryMode, type StockMap } from '../../lib/firebase'
+import { updateOrder, updateStock, isTrompeLoeilProductId, type Order, type OrderItem, type DeliveryMode, type StockMap } from '../../lib/firebase'
 
 interface AdminEditOrderModalProps {
   orderId: string
@@ -20,6 +20,7 @@ export function AdminEditOrderModal({ orderId, order, stock, onClose, onSaved }:
   const [requestedTime, setRequestedTime] = useState(order.requestedTime ?? '')
   const [clientNote, setClientNote] = useState(order.clientNote ?? '')
   const [adminNote, setAdminNote] = useState(order.adminNote ?? '')
+  const [excludeTrompeLoeilStock, setExcludeTrompeLoeilStock] = useState(order.excludeTrompeLoeilStock ?? false)
   const [items, setItems] = useState<OrderItem[]>(() =>
     (order.items ?? []).map((i) => ({ ...i }))
   )
@@ -52,6 +53,10 @@ export function AdminEditOrderModal({ orderId, order, stock, onClose, onSaved }:
       setError('Remplissez les infos client')
       return
     }
+    if (deliveryMode === 'livraison' && !address.trim()) {
+      setError('L\'adresse est obligatoire pour une livraison')
+      return
+    }
     if (items.length === 0) {
       setError('Ajoutez au moins un produit')
       return
@@ -81,6 +86,26 @@ export function AdminEditOrderModal({ orderId, order, stock, onClose, onSaved }:
         await updateStock(productId, qty)
       }
 
+      // Ajustement stock si bascule "exclure trompes l'oeil"
+      const wasExcluded = order.excludeTrompeLoeilStock === true
+      if (excludeTrompeLoeilStock && !wasExcluded) {
+        // On exclut maintenant : remettre le stock des trompes l'oeil
+        for (const item of items) {
+          if (isTrompeLoeilProductId(item.productId) && item.productId in stock) {
+            const currentQty = stock[item.productId] ?? 0
+            await updateStock(item.productId, currentQty + item.quantity)
+          }
+        }
+      } else if (!excludeTrompeLoeilStock && wasExcluded) {
+        // On compte maintenant : déduire le stock des trompes l'oeil
+        for (const item of items) {
+          if (isTrompeLoeilProductId(item.productId) && item.productId in stock) {
+            const currentQty = stock[item.productId] ?? 0
+            await updateStock(item.productId, Math.max(0, currentQty - item.quantity))
+          }
+        }
+      }
+
       await updateOrder(orderId, {
         customer: {
           firstName: firstName.trim(),
@@ -95,6 +120,7 @@ export function AdminEditOrderModal({ orderId, order, stock, onClose, onSaved }:
         requestedTime: requestedTime || undefined,
         clientNote: clientNote.trim() || undefined,
         adminNote: adminNote.trim() || undefined,
+        excludeTrompeLoeilStock,
       })
 
       onSaved()
@@ -168,9 +194,21 @@ export function AdminEditOrderModal({ orderId, order, stock, onClose, onSaved }:
             </div>
           </div>
 
+          {items.some(i => isTrompeLoeilProductId(i.productId)) && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={excludeTrompeLoeilStock}
+                onChange={e => setExcludeTrompeLoeilStock(e.target.checked)}
+                className="rounded border-mayssa-brown/20 text-mayssa-caramel focus:ring-mayssa-caramel"
+              />
+              <span className="text-xs text-mayssa-brown">Ne pas compter cette commande dans le stock des trompes l&apos;œil</span>
+            </label>
+          )}
+
           {deliveryMode === 'livraison' && (
             <div>
-              <label className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60 mb-2 block">Adresse de livraison</label>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60 mb-2 block">Adresse de livraison (obligatoire)</label>
               <input
                 type="text"
                 placeholder="Adresse complète..."

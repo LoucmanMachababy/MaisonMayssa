@@ -174,6 +174,13 @@ export type Order = {
   deliveryFee?: number
   /** Distance en km depuis Annecy (livraison) */
   distanceKm?: number
+  /** Si true, les trompes l'oeil de cette commande ne sont pas déduits du stock (ni restaurés si refus) */
+  excludeTrompeLoeilStock?: boolean
+}
+
+/** Vérifie si un productId correspond à un trompe l'oeil */
+export function isTrompeLoeilProductId(productId: string): boolean {
+  return productId.startsWith('trompe-loeil-')
 }
 
 const ordersRef = ref(db, 'orders')
@@ -202,7 +209,7 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus) {
   await update(ref(db, `orders/${orderId}`), { status })
 }
 
-export type OrderUpdate = Partial<Pick<Order, 'customer' | 'items' | 'total' | 'status' | 'deliveryMode' | 'requestedDate' | 'requestedTime' | 'adminNote' | 'clientNote' | 'deliveryFee' | 'distanceKm' | 'source'>>
+export type OrderUpdate = Partial<Pick<Order, 'customer' | 'items' | 'total' | 'status' | 'deliveryMode' | 'requestedDate' | 'requestedTime' | 'adminNote' | 'clientNote' | 'deliveryFee' | 'distanceKm' | 'source' | 'excludeTrompeLoeilStock'>>
 
 export async function updateOrder(orderId: string, updates: OrderUpdate) {
   const clean = stripUndefined(updates as Record<string, unknown>)
