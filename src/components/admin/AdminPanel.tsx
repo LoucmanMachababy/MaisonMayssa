@@ -11,12 +11,15 @@ import {
   adminAddPoints, adminRemovePoints,
   listenReviews,
   listenPromoCodes,
+  listenNotifyWhenAvailable,
   isPreorderOpenNow, isTrompeLoeilProductId,
   releaseDeliverySlot,
-  type StockMap, type Settings, type Order, type OrderSource, type UserProfile, type PreorderOpening, type Review, type PromoCodeRecord, type Poll, listenPolls
+  type StockMap, type Settings, type Order, type OrderSource, type UserProfile, type PreorderOpening, type Review, type PromoCodeRecord, type Poll, type NotifyWhenAvailableEntry,
+  listenPolls
 } from '../../lib/firebase'
 import type { ProductOverrideMap } from '../../types'
 import { parseDateYyyyMmDd } from '../../lib/utils'
+import { hapticFeedback } from '../../lib/haptics'
 import type { User } from 'firebase/auth'
 import { useProducts } from '../../hooks/useProducts'
 import { AdminProductsTab } from './AdminProductsTab'
@@ -248,12 +251,13 @@ function Dashboard({ user }: { user: User }) {
   const [settings, setSettings] = useState<Settings>({ preorderDays: [3, 6], preorderMessage: '' })
   const [orders, setOrders] = useState<Record<string, Order>>({})
   const [reviews, setReviews] = useState<Record<string, Review>>({})
-  const [tab, setTab] = useState<'commandes' | 'historique' | 'livraison' | 'ca' | 'avis' | 'stock' | 'jours' | 'anniversaires' | 'inscrits' | 'produits' | 'promos' | 'sondage' | 'rappels' | 'abonnes' | 'carte'>('commandes')
+  const [tab, setTab] = useState<'commandes' | 'historique' | 'livraison' | 'ca' | 'avis' | 'stock' | 'jours' | 'anniversaires' | 'inscrits' | 'produits' | 'promos' | 'sondage' | 'rappels' | 'abonnes' | 'alertes' | 'carte'>('commandes')
   const [caPeriod, setCaPeriod] = useState<'jour' | 'semaine' | 'mois'>('semaine')
   const [allUsers, setAllUsers] = useState<Record<string, UserProfile>>({})
   const [productOverrides, setProductOverrides] = useState<ProductOverrideMap>({})
   const [promoCodes, setPromoCodes] = useState<Record<string, PromoCodeRecord>>({})
   const [polls, setPolls] = useState<Record<string, Poll>>({})
+  const [notifyWhenAvailableEntries, setNotifyWhenAvailableEntries] = useState<Record<string, NotifyWhenAvailableEntry>>({})
   const { allProducts } = useProducts()
   const [showOffSiteForm, setShowOffSiteForm] = useState(false)
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null)
@@ -308,7 +312,8 @@ function Dashboard({ user }: { user: User }) {
     const unsub6 = listenReviews(setReviews)
     const unsub7 = listenPromoCodes(setPromoCodes)
     const unsub8 = listenPolls(setPolls)
-    return () => { unsub1(); unsub2(); unsub3(); unsub4(); unsub5(); unsub6(); unsub7(); unsub8() }
+    const unsub9 = listenNotifyWhenAvailable(setNotifyWhenAvailableEntries)
+    return () => { unsub1(); unsub2(); unsub3(); unsub4(); unsub5(); unsub6(); unsub7(); unsub8(); unsub9() }
   }, [])
 
   // Notification son + navigateur quand nouvelle commande en attente
@@ -622,6 +627,7 @@ function Dashboard({ user }: { user: User }) {
             { id: 'sondage', icon: BarChart3, label: 'Sondage' },
             { id: 'rappels', icon: Bell, label: 'Rappels' },
             { id: 'abonnes', icon: Package, label: 'Abonnés' },
+            { id: 'alertes', icon: Bell, label: 'Alertes', badge: Object.keys(notifyWhenAvailableEntries).length },
             { id: 'carte', icon: MapPin, label: 'Carte' },
           ] as const).map((t) => (
             <button
@@ -1684,6 +1690,62 @@ function Dashboard({ user }: { user: User }) {
 
         {tab === 'abonnes' && (
           <AdminSubscribersTab orders={orders} />
+        )}
+
+        {tab === 'alertes' && (
+          <motion.section
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-4"
+          >
+            <p className="text-sm text-mayssa-brown/70">
+              Personnes inscrites pour être prévenues quand un produit revient en stock.
+            </p>
+            {(() => {
+              const byProduct = Object.entries(notifyWhenAvailableEntries).reduce<Record<string, { name: string; emails: string[] }>>((acc, [, e]) => {
+                if (!acc[e.productId]) acc[e.productId] = { name: e.productName, emails: [] }
+                if (!acc[e.productId].emails.includes(e.email)) acc[e.productId].emails.push(e.email)
+                return acc
+              }, {})
+              const productIds = Object.keys(byProduct).sort()
+              if (productIds.length === 0) {
+                return <p className="text-sm text-mayssa-brown/50">Aucune inscription pour l’instant.</p>
+              }
+              return (
+                <div className="space-y-3">
+                  {productIds.map((productId) => {
+                    const { name, emails } = byProduct[productId]
+                    const list = emails.join(', ')
+                    return (
+                      <div key={productId} className="rounded-xl bg-white/80 border border-mayssa-brown/10 p-4 shadow-sm">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="font-bold text-mayssa-brown">{name}</p>
+                            <p className="text-xs text-mayssa-brown/60 mt-0.5">{emails.length} inscription(s)</p>
+                            <p className="text-xs text-mayssa-brown/70 mt-1 break-all">{list || '—'}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (list) {
+                                navigator.clipboard.writeText(list)
+                                hapticFeedback('success')
+                              }
+                            }}
+                            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg bg-mayssa-brown text-white text-xs font-bold hover:bg-mayssa-brown/90 cursor-pointer"
+                          >
+                            <ClipboardList size={14} />
+                            Copier les emails
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })()}
+          </motion.section>
         )}
 
         {tab === 'carte' && (

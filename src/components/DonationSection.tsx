@@ -15,12 +15,18 @@ export function DonationSection() {
       className="mt-12 sm:mt-16 section-shell bg-gradient-to-br from-mayssa-caramel/10 to-mayssa-brown/5 border border-mayssa-caramel/20 rounded-2xl"
     >
       <div className="rounded-2xl overflow-hidden border border-mayssa-brown/10 shadow-lg mb-6 sm:mb-8">
-        <img
-          src="/boutique-fictif.png"
-          alt="Maison Mayssa – Sucrée & Salée, future boutique à Annecy"
-          className="w-full h-auto object-cover"
-          loading="lazy"
-        />
+        <picture>
+          <source srcSet="/boutique-fictif.webp" type="image/webp" />
+          <img
+            src="/boutique-fictif.png"
+            alt="Maison Mayssa – Sucrée & Salée, future boutique à Annecy"
+            className="w-full h-auto object-cover"
+            width={800}
+            height={534}
+            loading="lazy"
+            decoding="async"
+          />
+        </picture>
       </div>
       <div className="flex flex-col sm:flex-row sm:items-center gap-6 sm:gap-8">
         <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-mayssa-caramel/20 text-mayssa-caramel">

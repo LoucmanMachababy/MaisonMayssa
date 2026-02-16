@@ -48,10 +48,12 @@ export function SizeSelectorModal({ product, onClose, onSelect }: SizeSelectorMo
                         <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl">
                             {/* Close button */}
                             <button
+                                type="button"
                                 onClick={onClose}
-                                className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-mayssa-brown/60 shadow-lg backdrop-blur-sm transition-all hover:bg-white hover:text-mayssa-brown hover:scale-110 active:scale-95 cursor-pointer"
+                                aria-label="Fermer"
+                                className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-mayssa-brown/75 shadow-lg backdrop-blur-sm transition-all hover:bg-white hover:text-mayssa-brown hover:scale-110 active:scale-95 cursor-pointer"
                             >
-                                <X size={18} />
+                                <X size={18} aria-hidden="true" />
                             </button>
 
                             {/* Product image */}
@@ -60,6 +62,10 @@ export function SizeSelectorModal({ product, onClose, onSelect }: SizeSelectorMo
                                     <img
                                         src={product.image}
                                         alt={product.name}
+                                        width={200}
+                                        height={200}
+                                        loading="lazy"
+                                        decoding="async"
                                         className="h-full w-full object-cover"
                                     />
                                     <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent" />
@@ -76,7 +82,7 @@ export function SizeSelectorModal({ product, onClose, onSelect }: SizeSelectorMo
                                         {product.name}
                                     </h3>
                                     {product.description && (
-                                        <p className="text-xs sm:text-sm text-mayssa-brown/70">
+                                        <p className="text-xs sm:text-sm text-mayssa-brown/80">
                                             {product.description}
                                         </p>
                                     )}
@@ -84,7 +90,7 @@ export function SizeSelectorModal({ product, onClose, onSelect }: SizeSelectorMo
 
                                 {/* Size selection */}
                                 <div className="space-y-2 sm:space-y-3">
-                                    <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-mayssa-brown/60 text-center">
+                                    <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-mayssa-brown/75 text-center">
                                         Choisissez votre format
                                     </p>
                                     <div className={cn(
@@ -93,8 +99,10 @@ export function SizeSelectorModal({ product, onClose, onSelect }: SizeSelectorMo
                                     )}>
                                         {product.sizes?.map((size) => (
                                             <button
+                                                type="button"
                                                 key={size.ml}
                                                 onClick={() => onSelect(product, size)}
+                                                aria-label={`Choisir ${product.name} - ${size.ml} ml à ${size.price.toFixed(2)} €`}
                                                 className={cn(
                                                     "group relative flex flex-col items-center justify-center gap-1 sm:gap-2 rounded-2xl p-3 sm:p-4 transition-all cursor-pointer",
                                                     "bg-mayssa-soft/60 hover:bg-mayssa-caramel hover:text-white",
@@ -105,7 +113,7 @@ export function SizeSelectorModal({ product, onClose, onSelect }: SizeSelectorMo
                                                 <span className="text-lg sm:text-xl font-display font-bold text-mayssa-brown group-hover:text-white transition-colors">
                                                     {size.price.toFixed(2).replace('.', ',')} €
                                                 </span>
-                                                <span className="text-[10px] sm:text-xs font-bold text-mayssa-brown/70 group-hover:text-white/90 transition-colors text-center">
+                                                <span className="text-[10px] sm:text-xs font-bold text-mayssa-brown/80 group-hover:text-white/90 transition-colors text-center">
                                                     {size.label}
                                                 </span>
                                                 <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -121,10 +129,10 @@ export function SizeSelectorModal({ product, onClose, onSelect }: SizeSelectorMo
                                 {/* Note about coulis for Mini Gourmandises */}
                                 {product.category === 'Mini Gourmandises' && (
                                     <div className="rounded-xl bg-mayssa-soft/50 p-3 space-y-1.5">
-                                        <p className="text-[10px] sm:text-xs font-bold text-mayssa-brown/70 text-center">
+                                        <p className="text-[10px] sm:text-xs font-bold text-mayssa-brown/80 text-center">
                                             🍯 Coulis inclus au choix
                                         </p>
-                                        <p className="text-[9px] sm:text-[10px] text-mayssa-brown/60 text-center">
+                                        <p className="text-[9px] sm:text-[10px] text-mayssa-brown/75 text-center">
                                             Petite : jusqu'à 2 parfums • Grande : jusqu'à 4 parfums
                                         </p>
                                         <p className="text-[9px] sm:text-[10px] text-mayssa-brown/50 text-center">
@@ -136,18 +144,18 @@ export function SizeSelectorModal({ product, onClose, onSelect }: SizeSelectorMo
                                 {/* Note about customization for Tiramisus */}
                                 {product.category === 'Tiramisus' && (
                                     <div className="rounded-xl bg-mayssa-soft/50 p-3 sm:p-4 space-y-3">
-                                        <p className="text-[10px] sm:text-xs font-bold text-mayssa-brown/70 text-center">
+                                        <p className="text-[10px] sm:text-xs font-bold text-mayssa-brown/80 text-center">
                                             🥮 Choix de la base
                                         </p>
-                                        <p className="text-[9px] sm:text-[10px] text-mayssa-brown/60 text-center leading-relaxed">
+                                        <p className="text-[9px] sm:text-[10px] text-mayssa-brown/75 text-center leading-relaxed">
                                             Biscuit cuillère nature • Biscuit cuillère café<br />
                                             Gâteau Spéculoos • Gâteau Oreo
                                         </p>
                                         <div className="border-t border-mayssa-brown/10 pt-2 space-y-1.5">
-                                            <p className="text-[10px] sm:text-xs font-bold text-mayssa-brown/70 text-center">
+                                            <p className="text-[10px] sm:text-xs font-bold text-mayssa-brown/80 text-center">
                                                 🍓 Toppings inclus
                                             </p>
-                                            <p className="text-[9px] sm:text-[10px] text-mayssa-brown/60 text-center">
+                                            <p className="text-[9px] sm:text-[10px] text-mayssa-brown/75 text-center">
                                                 2 toppings au choix
                                             </p>
                                             <p className="text-[9px] sm:text-[10px] text-mayssa-brown/50 text-center leading-relaxed">

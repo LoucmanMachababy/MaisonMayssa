@@ -8,6 +8,7 @@ import { ProductBadges } from './ProductBadges'
 import { ShareButton } from './ShareButton'
 import { BlurImage } from './BlurImage'
 import { StockBadge } from './StockBadge'
+import { NotifyWhenAvailable } from './NotifyWhenAvailable'
 import { hapticFeedback } from '../lib/haptics'
 
 interface ProductCardProps {
@@ -38,6 +39,7 @@ export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavori
             layout
             role="button"
             tabIndex={0}
+            aria-label={isUnavailable ? `${product.name} — Indisponible` : `Ajouter ${product.name} au panier`}
             onClick={() => {
                 if (!isPreorderSoon && !isUnavailable) {
                     hapticFeedback('medium')
@@ -179,8 +181,11 @@ export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavori
                     </div>
 
                     {(isPreorderSoon || isUnavailable) ? (
-                        <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl sm:rounded-2xl bg-mayssa-brown/30 text-mayssa-brown/60 flex-shrink-0 cursor-not-allowed" title={isPreorderSoon ? 'Disponible à partir du 14 février 2026' : !isPreorderDay ? `Dispo ${dayNames}` : 'Rupture de stock'}>
-                            <Calendar size={20} className="sm:w-6 sm:h-6" />
+                        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                            <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl sm:rounded-2xl bg-mayssa-brown/30 text-mayssa-brown/60 cursor-not-allowed" title={isPreorderSoon ? 'Disponible à partir du 14 février 2026' : !isPreorderDay ? `Dispo ${dayNames}` : 'Rupture de stock'}>
+                                <Calendar size={20} className="sm:w-6 sm:h-6" aria-hidden />
+                            </div>
+                            <NotifyWhenAvailable product={product} className="text-right" />
                         </div>
                     ) : (
                         <button

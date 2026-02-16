@@ -904,4 +904,30 @@ export async function setCommunityMap(data: CommunityMapData) {
   await set(communityMapRef, data)
 }
 
+// --- Préviens-moi quand dispo (notify when available) ---
+export type NotifyWhenAvailableEntry = {
+  productId: string
+  productName: string
+  email: string
+  createdAt: number
+}
+
+const notifyWhenAvailableRef = ref(db, 'notifyWhenAvailable')
+
+export async function addNotifyWhenAvailable(productId: string, productName: string, email: string): Promise<void> {
+  const entry: NotifyWhenAvailableEntry = {
+    productId,
+    productName,
+    email: email.trim().toLowerCase(),
+    createdAt: Date.now(),
+  }
+  await push(notifyWhenAvailableRef, entry)
+}
+
+export function listenNotifyWhenAvailable(callback: (entries: Record<string, NotifyWhenAvailableEntry>) => void) {
+  return onValue(notifyWhenAvailableRef, (snapshot) => {
+    callback(snapshot.exists() ? snapshot.val() : {})
+  })
+}
+
 export { db, auth, app }

@@ -52,6 +52,10 @@
     "communityMap": {
       ".read": true,
       ".write": "auth != null"
+    },
+    "notifyWhenAvailable": {
+      ".read": "auth != null",
+      ".write": true
     }
   }
 }

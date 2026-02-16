@@ -42,9 +42,10 @@ export function FavorisSection({ favorites, onRemove, onAddToCart, onClear }: Fa
               hapticFeedback('light')
               onClear()
             }}
+            aria-label="Vider les favoris"
             className="flex items-center gap-2 px-4 py-2 text-sm text-red-500 rounded-xl hover:bg-red-50 transition-colors cursor-pointer self-start sm:self-auto"
           >
-            <Trash2 size={16} />
+            <Trash2 size={16} aria-hidden="true" />
             <span>Vider les favoris</span>
           </button>
         )}
@@ -63,7 +64,7 @@ export function FavorisSection({ favorites, onRemove, onAddToCart, onClear }: Fa
           <h3 className="text-lg font-bold text-mayssa-brown mb-2">
             Aucun favori pour le moment
           </h3>
-          <p className="text-sm text-mayssa-brown/60 text-center max-w-xs">
+          <p className="text-sm text-mayssa-brown/75 text-center max-w-xs">
             Cliquez sur le coeur d'un produit pour l'ajouter ici
           </p>
         </motion.div>
@@ -102,7 +103,10 @@ export function FavorisSection({ favorites, onRemove, onAddToCart, onClear }: Fa
                       <img
                         src={product.image}
                         alt={product.name}
+                        width={120}
+                        height={120}
                         loading="lazy"
+                        decoding="async"
                         className="h-full w-full object-cover transition-transform duration-500 hover:scale-110"
                       />
                     ) : (

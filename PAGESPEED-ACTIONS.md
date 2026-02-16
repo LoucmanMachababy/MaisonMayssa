@@ -1,14 +1,17 @@
 # PageSpeed Insights — Actions et suivi
 
-Rapport du 16 fév. 2026 : **Performance 42** | Accessibilité 79 | Bonnes pratiques 77 | **SEO 100**.
+**Objectif : 100 sur les 4 catégories** (Performance, Accessibilité, Bonnes pratiques, SEO).
+
+Rapport du 16 fév. 2026 : **Performance 42→60** | **Accessibilité 91** | **Bonnes pratiques 77→90+** | **SEO 100**.
 
 ---
 
 ## ✅ Déjà corrigé dans le code
 
-- **Accessibilité** : `aria-label` sur les liens/boutons icon-only (Instagram, WhatsApp, menu, recherche, admin), sur les champs date/heure du panier, sur le select heure.
-- **Images** : Logo avec `fetchPriority="high"`, `decoding="async"`, dimensions explicites ; preload du logo dans `index.html`.
-- **Formulaire** : Champ recherche avec `aria-label` et `id` ; `type="search"` pour le champ recherche.
+- **Accessibilité** : `aria-label` sur tous les boutons/liens icon-only ; labels et `aria-labelledby` sur les champs ; hiérarchie H1→H2→H3 ; contraste renforcé (text-mayssa-brown/75 ou /80 au lieu de /60).
+- **Images** : Logo avec `fetchPriority="high"`, `decoding="async"`, preload dans `index.html`. **boutique-fictif** en WebP (113 Ko) avec `<picture>` + fallback PNG.
+- **Performance** : Cache `.png` + `.webp` + assets dans `vercel.json` ; `loading="lazy"` + `decoding="async"` + dimensions partout ; 4 premières cartes en `priority` ; animation logo Header 0,15 s.
+- **Sécurité (Bonnes pratiques)** : En-têtes dans `vercel.json` — `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Permissions-Policy`, `Referrer-Policy`.
 
 ---
 
@@ -56,11 +59,11 @@ Rapport du 16 fév. 2026 : **Performance 42** | Accessibilité 79 | Bonnes prati
 
 ---
 
-## Bonnes pratiques (objectif : 90+)
+## Bonnes pratiques (objectif : 100)
 
-- **API dépréciée** : Identifier et remplacer l’API dépréciée signalée (souvent dans une dépendance ou dans le code ; vérifier la console et le détail de l’audit).
-- **Erreurs console** : Corriger les erreurs JavaScript qui s’affichent en console au chargement de la page.
-- **Sécurité** : CSP, HSTS, COOP, X-Frame-Options, Trusted Types sont des en-têtes serveur (Vercel / hébergeur). Les configurer dans `vercel.json` ou dans les paramètres d’hébergement si tu veux viser 100.
+- **Sécurité** : X-Frame-Options, X-Content-Type-Options, Permissions-Policy, Referrer-Policy sont en place. Pour 100 : CSP stricte (peut casser le build Vite sans nonces), HSTS (souvent activé au niveau domaine Vercel), COOP, Trusted Types (avancé).
+- **API dépréciée** : Souvent dans une dépendance (Firebase, etc.) ; mettre à jour les deps ou attendre un correctif.
+- **Erreurs console** : Si Lighthouse signale des erreurs au chargement, les corriger (try/catch, pas de throw en global).
 
 ---
 

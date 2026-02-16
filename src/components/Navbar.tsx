@@ -94,7 +94,7 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 sm:gap-3">
-                            <img src="/logo.webp" alt="Maison Mayssa - Pâtisserie Annecy" className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 rounded-xl object-contain shadow-lg ring-2 ring-white" />
+                            <img src="/logo.webp" alt="Maison Mayssa - Pâtisserie Annecy" width={48} height={48} loading="eager" decoding="async" className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 rounded-xl object-contain shadow-lg ring-2 ring-white" />
                             <div className="flex flex-col">
                                 <span className="font-display text-base sm:text-lg md:text-xl font-bold text-mayssa-brown leading-tight">Maison Mayssa</span>
                                 <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-mayssa-caramel">Annecy</span>
@@ -117,7 +117,7 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
                                         onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                                         aria-label={isUserMenuOpen ? 'Fermer le menu compte' : 'Ouvrir le menu compte'}
                                         aria-expanded={isUserMenuOpen}
-                                        className="relative flex items-center gap-2 text-sm font-bold text-mayssa-brown/70 hover:text-mayssa-brown transition-all uppercase tracking-widest hover:scale-105 active:scale-95 cursor-pointer"
+                                        className="relative flex items-center gap-2 text-sm font-bold text-mayssa-brown/80 hover:text-mayssa-brown transition-all uppercase tracking-widest hover:scale-105 active:scale-95 cursor-pointer"
                                     >
                                         <User size={14} aria-hidden="true" />
                                         Mon Compte
@@ -201,10 +201,12 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
                                 <span className="hidden md:inline">Commander sur WhatsApp</span>
                             </a>
                             {/* Mobile Menu Button */}
-                            <button
+<button
+                            type="button"
                                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                                 className="lg:hidden p-2 text-mayssa-brown hover:text-mayssa-caramel transition-colors rounded-lg hover:bg-mayssa-soft/50 active:scale-95 cursor-pointer"
-                                aria-label="Menu"
+                                aria-label="Ouvrir le menu de navigation"
+                                aria-expanded={isMobileMenuOpen}
                             >
                                 {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
                             </button>
@@ -237,18 +239,19 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
                             <div className="p-4 sm:p-5 pt-[max(1rem,env(safe-area-inset-top))] space-y-1">
                                 <div className="flex items-center justify-between border-b border-mayssa-brown/10 pb-4 mb-2">
                                     <div className="flex items-center gap-3">
-                                        <img src="/logo.webp" alt="Maison Mayssa - Pâtisserie Annecy" className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl object-contain shadow-lg ring-2 ring-white" />
+                                        <img src="/logo.webp" alt="Maison Mayssa - Pâtisserie Annecy" width={48} height={48} loading="lazy" decoding="async" className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl object-contain shadow-lg ring-2 ring-white" />
                                         <div className="flex flex-col">
                                             <span className="font-display text-lg sm:text-xl font-bold text-mayssa-brown leading-tight">Maison Mayssa</span>
                                             <span className="text-[10px] font-bold uppercase tracking-widest text-mayssa-caramel">Annecy</span>
                                         </div>
                                     </div>
                                     <button
+                                        type="button"
                                         onClick={() => setIsMobileMenuOpen(false)}
                                         className="min-h-[44px] min-w-[44px] flex items-center justify-center -m-2 text-mayssa-brown hover:text-mayssa-caramel transition-colors rounded-xl hover:bg-mayssa-soft/50 active:scale-95 cursor-pointer"
-                                        aria-label="Fermer"
+                                        aria-label="Fermer le menu"
                                     >
-                                        <X size={24} />
+                                        <X size={24} aria-hidden="true" />
                                     </button>
                                 </div>
 
@@ -262,14 +265,16 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
                                     {isAuthenticated ? (
                                         <>
                                             <button
+                                                type="button"
                                                 onClick={() => {
                                                     onAccountClick()
                                                     setIsMobileMenuOpen(false)
                                                 }}
+                                                aria-label="Ouvrir mon compte"
                                                 className="flex items-center justify-between w-full min-h-[48px] rounded-2xl px-4 py-3 text-[15px] font-bold text-mayssa-brown/80 hover:text-mayssa-brown hover:bg-mayssa-soft/50 active:bg-mayssa-soft active:scale-[0.99] transition-all uppercase tracking-widest cursor-pointer touch-manipulation"
                                             >
                                                 <span className="flex items-center gap-2">
-                                                    <User size={18} />
+                                                    <User size={18} aria-hidden="true" />
                                                     Mon Compte
                                                 </span>
                                                 {profile && (
@@ -280,25 +285,29 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
                                                 )}
                                             </button>
                                             <button
+                                                type="button"
                                                 onClick={() => {
                                                     handleLogout()
                                                     setIsMobileMenuOpen(false)
                                                 }}
+                                                aria-label="Se déconnecter"
                                                 className="flex items-center w-full min-h-[48px] rounded-2xl px-4 py-3 text-[15px] font-bold text-red-600 hover:text-red-700 hover:bg-red-50 active:bg-red-100 active:scale-[0.99] transition-all cursor-pointer touch-manipulation"
                                             >
-                                                <LogOut size={18} />
+                                                <LogOut size={18} aria-hidden="true" />
                                                 <span className="ml-2">Se Déconnecter</span>
                                             </button>
                                         </>
                                     ) : (
                                         <button
+                                            type="button"
                                             onClick={() => {
                                                 onAccountClick()
                                                 setIsMobileMenuOpen(false)
                                             }}
+                                            aria-label="S'inscrire ou se connecter"
                                             className="flex items-center w-full min-h-[48px] rounded-2xl px-4 py-3 text-[15px] font-bold text-mayssa-caramel hover:text-mayssa-brown hover:bg-mayssa-soft/50 active:bg-mayssa-soft active:scale-[0.99] transition-all uppercase tracking-widest cursor-pointer touch-manipulation"
                                         >
-                                            <Gift size={18} />
+                                            <Gift size={18} aria-hidden="true" />
                                             <span className="ml-2">S&apos;inscrire / Se connecter</span>
                                             <span className="ml-auto px-2 py-0.5 bg-mayssa-caramel/20 text-mayssa-caramel rounded-full text-[10px] font-bold normal-case animate-pulse">
                                               +15 pts
@@ -327,7 +336,7 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
                                         target="_blank"
                                         rel="noreferrer"
                                         onClick={() => hapticFeedback('light')}
-                                        className="flex items-center justify-center min-h-[44px] gap-2 text-sm text-mayssa-brown/70 hover:text-mayssa-caramel cursor-pointer touch-manipulation"
+                                        className="flex items-center justify-center min-h-[44px] gap-2 text-sm text-mayssa-brown/80 hover:text-mayssa-caramel cursor-pointer touch-manipulation"
                                     >
                                         <Phone size={16} />
                                         Contacter
@@ -370,7 +379,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
         <a
             href={href}
             onClick={handleClick}
-            className="text-sm font-bold text-mayssa-brown/70 hover:text-mayssa-brown transition-all uppercase tracking-widest hover:scale-105 active:scale-95 cursor-pointer"
+            className="text-sm font-bold text-mayssa-brown/80 hover:text-mayssa-brown transition-all uppercase tracking-widest hover:scale-105 active:scale-95 cursor-pointer"
         >
             {children}
         </a>
@@ -418,7 +427,7 @@ function NavLinkWithBadge({ href, children, count, icon }: { href: string; child
         <a
             href={href}
             onClick={handleClick}
-            className="relative flex items-center gap-1.5 text-sm font-bold text-mayssa-brown/70 hover:text-mayssa-brown transition-all uppercase tracking-widest hover:scale-105 active:scale-95 cursor-pointer"
+            className="relative flex items-center gap-1.5 text-sm font-bold text-mayssa-brown/80 hover:text-mayssa-brown transition-all uppercase tracking-widest hover:scale-105 active:scale-95 cursor-pointer"
         >
             {icon}
             {children}

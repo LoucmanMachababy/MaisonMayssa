@@ -194,7 +194,10 @@ export function Cart({
                                                     <img
                                                         src={item.product.image}
                                                         alt={item.product.name}
+                                                        width={80}
+                                                        height={80}
                                                         loading="lazy"
+                                                        decoding="async"
                                                         className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                                                     />
                                                 </div>
@@ -202,9 +205,9 @@ export function Cart({
 
                                             <div className="min-w-0 flex-1">
                                                 <div className="flex items-start gap-2">
-                                                    <h4 className="truncate text-sm sm:text-base font-bold text-mayssa-brown flex-1">
+                                                    <h3 className="truncate text-sm sm:text-base font-bold text-mayssa-brown flex-1">
                                                         {item.product.name}
-                                                    </h4>
+                                                    </h3>
                                                 </div>
                                                 {item.product.description && (
                                                     <p className="text-[10px] sm:text-xs text-mayssa-brown/60 mt-0.5 line-clamp-2 leading-relaxed">

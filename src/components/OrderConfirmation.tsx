@@ -69,7 +69,7 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
 
         <div className="p-6 space-y-5">
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-mayssa-brown/60 mb-2">Récapitulatif</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-mayssa-brown/75 mb-2">Récapitulatif</h3>
             <div className="space-y-1.5 text-sm text-mayssa-brown">
               {data.items.map((item, i) => (
                 <div key={i} className="flex justify-between">
@@ -91,7 +91,7 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
           </div>
 
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-mayssa-brown/60 mb-2">Prochaines étapes</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-mayssa-brown/75 mb-2">Prochaines étapes</h3>
             <ol className="space-y-2 text-sm text-mayssa-brown">
               <li className="flex gap-2">
                 <span className="flex-shrink-0 w-6 h-6 rounded-full bg-mayssa-caramel/20 text-mayssa-caramel flex items-center justify-center text-xs font-bold">1</span>
@@ -128,20 +128,21 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
               <CreditCard size={20} />
               Commander via PayPal — {finalTotal.toFixed(2).replace('.', ',')} €
             </a>
-            <p className="text-[10px] text-mayssa-brown/50 text-center -mt-1">
+            <p className="text-[10px] text-mayssa-brown/65 text-center -mt-1">
               Indiquez &quot;Commande {data.orderId}&quot; dans la note PayPal.
             </p>
             <button
               type="button"
               onClick={copyPaypalNote}
+              aria-label="Copier la note à inclure sur PayPal"
               className="flex items-center justify-center gap-1 text-[10px] text-mayssa-caramel hover:underline cursor-pointer"
             >
-              <Copy size={12} />
+              <Copy size={12} aria-hidden="true" />
               Copier la note à inclure sur PayPal
             </button>
 
             <div className="border border-mayssa-brown/10 rounded-xl p-3 bg-slate-50">
-              <p className="text-[10px] font-bold text-mayssa-brown/60 mb-2">Ma commande du {data.requestedDate ? new Date(data.requestedDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }) : 'jour'}</p>
+              <p className="text-[10px] font-bold text-mayssa-brown/75 mb-2">Ma commande du {data.requestedDate ? new Date(data.requestedDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }) : 'jour'}</p>
               <div className="flex gap-3 items-start">
                 <a
                   href={statusUrl}
@@ -155,11 +156,13 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
                     alt="QR code suivi de commande"
                     width={100}
                     height={100}
+                    loading="lazy"
+                    decoding="async"
                     className="block"
                   />
                 </a>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] text-mayssa-brown/50 mb-1">Lien à partager (retrait / livraison)</p>
+                  <p className="text-[10px] text-mayssa-brown/65 mb-1">Lien à partager (retrait / livraison)</p>
                   <div className="flex items-center gap-2">
                     <a
                       href={statusUrl}
@@ -172,10 +175,11 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
                     <button
                       type="button"
                       onClick={copyStatusLink}
+                      aria-label="Copier le lien de suivi"
                       className="p-1.5 rounded-lg hover:bg-mayssa-brown/10 cursor-pointer"
                       title="Copier le lien"
                     >
-                      <Copy size={14} className="text-mayssa-brown" />
+                      <Copy size={14} className="text-mayssa-brown" aria-hidden="true" />
                     </button>
                   </div>
                 </div>
@@ -186,7 +190,7 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
           <div className="border-t border-mayssa-brown/10 pt-5">
             <div className="flex items-center gap-2 mb-3">
               <Star size={18} className="text-mayssa-caramel" />
-              <h3 className="text-xs font-bold uppercase tracking-wider text-mayssa-brown/60">Donner mon avis</h3>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-mayssa-brown/75">Donner mon avis</h3>
             </div>
             {showReviewForm && reviewAlreadySubmitted !== null && (
               <ReviewForm
@@ -199,13 +203,14 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
               />
             )}
             {!showReviewForm && (
-              <p className="text-xs text-mayssa-brown/50">Tu pourras laisser un avis plus tard en revenant sur le site.</p>
+              <p className="text-xs text-mayssa-brown/65">Tu pourras laisser un avis plus tard en revenant sur le site.</p>
             )}
           </div>
 
           <button
             type="button"
             onClick={onClose}
+            aria-label="Retour au catalogue"
             className="w-full py-3 rounded-xl bg-mayssa-brown text-white font-bold hover:bg-mayssa-caramel transition-colors cursor-pointer"
           >
             Retour au catalogue

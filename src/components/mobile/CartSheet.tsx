@@ -235,7 +235,7 @@ export function CartSheet({
                 type="button"
                 onClick={() => { hapticFeedback('light'); onClose() }}
                 aria-label="Fermer le panier"
-                className="flex h-9 w-9 items-center justify-center rounded-xl bg-mayssa-brown/5 text-mayssa-brown/60 cursor-pointer"
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-mayssa-brown/5 text-mayssa-brown/75 cursor-pointer"
               >
                 <X size={18} />
               </button>
@@ -246,25 +246,26 @@ export function CartSheet({
               {/* Cart Items */}
               {hasItems ? (
                 <div className="space-y-2">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/60">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/75">
                     Articles ({itemCount})
                   </p>
                   {items.map((item) => (
                     <div key={item.product.id} className="flex gap-3 p-2.5 rounded-xl bg-white/80">
                       {item.product.image && (
                         <div className="w-14 h-14 flex-shrink-0 rounded-lg overflow-hidden">
-                          <img src={item.product.image} alt={item.product.name} className="w-full h-full object-cover" />
+                          <img src={item.product.image} alt={item.product.name} width={56} height={56} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-xs text-mayssa-brown truncate">{item.product.name}</h4>
-                        <p className="text-[10px] text-mayssa-brown/50 truncate">{item.product.description}</p>
+                        <h3 className="font-semibold text-xs text-mayssa-brown truncate">{item.product.name}</h3>
+                        <p className="text-[10px] text-mayssa-brown/65 truncate">{item.product.description}</p>
                         <div className="flex items-center justify-between mt-1.5">
                           <span className="font-bold text-sm text-mayssa-caramel">
                             {(item.product.price * item.quantity).toFixed(2).replace('.', ',')} €
                           </span>
                           <div className="flex items-center gap-1.5">
                             <button
+                              type="button"
                               onClick={() => { hapticFeedback('light'); onUpdateQuantity(item.product.id, item.quantity - 1) }}
                               aria-label={item.quantity === 1 ? `Supprimer ${item.product.name}` : `Réduire ${item.product.name}`}
                               className="flex h-6 w-6 items-center justify-center rounded-md bg-mayssa-cream text-mayssa-brown cursor-pointer"
@@ -273,6 +274,7 @@ export function CartSheet({
                             </button>
                             <span className="w-5 text-center font-bold text-xs">{item.quantity}</span>
                             <button
+                              type="button"
                               onClick={() => { hapticFeedback('light'); onUpdateQuantity(item.product.id, item.quantity + 1) }}
                               aria-label={`Ajouter ${item.product.name}`}
                               className="flex h-6 w-6 items-center justify-center rounded-md bg-mayssa-brown text-mayssa-cream cursor-pointer"
@@ -298,13 +300,13 @@ export function CartSheet({
                   <div className="flex h-14 w-14 items-center justify-center rounded-full bg-mayssa-brown/5 mb-3">
                     <ShoppingBag size={28} className="text-mayssa-brown/30" />
                   </div>
-                  <p className="text-mayssa-brown/60 font-medium text-sm">Ton panier est vide</p>
+                  <p className="text-mayssa-brown/75 font-medium text-sm">Ton panier est vide</p>
                 </div>
               )}
 
               {/* Customer Info */}
               <div className="space-y-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/60">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/75">
                   Tes informations *
                 </p>
                 <div className="grid grid-cols-2 gap-2">
@@ -360,7 +362,7 @@ export function CartSheet({
 
               {/* Delivery Mode */}
               <div className="space-y-2">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/60">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/75">
                   Mode de récupération
                 </p>
                 <div className="grid grid-cols-2 gap-2">
@@ -428,7 +430,7 @@ export function CartSheet({
 
               {/* Date & Time */}
               <div className="space-y-2">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/60">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/75">
                   Date et heure *
                 </p>
                 <div className="grid grid-cols-2 gap-2">
@@ -464,7 +466,7 @@ export function CartSheet({
                     </select>
                   </div>
                 </div>
-                <p className="text-[9px] text-mayssa-brown/50">
+                <p className="text-[9px] text-mayssa-brown/65">
                   {customer.wantsDelivery ? 'Livraison 20h - 2h' : 'Retrait 18h30 - 2h'}
                 </p>
                 {customer.wantsDelivery && customer.date && timeSlots.length === 0 && (
@@ -476,7 +478,7 @@ export function CartSheet({
 
               {/* Notes */}
               <div className="space-y-2">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/60">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/75">
                   Notes (optionnel)
                 </p>
                 <textarea
@@ -490,7 +492,7 @@ export function CartSheet({
               {/* Code promo */}
               {setPromoCodeInput != null && onApplyPromo != null && onClearPromo != null && (
                 <div className="space-y-2">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/60">Code promo</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/75">Code promo</p>
                   {appliedPromo ? (
                     <div className="flex items-center justify-between gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2.5">
                       <span className="text-xs font-semibold text-emerald-800">
@@ -528,7 +530,7 @@ export function CartSheet({
               {/* Code parrain */}
               {setReferralCodeInput != null && isAuthenticated && profile && (profile.orderStats?.orderCount ?? 0) === 0 && !profile.referredByCode && (
                 <div className="space-y-2">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/60">Code parrain</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/75">Code parrain</p>
                   <input
                     type="text"
                     value={referralCodeInput}
@@ -543,7 +545,7 @@ export function CartSheet({
               {/* Soutien au projet */}
               {setDonationAmount != null && (
                 <div className="space-y-2">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/60 flex items-center gap-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/75 flex items-center gap-1">
                     <Heart size={10} /> Soutenir le projet
                   </p>
                   <div className="flex flex-wrap gap-1.5">
@@ -563,7 +565,7 @@ export function CartSheet({
                     ))}
                   </div>
                   <div className="flex items-center gap-2">
-                    <label htmlFor="cart-sheet-donation-other" className="text-[10px] text-mayssa-brown/60">Autre :</label>
+                    <label htmlFor="cart-sheet-donation-other" className="text-[10px] text-mayssa-brown/75">Autre :</label>
                     <input
                       id="cart-sheet-donation-other"
                       type="number"
@@ -578,7 +580,7 @@ export function CartSheet({
                       aria-label="Montant du don en euros (autre)"
                       className="w-16 rounded-lg bg-white/80 px-2 py-1.5 text-xs ring-1 ring-mayssa-brown/10"
                     />
-                    <span className="text-[10px] text-mayssa-brown/60">€</span>
+                    <span className="text-[10px] text-mayssa-brown/75">€</span>
                   </div>
                 </div>
               )}
@@ -631,7 +633,7 @@ export function CartSheet({
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-mayssa-brown/60">{cost} pts</span>
+                            <span className="text-[10px] text-mayssa-brown/75">{cost} pts</span>
                             {selectedReward?.type === rewardType && (
                               <div className="w-3 h-3 rounded-full bg-mayssa-caramel flex items-center justify-center">
                                 <span className="text-white text-[6px]">✓</span>
@@ -679,7 +681,7 @@ export function CartSheet({
                 </div>
               )}
 
-              <p className="text-[9px] text-mayssa-brown/60 text-center flex items-center justify-center gap-1">
+              <p className="text-[9px] text-mayssa-brown/75 text-center flex items-center justify-center gap-1">
                 <MessageCircle size={12} />
                 Commande via WhatsApp, Instagram ou Snapchat.
               </p>
@@ -705,7 +707,7 @@ export function CartSheet({
 
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <span className="text-xs text-mayssa-brown/60">Total</span>
+                  <span className="text-xs text-mayssa-brown/75">Total</span>
                   {appliedPromo && appliedPromo.discount > 0 && (
                     <span className="text-[9px] text-emerald-600 ml-1">(-{appliedPromo.discount.toFixed(2)} € promo)</span>
                   )}

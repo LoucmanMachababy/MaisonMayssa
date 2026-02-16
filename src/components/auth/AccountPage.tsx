@@ -231,10 +231,12 @@ export function AccountPage({ onClose }: AccountPageProps) {
             Déconnexion
           </button>
           <button
+            type="button"
             onClick={onClose}
+            aria-label="Fermer"
             className="flex items-center justify-center w-8 h-8 rounded-xl bg-mayssa-brown/10 text-mayssa-brown hover:bg-mayssa-brown/20 transition-colors"
           >
-            <X size={16} />
+            <X size={16} aria-hidden="true" />
           </button>
         </div>
       </div>

@@ -1204,7 +1204,7 @@ function AppContent() {
         <PromoBanner />
         <Header />
 
-        <main id="main-content" className="mt-8 sm:mt-12 flex flex-col gap-12 sm:gap-20 md:gap-28 items-center" role="main" aria-label="Contenu principal">
+        <main id="main-content" className="mt-8 sm:mt-12 flex flex-col gap-12 sm:gap-20 md:gap-28 items-center" aria-label="Contenu principal">
           {/* SEO : trompe l'œil Annecy (référencement Google) */}
           <section id="trompe-loeil-annecy" className="w-full text-center px-4">
             <h2 className="text-xl sm:text-2xl font-display font-bold text-mayssa-brown mb-2">
@@ -1287,6 +1287,7 @@ function AppContent() {
                         hapticFeedback('light')
                         setActiveCategory(cat as any)
                       }}
+                      aria-label={isActive ? `Catégorie ${cat} sélectionnée` : `Filtrer par ${cat}`}
                       className={`group relative flex flex-col items-center justify-center gap-2 sm:gap-3 rounded-xl sm:rounded-2xl p-3 sm:p-4 transition-all duration-300 cursor-pointer ${isActive
                         ? 'bg-mayssa-brown text-white shadow-xl shadow-mayssa-brown/20 -translate-y-1'
                         : 'bg-white/60 text-mayssa-brown hover:bg-white hover:shadow-lg hover:-translate-y-1 border border-mayssa-brown/5'
@@ -1351,7 +1352,7 @@ function AppContent() {
                         stock={getStock(product.id)}
                         isPreorderDay={isPreorderDay}
                         dayNames={dayNames}
-                        priority={index < 6}
+                        priority={index < 4}
                       />
                     ))}
                   </AnimatePresence>
@@ -1370,7 +1371,7 @@ function AppContent() {
                       stock={getStock(product.id)}
                       isPreorderDay={isPreorderDay}
                       dayNames={dayNames}
-                      priority={index < 6}
+                      priority={index < 4}
                     />
                   ))}
                 </div>
@@ -1486,12 +1487,18 @@ function AppContent() {
           {/* Le projet : future boutique + soutien */}
           <div id="soutien" className="mt-10 sm:mt-12 pt-8 sm:pt-10 border-t border-mayssa-brown/10">
             <div className="rounded-2xl overflow-hidden border border-mayssa-brown/10 shadow-lg mb-6 sm:mb-8">
-              <img
-                src="/boutique-fictif.png"
-                alt="Maison Mayssa – Sucrée & Salée, future boutique à Annecy"
-                className="w-full h-auto object-cover"
-                loading="lazy"
-              />
+              <picture>
+                <source srcSet="/boutique-fictif.webp" type="image/webp" />
+                <img
+                  src="/boutique-fictif.png"
+                  alt="Maison Mayssa – Sucrée & Salée, future boutique à Annecy"
+                  className="w-full h-auto object-cover"
+                  width={800}
+                  height={534}
+                  loading="lazy"
+                  decoding="async"
+                />
+              </picture>
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 rounded-2xl bg-gradient-to-br from-mayssa-caramel/10 to-mayssa-brown/5 p-5 sm:p-6 border border-mayssa-caramel/20">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-mayssa-caramel/20 text-mayssa-caramel">

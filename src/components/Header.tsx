@@ -11,9 +11,9 @@ export function Header() {
             <div className="relative z-10 flex flex-col items-center justify-between gap-8 sm:gap-10 lg:flex-row">
                 <div className="flex flex-col items-center gap-4 sm:gap-6 text-center lg:items-start lg:text-left w-full lg:w-auto">
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.9 }}
+                        initial={{ opacity: 0, scale: 0.98 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.25 }}
+                        transition={{ duration: 0.15 }}
                         className="relative"
                     >
                         <div className="absolute -inset-3 sm:-inset-4 rounded-full bg-mayssa-caramel/20 blur-2xl animate-pulse-slow" aria-hidden="true" />
@@ -33,7 +33,7 @@ export function Header() {
                             <motion.p
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="text-[10px] sm:text-xs font-bold tracking-[0.3em] sm:tracking-[0.4em] uppercase text-mayssa-brown/60 mb-2"
+                                className="text-[10px] sm:text-xs font-bold tracking-[0.3em] sm:tracking-[0.4em] uppercase text-mayssa-brown/75 mb-2"
                             >
                                 Trompe l&apos;œil pâtissier • Annecy
                             </motion.p>
@@ -132,7 +132,7 @@ export function Header() {
                         </a>
                     </div>
 
-                    <p className="text-center text-[10px] sm:text-xs font-semibold text-mayssa-brown/60 lg:text-right">
+                    <p className="text-center text-[10px] sm:text-xs font-semibold text-mayssa-brown/75 lg:text-right">
                         Livraison offerte dès 45 € · Commande par WhatsApp uniquement
                     </p>
                 </motion.div>
@@ -147,7 +147,7 @@ function Badge({ icon, text, variant = 'default' }: { icon: React.ReactNode; tex
         : variant === 'closed'
             ? 'bg-mayssa-brown/10 text-mayssa-brown/70 border-mayssa-brown/20'
             : 'bg-white/60 text-mayssa-brown border-white/40'
-    const iconClass = variant === 'open' ? 'text-emerald-600' : variant === 'closed' ? 'text-mayssa-brown/50' : 'text-mayssa-caramel'
+    const iconClass = variant === 'open' ? 'text-emerald-600' : variant === 'closed' ? 'text-mayssa-brown/70' : 'text-mayssa-caramel'
     return (
         <span className={cn('inline-flex items-center gap-1.5 sm:gap-2 rounded-full px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold border shadow-sm transition-colors hover:opacity-90', variantClass)}>
             <span className={cn('flex-shrink-0', iconClass)}>{icon}</span>

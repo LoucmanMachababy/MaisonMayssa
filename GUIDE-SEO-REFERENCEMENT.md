@@ -4,6 +4,32 @@ Objectif : **le meilleur référencement possible** pour « trompe l'œil Annecy
 
 ---
 
+## 🥇 Objectif : apparaître en 1ère pour « trompe l'œil Annecy »
+
+Le site est déjà bien calé sur ce mot-clé (title, meta, schema, H2, contenu). Pour viser la **1re place** sur Google :
+
+1. **Fiche Google (Google Business Profile)** — priorité max  
+   Créer ou compléter la fiche « Maison Mayssa » à Annecy : catégorie Pâtisserie, description avec « trompe l'œil » et « Annecy », adresse, horaires, photos (trompes l'œil, boutique). La fiche locale pèse très fort pour les recherches « trompe l'œil Annecy ».
+
+2. **Avis Google**  
+   Demander aux clients satisfaits de laisser un avis (lien court vers ta fiche). Plus tu as d’avis positifs, plus Google favorise ta fiche et ton site.
+
+3. **Search Console**  
+   Sitemap déjà envoyé ✅. Vérifier régulièrement : indexation, erreurs, et (optionnel) demander l’indexation de l’URL d’accueil si besoin.
+
+4. **Image de partage (OG)**  
+   Une image 1200×630 avec « Maison Mayssa – Trompe l'œil Annecy » en og:image améliore le clic en résultats de recherche et sur les réseaux.
+
+5. **Quelques liens externes**  
+   Inscription dans des annuaires locaux (Annecy, Haute-Savoie, pâtisseries), un article ou un partenaire qui cite « trompe l'œil Annecy » et lien vers maison-mayssa.fr.
+
+6. **Contenu et réseaux**  
+   Publier régulièrement sur Instagram avec #trompeloeil #annecy ; mettre le lien du site en bio. Un peu de contenu (photos, stories) renforce la notoriété et les signaux pour Google.
+
+**En résumé** : le technique (site + sitemap) est bon. Pour être en première position, l’effet le plus fort vient de la **fiche Google** complète + **avis** + **quelques backlinks** locaux.
+
+---
+
 ## ✅ Déjà en place sur le site
 
 ### Balises et meta
