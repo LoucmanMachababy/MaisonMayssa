@@ -250,6 +250,45 @@ export async function deleteOrder(orderId: string) {
   await remove(ref(db, `orders/${orderId}`))
 }
 
+// --- Avis clients (reviews) ---
+export type Review = {
+  /** Optionnel : avis lié à une commande (sinon avis laissé librement) */
+  orderId?: string
+  rating: number // 1-5 étoiles
+  comment?: string
+  authorName?: string
+  /** Notes par produit (trompe l'œil) : productId -> 1-5 */
+  productRatings?: Record<string, number>
+  createdAt: number
+}
+
+const reviewsRef = ref(db, 'reviews')
+
+export function listenReviews(callback: (reviews: Record<string, Review>) => void) {
+  return onValue(reviewsRef, (snapshot) => {
+    callback(snapshot.val() || {})
+  })
+}
+
+export async function submitReview(review: Omit<Review, 'createdAt'>): Promise<string | null> {
+  const newRef = push(reviewsRef)
+  const data: Review = {
+    ...review,
+    createdAt: Date.now(),
+  }
+  await set(newRef, stripUndefined(data as unknown as Record<string, unknown>))
+  return newRef.key
+}
+
+/** Vérifie si un avis a déjà été soumis pour cette commande */
+export async function getReviewByOrderId(orderId: string): Promise<Review | null> {
+  const snapshot = await get(reviewsRef)
+  const val = snapshot.val() as Record<string, Review> | null
+  if (!val) return null
+  const found = Object.entries(val).find(([, r]) => r.orderId === orderId)
+  return found ? { ...found[1] } : null
+}
+
 /** Retire les propriétés undefined (Firebase les refuse) */
 function stripUndefined<T extends Record<string, unknown>>(obj: T): T {
   return Object.fromEntries(

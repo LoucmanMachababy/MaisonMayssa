@@ -1,13 +1,16 @@
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { CheckCircle2, MessageSquare, CreditCard, Copy } from 'lucide-react'
+import { CheckCircle2, MessageSquare, CreditCard, Copy, Star } from 'lucide-react'
 import { PAYPAL_ME_USER, PHONE_E164 } from '../constants'
+import { getReviewByOrderId } from '../lib/firebase'
+import { ReviewForm, type OrderItemForReview } from './ReviewForm'
 
 export type OrderConfirmationData = {
   orderId: string
   total: number
   deliveryFee?: number
   customer: { firstName: string; lastName: string; phone: string }
-  items: { name: string; quantity: number; price: number }[]
+  items: { name: string; quantity: number; price: number; productId?: string }[]
   deliveryMode?: 'livraison' | 'retrait'
   requestedDate?: string
   requestedTime?: string
@@ -20,6 +23,17 @@ interface OrderConfirmationProps {
 }
 
 export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfirmationProps) {
+  const [showReviewForm, setShowReviewForm] = useState(true)
+  const [reviewAlreadySubmitted, setReviewAlreadySubmitted] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    getReviewByOrderId(data.orderId).then((review) => {
+      if (!cancelled) setReviewAlreadySubmitted(!!review)
+    })
+    return () => { cancelled = true }
+  }, [data.orderId])
+
   const finalTotal = data.total + (data.deliveryFee ?? 0)
   const paypalUrl = `https://www.paypal.me/${PAYPAL_ME_USER}/${finalTotal.toFixed(2).replace('.', ',')}`
   const statusUrl = `${window.location.origin}${window.location.pathname}#/commande/${data.orderId}`
@@ -149,6 +163,26 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
                 </button>
               </div>
             </div>
+          </div>
+
+          <div className="border-t border-mayssa-brown/10 pt-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Star size={18} className="text-mayssa-caramel" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-mayssa-brown/60">Donner mon avis</h3>
+            </div>
+            {showReviewForm && reviewAlreadySubmitted !== null && (
+              <ReviewForm
+                orderId={data.orderId}
+                items={data.items as OrderItemForReview[]}
+                customerName={data.customer.firstName}
+                onSubmitted={() => setReviewAlreadySubmitted(true)}
+                onSkip={() => setShowReviewForm(false)}
+                alreadySubmitted={reviewAlreadySubmitted}
+              />
+            )}
+            {!showReviewForm && (
+              <p className="text-xs text-mayssa-brown/50">Tu pourras laisser un avis plus tard en revenant sur le site.</p>
+            )}
           </div>
 
           <button

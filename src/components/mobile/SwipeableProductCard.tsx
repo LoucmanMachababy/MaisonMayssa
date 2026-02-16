@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, useMotionValue, useTransform, useSpring } from 'framer-motion'
 import type { PanInfo } from 'framer-motion'
-import { Plus, Check, ShoppingBag, Heart, Calendar, ChevronRight } from 'lucide-react'
+import { Plus, Check, ShoppingBag, Heart, Calendar, ChevronRight, Star } from 'lucide-react'
 import type { Product } from '../../types'
+import { useReviews } from '../../hooks/useReviews'
 import { hapticFeedback } from '../../lib/haptics'
 import { isPreorderNotYetAvailable } from '../../lib/utils'
 import { ProductBadges } from '../ProductBadges'
@@ -32,11 +33,14 @@ export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false
   const x = useMotionValue(0)
   const springX = useSpring(x, { damping: 30, stiffness: 300 })
   
+  const { getAverageRatingForProduct, getReviewCountForProduct } = useReviews()
   const isPreorderSoon = isPreorderNotYetAvailable(product)
   const showBientotDispo = product.preorder && !product.image
   const isTrompeLoeil = product.category === "Trompe l'oeil"
   const isStockManaged = stock !== null
   const isUnavailable = isStockManaged && (stock <= 0 || (isTrompeLoeil && !isPreorderDay))
+  const productRating = isTrompeLoeil ? getAverageRatingForProduct(product.id) : null
+  const productReviewCount = isTrompeLoeil ? getReviewCountForProduct(product.id) : 0
 
   // Enhanced transforms with better thresholds
   const background = useTransform(
@@ -248,6 +252,16 @@ export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false
             <p className="text-xs text-mayssa-brown/60 line-clamp-1">
               {product.description || 'Pâtisserie artisanale'}
             </p>
+            {productRating != null && productReviewCount > 0 && (
+              <div className="flex items-center gap-1 mt-0.5 text-mayssa-caramel">
+                <div className="flex gap-0.5">
+                  {[1, 2, 3, 4, 5].map((v) => (
+                    <Star key={v} size={10} className={v <= Math.round(productRating) ? 'fill-current' : 'text-mayssa-brown/20'} />
+                  ))}
+                </div>
+                <span className="text-[9px] font-semibold text-mayssa-brown/70">{productRating} ({productReviewCount})</span>
+              </div>
+            )}
             {isStockManaged && (
               <StockBadge stock={stock} isPreorderDay={isPreorderDay} dayNames={dayNames} compact isPreorderProduct={isTrompeLoeil} />
             )}

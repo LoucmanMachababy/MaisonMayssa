@@ -1073,6 +1073,7 @@ function AppContent() {
         name: i.product.name,
         quantity: i.quantity,
         price: i.product.price,
+        productId: getOriginalProductId(i.product.id),
       })),
       deliveryMode: customer.wantsDelivery ? 'livraison' : 'retrait',
       requestedDate: customer.date || undefined,

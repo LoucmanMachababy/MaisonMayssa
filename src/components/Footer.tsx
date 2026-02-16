@@ -63,7 +63,7 @@ export function Footer() {
                                     Commander sur WhatsApp
                                 </a>
                             </li>
-                            <li><FooterLink href="#temoignages">Témoignages</FooterLink></li>
+                            <li><FooterLink href="#avis">Avis</FooterLink></li>
                             <li><FooterLink href="#livraison">Zone de Livraison</FooterLink></li>
                             <li><FooterLink href="#contact">Contact</FooterLink></li>
                         </ul>

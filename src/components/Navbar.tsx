@@ -168,7 +168,7 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
                                 </button>
                             )}
                             
-                            <NavLink href="#temoignages">Témoignages</NavLink>
+                            <NavLink href="#avis">Avis</NavLink>
                             <NavLink href="#notre-histoire">Notre Histoire</NavLink>
                             <NavLink href="#contact">Contact</NavLink>
                         </div>
@@ -299,7 +299,7 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
                                         </button>
                                     )}
                                     
-                                    <MobileNavLink href="#temoignages" onClick={() => setIsMobileMenuOpen(false)}>Témoignages</MobileNavLink>
+                                    <MobileNavLink href="#avis" onClick={() => setIsMobileMenuOpen(false)}>Avis</MobileNavLink>
                                     <MobileNavLink href="#notre-histoire" onClick={() => setIsMobileMenuOpen(false)}>Notre Histoire</MobileNavLink>
                                     <MobileNavLink href="#contact" onClick={() => setIsMobileMenuOpen(false)}>Contact</MobileNavLink>
                                 </nav>

@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion'
-import { Plus, ShoppingCart, Heart, Calendar } from 'lucide-react'
+import { Plus, ShoppingCart, Heart, Calendar, Star } from 'lucide-react'
 import type { Product } from '../types'
 import { use3DTilt } from '../hooks/use3DTilt'
+import { useReviews } from '../hooks/useReviews'
 import { isPreorderNotYetAvailable } from '../lib/utils'
 import { ProductBadges } from './ProductBadges'
 import { ShareButton } from './ShareButton'
@@ -23,11 +24,14 @@ interface ProductCardProps {
 
 export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavorite, stock = null, isPreorderDay = true, dayNames = '', priority = false }: ProductCardProps) {
     const { ref, style, handlers } = use3DTilt(10)
+    const { getAverageRatingForProduct, getReviewCountForProduct } = useReviews()
     const isPreorderSoon = isPreorderNotYetAvailable(product)
     const showBientotDispo = product.preorder && !product.image
     const isTrompeLoeil = product.category === "Trompe l'oeil"
     const isStockManaged = stock !== null
     const isUnavailable = isStockManaged && (stock <= 0 || (isTrompeLoeil && !isPreorderDay))
+    const productRating = isTrompeLoeil ? getAverageRatingForProduct(product.id) : null
+    const productReviewCount = isTrompeLoeil ? getReviewCountForProduct(product.id) : 0
 
     return (
         <motion.article
@@ -122,6 +126,16 @@ export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavori
                     <p className="text-[11px] sm:text-xs font-medium text-mayssa-brown/60 line-clamp-2 leading-relaxed">
                         {product.description || 'Pâtisserie artisanale'}
                     </p>
+                    {productRating != null && productReviewCount > 0 && (
+                        <div className="flex items-center gap-1.5 text-mayssa-caramel">
+                            <div className="flex gap-0.5">
+                                {[1, 2, 3, 4, 5].map((v) => (
+                                    <Star key={v} size={12} className={v <= Math.round(productRating) ? 'fill-current' : 'text-mayssa-brown/20'} />
+                                ))}
+                            </div>
+                            <span className="text-[10px] font-semibold text-mayssa-brown/70">{productRating} ({productReviewCount})</span>
+                        </div>
+                    )}
                     {isStockManaged && (
                         <StockBadge stock={stock} isPreorderDay={isPreorderDay} dayNames={dayNames} isPreorderProduct={isTrompeLoeil} />
                     )}
