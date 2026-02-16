@@ -77,7 +77,7 @@ import {
   calculateDistance,
   computeDeliveryFee,
 } from './lib/delivery'
-import { isPreorderNotYetAvailable, isBeforeOrderCutoff, isBeforeFirstPickupDate } from './lib/utils'
+import { isPreorderNotYetAvailable, isBeforeOrderCutoff, isBeforeFirstPickupDate, formatDateYyyyMmDdToFrench } from './lib/utils'
 import {
   Sparkles,
   Search,
@@ -899,21 +899,11 @@ function AppContent() {
         lines.push(`Heure souhaitée : ${customer.time}`)
       }
     } else if (customer.date && customer.time) {
-      const dateObj = new Date(customer.date)
-      const dateFormatted = dateObj.toLocaleDateString('fr-FR', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-      })
+      const dateFormatted = formatDateYyyyMmDdToFrench(customer.date)
       lines.push(`Date souhaitée : ${dateFormatted}`)
       lines.push(`Heure souhaitée : ${customer.time}`)
     } else if (customer.date) {
-      const dateObj = new Date(customer.date)
-      const dateFormatted = dateObj.toLocaleDateString('fr-FR', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-      })
+      const dateFormatted = formatDateYyyyMmDdToFrench(customer.date)
       lines.push(`Date souhaitée : ${dateFormatted}`)
       if (customer.time) lines.push(`Heure souhaitée : ${customer.time}`)
     }
@@ -1148,9 +1138,6 @@ function AppContent() {
     }
 
     // Vider le panier après envoi (évite qu'un autre compte voie l'ancienne commande)
-    setCart([])
-
-    // Vider le panier (la confirmation est déjà affichée)
     setCart([])
   }
 

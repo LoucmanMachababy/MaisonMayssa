@@ -81,13 +81,15 @@ export function Cart({
       ? Object.entries(REWARD_COSTS).filter(([_, cost]) => profile.loyalty.points >= cost)
       : []
 
+    const allTimeSlots = useMemo(() => generateTimeSlots(customer.wantsDelivery), [customer.wantsDelivery])
     const timeSlots = useMemo(() => {
-      const all = generateTimeSlots(customer.wantsDelivery)
-      if (!customer.wantsDelivery || !customer.date) return all
+      if (!customer.wantsDelivery || !customer.date) return allTimeSlots
       const taken = deliverySlots[customer.date]
-      if (!taken) return all
-      return all.filter((t) => (taken[t] ?? 0) < 1)
-    }, [customer.wantsDelivery, customer.date, deliverySlots])
+      if (!taken) return allTimeSlots
+      return allTimeSlots.filter((t) => (taken[t] ?? 0) < 1)
+    }, [customer.wantsDelivery, customer.date, deliverySlots, allTimeSlots])
+    const isSlotFull = (time: string) =>
+      Boolean(customer.wantsDelivery && customer.date && (deliverySlots[customer.date]?.[time] ?? 0) >= 1)
 
     // Reset time if switching mode, invalid hour, or créneau devenu indispo (livraison)
     useEffect(() => {
@@ -390,7 +392,14 @@ export function Cart({
                                     className="w-full bg-transparent text-xs font-bold text-mayssa-brown focus:outline-none cursor-pointer"
                                 >
                                     <option value="">L'heure</option>
-                                    {timeSlots.map((t) => <option key={t} value={t}>{t}</option>)}
+                                    {allTimeSlots.map((t) => {
+                                        const full = isSlotFull(t)
+                                        return (
+                                            <option key={t} value={t} disabled={full}>
+                                                {t}{full ? ' — Complet' : ''}
+                                            </option>
+                                        )
+                                    })}
                                 </select>
                             </div>
                         </div>

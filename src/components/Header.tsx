@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
-import { Phone, Instagram, Clock, Truck, MapPin, MessageCircle } from 'lucide-react'
-import { cn, isOpen } from '../lib/utils'
-import { PHONE_E164 } from '../constants'
+import { Phone, Instagram, Clock, Truck, MapPin, MessageCircle, Calendar } from 'lucide-react'
+import { cn, isOpen, getNextPickupDateLabel } from '../lib/utils'
+import { PHONE_E164, FIRST_PICKUP_DATE_CLASSIC } from '../constants'
 import { hapticFeedback } from '../lib/haptics'
 
 export function Header() {
@@ -67,6 +67,10 @@ L'excellence de la pâtisserie artisanale à Annecy.
                             />
                             <Badge icon={<Truck size={12} className="sm:w-3.5 sm:h-3.5" />} text="Livraison Annecy" />
                             <Badge icon={<MapPin size={12} className="sm:w-3.5 sm:h-3.5" />} text="Retrait possible" />
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-mayssa-caramel/15 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-mayssa-brown/90 border border-mayssa-caramel/30">
+                                <Calendar size={12} className="sm:w-3.5 sm:h-3.5 text-mayssa-caramel" />
+                                Prochaine récup : {getNextPickupDateLabel(FIRST_PICKUP_DATE_CLASSIC)}
+                            </span>
                         </motion.div>
                     </div>
                 </div>

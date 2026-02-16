@@ -14,6 +14,7 @@ import {
   type StockMap, type Settings, type Order, type OrderSource, type UserProfile, type PreorderOpening
 } from '../../lib/firebase'
 import type { ProductOverrideMap } from '../../types'
+import { parseDateYyyyMmDd } from '../../lib/utils'
 import type { User } from 'firebase/auth'
 import { useProducts } from '../../hooks/useProducts'
 import { AdminProductsTab } from './AdminProductsTab'
@@ -69,7 +70,7 @@ function exportOrdersToCSV(entries: [string, Order][]): void {
     const adresse = (o.customer?.address ?? '').replace(/"/g, '""')
     const distanceKm = o.distanceKm != null ? o.distanceKm.toFixed(1) : ''
     const retrait = o.requestedDate
-      ? new Date(o.requestedDate + 'T00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) + (o.requestedTime ? ` ${o.requestedTime}` : '')
+      ? parseDateYyyyMmDd(o.requestedDate).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'short' }) + (o.requestedTime ? ` ${o.requestedTime}` : '')
       : ''
     const clientNote = (o.clientNote ?? '').replace(/"/g, '""')
     const items = (o.items ?? []).map((i) => `${i.quantity}× ${i.name}`).join(' | ')
@@ -738,7 +739,7 @@ function Dashboard({ user }: { user: User }) {
                           )}
                           {order.requestedDate && (
                             <span className="text-[9px] text-mayssa-brown/50">
-                              {new Date(order.requestedDate + 'T00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                              {parseDateYyyyMmDd(order.requestedDate).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'short' })}
                               {order.requestedTime && ` à ${order.requestedTime}`}
                             </span>
                           )}
@@ -1023,7 +1024,7 @@ function Dashboard({ user }: { user: User }) {
                               )}
                               {order.requestedDate && (
                                 <span className="text-[9px] text-mayssa-brown/50">
-                                  {new Date(order.requestedDate + 'T00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                                  {parseDateYyyyMmDd(order.requestedDate).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'short' })}
                                   {order.requestedTime && ` à ${order.requestedTime}`}
                                 </span>
                               )}

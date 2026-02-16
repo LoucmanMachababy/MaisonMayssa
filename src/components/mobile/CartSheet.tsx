@@ -99,13 +99,15 @@ export function CartSheet({
     ? Object.entries(REWARD_COSTS).filter(([_, cost]) => profile.loyalty.points >= cost)
     : []
 
+  const allTimeSlots = useMemo(() => generateTimeSlots(customer.wantsDelivery), [customer.wantsDelivery])
   const timeSlots = useMemo(() => {
-    const all = generateTimeSlots(customer.wantsDelivery)
-    if (!customer.wantsDelivery || !customer.date) return all
+    if (!customer.wantsDelivery || !customer.date) return allTimeSlots
     const taken = deliverySlots[customer.date]
-    if (!taken) return all
-    return all.filter((t) => (taken[t] ?? 0) < 1)
-  }, [customer.wantsDelivery, customer.date, deliverySlots])
+    if (!taken) return allTimeSlots
+    return allTimeSlots.filter((t) => (taken[t] ?? 0) < 1)
+  }, [customer.wantsDelivery, customer.date, deliverySlots, allTimeSlots])
+  const isSlotFull = (time: string) =>
+    Boolean(customer.wantsDelivery && customer.date && (deliverySlots[customer.date]?.[time] ?? 0) >= 1)
 
   const minDate = getMinDate()
 
@@ -399,9 +401,14 @@ export function CartSheet({
                       className="w-full bg-transparent text-xs font-medium text-mayssa-brown focus:outline-none cursor-pointer"
                     >
                       <option value="">Heure</option>
-                      {timeSlots.map((time) => (
-                        <option key={time} value={time}>{time}</option>
-                      ))}
+                      {allTimeSlots.map((time) => {
+                        const full = isSlotFull(time)
+                        return (
+                          <option key={time} value={time} disabled={full}>
+                            {time}{full ? ' — Complet' : ''}
+                          </option>
+                        )
+                      })}
                     </select>
                   </div>
                 </div>

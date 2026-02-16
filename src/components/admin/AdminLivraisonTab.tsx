@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { jsPDF } from 'jspdf'
 import { Truck, MapPin, Phone, Calendar, Download, Filter, XCircle, MessageSquare, Package, Pencil, FileText, ArrowUpDown } from 'lucide-react'
 import { updateOrderStatus, type Order, type OrderStatus } from '../../lib/firebase'
+import { parseDateYyyyMmDd } from '../../lib/utils'
 
 const ORDER_STATUS_LABELS: Record<string, string> = {
   en_attente: 'En attente',
@@ -24,7 +25,7 @@ function exportRetraitsCSV(entries: [string, Order][]): void {
   const BOM = '\uFEFF'
   const header = ['Date retrait', 'Heure', 'Client', 'Téléphone', 'Note client', 'Articles', 'Total (€)', 'Statut'].join(SEP)
   const rows = entries.map(([, o]) => {
-    const dateStr = o.requestedDate ? new Date(o.requestedDate + 'T00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
+    const dateStr = o.requestedDate ? parseDateYyyyMmDd(o.requestedDate).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
     const timeStr = o.requestedTime ?? ''
     const client = [o.customer?.firstName, o.customer?.lastName].filter(Boolean).join(' ')
     const phone = o.customer?.phone ?? ''
@@ -80,7 +81,7 @@ function exportRetraitsPDF(entries: [string, Order][], dateLabel: string): void 
       lineY += 6
     }
     const timeStr = o.requestedDate
-      ? new Date(o.requestedDate + 'T00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
+      ? parseDateYyyyMmDd(o.requestedDate).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', weekday: 'short', day: 'numeric', month: 'short' })
       : ''
     const heure = o.requestedTime ? ' à ' + o.requestedTime : ''
     doc.text('Créneau retrait: ' + timeStr + heure, margin + 3, lineY)
@@ -113,7 +114,7 @@ function exportLivraisonsCSV(entries: [string, Order][]): void {
   const BOM = '\uFEFF'
   const header = ['Date livraison', 'Heure', 'Client', 'Téléphone', 'Adresse', 'Distance km', 'Note client', 'Articles', 'Total (€)', 'Statut'].join(SEP)
   const rows = entries.map(([, o]) => {
-    const dateStr = o.requestedDate ? new Date(o.requestedDate + 'T00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
+    const dateStr = o.requestedDate ? parseDateYyyyMmDd(o.requestedDate).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
     const timeStr = o.requestedTime ?? ''
     const client = [o.customer?.firstName, o.customer?.lastName].filter(Boolean).join(' ')
     const phone = o.customer?.phone ?? ''
@@ -181,7 +182,7 @@ function exportLivraisonsPDF(entries: [string, Order][], dateLabel: string): voi
       lineY += addr.length * 5 + 2
     }
     const timeStr = o.requestedDate
-      ? new Date(o.requestedDate + 'T00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
+      ? parseDateYyyyMmDd(o.requestedDate).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', weekday: 'short', day: 'numeric', month: 'short' })
       : ''
     const heure = o.requestedTime ? ' a ' + o.requestedTime : ''
     doc.text('Creneau: ' + timeStr + heure, margin + 3, lineY)
@@ -234,8 +235,18 @@ export function AdminLivraisonTab({ orders, onEditOrder }: AdminLivraisonTabProp
       .sort(([, a], [, b]) => {
         let cmp = 0
         if (sortBy === 'date') {
-          const dateA = a.requestedDate ? new Date(a.requestedDate + 'T' + (a.requestedTime || '00:00')).getTime() : 0
-          const dateB = b.requestedDate ? new Date(b.requestedDate + 'T' + (b.requestedTime || '00:00')).getTime() : 0
+          const dateA = a.requestedDate ? (() => {
+            const d = parseDateYyyyMmDd(a.requestedDate)
+            const [h, m] = (a.requestedTime || '00:00').split(':').map(Number)
+            d.setHours(h || 0, m || 0, 0, 0)
+            return d.getTime()
+          })() : 0
+          const dateB = b.requestedDate ? (() => {
+            const d = parseDateYyyyMmDd(b.requestedDate)
+            const [h, m] = (b.requestedTime || '00:00').split(':').map(Number)
+            d.setHours(h || 0, m || 0, 0, 0)
+            return d.getTime()
+          })() : 0
           cmp = dateA - dateB
         } else if (sortBy === 'distance') {
           const distA = a.distanceKm ?? 999
@@ -267,8 +278,18 @@ export function AdminLivraisonTab({ orders, onEditOrder }: AdminLivraisonTabProp
       .sort(([, a], [, b]) => {
         let cmp = 0
         if (sortBy === 'date') {
-          const dateA = a.requestedDate ? new Date(a.requestedDate + 'T' + (a.requestedTime || '00:00')).getTime() : 0
-          const dateB = b.requestedDate ? new Date(b.requestedDate + 'T' + (b.requestedTime || '00:00')).getTime() : 0
+          const dateA = a.requestedDate ? (() => {
+            const d = parseDateYyyyMmDd(a.requestedDate)
+            const [h, m] = (a.requestedTime || '00:00').split(':').map(Number)
+            d.setHours(h || 0, m || 0, 0, 0)
+            return d.getTime()
+          })() : 0
+          const dateB = b.requestedDate ? (() => {
+            const d = parseDateYyyyMmDd(b.requestedDate)
+            const [h, m] = (b.requestedTime || '00:00').split(':').map(Number)
+            d.setHours(h || 0, m || 0, 0, 0)
+            return d.getTime()
+          })() : 0
           cmp = dateA - dateB
         } else if (sortBy === 'distance') {
           const distA = a.distanceKm ?? 999
@@ -504,7 +525,7 @@ export function AdminLivraisonTab({ orders, onEditOrder }: AdminLivraisonTabProp
                   <p className="text-xs text-mayssa-brown flex items-center gap-2">
                     <Calendar size={12} />
                     {order.requestedDate
-                      ? new Date(order.requestedDate + 'T00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long' })
+                      ? parseDateYyyyMmDd(order.requestedDate).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', weekday: 'short', day: 'numeric', month: 'long' })
                       : ''}
                     {order.requestedTime && (
                       <span className="font-bold">{mode === 'livraison' ? 'à' : '—'} {order.requestedTime}</span>

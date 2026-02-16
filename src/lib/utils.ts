@@ -76,7 +76,70 @@ export function isBeforeFirstPickupDate(firstPickupDateYyyyMmDd: string): boolea
   return today < firstPickupDateYyyyMmDd
 }
 
+/** Retourne la date du jour au format YYYY-MM-DD (Europe/Paris). */
+export function getTodayYyyyMmDd(): string {
+  const rtf = new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' })
+  const parts = rtf.formatToParts(new Date())
+  const y = parts.find(p => p.type === 'year')?.value ?? ''
+  const m = parts.find(p => p.type === 'month')?.value ?? ''
+  const d = parts.find(p => p.type === 'day')?.value ?? ''
+  return `${y}-${m}-${d}`
+}
+
+/**
+ * Prochaine date de retrait : prochain mercredi ou samedi (rythme trompe l'œil), en Europe/Paris.
+ * Si cette date est avant firstPickupDateYyyyMmDd, on retourne firstPickupDateYyyyMmDd.
+ * Format court : "mercredi 19 fév."
+ */
+export function getNextPickupDateLabel(firstPickupDateYyyyMmDd: string): string {
+  const today = getTodayYyyyMmDd()
+  const base = parseDateYyyyMmDd(today)
+  const day = base.getDay() // 0 = dim, 3 = mer, 6 = sam
+
+  let daysToAdd: number
+  if (day === 6) daysToAdd = 4 // samedi → mercredi
+  else if (day === 3) daysToAdd = 3 // mercredi → samedi
+  else if (day < 3) daysToAdd = 3 - day // dim, lun, mar → prochain mercredi
+  else daysToAdd = 6 - day // jeu (2→sam), ven (1→sam)
+
+  const next = new Date(base)
+  next.setDate(next.getDate() + daysToAdd)
+  const rtf = new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' })
+  const parts = rtf.formatToParts(next)
+  const y = parts.find(p => p.type === 'year')?.value ?? ''
+  const m = parts.find(p => p.type === 'month')?.value ?? ''
+  const d = parts.find(p => p.type === 'day')?.value ?? ''
+  const nextYyyyMmDd = `${y}-${m}-${d}`
+
+  const dateToShow = nextYyyyMmDd < firstPickupDateYyyyMmDd ? firstPickupDateYyyyMmDd : nextYyyyMmDd
+  const parsed = parseDateYyyyMmDd(dateToShow)
+  return parsed.toLocaleDateString('fr-FR', {
+    timeZone: 'Europe/Paris',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'short',
+  })
+}
+
 // --- Anniversaire (pure functions, pas de dépendance Firebase) ---
+
+/** Parse YYYY-MM-DD sans décalage UTC (T12:00 évite minuit UTC = jour -1 selon fuseau). */
+export function parseDateYyyyMmDd(dateYyyyMmDd: string): Date {
+  if (!dateYyyyMmDd) return new Date(NaN)
+  return new Date(dateYyyyMmDd + 'T12:00:00')
+}
+
+/** Formate YYYY-MM-DD en français (ex: "mercredi 19 février"). Utilise Europe/Paris pour cohérence. */
+export function formatDateYyyyMmDdToFrench(dateYyyyMmDd: string, options?: { weekday?: 'long' | 'short'; timeZone?: string }): string {
+  if (!dateYyyyMmDd) return ''
+  const d = parseDateYyyyMmDd(dateYyyyMmDd)
+  return d.toLocaleDateString('fr-FR', {
+    timeZone: options?.timeZone ?? 'Europe/Paris',
+    weekday: options?.weekday ?? 'long',
+    day: 'numeric',
+    month: 'long',
+  })
+}
 
 /** Vérifier si on est dans la semaine d'anniversaire (3 jours avant à 4 jours après) */
 export function isBirthdayWeek(birthday: string): boolean {
