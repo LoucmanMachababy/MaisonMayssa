@@ -27,7 +27,8 @@ import { useStock } from './hooks/useStock'
 import { useAuth } from './hooks/useAuth'
 const AuthModals = lazy(() => import('./components/auth/AuthModals').then(m => ({ default: m.AuthModals })))
 const AccountPage = lazy(() => import('./components/auth/AccountPage').then(m => ({ default: m.AccountPage })))
-// Firebase importé dynamiquement pour ne pas bloquer le premier affichage mobile
+import { listenDeliverySlots, reserveDeliverySlot } from './lib/firebase'
+// Firebase importé dynamiquement pour le reste
 // addUserPoints, createOrder, etc. sont importés via import() dans les handlers
 
 const VisualBackground = lazy(() => import('./components/effects/VisualBackground').then(m => ({ default: m.VisualBackground })))
@@ -141,8 +142,12 @@ function AppContent() {
   // Refs pour accéder aux données courantes dans les timers (évite les closures stale)
   const stockMapRef = useRef(stockMap)
   const isAuthenticatedRef = useRef(isAuthenticated)
+  const [deliverySlots, setDeliverySlots] = useState<Record<string, Record<string, number>>>({})
   useEffect(() => { stockMapRef.current = stockMap }, [stockMap])
   useEffect(() => { isAuthenticatedRef.current = isAuthenticated }, [isAuthenticated])
+  useEffect(() => {
+    return listenDeliverySlots(setDeliverySlots)
+  }, [])
 
   // Confetti effect
   const { trigger: confettiTrigger, origin: confettiOrigin, fire: fireConfetti } = useConfetti()
@@ -1030,6 +1035,9 @@ function AppContent() {
         ...(note.trim() && note.trim() !== 'Pour le … (date, créneau, adresse)' && { clientNote: note.trim() }),
         createdAt: Date.now(),
       })
+      if (customer.wantsDelivery && customer.date && customer.time) {
+        reserveDeliverySlot(customer.date, customer.time).catch(console.error)
+      }
       return orderId
     } catch (err) {
       console.error('[Firebase] Erreur sauvegarde commande:', err)
@@ -1434,6 +1442,7 @@ function AppContent() {
               onAccountClick={handleAccountClick}
               selectedReward={selectedReward}
               onSelectReward={setSelectedReward}
+              deliverySlots={deliverySlots}
             />
           </motion.section>
         </main>
@@ -1628,6 +1637,7 @@ function AppContent() {
         onAccountClick={handleAccountClick}
         selectedReward={selectedReward}
         onSelectReward={setSelectedReward}
+        deliverySlots={deliverySlots}
       />
       <FavoritesSheet
         isOpen={isFavoritesSheetOpen}

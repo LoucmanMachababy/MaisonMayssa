@@ -10,6 +10,7 @@ import {
   listenAllUsers, claimBirthdayGift, listenProductOverrides, deleteUserProfile,
   adminAddPoints, adminRemovePoints,
   isPreorderOpenNow, isTrompeLoeilProductId,
+  releaseDeliverySlot,
   type StockMap, type Settings, type Order, type OrderSource, type UserProfile, type PreorderOpening
 } from '../../lib/firebase'
 import type { ProductOverrideMap } from '../../types'
@@ -353,6 +354,9 @@ function Dashboard({ user }: { user: User }) {
 
   const handleRefuseOrder = async (orderId: string, order: Order) => {
     await updateOrderStatus(orderId, 'refusee')
+    if (order.deliveryMode === 'livraison' && order.requestedDate && order.requestedTime) {
+      releaseDeliverySlot(order.requestedDate, order.requestedTime).catch(console.error)
+    }
     // Remettre le stock uniquement pour les produits suivis (trompe l'oeil), sauf si la commande est exclue
     const skipTrompeLoeil = order.excludeTrompeLoeilStock === true
     for (const item of order.items) {
@@ -364,8 +368,12 @@ function Dashboard({ user }: { user: User }) {
     }
   }
 
-  const handleDeleteOrder = async (orderId: string) => {
+  const handleDeleteOrder = async (orderId: string, order?: Order) => {
     if (!window.confirm("T'es sûr ? Cette commande sera définitivement supprimée.")) return
+    const o = order ?? orders[orderId]
+    if (o && o.deliveryMode === 'livraison' && o.requestedDate && o.requestedTime) {
+      releaseDeliverySlot(o.requestedDate, o.requestedTime).catch(console.error)
+    }
     await deleteOrder(orderId)
   }
 
@@ -835,7 +843,7 @@ function Dashboard({ user }: { user: User }) {
                       </>
                     ) : (
                       <button
-                        onClick={() => handleDeleteOrder(id)}
+                        onClick={() => handleDeleteOrder(id, order)}
                         className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-mayssa-soft/50 text-mayssa-brown/40 text-[10px] font-bold hover:bg-red-50 hover:text-red-400 transition-colors cursor-pointer"
                       >
                         <Trash2 size={12} />
@@ -1129,7 +1137,7 @@ function Dashboard({ user }: { user: User }) {
                           </button>
                         )}
                         <button
-                          onClick={() => handleDeleteOrder(id)}
+                          onClick={() => handleDeleteOrder(id, order)}
                           className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-mayssa-soft/50 text-mayssa-brown/60 text-xs font-bold hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer"
                         >
                           <Trash2 size={14} />
@@ -1534,6 +1542,7 @@ function Dashboard({ user }: { user: User }) {
             orderId={editingOrderId}
             order={orders[editingOrderId]}
             stock={stock}
+            allProducts={allProducts}
             onClose={() => setEditingOrderId(null)}
             onSaved={() => setEditingOrderId(null)}
           />

@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app'
-import { getDatabase, ref, onValue, set, get, push, update, remove } from 'firebase/database'
+import { getDatabase, ref, onValue, set, get, push, update, remove, runTransaction } from 'firebase/database'
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from 'firebase/auth'
 import type { User } from 'firebase/auth'
 
@@ -22,6 +22,30 @@ const auth = getAuth(app)
 export const stockRef = ref(db, 'stock')
 export const settingsRef = ref(db, 'settings')
 export const productsOverrideRef = ref(db, 'products')
+const deliverySlotsRef = ref(db, 'deliverySlots')
+
+/** Structure: deliverySlots/{date}/{time} = count (1 = créneau pris, 0 = dispo) */
+export type DeliverySlotsMap = Record<string, Record<string, number>>
+
+export function listenDeliverySlots(callback: (slots: DeliverySlotsMap) => void) {
+  return onValue(deliverySlotsRef, (snapshot) => {
+    callback(snapshot.val() || {})
+  })
+}
+
+/** Réserver un créneau (ordre créé en livraison) */
+export async function reserveDeliverySlot(date: string, time: string): Promise<void> {
+  if (!date || !time) return
+  const slotRef = ref(db, `deliverySlots/${date}/${time}`)
+  await runTransaction(slotRef, (current) => (current ?? 0) + 1)
+}
+
+/** Libérer un créneau (ordre refusé/supprimé ou modifié) */
+export async function releaseDeliverySlot(date: string, time: string): Promise<void> {
+  if (!date || !time) return
+  const slotRef = ref(db, `deliverySlots/${date}/${time}`)
+  await runTransaction(slotRef, (current) => Math.max(0, (current ?? 1) - 1))
+}
 
 // --- Stock ---
 export type StockMap = Record<string, number>

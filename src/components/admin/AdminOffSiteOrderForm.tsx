@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { X, Minus, Plus, Search, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
-import { createOffSiteOrder, decrementStockBatch, isTrompeLoeilProductId, type OrderSource, type OrderItem, type DeliveryMode, type StockMap } from '../../lib/firebase'
+import { createOffSiteOrder, decrementStockBatch, isTrompeLoeilProductId, reserveDeliverySlot, type OrderSource, type OrderItem, type DeliveryMode, type StockMap } from '../../lib/firebase'
 import type { ProductWithAvailability } from '../../hooks/useProducts'
 import type { ProductCategory } from '../../types'
 
@@ -140,6 +140,10 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
         ...(adminNote.trim() && { adminNote: adminNote.trim() }),
         ...(excludeTrompeLoeilStock && { excludeTrompeLoeilStock: true }),
       })
+
+      if (deliveryMode === 'livraison' && requestedDate && requestedTime) {
+        reserveDeliverySlot(requestedDate, requestedTime).catch(console.error)
+      }
 
       // Ne déduire que les produits dont le stock doit être mis à jour (exclure trompes l'oeil si coché)
       const itemsToDecrement = excludeTrompeLoeilStock

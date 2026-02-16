@@ -21,6 +21,8 @@ import {
     computeDeliveryFee,
 } from '../lib/delivery'
 
+export type DeliverySlotsMap = Record<string, Record<string, number>>
+
 interface CartProps {
     items: CartItem[]
     total: number
@@ -35,6 +37,7 @@ interface CartProps {
     onAccountClick?: () => void
     selectedReward?: { type: keyof typeof REWARD_COSTS; id: string } | null
     onSelectReward?: (reward: { type: keyof typeof REWARD_COSTS; id: string } | null) => void
+    deliverySlots?: DeliverySlotsMap
 }
 
 export function Cart({
@@ -51,6 +54,7 @@ export function Cart({
     onAccountClick,
     selectedReward,
     onSelectReward,
+    deliverySlots = {},
 }: CartProps) {
     const hasItems = items.length > 0
     const itemCount = items.reduce((sum, item) => sum + item.quantity, 0)
@@ -77,29 +81,38 @@ export function Cart({
       ? Object.entries(REWARD_COSTS).filter(([_, cost]) => profile.loyalty.points >= cost)
       : []
 
-    const timeSlots = useMemo(() => generateTimeSlots(customer.wantsDelivery), [customer.wantsDelivery])
+    const timeSlots = useMemo(() => {
+      const all = generateTimeSlots(customer.wantsDelivery)
+      if (!customer.wantsDelivery || !customer.date) return all
+      const taken = deliverySlots[customer.date]
+      if (!taken) return all
+      return all.filter((t) => (taken[t] ?? 0) < 1)
+    }, [customer.wantsDelivery, customer.date, deliverySlots])
 
-    // Reset time if switching to delivery and selected time is before 20:00
-    // or if switching to pickup and selected time is before 18:30
+    // Reset time if switching mode, invalid hour, or créneau devenu indispo (livraison)
     useEffect(() => {
-        if (customer.time) {
-            const [hourStr, minuteStr] = customer.time.split(':')
-            const hour = parseInt(hourStr, 10)
-            const minute = parseInt(minuteStr || '0', 10)
+        if (!customer.time) return
+        const [hourStr, minuteStr] = customer.time.split(':')
+        const hour = parseInt(hourStr, 10)
+        const minute = parseInt(minuteStr || '0', 10)
 
-            if (customer.wantsDelivery) {
-                // If time is before 20:00 (not valid for delivery), reset it
-                if (hour < 20) {
-                    onCustomerChange({ ...customer, time: '' })
-                }
-            } else {
-                // If time is before 18:30 (not valid for pickup), reset it
-                if (hour < 18 || (hour === 18 && minute < 30)) {
+        if (customer.wantsDelivery) {
+            if (hour < 20) {
+                onCustomerChange({ ...customer, time: '' })
+                return
+            }
+            if (customer.date) {
+                const taken = deliverySlots[customer.date]
+                if (taken && (taken[customer.time] ?? 0) >= 1) {
                     onCustomerChange({ ...customer, time: '' })
                 }
             }
+        } else {
+            if (hour < 18 || (hour === 18 && minute < 30)) {
+                onCustomerChange({ ...customer, time: '' })
+            }
         }
-    }, [customer.wantsDelivery])
+    }, [customer.wantsDelivery, customer.date, customer.time, deliverySlots])
 
     const minDate = getMinDate()
 
@@ -381,6 +394,11 @@ export function Cart({
                                 </select>
                             </div>
                         </div>
+                        {customer.wantsDelivery && customer.date && timeSlots.length === 0 && (
+                            <p className="text-xs text-amber-600 bg-amber-50 rounded-xl px-3 py-2">
+                                Plus de créneaux disponibles pour cette date. Choisissez une autre date.
+                            </p>
+                        )}
 
                         {/* Free delivery progress banner */}
                         {customer.wantsDelivery && total > 0 && total < FREE_DELIVERY_THRESHOLD && isWithinDeliveryZone && (

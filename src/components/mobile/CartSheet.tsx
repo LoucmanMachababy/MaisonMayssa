@@ -10,6 +10,7 @@ import { ReservationTimer } from '../ReservationTimer'
 import { useAuth } from '../../hooks/useAuth'
 import { REWARD_COSTS, REWARD_LABELS } from '../../lib/rewards'
 import type { CartItem, CustomerInfo } from '../../types'
+import type { DeliverySlotsMap } from '../Cart'
 import {
   ANNECY_GARE,
   DELIVERY_RADIUS_KM,
@@ -38,6 +39,7 @@ interface CartSheetProps {
   onAccountClick?: () => void
   selectedReward?: { type: keyof typeof REWARD_COSTS; id: string } | null
   onSelectReward?: (reward: { type: keyof typeof REWARD_COSTS; id: string } | null) => void
+  deliverySlots?: DeliverySlotsMap
 }
 
 export function CartSheet({
@@ -56,6 +58,7 @@ export function CartSheet({
   onAccountClick,
   selectedReward,
   onSelectReward,
+  deliverySlots = {},
 }: CartSheetProps) {
   const dragControls = useDragControls()
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0)
@@ -96,9 +99,38 @@ export function CartSheet({
     ? Object.entries(REWARD_COSTS).filter(([_, cost]) => profile.loyalty.points >= cost)
     : []
 
-  const timeSlots = useMemo(() => generateTimeSlots(customer.wantsDelivery), [customer.wantsDelivery])
+  const timeSlots = useMemo(() => {
+    const all = generateTimeSlots(customer.wantsDelivery)
+    if (!customer.wantsDelivery || !customer.date) return all
+    const taken = deliverySlots[customer.date]
+    if (!taken) return all
+    return all.filter((t) => (taken[t] ?? 0) < 1)
+  }, [customer.wantsDelivery, customer.date, deliverySlots])
 
   const minDate = getMinDate()
+
+  useEffect(() => {
+    if (!customer.time) return
+    const [hourStr, minuteStr] = customer.time.split(':')
+    const hour = parseInt(hourStr, 10)
+    const minute = parseInt(minuteStr || '0', 10)
+    if (customer.wantsDelivery) {
+      if (hour < 20) {
+        onCustomerChange({ ...customer, time: '' })
+        return
+      }
+      if (customer.date) {
+        const taken = deliverySlots[customer.date]
+        if (taken && (taken[customer.time] ?? 0) >= 1) {
+          onCustomerChange({ ...customer, time: '' })
+        }
+      }
+    } else {
+      if (hour < 18 || (hour === 18 && minute < 30)) {
+        onCustomerChange({ ...customer, time: '' })
+      }
+    }
+  }, [customer.wantsDelivery, customer.date, customer.time, deliverySlots])
 
   const validationErrors = useMemo(() => validateCustomer(customer), [customer])
   const showError = (field: keyof typeof customer) =>
@@ -376,6 +408,11 @@ export function CartSheet({
                 <p className="text-[9px] text-mayssa-brown/50">
                   {customer.wantsDelivery ? 'Livraison 20h - 2h' : 'Retrait 18h30 - 2h'}
                 </p>
+                {customer.wantsDelivery && customer.date && timeSlots.length === 0 && (
+                  <p className="text-[10px] text-amber-600 bg-amber-50 rounded-lg px-2 py-1.5">
+                    Plus de créneaux pour cette date. Choisissez une autre date.
+                  </p>
+                )}
               </div>
 
               {/* Notes */}
