@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, type RefObject } from 'react'
 
 /**
  * Hook pour gérer la navigation au clavier
@@ -77,14 +77,62 @@ export function useScreenReaderAnnouncer() {
   return announce
 }
 
+const FOCUSABLE_SELECTOR =
+  'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+
+/**
+ * Hook pour piéger le focus dans un conteneur (modale/sheet) et fermer avec Escape.
+ * À utiliser avec une ref sur le conteneur de la modale.
+ */
+export function useFocusTrap(
+  containerRef: RefObject<HTMLElement | null>,
+  isActive: boolean,
+  onClose: () => void
+) {
+  useEffect(() => {
+    if (!isActive || !containerRef.current) return
+    const container = containerRef.current
+    const focusable = container.querySelectorAll(FOCUSABLE_SELECTOR) as NodeListOf<HTMLElement>
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onClose()
+        return
+      }
+      if (e.key === 'Tab') {
+        if (focusable.length === 0) {
+          e.preventDefault()
+          return
+        }
+        if (e.shiftKey) {
+          if (document.activeElement === first) {
+            e.preventDefault()
+            last?.focus()
+          }
+        } else {
+          if (document.activeElement === last) {
+            e.preventDefault()
+            first?.focus()
+          }
+        }
+      }
+    }
+
+    container.addEventListener('keydown', handleKeyDown)
+    first?.focus()
+    return () => container.removeEventListener('keydown', handleKeyDown)
+  }, [isActive, onClose, containerRef])
+}
+
 /**
  * Hook pour gérer le focus et le focus trapping
  */
 export function useFocusManagement() {
   const trapFocus = useCallback((container: HTMLElement) => {
-    const focusableElements = container.querySelectorAll(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-    ) as NodeListOf<HTMLElement>
+    const focusableElements = container.querySelectorAll(FOCUSABLE_SELECTOR) as NodeListOf<HTMLElement>
     
     const firstElement = focusableElements[0]
     const lastElement = focusableElements[focusableElements.length - 1]
@@ -105,7 +153,6 @@ export function useFocusManagement() {
       }
       
       if (e.key === 'Escape') {
-        // Permettre aux modals de se fermer avec Escape
         const escapeEvent = new CustomEvent('modal-escape')
         container.dispatchEvent(escapeEvent)
       }

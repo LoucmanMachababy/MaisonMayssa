@@ -85,7 +85,7 @@ export function Testimonials() {
                     <Star
                       key={v}
                       size={14}
-                      className={v <= t.rating ? 'fill-mayssa-caramel text-mayssa-caramel' : 'text-mayssa-brown/20'}
+                      className={v <= (t.rating ?? 0) ? 'fill-mayssa-caramel text-mayssa-caramel' : 'text-mayssa-brown/20'}
                     />
                   ))}
                 </div>

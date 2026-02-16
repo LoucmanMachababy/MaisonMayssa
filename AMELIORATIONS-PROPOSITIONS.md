@@ -119,3 +119,37 @@ Ce document liste des pistes concrètes pour améliorer encore le site (UX, perf
 | Basse    | Préchargement des modales au hover/focus |
 
 Si tu veux, on peut détailler l’implémentation d’une de ces idées en priorité (par exemple le loading sur le bouton d’envoi ou le lien ErrorBoundary → Sentry).
+
+---
+
+## 8. Nouvelles idées à implémenter
+
+### 8.1 UX & conversion
+- **Loading sur « Envoyer sur WhatsApp »** : pendant `saveOrderToFirebase` + préparation, bouton désactivé + texte « Envoi en cours… » ou spinner. Évite double-clic et rassure.
+- **Recherche vide** : en plus de « Réinitialiser », ajouter des boutons « Voir les Tiramisus », « Voir les Brownies », « Voir toute la carte » pour garder le visiteur.
+- **Pastille zone livraison** : après sélection d’une adresse (AddressAutocomplete), afficher « Dans la zone » (vert) ou « Hors zone » (orange) selon la distance à Annecy.
+- **Lien « Voir la zone »** : à côté du champ adresse, petit lien qui scroll vers la carte (section #livraison).
+
+### 8.2 Contenu & communication
+- **FAQ courte** : section ou page « Questions fréquentes » (livraison, paiement, précommande, horaires) pour rassurer et réduire les questions WhatsApp.
+- **Message type « Occasion »** : bouton ou lien « Commander pour un anniversaire / Ramadan / événement » qui pré-remplit la note avec un message type.
+- **Image partage (OG)** : une image 1200×630 (photo de pâtisseries + « Maison Mayssa – Annecy ») pour un meilleur rendu sur WhatsApp / réseaux.
+
+### 8.3 Admin
+- **Export commandes** : bouton « Exporter en CSV / Excel » dans l’admin pour lister les commandes (date, client, montant, statut).
+- **Tableau de bord** : graphique ou résumé (commandes par jour, CA, produits les plus commandés) à partir des données Firebase.
+- **Export avis** : exporter les avis (note, commentaire, produit) en CSV pour analyse.
+
+### 8.4 Légal & confiance
+- **Bandeau cookies / RGPD** : bandeau simple « En continuant, tu acceptes l’usage de cookies » avec lien vers une page « Confidentialité » (si pas déjà en place).
+- **Page Confidentialité** : courte page (données collectées, Firebase, pas de revente) + lien depuis le footer.
+
+### 8.5 Technique & perf
+- **ErrorBoundary → Sentry** : dans `componentDidCatch`, appeler `captureException(error)` pour tracer les erreurs en prod.
+- **Manifest.json** : même sans PWA complète, ajouter un manifest (nom, icônes, theme_color) pour un bon « Ajouter à l’écran d’accueil ».
+- **Focus trap modales** : dans les grosses modales (Cart, Account), garder le focus à l’intérieur (Tab) et fermer avec Esc.
+
+### 8.6 Bonus
+- **Produit du moment** : badge « Coup de cœur » ou « Nouveauté » sur un produit, piloté par Firebase ou une constante.
+- **Compte à rebours** : « Plus que X h pour commander pour mercredi » (selon heure de coupure et prochaine date de retrait).
+- **Partage produit** : bouton « Partager sur Instagram » ou « Copier le lien du produit » (tu as déjà ShareButton, à étendre si besoin).

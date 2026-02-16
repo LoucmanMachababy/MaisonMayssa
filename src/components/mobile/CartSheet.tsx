@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence, useDragControls } from 'framer-motion'
 import { X, Minus, Plus, Trash2, ShoppingBag, MessageCircle, User, Phone, MapPin, Truck, Calendar, Clock, Star, Gift, Instagram } from 'lucide-react'
 import { SnapIcon } from '../SnapIcon'
@@ -8,6 +8,7 @@ import { FIRST_PICKUP_DATE_CLASSIC, FIRST_PICKUP_DATE_CLASSIC_LABEL } from '../.
 import { AddressAutocomplete } from '../AddressAutocomplete'
 import { ReservationTimer } from '../ReservationTimer'
 import { useAuth } from '../../hooks/useAuth'
+import { useFocusTrap } from '../../hooks/useAccessibility'
 import { REWARD_COSTS, REWARD_LABELS } from '../../lib/rewards'
 import type { CartItem, CustomerInfo } from '../../types'
 import type { DeliverySlotsMap } from '../Cart'
@@ -61,9 +62,12 @@ export function CartSheet({
   deliverySlots = {},
 }: CartSheetProps) {
   const dragControls = useDragControls()
+  const sheetRef = useRef<HTMLDivElement>(null)
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0)
   const hasItems = items.length > 0
   const { isAuthenticated, profile } = useAuth()
+
+  useFocusTrap(sheetRef, isOpen, onClose)
 
   // Lock body scroll when open
   useEffect(() => {
@@ -169,6 +173,10 @@ export function CartSheet({
 
           {/* Sheet */}
           <motion.div
+            ref={sheetRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Panier"
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}

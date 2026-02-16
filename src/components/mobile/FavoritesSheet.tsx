@@ -1,7 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { motion, AnimatePresence, useDragControls } from 'framer-motion'
 import { X, Heart, ShoppingBag, Plus, Trash2 } from 'lucide-react'
 import { hapticFeedback } from '../../lib/haptics'
+import { useFocusTrap } from '../../hooks/useAccessibility'
 import type { Product } from '../../types'
 
 interface FavoritesSheetProps {
@@ -22,6 +23,8 @@ export function FavoritesSheet({
   onClear,
 }: FavoritesSheetProps) {
   const dragControls = useDragControls()
+  const sheetRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(sheetRef, isOpen, onClose)
 
   // Lock body scroll when open
   useEffect(() => {
@@ -67,6 +70,10 @@ export function FavoritesSheet({
 
           {/* Sheet */}
           <motion.div
+            ref={sheetRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Favoris"
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}

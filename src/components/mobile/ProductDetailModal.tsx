@@ -6,6 +6,7 @@ import type { Product, ProductSize } from '../../types'
 import { ProductBadges } from '../ProductBadges'
 import { ShareButton } from '../ShareButton'
 import { StockBadge } from '../StockBadge'
+import { useFocusTrap } from '../../hooks/useAccessibility'
 
 interface ProductDetailModalProps {
   product: Product | null
@@ -24,6 +25,8 @@ export function ProductDetailModal({ product, onClose, onAdd, isFavorite, onTogg
   const [selectedSize, setSelectedSize] = useState<ProductSize | null>(null)
   const isLiked = product ? (isFavorite ? isFavorite(product.id) : false) : false
   const imageRef = useRef<HTMLDivElement>(null)
+  const modalRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(modalRef, !!product, onClose)
   const isTrompeLoeil = product?.category === "Trompe l'oeil"
   const isStockManaged = stock !== null
   const isUnavailable = isStockManaged && ((stock !== null && stock <= 0) || (isTrompeLoeil && !isPreorderDay))
@@ -110,6 +113,10 @@ export function ProductDetailModal({ product, onClose, onAdd, isFavorite, onTogg
     <AnimatePresence>
       {product && (
         <motion.div
+          ref={modalRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={product.name}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

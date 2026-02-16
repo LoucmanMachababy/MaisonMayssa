@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { LogOut, Package, Plus, Minus, Calendar, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp, Pencil, Search, Download, Bell, MessageSquare, Filter, XCircle } from 'lucide-react'
+import { LogOut, Package, Plus, Minus, Calendar, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp, Pencil, Search, Download, Bell, MessageSquare, Filter, XCircle, Star } from 'lucide-react'
 import type { OrderStatus } from '../../lib/firebase'
 import {
   adminLogin, adminLogout, onAuthChange,
@@ -9,9 +9,10 @@ import {
   listenOrders, updateOrderStatus, deleteOrder,
   listenAllUsers, claimBirthdayGift, listenProductOverrides, deleteUserProfile,
   adminAddPoints, adminRemovePoints,
+  listenReviews,
   isPreorderOpenNow, isTrompeLoeilProductId,
   releaseDeliverySlot,
-  type StockMap, type Settings, type Order, type OrderSource, type UserProfile, type PreorderOpening
+  type StockMap, type Settings, type Order, type OrderSource, type UserProfile, type PreorderOpening, type Review
 } from '../../lib/firebase'
 import type { ProductOverrideMap } from '../../types'
 import { parseDateYyyyMmDd } from '../../lib/utils'
@@ -83,6 +84,30 @@ function exportOrdersToCSV(entries: [string, Order][]): void {
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
   a.download = `commandes-maison-mayssa-${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  URL.revokeObjectURL(a.href)
+}
+
+function exportReviewsToCSV(reviewsMap: Record<string, Review>): void {
+  const SEP = ';'
+  const BOM = '\uFEFF'
+  const header = ['Date', 'Note (1-5)', 'Commentaire', 'Auteur', 'Produits notés', 'Id commande'].join(SEP)
+  const rows = Object.entries(reviewsMap)
+    .map(([, r]) => {
+      const date = r.createdAt ? new Date(r.createdAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : ''
+      const comment = (r.comment ?? '').replace(/"/g, '""')
+      const author = (r.authorName ?? '').replace(/"/g, '""')
+      const products = r.productRatings
+        ? Object.entries(r.productRatings).map(([pid, note]) => `${pid}: ${note}`).join(' | ')
+        : ''
+      const orderId = r.orderId ?? ''
+      return [date, r.rating, `"${comment}"`, `"${author}"`, `"${products.replace(/"/g, '""')}"`, orderId].join(SEP)
+    })
+  const csv = BOM + header + '\n' + rows.join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = `avis-maison-mayssa-${new Date().toISOString().slice(0, 10)}.csv`
   a.click()
   URL.revokeObjectURL(a.href)
 }
@@ -216,7 +241,8 @@ function Dashboard({ user }: { user: User }) {
   const [stock, setStock] = useState<StockMap>({})
   const [settings, setSettings] = useState<Settings>({ preorderDays: [3, 6], preorderMessage: '' })
   const [orders, setOrders] = useState<Record<string, Order>>({})
-  const [tab, setTab] = useState<'commandes' | 'historique' | 'livraison' | 'ca' | 'stock' | 'jours' | 'anniversaires' | 'inscrits' | 'produits'>('commandes')
+  const [reviews, setReviews] = useState<Record<string, Review>>({})
+  const [tab, setTab] = useState<'commandes' | 'historique' | 'livraison' | 'ca' | 'avis' | 'stock' | 'jours' | 'anniversaires' | 'inscrits' | 'produits'>('commandes')
   const [caPeriod, setCaPeriod] = useState<'jour' | 'semaine' | 'mois'>('semaine')
   const [allUsers, setAllUsers] = useState<Record<string, UserProfile>>({})
   const [productOverrides, setProductOverrides] = useState<ProductOverrideMap>({})
@@ -271,7 +297,8 @@ function Dashboard({ user }: { user: User }) {
     const unsub3 = listenOrders(setOrders)
     const unsub4 = listenAllUsers(setAllUsers)
     const unsub5 = listenProductOverrides(setProductOverrides)
-    return () => { unsub1(); unsub2(); unsub3(); unsub4(); unsub5() }
+    const unsub6 = listenReviews(setReviews)
+    return () => { unsub1(); unsub2(); unsub3(); unsub4(); unsub5(); unsub6() }
   }, [])
 
   // Notification son + navigateur quand nouvelle commande en attente
@@ -509,6 +536,28 @@ function Dashboard({ user }: { user: User }) {
       .slice(0, 10)
   }, [validatedOrders])
 
+  // Commandes par jour (14 derniers jours, toutes commandes)
+  const ordersPerDayData = useMemo(() => {
+    const now = new Date()
+    const data: { label: string; count: number; date: number }[] = []
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(now)
+      d.setDate(d.getDate() - i)
+      d.setHours(0, 0, 0, 0)
+      const end = new Date(d)
+      end.setHours(23, 59, 59, 999)
+      const count = Object.values(orders).filter(
+        (o) => o.createdAt && o.createdAt >= d.getTime() && o.createdAt <= end.getTime()
+      ).length
+      data.push({
+        label: d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }),
+        count,
+        date: d.getTime(),
+      })
+    }
+    return data
+  }, [orders])
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header premium */}
@@ -553,6 +602,7 @@ function Dashboard({ user }: { user: User }) {
             { id: 'historique', icon: History, label: 'Historique' },
             { id: 'livraison', icon: Truck, label: 'Livraison', badge: Object.values(orders).filter(o => o.deliveryMode === 'livraison' && o.status !== 'refusee').length },
             { id: 'ca', icon: TrendingUp, label: 'CA' },
+            { id: 'avis', icon: Star, label: 'Avis', badge: Object.keys(reviews).length },
             { id: 'stock', icon: Package, label: 'Stock' },
             { id: 'jours', icon: Calendar, label: 'Jours' },
             { id: 'anniversaires', icon: Cake, label: 'Anniv.', badge: upcomingBirthdays.filter(b => !b.claimed).length },
@@ -1256,6 +1306,26 @@ function Dashboard({ user }: { user: User }) {
               </div>
             </div>
 
+            {/* Commandes par jour (14 derniers jours) */}
+            <div className="space-y-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">Commandes par jour (14 derniers jours)</p>
+              <div className="h-40 rounded-xl bg-mayssa-soft/30 border border-mayssa-brown/5 overflow-hidden">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={ordersPerDayData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#d4a57430" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 8 }} stroke="#5b3a29" interval={0} />
+                    <YAxis tick={{ fontSize: 9 }} stroke="#5b3a29" allowDecimals={false} />
+                    <Tooltip
+                      formatter={(value: number | undefined) => [value ?? 0, 'Commandes']}
+                      labelFormatter={(label) => label}
+                      contentStyle={{ fontSize: 11, borderRadius: 8 }}
+                    />
+                    <Bar dataKey="count" fill="#5b3a29" radius={[4, 4, 0, 0]} name="Commandes" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
             {/* Produits les plus vendus */}
             <div className="space-y-3">
               <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">Produits les plus vendus</p>
@@ -1283,6 +1353,53 @@ function Dashboard({ user }: { user: User }) {
                 </div>
               )}
             </div>
+          </motion.section>
+        )}
+
+        {/* ===== AVIS ===== */}
+        {tab === 'avis' && (
+          <motion.section
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+            className="bg-white rounded-2xl p-6 shadow-sm border border-mayssa-brown/5 space-y-4"
+          >
+            <h3 className="font-bold text-mayssa-brown text-sm flex items-center gap-2">
+              <Star size={18} />
+              Avis clients
+            </h3>
+            <p className="text-xs text-mayssa-brown/60">
+              {Object.keys(reviews).length} avis au total. Export CSV : note, commentaire, auteur, produits notés, id commande.
+            </p>
+            <button
+              type="button"
+              onClick={() => exportReviewsToCSV(reviews)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-mayssa-caramel text-white text-sm font-bold hover:bg-mayssa-caramel/90 transition-colors cursor-pointer"
+            >
+              <Download size={16} />
+              Exporter en CSV
+            </button>
+            {Object.keys(reviews).length === 0 ? (
+              <div className="py-10 text-center rounded-xl bg-mayssa-soft/20 border border-mayssa-brown/5">
+                <MessageSquare size={36} className="mx-auto text-mayssa-brown/20 mb-2" />
+                <p className="text-sm text-mayssa-brown/50">Aucun avis pour l&apos;instant</p>
+              </div>
+            ) : (
+              <ul className="space-y-3 max-h-80 overflow-y-auto">
+                {Object.entries(reviews)
+                  .sort(([, a], [, b]) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
+                  .map(([id, r]) => (
+                    <li key={id} className="flex items-start gap-2 p-3 rounded-xl bg-mayssa-soft/30 border border-mayssa-brown/5 text-sm">
+                      <span className="font-bold text-mayssa-caramel">{r.rating}/5</span>
+                      {r.comment && <span className="text-mayssa-brown/80 flex-1 line-clamp-2">&laquo; {r.comment} &raquo;</span>}
+                      {r.authorName && <span className="text-mayssa-brown/60 shrink-0">— {r.authorName}</span>}
+                      <span className="text-[10px] text-mayssa-brown/40 shrink-0">
+                        {r.createdAt ? new Date(r.createdAt).toLocaleDateString('fr-FR') : ''}
+                      </span>
+                    </li>
+                  ))}
+              </ul>
+            )}
           </motion.section>
         )}
 

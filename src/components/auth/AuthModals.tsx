@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useFocusTrap } from '../../hooks/useAccessibility'
 import { X, User, Mail, Lock, Phone, Eye, EyeOff, Gift, Calendar, Cake } from 'lucide-react'
 import { clientRegister, clientLogin, createUserProfile, resetPassword } from '../../lib/firebase'
 import { refreshUserProfile } from '../../hooks/useAuth'
@@ -14,6 +15,9 @@ interface AuthModalsProps {
 }
 
 export function AuthModals({ isOpen, onClose, mode, onModeChange }: AuthModalsProps) {
+  const modalRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(modalRef, isOpen, onClose)
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -29,6 +33,10 @@ export function AuthModals({ isOpen, onClose, mode, onModeChange }: AuthModalsPr
 
           {/* Modal */}
           <motion.div
+            ref={modalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={mode === 'register' ? 'Inscription' : 'Connexion'}
             initial={{ opacity: 0, y: 50, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 50, scale: 0.95 }}

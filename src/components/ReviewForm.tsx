@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Star, Send } from 'lucide-react'
-import { submitReview, getReviewByOrderId, isTrompeLoeilProductId, type Review } from '../lib/firebase'
+import { submitReview, isTrompeLoeilProductId, type Review } from '../lib/firebase'
 import { cn } from '../lib/utils'
 
 export type OrderItemForReview = { name: string; quantity: number; price: number; productId?: string }

@@ -42,6 +42,28 @@ export function isBeforeOrderCutoff(): boolean {
   return hour < 23
 }
 
+/** Coupure à 23h Paris. Retourne le nombre de minutes restantes jusqu'à 23h00 (0 si après coupure). */
+export function getMinutesUntilOrderCutoff(): number {
+  const { hour, minute } = getParisDateParts()
+  const nowMinutes = hour * 60 + minute
+  const cutoffMinutes = 23 * 60
+  if (nowMinutes >= cutoffMinutes) return 0
+  return cutoffMinutes - nowMinutes
+}
+
+/**
+ * Compte à rebours pour la commande : heures restantes jusqu'à 23h et prochaine date de retrait.
+ * Retourne null après 23h (pas de message à afficher).
+ */
+export function getOrderCountdown(firstPickupDateYyyyMmDd: string): { hoursLeft: number; minutesLeft: number; nextPickupLabel: string } | null {
+  const minutesUntil = getMinutesUntilOrderCutoff()
+  if (minutesUntil <= 0) return null
+  const nextPickupLabel = getNextPickupDateLabel(firstPickupDateYyyyMmDd)
+  const hoursLeft = Math.floor(minutesUntil / 60)
+  const minutesLeft = minutesUntil % 60
+  return { hoursLeft, minutesLeft, nextPickupLabel }
+}
+
 /** Vérifie si la date+heure choisie est dans le passé (basé sur l'heure actuelle Paris). */
 export function isSelectedDateTimeInPast(dateYyyyMmDd: string, timeHhMm: string): boolean {
   if (!dateYyyyMmDd || !timeHhMm) return false

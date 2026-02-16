@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Plus, Minus, ShoppingBag, Clock } from 'lucide-react'
 import type { Product } from '../types'
 import { BlurImage } from './BlurImage'
+import { useFocusTrap } from '../hooks/useAccessibility'
 
 interface TrompeLOeilModalProps {
   product: Product | null
@@ -13,6 +14,8 @@ interface TrompeLOeilModalProps {
 
 export function TrompeLOeilModal({ product, stock, onClose, onConfirm }: TrompeLOeilModalProps) {
   const [quantity, setQuantity] = useState(1)
+  const modalRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(modalRef, !!product, onClose)
 
   if (!product) return null
 
@@ -36,6 +39,10 @@ export function TrompeLOeilModal({ product, stock, onClose, onConfirm }: TrompeL
             className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm"
           />
           <motion.div
+            ref={modalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Précommande ${product.name}`}
             initial={{ opacity: 0, y: 50, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 50, scale: 0.95 }}
@@ -84,19 +91,26 @@ export function TrompeLOeilModal({ product, stock, onClose, onConfirm }: TrompeL
                 </div>
               </div>
 
-              {/* Délai */}
-              <div className="flex items-center gap-2 bg-mayssa-caramel/10 rounded-xl px-3 py-2">
-                <Clock size={14} className="text-mayssa-caramel flex-shrink-0" />
-                <span className="text-xs text-mayssa-brown font-medium">
-                  Précommande — récupération {(() => {
-                    const now = new Date()
-                    const day = now.getDay()
-                    const daysUntil = day === 6 ? 4 : day === 3 ? 3 : 3
-                    const pickup = new Date(now)
-                    pickup.setDate(pickup.getDate() + daysUntil)
-                    return pickup.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
-                  })()}
-                </span>
+              {/* Rythme précommande : bien visible */}
+              <div className="flex flex-col gap-2 bg-mayssa-caramel/15 rounded-xl px-4 py-3 border border-mayssa-caramel/20">
+                <div className="flex items-center gap-2">
+                  <Clock size={16} className="text-mayssa-caramel flex-shrink-0" />
+                  <span className="text-sm font-bold text-mayssa-brown">
+                    Tu récupères le {(() => {
+                      const now = new Date()
+                      const day = now.getDay()
+                      const daysUntil = day === 6 ? 4 : day === 3 ? 3 : day < 3 ? 3 - day : 6 - day
+                      const pickup = new Date(now)
+                      pickup.setDate(pickup.getDate() + daysUntil)
+                      return pickup.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+                    })()}
+                  </span>
+                </div>
+                <div className="text-xs text-mayssa-brown/90 space-y-1 border-l-2 border-mayssa-caramel/30 pl-3 ml-1">
+                  <p className="font-medium text-mayssa-brown">Comment ça marche :</p>
+                  <p>Tu commandes <strong>le mercredi</strong> → tu récupères <strong>le samedi</strong>.</p>
+                  <p>Tu commandes <strong>le samedi</strong> → tu récupères <strong>le mercredi</strong>.</p>
+                </div>
               </div>
 
               {/* Stock */}

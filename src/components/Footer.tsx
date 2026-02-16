@@ -65,6 +65,7 @@ export function Footer() {
                             </li>
                             <li><FooterLink href="#avis">Avis</FooterLink></li>
                             <li><FooterLink href="#livraison">Zone de Livraison</FooterLink></li>
+                            <li><FooterLink href="#faq">FAQ</FooterLink></li>
                             <li><FooterLink href="#contact">Contact</FooterLink></li>
                         </ul>
                         <p className="mt-2 text-[10px] sm:text-xs text-mayssa-brown/50 italic">Commande par WhatsApp uniquement.</p>
@@ -120,6 +121,7 @@ export function Footer() {
                             </button>
                         </div>
                         <div className="flex flex-wrap justify-center gap-4 sm:gap-6 text-[10px] sm:text-xs text-mayssa-brown/40">
+                            <FooterLink href="#confidentialite">Confidentialité</FooterLink>
                             <FooterLink href="#mentions-legales">Mentions légales</FooterLink>
                             <FooterLink href="#confidentialite">Politique de confidentialité</FooterLink>
                         </div>

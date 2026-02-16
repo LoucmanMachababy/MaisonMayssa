@@ -1,8 +1,10 @@
+import { useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Check } from 'lucide-react'
 import type { Product, ProductSize } from '../types'
 import { cn } from '../lib/utils'
 import { useEscapeKey } from '../hooks/useEscapeKey'
+import { useFocusTrap } from '../hooks/useAccessibility'
 
 interface SizeSelectorModalProps {
     product: Product | null
@@ -11,7 +13,10 @@ interface SizeSelectorModalProps {
 }
 
 export function SizeSelectorModal({ product, onClose, onSelect }: SizeSelectorModalProps) {
-    useEscapeKey(onClose, !!(product && product.sizes))
+    const modalRef = useRef<HTMLDivElement>(null)
+    const isOpen = !!(product && product.sizes)
+    useEscapeKey(onClose, isOpen)
+    useFocusTrap(modalRef, isOpen, onClose)
 
     if (!product || !product.sizes) return null
 
@@ -30,6 +35,10 @@ export function SizeSelectorModal({ product, onClose, onSelect }: SizeSelectorMo
 
                     {/* Modal */}
                     <motion.div
+                        ref={modalRef}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={`Choisir la taille – ${product.name}`}
                         initial={{ opacity: 0, scale: 0.9, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9, y: 20 }}
