@@ -141,26 +141,44 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
             </button>
 
             <div className="border border-mayssa-brown/10 rounded-xl p-3 bg-slate-50">
-              <p className="text-[10px] font-bold text-mayssa-brown/60 mb-2">Suivre ma commande</p>
-              <div className="flex items-center gap-2">
+              <p className="text-[10px] font-bold text-mayssa-brown/60 mb-2">Ma commande du {data.requestedDate ? new Date(data.requestedDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }) : 'jour'}</p>
+              <div className="flex gap-3 items-start">
                 <a
-                  href={`#/commande/${data.orderId}`}
-                  onClick={() => {
-                    window.location.hash = `#/commande/${data.orderId}`
-                    onClose()
-                  }}
-                  className="flex-1 text-xs text-mayssa-caramel font-medium truncate hover:underline"
+                  href={statusUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-shrink-0 rounded-lg overflow-hidden bg-white border border-mayssa-brown/10"
+                  aria-label="Ouvrir le suivi de commande"
                 >
-                  {statusUrl.replace(/^https?:\/\/[^/]+/, '')}
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(statusUrl)}`}
+                    alt="QR code suivi de commande"
+                    width={100}
+                    height={100}
+                    className="block"
+                  />
                 </a>
-                <button
-                  type="button"
-                  onClick={copyStatusLink}
-                  className="p-1.5 rounded-lg hover:bg-mayssa-brown/10 cursor-pointer"
-                  title="Copier le lien"
-                >
-                  <Copy size={14} className="text-mayssa-brown" />
-                </button>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-mayssa-brown/50 mb-1">Lien à partager (retrait / livraison)</p>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={statusUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 text-xs text-mayssa-caramel font-medium truncate hover:underline"
+                    >
+                      Voir le récap et le statut
+                    </a>
+                    <button
+                      type="button"
+                      onClick={copyStatusLink}
+                      className="p-1.5 rounded-lg hover:bg-mayssa-brown/10 cursor-pointer"
+                      title="Copier le lien"
+                    >
+                      <Copy size={14} className="text-mayssa-brown" />
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

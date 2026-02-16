@@ -1,16 +1,26 @@
 import { useState, useEffect } from 'react'
 import {
   User, Phone, Mail, Calendar, Star, Gift, Instagram,
-  ExternalLink, LogOut, Edit, Save, X, Sparkles, Award, History, Eye, MapPin, Cake
+  ExternalLink, LogOut, Edit, Save, X, Sparkles, Award, History, Eye, MapPin, Cake, Heart, Tag, Package, Users, Bell
 } from 'lucide-react'
 import { useAuth, refreshUserProfile } from '../../hooks/useAuth'
 import {
   updateUserProfile, claimSocialPoints, getUserRewards, claimReward,
-  type UserReward, REWARD_COSTS, REWARD_LABELS
+  getOrCreateReferralCode,
+  type UserReward, REWARD_COSTS, REWARD_LABELS, type UserOrderStats
 } from '../../lib/firebase'
+import { REFERRAL_DISCOUNT_EUR, REFERRAL_POINTS_TO_REFERRER } from '../../constants'
 import { clientLogout } from '../../lib/firebase'
 import { AddressAutocomplete } from '../AddressAutocomplete'
 import type { Coordinates } from '../../types'
+
+const BADGES: { id: string; label: string; icon: typeof Package; condition: (s: UserOrderStats) => boolean }[] = [
+  { id: 'first_order', label: 'Première commande', icon: Package, condition: (s) => s.orderCount >= 1 },
+  { id: 'orders_5', label: '5 commandes', icon: Star, condition: (s) => s.orderCount >= 5 },
+  { id: 'trompe_loeil', label: 'A testé un trompe-l\'œil', icon: Eye, condition: (s) => s.hasOrderedTrompeLoeil },
+  { id: 'don', label: 'Don au projet', icon: Heart, condition: (s) => s.hasDonated },
+  { id: 'promo', label: 'Code promo utilisé', icon: Tag, condition: (s) => s.hasUsedPromo },
+]
 
 interface AccountPageProps {
   onClose: () => void
@@ -34,6 +44,7 @@ export function AccountPage({ onClose }: AccountPageProps) {
   const [rewards, setRewards] = useState<Record<string, UserReward>>({})
   const [loadingRewards, setLoadingRewards] = useState(false)
   const [socialLoading, setSocialLoading] = useState<'instagram' | 'tiktok' | null>(null)
+  const [referralCode, setReferralCode] = useState<string | null>(null)
 
   // Charger les données d'édition
   useEffect(() => {
@@ -48,6 +59,12 @@ export function AccountPage({ onClose }: AccountPageProps) {
       })
     }
   }, [profile])
+
+  const [dietarySaving, setDietarySaving] = useState(false)
+  const [dietaryDraft, setDietaryDraft] = useState(profile?.dietaryPreferences ?? '')
+  useEffect(() => {
+    if (profile) setDietaryDraft(profile.dietaryPreferences ?? '')
+  }, [profile?.dietaryPreferences, profile])
 
   // Charger les récompenses
   useEffect(() => {
@@ -66,6 +83,12 @@ export function AccountPage({ onClose }: AccountPageProps) {
     }
 
     loadRewards()
+  }, [user])
+
+  // Charger le code parrain
+  useEffect(() => {
+    if (!user) return
+    getOrCreateReferralCode(user.uid).then(setReferralCode)
   }, [user])
 
   const handleSave = async () => {
@@ -239,6 +262,69 @@ export function AccountPage({ onClose }: AccountPageProps) {
           </div>
         </div>
       </div>
+
+      {/* Mes badges */}
+      <div className="rounded-3xl p-5 mb-6 border border-mayssa-brown/10 bg-white/80">
+        <h3 className="text-sm font-bold uppercase tracking-wider text-mayssa-brown/60 mb-3 flex items-center gap-2">
+          <Award size={16} className="text-mayssa-caramel" />
+          Mes badges
+        </h3>
+        <div className="flex flex-wrap gap-3">
+          {BADGES.map((badge) => {
+            const stats: UserOrderStats = profile.orderStats ?? {
+              orderCount: 0,
+              hasOrderedTrompeLoeil: false,
+              hasDonated: false,
+              hasUsedPromo: false,
+            }
+            const unlocked = badge.condition(stats)
+            const Icon = badge.icon
+            return (
+              <div
+                key={badge.id}
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-medium ${
+                  unlocked
+                    ? 'bg-mayssa-caramel/10 border-mayssa-caramel/30 text-mayssa-brown'
+                    : 'bg-mayssa-soft/50 border-mayssa-brown/10 text-mayssa-brown/40'
+                }`}
+                title={unlocked ? badge.label : `${badge.label} (à débloquer)`}
+              >
+                <Icon size={14} className={unlocked ? 'text-mayssa-caramel' : 'opacity-50'} />
+                <span>{badge.label}</span>
+                {unlocked && <span className="text-mayssa-caramel">✓</span>}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Parraine un ami */}
+      {referralCode && (
+        <div className="rounded-3xl p-5 mb-6 border border-mayssa-caramel/20 bg-mayssa-caramel/5">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-mayssa-brown/60 mb-2 flex items-center gap-2">
+            <Users size={16} className="text-mayssa-caramel" />
+            Parraine un ami
+          </h3>
+          <p className="text-sm text-mayssa-brown/80 mb-3">
+            Ton ami obtient <strong>-{REFERRAL_DISCOUNT_EUR} €</strong> sur sa 1ère commande, toi <strong>+{REFERRAL_POINTS_TO_REFERRER} points</strong> quand il commande.
+          </p>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 rounded-xl bg-white px-3 py-2 text-sm font-mono font-bold text-mayssa-caramel border border-mayssa-brown/10">
+              {referralCode}
+            </code>
+            <button
+              type="button"
+              onClick={() => {
+                const url = `${window.location.origin}${window.location.pathname}?ref=${encodeURIComponent(referralCode)}`
+                navigator.clipboard.writeText(url)
+              }}
+              className="rounded-xl bg-mayssa-caramel px-3 py-2 text-xs font-bold text-white hover:bg-mayssa-brown"
+            >
+              Copier le lien
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Birthday Countdown */}
       {profile.birthday && (() => {
@@ -455,6 +541,82 @@ export function AccountPage({ onClose }: AccountPageProps) {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+
+          {/* Allergies / préférences alimentaires */}
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-mayssa-brown/5">
+            <h3 className="font-bold text-mayssa-brown mb-2">Allergies / préférences alimentaires</h3>
+            <p className="text-xs text-mayssa-brown/60 mb-3">On les retient pour chaque commande (sans gluten, sans noix, allergies…).</p>
+            <textarea
+              value={dietaryDraft}
+              onChange={(e) => setDietaryDraft(e.target.value)}
+              onBlur={async () => {
+                if (!user || dietaryDraft === (profile?.dietaryPreferences ?? '')) return
+                setDietarySaving(true)
+                try {
+                  await updateUserProfile(user.uid, { dietaryPreferences: dietaryDraft.trim() || undefined })
+                  await refreshUserProfile()
+                } finally {
+                  setDietarySaving(false)
+                }
+              }}
+              placeholder="Ex : sans gluten, allergie aux noix…"
+              rows={2}
+              className="w-full rounded-xl border border-mayssa-brown/10 bg-mayssa-soft/20 px-3 py-2 text-sm text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel/30"
+            />
+            {dietarySaving && <p className="mt-1 text-[10px] text-mayssa-brown/50">Enregistrement…</p>}
+          </div>
+
+          {/* Réveil ouverture des commandes */}
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-mayssa-brown/5">
+            <h3 className="font-bold text-mayssa-brown mb-2">Réveil ouverture des commandes</h3>
+            <p className="text-xs text-mayssa-brown/60 mb-3">Recevoir un rappel (mercredi &amp; samedi) pour ne pas rater l&apos;ouverture des précommandes.</p>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!user) return
+                const next = !(profile?.notifyOrderOpening ?? false)
+                await updateUserProfile(user.uid, { notifyOrderOpening: next })
+                await refreshUserProfile()
+              }}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border transition-all ${
+                profile?.notifyOrderOpening
+                  ? 'bg-mayssa-caramel/20 border-mayssa-caramel text-mayssa-brown'
+                  : 'bg-mayssa-soft/30 border-mayssa-brown/10 text-mayssa-brown/70 hover:border-mayssa-caramel/30'
+              }`}
+            >
+              <Bell size={18} />
+              {profile?.notifyOrderOpening ? 'Activé' : 'Activer'}
+            </button>
+          </div>
+
+          {/* Occasions qui m'intéressent (pour rappels) */}
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-mayssa-brown/5">
+            <h3 className="font-bold text-mayssa-brown mb-2">Occasions qui m'intéressent</h3>
+            <p className="text-xs text-mayssa-brown/60 mb-3">On pourra vous envoyer un rappel avant ces moments (optionnel).</p>
+            <div className="flex flex-wrap gap-2">
+              {['Ramadan', 'Noël', 'Anniversaire', 'Fêtes', 'Apéro'].map((occasion) => {
+                const selected = (profile.occasionsInteret ?? []).includes(occasion)
+                return (
+                  <button
+                    key={occasion}
+                    type="button"
+                    onClick={async () => {
+                      const next = selected
+                        ? (profile.occasionsInteret ?? []).filter((o) => o !== occasion)
+                        : [...(profile.occasionsInteret ?? []), occasion]
+                      if (user) await updateUserProfile(user.uid, { occasionsInteret: next })
+                      await refreshUserProfile()
+                    }}
+                    className={`px-3 py-2 rounded-xl text-sm font-medium border transition-all ${
+                      selected ? 'bg-mayssa-caramel/20 border-mayssa-caramel text-mayssa-brown' : 'bg-mayssa-soft/30 border-mayssa-brown/10 text-mayssa-brown/70 hover:border-mayssa-caramel/30'
+                    }`}
+                  >
+                    {occasion}
+                  </button>
+                )
+              })}
             </div>
           </div>
 

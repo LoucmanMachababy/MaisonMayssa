@@ -60,6 +60,8 @@ import { TrompeLOeilModal } from './components/TrompeLOeilModal'
 import { OrderConfirmation } from './components/OrderConfirmation'
 import { OrderRecapModal } from './components/OrderRecapModal'
 import { OccasionsSection } from './components/OccasionsSection'
+import { PollSection } from './components/PollSection'
+import { CommunityMapSection } from './components/CommunityMapSection'
 import { AggregateRatingSchema } from './components/AggregateRatingSchema'
 import { OrderStatusPage } from './components/OrderStatusPage'
 import { DeliveryZoneMap } from './components/DeliveryZoneMap'
@@ -93,7 +95,7 @@ import {
   Eye,
   Heart
 } from 'lucide-react'
-import { PAYPAL_ME_USER } from './constants'
+import { PAYPAL_ME_USER, REFERRAL_DISCOUNT_EUR } from './constants'
 
 function AppRouter() {
   const [isAdmin, setIsAdmin] = useState(window.location.hash === '#admin')
@@ -168,6 +170,7 @@ function AppContent() {
   const [promoCodeInput, setPromoCodeInput] = useState('')
   const [appliedPromo, setAppliedPromo] = useState<{ code: string; discount: number } | null>(null)
   const [donationAmount, setDonationAmount] = useState(0)
+  const [referralCodeInput, setReferralCodeInput] = useState('')
 
   // Favorites (localStorage)
   const {
@@ -189,6 +192,12 @@ function AppContent() {
     checkMobile()
     window.addEventListener('resize', checkMobile)
     return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  // Préremplir le code parrain depuis ?ref=
+  useEffect(() => {
+    const ref = new URLSearchParams(window.location.search).get('ref')
+    if (ref?.trim()) setReferralCodeInput(ref.trim().toUpperCase())
   }, [])
 
   // Ouvrir le produit depuis un lien partagé : ?produit= ou #produit=
@@ -376,6 +385,7 @@ function AppContent() {
           wantsDelivery: !!p.wantsDelivery,
           date: '',
           time: '',
+          deliveryInstructions: p.deliveryInstructions || '',
         }
       }
     } catch {}
@@ -388,6 +398,7 @@ function AppContent() {
       wantsDelivery: false,
       date: '',
       time: '',
+      deliveryInstructions: '',
     }
   })
 
@@ -399,8 +410,9 @@ function AppContent() {
       phone: customer.phone,
       address: customer.address,
       wantsDelivery: customer.wantsDelivery,
+      deliveryInstructions: customer.deliveryInstructions || '',
     }))
-  }, [customer.firstName, customer.lastName, customer.phone, customer.address, customer.wantsDelivery])
+  }, [customer.firstName, customer.lastName, customer.phone, customer.address, customer.wantsDelivery, customer.deliveryInstructions])
 
   // Auto-remplir les infos client depuis le profil Firebase quand l'utilisateur est connecté
   const profileSyncedRef = useRef(false)
@@ -860,12 +872,23 @@ function AppContent() {
   const saveOrderToFirebase = async (source: 'whatsapp' | 'instagram' | 'snap'): Promise<string | null> => {
     if (cart.length === 0) return null
     const discount = appliedPromo?.discount ?? 0
-    const totalAfterDiscount = Math.max(0, total - discount)
+    let referralDiscount = 0
+    let referrerUid: string | null = null
+    const canUseReferral = user && profile && (profile.orderStats?.orderCount ?? 0) === 0 && !profile.referredByCode && referralCodeInput?.trim()
+    if (canUseReferral) {
+      const { getReferrerByCode } = await import('./lib/firebase')
+      const uid = await getReferrerByCode(referralCodeInput!.trim())
+      if (uid && uid !== user!.uid) {
+        referrerUid = uid
+        referralDiscount = REFERRAL_DISCOUNT_EUR
+      }
+    }
+    const totalAfterDiscount = Math.max(0, total - discount - referralDiscount)
     const deliveryFee = computeDeliveryFee(customer, totalAfterDiscount) ?? 0
     const donation = donationAmount ?? 0
     const orderTotal = totalAfterDiscount + deliveryFee + donation
     try {
-      const { createOrder, incrementPromoCodeUsage } = await import('./lib/firebase')
+      const { createOrder, incrementPromoCodeUsage, applyReferralAfterOrder } = await import('./lib/firebase')
       const distanceKm = customer.wantsDelivery && customer.addressCoordinates
         ? calculateDistance(customer.addressCoordinates, ANNECY_GARE)
         : undefined
@@ -883,6 +906,7 @@ function AppContent() {
           phone: customer.phone || '',
           ...(customer.wantsDelivery && customer.address.trim() && { address: customer.address.trim() }),
           ...(customer.wantsDelivery && customer.addressCoordinates && { addressCoordinates: customer.addressCoordinates }),
+          ...(customer.wantsDelivery && customer.deliveryInstructions?.trim() && { deliveryInstructions: customer.deliveryInstructions.trim() }),
         },
         total: orderTotal,
         status: 'en_attente',
@@ -895,10 +919,27 @@ function AppContent() {
         ...(note.trim() && note.trim() !== 'Pour le … (date, créneau, adresse)' && { clientNote: note.trim() }),
         ...(appliedPromo && { promoCode: appliedPromo.code, discountAmount: appliedPromo.discount }),
         ...(donation > 0 && { donationAmount: donation }),
+        ...(user?.uid && { userId: user.uid }),
+        ...(referralDiscount > 0 && referrerUid && {
+          referralCode: referralCodeInput!.trim(),
+          referralDiscountAmount: referralDiscount,
+          referrerUserId: referrerUid,
+        }),
         createdAt: Date.now(),
       })
+      if (referralDiscount > 0 && referrerUid && user?.uid) {
+        applyReferralAfterOrder(user.uid, referralCodeInput!.trim(), referrerUid).catch(console.error)
+      }
       if (appliedPromo?.code) {
         incrementPromoCodeUsage(appliedPromo.code).catch(console.error)
+      }
+      if (user?.uid) {
+        const { updateUserOrderStats } = await import('./lib/firebase')
+        updateUserOrderStats(user.uid, {
+          hasTrompeLoeil: cart.some((item) => item.product.category === "Trompe l'oeil"),
+          hasDonation: donation > 0,
+          hasPromo: !!appliedPromo,
+        }).catch(console.error)
       }
       if (customer.wantsDelivery && customer.date && customer.time) {
         reserveDeliverySlot(customer.date, customer.time).catch(console.error)
@@ -917,6 +958,14 @@ function AppContent() {
       return
     }
 
+    let referralDiscountAmount = 0
+    const canUseReferral = user && profile && (profile.orderStats?.orderCount ?? 0) === 0 && !profile.referredByCode && referralCodeInput?.trim()
+    if (canUseReferral) {
+      const { getReferrerByCode } = await import('./lib/firebase')
+      const referrerUid = await getReferrerByCode(referralCodeInput!.trim())
+      if (referrerUid && referrerUid !== user!.uid) referralDiscountAmount = REFERRAL_DISCOUNT_EUR
+    }
+
     const message = buildOrderMessage({
       cart,
       customer,
@@ -925,7 +974,9 @@ function AppContent() {
       selectedReward,
       isAuthenticated,
       discountAmount: appliedPromo?.discount ?? 0,
+      referralDiscountAmount,
       donationAmount: donationAmount ?? 0,
+      dietaryPreferences: profile?.dietaryPreferences,
     })
     if (!message) return
 
@@ -943,7 +994,7 @@ function AppContent() {
     } catch { /* ignore */ }
 
     // --- Afficher l'écran de confirmation (WhatsApp + PayPal + lien statut) ---
-    const totalAfterDiscount = total - (appliedPromo?.discount ?? 0)
+    const totalAfterDiscount = total - (appliedPromo?.discount ?? 0) - referralDiscountAmount
     const deliveryFeeVal = computeDeliveryFee(customer, totalAfterDiscount) ?? 0
     const donationVal = donationAmount ?? 0
     setOrderConfirmation({
@@ -1002,7 +1053,7 @@ function AppContent() {
     // --- Attribution des points de fidélité (si connecté) ---
     if (isAuthenticated && user && cart.length > 0) {
       try {
-        const totalAfterDiscount = total - (appliedPromo?.discount ?? 0)
+        const totalAfterDiscount = total - (appliedPromo?.discount ?? 0) - referralDiscountAmount
         const orderTotal = totalAfterDiscount + (computeDeliveryFee(customer, totalAfterDiscount) || 0) + (donationAmount ?? 0)
         const basePoints = Math.round(orderTotal) // 1 € = 1 point
         
@@ -1036,6 +1087,13 @@ function AppContent() {
       return
     }
 
+    let referralDiscountAmount = 0
+    const canUseReferralInst = user && profile && (profile.orderStats?.orderCount ?? 0) === 0 && !profile.referredByCode && referralCodeInput?.trim()
+    if (canUseReferralInst) {
+      const { getReferrerByCode } = await import('./lib/firebase')
+      const referrerUid = await getReferrerByCode(referralCodeInput!.trim())
+      if (referrerUid && referrerUid !== user!.uid) referralDiscountAmount = REFERRAL_DISCOUNT_EUR
+    }
     const message = buildOrderMessage({
       cart,
       customer,
@@ -1044,7 +1102,9 @@ function AppContent() {
       selectedReward,
       isAuthenticated,
       discountAmount: appliedPromo?.discount ?? 0,
+      referralDiscountAmount,
       donationAmount: donationAmount ?? 0,
+      dietaryPreferences: profile?.dietaryPreferences,
     })
     if (!message) return
 
@@ -1084,6 +1144,13 @@ function AppContent() {
       return
     }
 
+    let referralDiscountAmountSnap = 0
+    const canUseReferralSnap = user && profile && (profile.orderStats?.orderCount ?? 0) === 0 && !profile.referredByCode && referralCodeInput?.trim()
+    if (canUseReferralSnap) {
+      const { getReferrerByCode } = await import('./lib/firebase')
+      const referrerUid = await getReferrerByCode(referralCodeInput!.trim())
+      if (referrerUid && referrerUid !== user!.uid) referralDiscountAmountSnap = REFERRAL_DISCOUNT_EUR
+    }
     const message = buildOrderMessage({
       cart,
       customer,
@@ -1092,7 +1159,9 @@ function AppContent() {
       selectedReward,
       isAuthenticated,
       discountAmount: appliedPromo?.discount ?? 0,
+      referralDiscountAmount: referralDiscountAmountSnap,
       donationAmount: donationAmount ?? 0,
+      dietaryPreferences: profile?.dietaryPreferences,
     })
     if (!message) return
 
@@ -1136,6 +1205,16 @@ function AppContent() {
         <Header />
 
         <main id="main-content" className="mt-8 sm:mt-12 flex flex-col gap-12 sm:gap-20 md:gap-28 items-center" role="main" aria-label="Contenu principal">
+          {/* SEO : trompe l'œil Annecy (référencement Google) */}
+          <section id="trompe-loeil-annecy" className="w-full text-center px-4">
+            <h2 className="text-xl sm:text-2xl font-display font-bold text-mayssa-brown mb-2">
+              Trompe l&apos;œil à Annecy
+            </h2>
+            <p className="text-sm sm:text-base text-mayssa-brown/80 max-w-2xl mx-auto">
+              Découvrez nos trompes l&apos;œil pâtissiers à Annecy : créations artisanales Maison Mayssa (mangue, citron, pistache, passion, framboise, cacahuète). Précommande, livraison et retrait sur Annecy.
+            </p>
+          </section>
+
           {/* Menu Section */}
           <motion.section
             id="la-carte"
@@ -1344,6 +1423,8 @@ function AppContent() {
               onClearPromo={handleClearPromo}
               donationAmount={donationAmount ?? 0}
               setDonationAmount={setDonationAmount}
+              referralCodeInput={referralCodeInput}
+              setReferralCodeInput={setReferralCodeInput}
             />
           </motion.section>
         </main>
@@ -1493,6 +1574,8 @@ function AppContent() {
 
         <Suspense fallback={null}>
           <Testimonials />
+          <PollSection />
+          <CommunityMapSection />
           <OccasionsSection />
           <LegalPagesSections />
         </Suspense>
@@ -1587,6 +1670,8 @@ function AppContent() {
         onClearPromo={handleClearPromo}
         donationAmount={donationAmount ?? 0}
         setDonationAmount={setDonationAmount}
+        referralCodeInput={referralCodeInput}
+        setReferralCodeInput={setReferralCodeInput}
       />
       <OrderRecapModal
         isOpen={showRecapModal}

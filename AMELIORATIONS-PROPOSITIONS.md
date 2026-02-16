@@ -153,3 +153,37 @@ Si tu veux, on peut détailler l’implémentation d’une de ces idées en prio
 - **Produit du moment** : badge « Coup de cœur » ou « Nouveauté » sur un produit, piloté par Firebase ou une constante.
 - **Compte à rebours** : « Plus que X h pour commander pour mercredi » (selon heure de coupure et prochaine date de retrait).
 - **Partage produit** : bouton « Partager sur Instagram » ou « Copier le lien du produit » (tu as déjà ShareButton, à étendre si besoin).
+
+---
+
+## 9. Idées innovantes (parrainage, engagement, box surprise)
+
+### 9.1 Parrainage
+- **Concept** : « Parraine un ami : tu gagnes X points, lui obtient -Y € sur sa 1ère commande. »
+- **Fonctionnement** : l’ami utilise un code unique (lien ou code type `MAYSSA-JEAN`). Limiter à 1 parrainage par compte (ou plafond à définir).
+- **Technique** : table `referrals` ou champs sur le profil (code parrain reçu, code parrain émis, utilisé ou non) ; code promo auto-généré par compte (1 code = 1 filleul).
+
+### 9.2 Rappel douceur (notification / email)
+- **Concept** : « Ça fait 2 semaines qu’on ne t’a pas vu. Voici -10 % sur ta prochaine commande. »
+- **Variante** : rappel avant une occasion (Ramadan, fêtes) si on collecte une « date préférée » ou « occasions qui m’intéressent » (anniversaire, Ramadan, Noël, etc.).
+- **Technique** : date dernière commande + optionnel Firebase Cloud Messaging ou envoi d’email (Firebase Extensions / SendGrid) avec code promo unique.
+
+### 9.3 QR code « Ma commande »
+- **Concept** : après validation, en plus du récap WhatsApp : un lien (ou QR) vers une page « Ma commande du [date] » (récap + statut).
+- **Bénéfice** : pratique pour le retrait ou pour montrer la commande en livraison (livreur / client scannent le QR).
+- **Technique** : page publique ou protégée `/#/commande/:orderId` (déjà partiellement en place) ; génération QR côté client (librairie QR) ou lien court partagé.
+
+### 9.4 Défis / badges
+- **Concept** : au-delà des points : « Première commande », « 5 commandes », « A testé un trompe-l’œil », « Don au projet », « Code promo utilisé ». Affichés sur la page compte ou dans un petit encart « Mes badges ».
+- **Bénéfice** : gamification, fidélisation, partage sur les réseaux.
+- **Technique** : champs ou sous-collection `badges` dans le profil utilisateur ; règles métier côté client ou Cloud Function pour débloquer les badges après événements (commande, don, etc.).
+
+### 9.5 Sondage / vote pour les prochaines recettes
+- **Concept** : « Quel prochain trompe-l’œil voulez-vous ? » avec 3–4 options. Les clients votent (Firebase), tu annonces la gagnante.
+- **Bénéfice** : très engageant, contenu pour les posts Instagram et sentiment d’être écouté.
+- **Technique** : nœud `polls` (question, options, compteurs) ; écriture sécurisée (1 vote par user ou par device) ; affichage résultats en temps réel ou à la fin du sondage.
+
+### 9.6 « Ma box surprise »
+- **Concept** : le client choisit un budget (ex. 25 €) et/ou une occasion (anniversaire, Ramadan, apéro). Tu proposes une sélection surprise (mix brownies, cookies, trompe-l’œil) générée côté admin ou par règles (ingrédients, nb de parts).
+- **Bénéfice** : idéal pour offrir ou pour ceux qui ne savent pas quoi prendre ; différenciation par rapport à la carte classique.
+- **Technique** : produit virtuel « Box surprise » avec options (budget, occasion) ; en admin, règles ou sélections prédéfinies ; génération du contenu de la box à la commande (ou liste suggérée que l’admin valide).

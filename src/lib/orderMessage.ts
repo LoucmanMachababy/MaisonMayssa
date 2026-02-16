@@ -19,8 +19,12 @@ export type BuildOrderMessageParams = {
   isAuthenticated: boolean
   /** Réduction code promo en € */
   discountAmount?: number
+  /** Réduction parrain en € */
+  referralDiscountAmount?: number
   /** Don au projet en € */
   donationAmount?: number
+  /** Allergies / préférences alimentaires (profil) */
+  dietaryPreferences?: string
 }
 
 function getTrompeLOeilPickupLabel(): string {
@@ -53,10 +57,10 @@ function getOrderLineLabel(item: CartItem): string {
 }
 
 export function buildOrderMessage(params: BuildOrderMessageParams): string {
-  const { cart, customer, total, note, selectedReward, isAuthenticated, discountAmount = 0, donationAmount = 0 } = params
+  const { cart, customer, total, note, selectedReward, isAuthenticated, discountAmount = 0, referralDiscountAmount = 0, donationAmount = 0, dietaryPreferences } = params
   if (cart.length === 0) return ''
 
-  const totalAfterDiscount = Math.max(0, total - discountAmount)
+  const totalAfterDiscount = Math.max(0, total - discountAmount - referralDiscountAmount)
   const distanceFromAnnecy = calculateDistance(customer.addressCoordinates, ANNECY_GARE)
   const isWithinDeliveryZone = distanceFromAnnecy !== null && distanceFromAnnecy <= DELIVERY_RADIUS_KM
 
@@ -89,6 +93,9 @@ export function buildOrderMessage(params: BuildOrderMessageParams): string {
     if (distanceFromAnnecy !== null) {
       lines.push(`Distance : ${distanceFromAnnecy.toFixed(1)} km depuis la gare d'Annecy`)
     }
+    if (customer.deliveryInstructions?.trim()) {
+      lines.push(`Instructions livreur : ${customer.deliveryInstructions.trim()}`)
+    }
   }
 
   const hasTrompeLoeil = cart.some((i) => i.product.category === "Trompe l'oeil")
@@ -103,6 +110,10 @@ export function buildOrderMessage(params: BuildOrderMessageParams): string {
     if (customer.time) lines.push(`Heure souhaitée : ${customer.time}`)
   }
 
+  if (dietaryPreferences?.trim()) {
+    lines.push(`Allergies / préférences : ${dietaryPreferences.trim()}`)
+    lines.push('')
+  }
   lines.push('', '')
   lines.push('*COMMANDE*', '')
   cart.forEach((item, index) => {
@@ -122,6 +133,9 @@ export function buildOrderMessage(params: BuildOrderMessageParams): string {
   lines.push(`Sous-total : ${total.toFixed(2)} €`)
   if (discountAmount > 0) {
     lines.push(`Code promo : -${discountAmount.toFixed(2)} €`)
+  }
+  if (referralDiscountAmount > 0) {
+    lines.push(`Parrain : -${referralDiscountAmount.toFixed(2)} €`)
   }
   if (customer.wantsDelivery) {
     if (deliveryStatus === 'to_define') {

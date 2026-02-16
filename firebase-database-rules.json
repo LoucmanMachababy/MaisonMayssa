@@ -36,6 +36,22 @@
     "promoCodes": {
       ".read": true,
       ".write": "auth != null"
+    },
+    "referralCodes": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "polls": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "pollVotes": {
+      ".read": true,
+      ".write": true
+    },
+    "communityMap": {
+      ".read": true,
+      ".write": "auth != null"
     }
   }
 }

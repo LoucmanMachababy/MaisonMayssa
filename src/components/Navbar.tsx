@@ -94,7 +94,7 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 sm:gap-3">
-                            <img src="/logo.webp" alt="Logo" className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 rounded-xl object-contain shadow-lg ring-2 ring-white" />
+                            <img src="/logo.webp" alt="Maison Mayssa - Pâtisserie Annecy" className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 rounded-xl object-contain shadow-lg ring-2 ring-white" />
                             <div className="flex flex-col">
                                 <span className="font-display text-base sm:text-lg md:text-xl font-bold text-mayssa-brown leading-tight">Maison Mayssa</span>
                                 <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-mayssa-caramel">Annecy</span>
@@ -230,7 +230,7 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
                             <div className="p-4 sm:p-5 pt-[max(1rem,env(safe-area-inset-top))] space-y-1">
                                 <div className="flex items-center justify-between border-b border-mayssa-brown/10 pb-4 mb-2">
                                     <div className="flex items-center gap-3">
-                                        <img src="/logo.webp" alt="Logo" className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl object-contain shadow-lg ring-2 ring-white" />
+                                        <img src="/logo.webp" alt="Maison Mayssa - Pâtisserie Annecy" className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl object-contain shadow-lg ring-2 ring-white" />
                                         <div className="flex flex-col">
                                             <span className="font-display text-lg sm:text-xl font-bold text-mayssa-brown leading-tight">Maison Mayssa</span>
                                             <span className="text-[10px] font-bold uppercase tracking-widest text-mayssa-caramel">Annecy</span>

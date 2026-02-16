@@ -62,6 +62,8 @@ export type CustomerInfo = {
     wantsDelivery: boolean
     date: string
     time: string
+    /** Instructions pour le livreur (code, étage, sonner 2 fois…) */
+    deliveryInstructions?: string
 }
 
 // --- Product Overrides (admin) ---

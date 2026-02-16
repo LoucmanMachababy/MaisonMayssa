@@ -3,7 +3,7 @@ import { ShoppingBag, Minus, Plus, MessageCircle, User, Phone, MapPin, Truck, Ca
 import { SnapIcon } from './SnapIcon'
 import type { CartItem, CustomerInfo } from '../types'
 import { cn, isBeforeOrderCutoff, isBeforeFirstPickupDate } from '../lib/utils'
-import { FIRST_PICKUP_DATE_CLASSIC, FIRST_PICKUP_DATE_CLASSIC_LABEL } from '../constants'
+import { FIRST_PICKUP_DATE_CLASSIC, FIRST_PICKUP_DATE_CLASSIC_LABEL, DELIVERY_SLOT_MAX_CAPACITY } from '../constants'
 import { ReservationTimer } from './ReservationTimer'
 import { useAuth } from '../hooks/useAuth'
 import { REWARD_COSTS, REWARD_LABELS } from '../lib/rewards'
@@ -45,6 +45,8 @@ interface CartProps {
     onClearPromo?: () => void
     donationAmount?: number
     setDonationAmount?: (v: number) => void
+    referralCodeInput?: string
+    setReferralCodeInput?: (v: string) => void
 }
 
 export function Cart({
@@ -69,6 +71,8 @@ export function Cart({
     onClearPromo,
     donationAmount = 0,
     setDonationAmount,
+    referralCodeInput = '',
+    setReferralCodeInput,
 }: CartProps) {
     const hasItems = items.length > 0
     const itemCount = items.reduce((sum, item) => sum + item.quantity, 0)
@@ -100,10 +104,14 @@ export function Cart({
       if (!customer.wantsDelivery || !customer.date) return allTimeSlots
       const taken = deliverySlots[customer.date]
       if (!taken) return allTimeSlots
-      return allTimeSlots.filter((t) => (taken[t] ?? 0) < 1)
+      return allTimeSlots.filter((t) => (taken[t] ?? 0) < DELIVERY_SLOT_MAX_CAPACITY)
     }, [customer.wantsDelivery, customer.date, deliverySlots, allTimeSlots])
+    const getPlacesLeft = (time: string) =>
+      customer.wantsDelivery && customer.date
+        ? Math.max(0, DELIVERY_SLOT_MAX_CAPACITY - (deliverySlots[customer.date]?.[time] ?? 0))
+        : DELIVERY_SLOT_MAX_CAPACITY
     const isSlotFull = (time: string) =>
-      Boolean(customer.wantsDelivery && customer.date && (deliverySlots[customer.date]?.[time] ?? 0) >= 1)
+      Boolean(customer.wantsDelivery && customer.date && (deliverySlots[customer.date]?.[time] ?? 0) >= DELIVERY_SLOT_MAX_CAPACITY)
 
     // Reset time if switching mode, invalid hour, or créneau devenu indispo (livraison)
     useEffect(() => {
@@ -119,7 +127,7 @@ export function Cart({
             }
             if (customer.date) {
                 const taken = deliverySlots[customer.date]
-                if (taken && (taken[customer.time] ?? 0) >= 1) {
+                if (taken && (taken[customer.time] ?? 0) >= DELIVERY_SLOT_MAX_CAPACITY) {
                     onCustomerChange({ ...customer, time: '' })
                 }
             }
@@ -310,6 +318,21 @@ export function Cart({
                             </div>
                         )}
 
+                        {/* Code parrain (1ère commande uniquement) */}
+                        {setReferralCodeInput != null && isAuthenticated && profile && (profile.orderStats?.orderCount ?? 0) === 0 && !profile.referredByCode && (
+                            <div className="space-y-2">
+                                <p className="text-xs font-bold uppercase tracking-widest text-mayssa-brown/60">Code parrain</p>
+                                <p className="text-[10px] text-mayssa-brown/60">Un ami t&apos;a parrainé ? Saisis son code pour avoir -5 € sur ta 1ère commande.</p>
+                                <input
+                                    type="text"
+                                    value={referralCodeInput}
+                                    onChange={(e) => setReferralCodeInput(e.target.value.toUpperCase())}
+                                    placeholder="ex. MAYSSA-ABC1"
+                                    className="w-full rounded-2xl bg-white px-4 py-3 text-sm ring-1 ring-mayssa-brown/10 focus:ring-2 focus:ring-mayssa-caramel"
+                                />
+                            </div>
+                        )}
+
                         {/* Soutien au projet */}
                         {setDonationAmount != null && (
                             <div className="space-y-2">
@@ -461,6 +484,16 @@ export function Cart({
                                         Adresse pré-remplie depuis votre profil
                                     </p>
                                 )}
+                                <div className="mt-3">
+                                    <label className="block text-[10px] font-medium text-mayssa-brown/70 mb-1">Instructions pour le livreur</label>
+                                    <input
+                                        type="text"
+                                        value={customer.deliveryInstructions ?? ''}
+                                        onChange={(e) => onCustomerChange({ ...customer, deliveryInstructions: e.target.value })}
+                                        placeholder="Code immeuble, étage, sonner 2 fois…"
+                                        className="w-full rounded-xl border border-mayssa-brown/10 bg-white px-3 py-2 text-xs text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel/30"
+                                    />
+                                </div>
                             </div>
                         )}
 
@@ -491,9 +524,10 @@ export function Cart({
                                     <option value="">L'heure</option>
                                     {allTimeSlots.map((t) => {
                                         const full = isSlotFull(t)
+                                        const placesLeft = getPlacesLeft(t)
                                         return (
                                             <option key={t} value={t} disabled={full}>
-                                                {t}{full ? ' — Complet' : ''}
+                                                {t}{full ? ' — Complet' : placesLeft < DELIVERY_SLOT_MAX_CAPACITY ? ` — Plus que ${placesLeft} place${placesLeft > 1 ? 's' : ''}` : ''}
                                             </option>
                                         )
                                     })}

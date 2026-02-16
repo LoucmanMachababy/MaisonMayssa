@@ -4,7 +4,7 @@ import { X, Minus, Plus, Trash2, ShoppingBag, MessageCircle, User, Phone, MapPin
 import { SnapIcon } from '../SnapIcon'
 import { hapticFeedback } from '../../lib/haptics'
 import { cn, isBeforeOrderCutoff, isBeforeFirstPickupDate } from '../../lib/utils'
-import { FIRST_PICKUP_DATE_CLASSIC, FIRST_PICKUP_DATE_CLASSIC_LABEL } from '../../constants'
+import { FIRST_PICKUP_DATE_CLASSIC, FIRST_PICKUP_DATE_CLASSIC_LABEL, DELIVERY_SLOT_MAX_CAPACITY } from '../../constants'
 import { AddressAutocomplete } from '../AddressAutocomplete'
 import { ReservationTimer } from '../ReservationTimer'
 import { useAuth } from '../../hooks/useAuth'
@@ -48,6 +48,8 @@ interface CartSheetProps {
   onClearPromo?: () => void
   donationAmount?: number
   setDonationAmount?: (v: number) => void
+  referralCodeInput?: string
+  setReferralCodeInput?: (v: string) => void
 }
 
 export function CartSheet({
@@ -74,6 +76,8 @@ export function CartSheet({
   onClearPromo,
   donationAmount = 0,
   setDonationAmount,
+  referralCodeInput = '',
+  setReferralCodeInput,
 }: CartSheetProps) {
   const dragControls = useDragControls()
   const sheetRef = useRef<HTMLDivElement>(null)
@@ -122,10 +126,14 @@ export function CartSheet({
     if (!customer.wantsDelivery || !customer.date) return allTimeSlots
     const taken = deliverySlots[customer.date]
     if (!taken) return allTimeSlots
-    return allTimeSlots.filter((t) => (taken[t] ?? 0) < 1)
+    return allTimeSlots.filter((t) => (taken[t] ?? 0) < DELIVERY_SLOT_MAX_CAPACITY)
   }, [customer.wantsDelivery, customer.date, deliverySlots, allTimeSlots])
+  const getPlacesLeft = (time: string) =>
+    customer.wantsDelivery && customer.date
+      ? Math.max(0, DELIVERY_SLOT_MAX_CAPACITY - (deliverySlots[customer.date]?.[time] ?? 0))
+      : DELIVERY_SLOT_MAX_CAPACITY
   const isSlotFull = (time: string) =>
-    Boolean(customer.wantsDelivery && customer.date && (deliverySlots[customer.date]?.[time] ?? 0) >= 1)
+    Boolean(customer.wantsDelivery && customer.date && (deliverySlots[customer.date]?.[time] ?? 0) >= DELIVERY_SLOT_MAX_CAPACITY)
 
   const minDate = getMinDate()
 
@@ -141,7 +149,7 @@ export function CartSheet({
       }
       if (customer.date) {
         const taken = deliverySlots[customer.date]
-        if (taken && (taken[customer.time] ?? 0) >= 1) {
+        if (taken && (taken[customer.time] ?? 0) >= DELIVERY_SLOT_MAX_CAPACITY) {
           onCustomerChange({ ...customer, time: '' })
         }
       }
@@ -395,6 +403,16 @@ export function CartSheet({
                         Adresse pré-remplie depuis ton profil
                       </p>
                     )}
+                    <div className="mt-2">
+                      <label className="block text-[9px] font-medium text-mayssa-brown/70 mb-0.5">Instructions livreur</label>
+                      <input
+                        type="text"
+                        value={customer.deliveryInstructions ?? ''}
+                        onChange={(e) => onCustomerChange({ ...customer, deliveryInstructions: e.target.value })}
+                        placeholder="Code, étage, sonner 2 fois…"
+                        className="w-full rounded-lg bg-white/80 px-2.5 py-1.5 text-xs text-mayssa-brown placeholder:text-mayssa-brown/40 ring-1 ring-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel/30"
+                      />
+                    </div>
                   </div>
                 )}
               </div>
@@ -425,9 +443,10 @@ export function CartSheet({
                       <option value="">Heure</option>
                       {allTimeSlots.map((time) => {
                         const full = isSlotFull(time)
+                        const placesLeft = getPlacesLeft(time)
                         return (
                           <option key={time} value={time} disabled={full}>
-                            {time}{full ? ' — Complet' : ''}
+                            {time}{full ? ' — Complet' : placesLeft < DELIVERY_SLOT_MAX_CAPACITY ? ` — Plus que ${placesLeft} place${placesLeft > 1 ? 's' : ''}` : ''}
                           </option>
                         )
                       })}
@@ -490,6 +509,20 @@ export function CartSheet({
                       </button>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Code parrain */}
+              {setReferralCodeInput != null && isAuthenticated && profile && (profile.orderStats?.orderCount ?? 0) === 0 && !profile.referredByCode && (
+                <div className="space-y-2">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/60">Code parrain</p>
+                  <input
+                    type="text"
+                    value={referralCodeInput}
+                    onChange={(e) => setReferralCodeInput(e.target.value.toUpperCase())}
+                    placeholder="ex. MAYSSA-ABC1 (-5 €)"
+                    className="w-full rounded-xl bg-white/80 px-3 py-2.5 text-xs ring-1 ring-mayssa-brown/10"
+                  />
                 </div>
               )}
 

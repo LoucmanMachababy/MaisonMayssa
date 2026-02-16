@@ -178,6 +178,8 @@ export type OrderCustomer = {
   phone: string
   address?: string
   addressCoordinates?: { lat: number; lng: number } | null
+  /** Instructions pour le livreur (code, étage, etc.) */
+  deliveryInstructions?: string
 }
 
 export type Order = {
@@ -206,6 +208,22 @@ export type Order = {
   discountAmount?: number
   /** Don au projet en € */
   donationAmount?: number
+  /** UID du client connecté (pour badges / parrainage) */
+  userId?: string
+  /** Code parrain utilisé (filleul) */
+  referralCode?: string
+  /** Montant de la réduction parrain en € */
+  referralDiscountAmount?: number
+  /** UID du parrain (pour le créditer) */
+  referrerUserId?: string
+}
+
+/** Stats de commandes pour les badges (stocké dans le profil) */
+export type UserOrderStats = {
+  orderCount: number
+  hasOrderedTrompeLoeil: boolean
+  hasDonated: boolean
+  hasUsedPromo: boolean
 }
 
 /** Vérifie si un productId correspond à un trompe l'oeil */
@@ -303,6 +321,53 @@ export async function validatePromoCode(
   }
   if (discount <= 0) return { valid: false, error: 'Code invalide' }
   return { valid: true, discount }
+}
+
+// --- Sondages (votes prochain trompe-l'œil) ---
+export type Poll = {
+  question: string
+  options: Record<string, number> // optionId -> count
+  optionLabels?: Record<string, string> // optionId -> label
+  endAt?: number
+  createdAt: number
+}
+
+const pollsRef = ref(db, 'polls')
+export function listenPolls(callback: (polls: Record<string, Poll>) => void) {
+  return onValue(pollsRef, (snapshot) => callback(snapshot.val() || {}))
+}
+
+export async function createPoll(question: string, optionLabels: string[]): Promise<string> {
+  const options: Record<string, number> = {}
+  const optionLabelsMap: Record<string, string> = {}
+  optionLabels.forEach((label, i) => {
+    const id = `opt${i}`
+    options[id] = 0
+    optionLabelsMap[id] = label
+  })
+  const newRef = push(pollsRef)
+  await set(newRef, {
+    question,
+    options,
+    optionLabels: optionLabelsMap,
+    createdAt: Date.now(),
+  })
+  return newRef.key!
+}
+
+export async function votePoll(pollId: string, optionId: string, voterId: string): Promise<boolean> {
+  const voteRef = ref(db, `pollVotes/${pollId}/${voterId}`)
+  const optRef = ref(db, `polls/${pollId}/options/${optionId}`)
+  const snapshot = await get(voteRef)
+  if (snapshot.exists()) return false // déjà voté
+  await set(voteRef, optionId)
+  await runTransaction(optRef, (c) => (c ?? 0) + 1)
+  return true
+}
+
+export async function getPollVote(pollId: string, voterId: string): Promise<string | null> {
+  const snapshot = await get(ref(db, `pollVotes/${pollId}/${voterId}`))
+  return snapshot.val()
 }
 
 const ordersRef = ref(db, 'orders')
@@ -499,6 +564,20 @@ export type UserProfile = {
   createdAt: number
   loyalty: UserLoyalty
   birthdayGiftClaimed?: Record<string, boolean> // année -> cadeau offert (ex: "2026": true)
+  /** Pour badges (première commande, 5 commandes, trompe-l'œil, don, promo) */
+  orderStats?: UserOrderStats
+  /** Code parrain unique (ex. MAYSSA-ABC1) ; 1 par compte */
+  referralCode?: string
+  /** Code parrain utilisé à la 1ère commande (filleul) */
+  referredByCode?: string | null
+  /** Dernière commande (timestamp) pour rappel douceur */
+  lastOrderAt?: number
+  /** Occasions qui m'intéressent (ramadan, noel, anniversaire...) */
+  occasionsInteret?: string[]
+  /** Allergies / préférences alimentaires (sans gluten, sans noix, etc.) */
+  dietaryPreferences?: string
+  /** Recevoir un rappel à l'ouverture des commandes (mercredi & samedi) */
+  notifyOrderOpening?: boolean
 }
 
 // --- Profils Clients (Database) ---
@@ -547,8 +626,66 @@ export function listenUserProfile(uid: string, callback: (profile: UserProfile |
 }
 
 // Mettre à jour le profil client (infos de base)
-export async function updateUserProfile(uid: string, updates: Partial<Pick<UserProfile, 'firstName' | 'lastName' | 'phone' | 'birthday' | 'address' | 'addressCoordinates'>>) {
+export async function updateUserProfile(uid: string, updates: Partial<Pick<UserProfile, 'firstName' | 'lastName' | 'phone' | 'birthday' | 'address' | 'addressCoordinates' | 'occasionsInteret' | 'dietaryPreferences' | 'notifyOrderOpening'>>) {
   await update(getUserRef(uid), updates)
+}
+
+/** Met à jour les stats de commandes (badges) et lastOrderAt après une commande. */
+export async function updateUserOrderStats(
+  uid: string,
+  opts: { hasTrompeLoeil: boolean; hasDonation: boolean; hasPromo: boolean }
+) {
+  const profile = await getUserProfile(uid)
+  if (!profile) return
+  const prev = profile.orderStats ?? {
+    orderCount: 0,
+    hasOrderedTrompeLoeil: false,
+    hasDonated: false,
+    hasUsedPromo: false,
+  }
+  const orderStats: UserOrderStats = {
+    orderCount: prev.orderCount + 1,
+    hasOrderedTrompeLoeil: prev.hasOrderedTrompeLoeil || opts.hasTrompeLoeil,
+    hasDonated: prev.hasDonated || opts.hasDonation,
+    hasUsedPromo: prev.hasUsedPromo || opts.hasPromo,
+  }
+  await update(getUserRef(uid), {
+    orderStats,
+    lastOrderAt: Date.now(),
+  })
+}
+
+/** Génère un code parrain unique (MAYSSA-XXXX) et le sauvegarde si pas déjà présent. */
+export async function getOrCreateReferralCode(uid: string): Promise<string> {
+  const profile = await getUserProfile(uid)
+  if (profile?.referralCode) return profile.referralCode
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  let code = 'MAYSSA-'
+  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)]
+  const key = code.toUpperCase().replace(/\s/g, '')
+  await update(getUserRef(uid), { referralCode: code })
+  await set(ref(db, `referralCodes/${key}`), uid)
+  return code
+}
+
+/** Retourne l'UID du parrain si le code est valide, sinon null. */
+export async function getReferrerByCode(code: string): Promise<string | null> {
+  const key = String(code).trim().toUpperCase().replace(/\s+/g, '')
+  if (!key) return null
+  const snapshot = await get(ref(db, `referralCodes/${key}`))
+  return snapshot.val() ?? null
+}
+
+/** Marque l'utilisateur comme filleul et crédite le parrain (à appeler après création de commande). */
+export async function applyReferralAfterOrder(orderedUserId: string, referralCode: string, referrerUid: string): Promise<void> {
+  const { REFERRAL_POINTS_TO_REFERRER } = await import('../constants')
+  await update(getUserRef(orderedUserId), { referredByCode: referralCode.trim().toUpperCase() })
+  await addUserPoints(referrerUid, {
+    reason: 'admin_ajout',
+    points: REFERRAL_POINTS_TO_REFERRER,
+    at: Date.now(),
+    adminNote: 'Parrainage',
+  })
 }
 
 // Supprimer un client (admin) — supprime le profil Realtime Database
@@ -749,6 +886,22 @@ export function listenAllUsers(callback: (users: Record<string, UserProfile>) =>
   return onValue(usersRef, (snapshot) => {
     callback(snapshot.exists() ? snapshot.val() : {})
   })
+}
+
+// --- Carte de la communauté (villes / CP agrégés, anonymes) ---
+export type CommunityMapEntry = { count: number; label: string; lat?: number; lng?: number }
+export type CommunityMapData = Record<string, CommunityMapEntry>
+
+const communityMapRef = ref(db, 'communityMap')
+
+export function listenCommunityMap(callback: (data: CommunityMapData) => void) {
+  return onValue(communityMapRef, (snapshot) => {
+    callback(snapshot.exists() ? snapshot.val() : {})
+  })
+}
+
+export async function setCommunityMap(data: CommunityMapData) {
+  await set(communityMapRef, data)
 }
 
 export { db, auth, app }

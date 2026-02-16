@@ -30,7 +30,7 @@ export function Footer() {
                         <div className="flex items-center gap-2 sm:gap-3">
                             <img 
                                 src="/logo.webp" 
-                                alt="Logo" 
+                                alt="Maison Mayssa - Pâtisserie Annecy" 
                                 className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl shadow-md cursor-pointer hover:scale-105 transition-transform" 
                                 onClick={handleLogoClick}
                                 title={clickCount > 0 ? `${clickCount}/5 clics` : ''}

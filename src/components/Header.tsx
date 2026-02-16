@@ -18,7 +18,7 @@ export function Header() {
                         <div className="absolute -inset-3 sm:-inset-4 rounded-full bg-mayssa-caramel/20 blur-2xl animate-pulse-slow" />
                         <img
                             src="/logo.webp"
-                            alt="Maison Mayssa"
+                            alt="Maison Mayssa - Trompe l'œil pâtissier Annecy"
                             width={128}
                             height={128}
                             fetchPriority="high"
@@ -33,7 +33,7 @@ export function Header() {
                                 animate={{ opacity: 1, y: 0 }}
                                 className="text-[10px] sm:text-xs font-bold tracking-[0.3em] sm:tracking-[0.4em] uppercase text-mayssa-brown/60 mb-2"
                             >
-                                Douceurs artisanales • Annecy
+                                Trompe l&apos;œil pâtissier • Annecy
                             </motion.p>
                             <motion.h1
                                 initial={{ opacity: 0, y: 10 }}
@@ -43,6 +43,14 @@ export function Header() {
                             >
                                 Maison <span className="text-mayssa-caramel italic">Mayssa</span>
                             </motion.h1>
+                            <motion.h2
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.15 }}
+                                className="text-base sm:text-lg md:text-xl font-semibold text-mayssa-caramel/90 mt-1"
+                            >
+                                Trompe l&apos;œil Annecy — Pâtisseries artisanales
+                            </motion.h2>
                         </div>
 
                         <motion.p
@@ -51,8 +59,7 @@ export function Header() {
                             transition={{ delay: 0.2 }}
                             className="max-w-xl text-sm sm:text-base md:text-lg text-mayssa-brown/80 leading-relaxed font-medium px-2 sm:px-0"
                         >
-L'excellence de la pâtisserie artisanale à Annecy.
-                            Des créations gourmandes pour sublimer vos moments d'exception.
+                            Trompe l&apos;œil à Annecy : pâtisseries artisanales qui trompent l&apos;œil et régalent. Mangue, citron, pistache, passion… Livraison et retrait sur Annecy.
                         </motion.p>
 
                         <motion.div

@@ -5,6 +5,13 @@ export const PHONE_E164 = '33619871005'
 /** PayPal.Me : paiement optionnel après commande */
 export const PAYPAL_ME_USER = 'RoumayssaGhazi'
 
+/** Parrainage : réduction 1ère commande du filleul (€) et points offerts au parrain */
+export const REFERRAL_DISCOUNT_EUR = 5
+export const REFERRAL_POINTS_TO_REFERRER = 15
+
+/** Nombre max de commandes par créneau de livraison (affiche "Plus que X places") */
+export const DELIVERY_SLOT_MAX_CAPACITY = 5
+
 /** Précommande trompe l'oeil : à récupérer sous 3 j après préco. Dispo gérée par Firebase (jours + stock). */
 const TROMPE_LOEIL_PREORDER = { availableFrom: '2026-02-13', daysToPickup: 3 }
 
@@ -396,6 +403,31 @@ export const PRODUCTS: Product[] = [
     },
 
     // Boxes gourmandes
+    {
+        id: 'box-surprise',
+        name: '🎁 Box surprise',
+        description: 'Choisissez votre budget et l\'occasion (anniversaire, Ramadan, apéro, cadeau…). On compose une sélection surprise pour vous.',
+        price: 25,
+        category: 'Boxes',
+        image: '/box-mixte.webp',
+        badges: ['coup-de-coeur'],
+        sizes: [
+            { label: 'Budget 20 €', ml: 20, price: 20 },
+            { label: 'Budget 25 €', ml: 25, price: 25 },
+            { label: 'Budget 30 €', ml: 30, price: 30 },
+            { label: 'Budget 35 €', ml: 35, price: 35 },
+            { label: 'Budget 50 €', ml: 50, price: 50 },
+        ],
+    },
+    {
+        id: 'abonnement-box-mois',
+        name: '📦 Abonnement Box du mois',
+        description: '1 box surprise par mois. On te recontacte pour le paiement et la composition. Idéal pour se faire plaisir sans choisir.',
+        price: 25,
+        category: 'Boxes',
+        image: '/box-mixte.webp',
+        badges: ['coup-de-coeur'],
+    },
     {
         id: 'box-cookies',
         name: '🍪 Boxes Cookies',
