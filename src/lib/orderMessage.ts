@@ -17,6 +17,10 @@ export type BuildOrderMessageParams = {
   note: string
   selectedReward: { type: keyof typeof REWARD_LABELS; id: string } | null
   isAuthenticated: boolean
+  /** Réduction code promo en € */
+  discountAmount?: number
+  /** Don au projet en € */
+  donationAmount?: number
 }
 
 function getTrompeLOeilPickupLabel(): string {
@@ -49,9 +53,10 @@ function getOrderLineLabel(item: CartItem): string {
 }
 
 export function buildOrderMessage(params: BuildOrderMessageParams): string {
-  const { cart, customer, total, note, selectedReward, isAuthenticated } = params
+  const { cart, customer, total, note, selectedReward, isAuthenticated, discountAmount = 0, donationAmount = 0 } = params
   if (cart.length === 0) return ''
 
+  const totalAfterDiscount = Math.max(0, total - discountAmount)
   const distanceFromAnnecy = calculateDistance(customer.addressCoordinates, ANNECY_GARE)
   const isWithinDeliveryZone = distanceFromAnnecy !== null && distanceFromAnnecy <= DELIVERY_RADIUS_KM
 
@@ -61,13 +66,13 @@ export function buildOrderMessage(params: BuildOrderMessageParams): string {
   if (customer.wantsDelivery) {
     if (!customer.addressCoordinates || !isWithinDeliveryZone) {
       deliveryStatus = 'to_define'
-    } else if (total < FREE_DELIVERY_THRESHOLD) {
+    } else if (totalAfterDiscount < FREE_DELIVERY_THRESHOLD) {
       deliveryFee = DELIVERY_FEE
       deliveryStatus = 'paid'
     }
   }
 
-  const finalTotal = total + deliveryFee
+  const finalTotal = totalAfterDiscount + deliveryFee + donationAmount
   const modeTexte = customer.wantsDelivery ? 'Livraison' : 'Retrait sur place'
 
   const lines: string[] = []
@@ -115,22 +120,27 @@ export function buildOrderMessage(params: BuildOrderMessageParams): string {
 
   lines.push('*RÉCAPITULATIF*', '')
   lines.push(`Sous-total : ${total.toFixed(2)} €`)
-
+  if (discountAmount > 0) {
+    lines.push(`Code promo : -${discountAmount.toFixed(2)} €`)
+  }
   if (customer.wantsDelivery) {
     if (deliveryStatus === 'to_define') {
       lines.push('')
       lines.push(`⚠️ LIVRAISON HORS ZONE (> ${DELIVERY_RADIUS_KM} km)`)
       lines.push('Tarif à définir ensemble.')
-      lines.push(`Total produits : ${total.toFixed(2)} €`)
+      lines.push(`Total produits : ${totalAfterDiscount.toFixed(2)} €`)
     } else if (deliveryStatus === 'paid') {
       lines.push(`Livraison : +${DELIVERY_FEE} €`)
+      if (donationAmount > 0) lines.push(`Don au projet : +${donationAmount.toFixed(2)} €`)
       lines.push(`*Total : ${finalTotal.toFixed(2)} €*`)
     } else {
       lines.push(`Livraison : offerte (≥ ${FREE_DELIVERY_THRESHOLD} €)`)
+      if (donationAmount > 0) lines.push(`Don au projet : +${donationAmount.toFixed(2)} €`)
       lines.push(`*Total : ${finalTotal.toFixed(2)} €*`)
     }
   } else {
-    lines.push(`*Total : ${total.toFixed(2)} €*`)
+    if (donationAmount > 0) lines.push(`Don au projet : +${donationAmount.toFixed(2)} €`)
+    lines.push(`*Total : ${finalTotal.toFixed(2)} €*`)
   }
 
   lines.push('', '')

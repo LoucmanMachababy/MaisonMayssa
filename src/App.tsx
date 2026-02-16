@@ -58,6 +58,9 @@ const BoxCustomizationModal = lazy(() => import('./components/BoxCustomizationMo
 const BoxFlavorsModal = lazy(() => import('./components/BoxFlavorsModal').then(m => ({ default: m.BoxFlavorsModal })))
 import { TrompeLOeilModal } from './components/TrompeLOeilModal'
 import { OrderConfirmation } from './components/OrderConfirmation'
+import { OrderRecapModal } from './components/OrderRecapModal'
+import { OccasionsSection } from './components/OccasionsSection'
+import { AggregateRatingSchema } from './components/AggregateRatingSchema'
 import { OrderStatusPage } from './components/OrderStatusPage'
 import { DeliveryZoneMap } from './components/DeliveryZoneMap'
 import { REWARD_COSTS, REWARD_LABELS } from './lib/rewards'
@@ -87,8 +90,10 @@ import {
   CakeSlice,
   CupSoda as Cup,
   Cake,
-  Eye
+  Eye,
+  Heart
 } from 'lucide-react'
+import { PAYPAL_ME_USER } from './constants'
 
 function AppRouter() {
   const [isAdmin, setIsAdmin] = useState(window.location.hash === '#admin')
@@ -158,7 +163,11 @@ function AppContent() {
   const [isMobile, setIsMobile] = useState(false)
   const [isCartSheetOpen, setIsCartSheetOpen] = useState(false)
   const [isFavoritesSheetOpen, setIsFavoritesSheetOpen] = useState(false)
+  const [showRecapModal, setShowRecapModal] = useState(false)
   const [selectedProductForDetail, setSelectedProductForDetail] = useState<Product | null>(null)
+  const [promoCodeInput, setPromoCodeInput] = useState('')
+  const [appliedPromo, setAppliedPromo] = useState<{ code: string; discount: number } | null>(null)
+  const [donationAmount, setDonationAmount] = useState(0)
 
   // Favorites (localStorage)
   const {
@@ -826,12 +835,37 @@ function AppContent() {
     whatsappMessage: string
   } | null>(null)
 
+  const handleApplyPromo = async () => {
+    const code = promoCodeInput.trim()
+    if (!code) return
+    try {
+      const { validatePromoCode } = await import('./lib/firebase')
+      const result = await validatePromoCode(code, total)
+      if (result.valid) {
+        setAppliedPromo({ code: code.toUpperCase(), discount: result.discount })
+        showToast(`Code appliqué : -${result.discount.toFixed(2)} €`, 'success')
+      } else {
+        showToast(result.error ?? 'Code invalide', 'error')
+      }
+    } catch {
+      showToast('Erreur lors de la vérification du code', 'error')
+    }
+  }
+
+  const handleClearPromo = () => {
+    setAppliedPromo(null)
+    setPromoCodeInput('')
+  }
+
   const saveOrderToFirebase = async (source: 'whatsapp' | 'instagram' | 'snap'): Promise<string | null> => {
     if (cart.length === 0) return null
-    const orderTotal = total + (computeDeliveryFee(customer, total) || 0)
+    const discount = appliedPromo?.discount ?? 0
+    const totalAfterDiscount = Math.max(0, total - discount)
+    const deliveryFee = computeDeliveryFee(customer, totalAfterDiscount) ?? 0
+    const donation = donationAmount ?? 0
+    const orderTotal = totalAfterDiscount + deliveryFee + donation
     try {
-      const { createOrder } = await import('./lib/firebase')
-      const deliveryFee = computeDeliveryFee(customer, total) ?? 0
+      const { createOrder, incrementPromoCodeUsage } = await import('./lib/firebase')
       const distanceKm = customer.wantsDelivery && customer.addressCoordinates
         ? calculateDistance(customer.addressCoordinates, ANNECY_GARE)
         : undefined
@@ -859,8 +893,13 @@ function AppContent() {
         ...(deliveryFee > 0 && { deliveryFee }),
         ...(distanceKm != null && { distanceKm }),
         ...(note.trim() && note.trim() !== 'Pour le … (date, créneau, adresse)' && { clientNote: note.trim() }),
+        ...(appliedPromo && { promoCode: appliedPromo.code, discountAmount: appliedPromo.discount }),
+        ...(donation > 0 && { donationAmount: donation }),
         createdAt: Date.now(),
       })
+      if (appliedPromo?.code) {
+        incrementPromoCodeUsage(appliedPromo.code).catch(console.error)
+      }
       if (customer.wantsDelivery && customer.date && customer.time) {
         reserveDeliverySlot(customer.date, customer.time).catch(console.error)
       }
@@ -878,7 +917,16 @@ function AppContent() {
       return
     }
 
-    const message = buildOrderMessage({ cart, customer, total, note, selectedReward, isAuthenticated })
+    const message = buildOrderMessage({
+      cart,
+      customer,
+      total,
+      note,
+      selectedReward,
+      isAuthenticated,
+      discountAmount: appliedPromo?.discount ?? 0,
+      donationAmount: donationAmount ?? 0,
+    })
     if (!message) return
 
     // --- Enregistrer la commande dans Firebase d'abord (pour obtenir l'ID) ---
@@ -895,10 +943,12 @@ function AppContent() {
     } catch { /* ignore */ }
 
     // --- Afficher l'écran de confirmation (WhatsApp + PayPal + lien statut) ---
-    const deliveryFeeVal = computeDeliveryFee(customer, total) ?? 0
+    const totalAfterDiscount = total - (appliedPromo?.discount ?? 0)
+    const deliveryFeeVal = computeDeliveryFee(customer, totalAfterDiscount) ?? 0
+    const donationVal = donationAmount ?? 0
     setOrderConfirmation({
       orderId,
-      total,
+      total: totalAfterDiscount + deliveryFeeVal + donationVal,
       deliveryFee: deliveryFeeVal > 0 ? deliveryFeeVal : undefined,
       customer: {
         firstName: customer.firstName || 'Client',
@@ -952,7 +1002,8 @@ function AppContent() {
     // --- Attribution des points de fidélité (si connecté) ---
     if (isAuthenticated && user && cart.length > 0) {
       try {
-        const orderTotal = total + (computeDeliveryFee(customer, total) || 0) // Inclut les frais de livraison
+        const totalAfterDiscount = total - (appliedPromo?.discount ?? 0)
+        const orderTotal = totalAfterDiscount + (computeDeliveryFee(customer, totalAfterDiscount) || 0) + (donationAmount ?? 0)
         const basePoints = Math.round(orderTotal) // 1 € = 1 point
         
         // Générer un ID de commande simple pour traçabilité
@@ -985,7 +1036,16 @@ function AppContent() {
       return
     }
 
-    const message = buildOrderMessage({ cart, customer, total, note, selectedReward, isAuthenticated })
+    const message = buildOrderMessage({
+      cart,
+      customer,
+      total,
+      note,
+      selectedReward,
+      isAuthenticated,
+      discountAmount: appliedPromo?.discount ?? 0,
+      donationAmount: donationAmount ?? 0,
+    })
     if (!message) return
 
     await saveOrderToFirebase('instagram')
@@ -1024,7 +1084,16 @@ function AppContent() {
       return
     }
 
-    const message = buildOrderMessage({ cart, customer, total, note, selectedReward, isAuthenticated })
+    const message = buildOrderMessage({
+      cart,
+      customer,
+      total,
+      note,
+      selectedReward,
+      isAuthenticated,
+      discountAmount: appliedPromo?.discount ?? 0,
+      donationAmount: donationAmount ?? 0,
+    })
     if (!message) return
 
     await saveOrderToFirebase('snap')
@@ -1261,13 +1330,20 @@ function AppContent() {
               onUpdateQuantity={handleUpdateQuantity}
               onNoteChange={setNote}
               onCustomerChange={setCustomer}
-              onSend={handleSend}
+              onSend={() => setShowRecapModal(true)}
               onSendInstagram={handleSendInstagram}
               onSendSnap={handleSendSnap}
               onAccountClick={handleAccountClick}
               selectedReward={selectedReward}
               onSelectReward={setSelectedReward}
               deliverySlots={deliverySlots}
+              promoCodeInput={promoCodeInput}
+              setPromoCodeInput={setPromoCodeInput}
+              appliedPromo={appliedPromo}
+              onApplyPromo={handleApplyPromo}
+              onClearPromo={handleClearPromo}
+              donationAmount={donationAmount ?? 0}
+              setDonationAmount={setDonationAmount}
             />
           </motion.section>
         </main>
@@ -1279,7 +1355,7 @@ function AppContent() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="mt-12 sm:mt-16 md:mt-24 section-shell bg-white/80 border border-mayssa-brown/5 premium-shadow"
+          className="mt-12 sm:mt-16 md:mt-24 section-shell bg-white/80 border border-mayssa-brown/5 premium-shadow scroll-mt-24"
         >
           <div className="grid gap-6 sm:gap-8 md:grid-cols-[1.4fr_minmax(0,1fr)] items-start">
             <div className="space-y-3 sm:space-y-4">
@@ -1321,6 +1397,45 @@ function AppContent() {
                 <li>• Des portions généreuses, comme à la maison</li>
                 <li>• Un service de précommande simple, par WhatsApp uniquement</li>
               </ul>
+            </div>
+          </div>
+
+          {/* Le projet : future boutique + soutien */}
+          <div id="soutien" className="mt-10 sm:mt-12 pt-8 sm:pt-10 border-t border-mayssa-brown/10">
+            <div className="rounded-2xl overflow-hidden border border-mayssa-brown/10 shadow-lg mb-6 sm:mb-8">
+              <img
+                src="/boutique-fictif.png"
+                alt="Maison Mayssa – Sucrée & Salée, future boutique à Annecy"
+                className="w-full h-auto object-cover"
+                loading="lazy"
+              />
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 rounded-2xl bg-gradient-to-br from-mayssa-caramel/10 to-mayssa-brown/5 p-5 sm:p-6 border border-mayssa-caramel/20">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-mayssa-caramel/20 text-mayssa-caramel">
+                <Heart size={24} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.3em] text-mayssa-caramel/80 mb-1">
+                  Le projet
+                </p>
+                <h3 className="text-lg sm:text-xl font-display font-bold text-mayssa-brown mb-2">
+                  Une boutique trompe l&apos;œil à Annecy
+                </h3>
+                <p className="text-xs sm:text-sm text-mayssa-brown/80 leading-relaxed">
+                  L&apos;objectif est d&apos;ouvrir ma boutique de pâtisserie trompe l&apos;œil à Annecy.
+                  Chaque don compte et m&apos;aide à concrétiser ce rêve. Merci de tout cœur pour votre soutien.
+                </p>
+              </div>
+              <a
+                href={`https://www.paypal.me/${PAYPAL_ME_USER}`}
+                target="_blank"
+                rel="noreferrer noopener"
+                onClick={() => hapticFeedback('medium')}
+                className="shrink-0 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#0070ba] hover:bg-[#005ea6] text-white px-5 py-3.5 text-sm font-bold shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+              >
+                <Heart size={18} className="text-white/90" />
+                Faire un don (PayPal)
+              </a>
             </div>
           </div>
         </motion.section>
@@ -1378,8 +1493,10 @@ function AppContent() {
 
         <Suspense fallback={null}>
           <Testimonials />
+          <OccasionsSection />
           <LegalPagesSections />
         </Suspense>
+        <AggregateRatingSchema />
         <Footer />
       </div>
 
@@ -1456,13 +1573,38 @@ function AppContent() {
         onUpdateQuantity={handleUpdateQuantity}
         onNoteChange={setNote}
         onCustomerChange={setCustomer}
-        onSend={handleSend}
+        onSend={() => setShowRecapModal(true)}
         onSendInstagram={handleSendInstagram}
         onSendSnap={handleSendSnap}
         onAccountClick={handleAccountClick}
         selectedReward={selectedReward}
         onSelectReward={setSelectedReward}
         deliverySlots={deliverySlots}
+        promoCodeInput={promoCodeInput}
+        setPromoCodeInput={setPromoCodeInput}
+        appliedPromo={appliedPromo}
+        onApplyPromo={handleApplyPromo}
+        onClearPromo={handleClearPromo}
+        donationAmount={donationAmount ?? 0}
+        setDonationAmount={setDonationAmount}
+      />
+      <OrderRecapModal
+        isOpen={showRecapModal}
+        onClose={() => setShowRecapModal(false)}
+        onConfirm={async () => {
+          await handleSend()
+          setShowRecapModal(false)
+          setIsCartSheetOpen(false)
+        }}
+        customer={customer}
+        items={cart}
+        total={total}
+        deliveryFee={(() => {
+          const totalAfterDiscount = total - (appliedPromo?.discount ?? 0)
+          return computeDeliveryFee(customer, totalAfterDiscount) ?? 0
+        })()}
+        discountAmount={appliedPromo?.discount ?? 0}
+        donationAmount={donationAmount ?? 0}
       />
       <FavoritesSheet
         isOpen={isFavoritesSheetOpen}

@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Phone, Instagram, Clock, Truck, MapPin, MessageCircle, Calendar } from 'lucide-react'
+import { Instagram, Clock, Truck, MapPin, MessageCircle, Calendar } from 'lucide-react'
 import { cn, isOpen, getNextPickupDateLabel } from '../lib/utils'
 import { PHONE_E164, FIRST_PICKUP_DATE_CLASSIC } from '../constants'
 import { OrderCountdown } from './OrderCountdown'
@@ -118,8 +118,8 @@ L'excellence de la pâtisserie artisanale à Annecy.
                             onClick={() => hapticFeedback('light')}
                             className="flex items-center justify-center gap-2 text-xs sm:text-sm font-semibold text-mayssa-brown/70 hover:text-mayssa-caramel transition-colors cursor-pointer"
                         >
-                            <Phone size={14} />
-                            Contacter
+                            <MessageCircle size={14} />
+                            Ouvrir le chat Maison Mayssa
                         </a>
                     </div>
 

@@ -200,11 +200,109 @@ export type Order = {
   distanceKm?: number
   /** Si true, les trompes l'oeil de cette commande ne sont pas déduits du stock (ni restaurés si refus) */
   excludeTrompeLoeilStock?: boolean
+  /** Code promo appliqué */
+  promoCode?: string
+  /** Montant de la réduction en € */
+  discountAmount?: number
+  /** Don au projet en € */
+  donationAmount?: number
 }
 
 /** Vérifie si un productId correspond à un trompe l'oeil */
 export function isTrompeLoeilProductId(productId: string): boolean {
   return productId.startsWith('trompe-loeil-')
+}
+
+// --- Codes promo ---
+export type PromoCodeType = 'fixed' | 'percent'
+export type PromoCodeRecord = {
+  type: PromoCodeType
+  value: number
+  minOrder?: number
+  maxUses?: number
+  usedCount: number
+  expiresAt?: number
+  createdAt: number
+}
+
+const promoCodesRef = ref(db, 'promoCodes')
+
+export function listenPromoCodes(callback: (codes: Record<string, PromoCodeRecord>) => void) {
+  return onValue(promoCodesRef, (snapshot) => {
+    callback(snapshot.val() || {})
+  })
+}
+
+function promoKey(code: string): string {
+  return String(code).trim().toUpperCase().replace(/\s+/g, '')
+}
+
+export async function getPromoCode(code: string): Promise<PromoCodeRecord | null> {
+  const key = promoKey(code)
+  if (!key) return null
+  const snapshot = await get(ref(db, `promoCodes/${key}`))
+  return snapshot.val() || null
+}
+
+/** Incrémente le nombre d'utilisations d'un code (après création de commande). */
+export async function incrementPromoCodeUsage(code: string): Promise<void> {
+  const key = promoKey(code)
+  if (!key) return
+  const codeRef = ref(db, `promoCodes/${key}/usedCount`)
+  await runTransaction(codeRef, (current) => (current ?? 0) + 1)
+}
+
+export async function createPromoCode(data: {
+  code: string
+  type: PromoCodeType
+  value: number
+  minOrder?: number
+  maxUses?: number
+  expiresAt?: number
+}): Promise<void> {
+  const key = promoKey(data.code)
+  if (!key) throw new Error('Code promo invalide')
+  const record: PromoCodeRecord = {
+    type: data.type,
+    value: data.value,
+    usedCount: 0,
+    createdAt: Date.now(),
+    ...(data.minOrder != null && data.minOrder > 0 && { minOrder: data.minOrder }),
+    ...(data.maxUses != null && data.maxUses > 0 && { maxUses: data.maxUses }),
+    ...(data.expiresAt != null && data.expiresAt > 0 && { expiresAt: data.expiresAt }),
+  }
+  await set(ref(db, `promoCodes/${key}`), record)
+}
+
+export async function deletePromoCode(code: string): Promise<void> {
+  const key = promoKey(code)
+  if (!key) return
+  await remove(ref(db, `promoCodes/${key}`))
+}
+
+export async function validatePromoCode(
+  code: string,
+  subtotal: number
+): Promise<{ valid: true; discount: number } | { valid: false; error: string }> {
+  const record = await getPromoCode(code)
+  if (!record) return { valid: false, error: 'Code invalide ou expiré' }
+  if (record.minOrder != null && subtotal < record.minOrder) {
+    return { valid: false, error: `Commande minimum ${record.minOrder} €` }
+  }
+  if (record.maxUses != null && (record.usedCount ?? 0) >= record.maxUses) {
+    return { valid: false, error: 'Code déjà utilisé au maximum' }
+  }
+  if (record.expiresAt != null && Date.now() > record.expiresAt) {
+    return { valid: false, error: 'Code expiré' }
+  }
+  let discount: number
+  if (record.type === 'fixed') {
+    discount = Math.min(record.value, subtotal)
+  } else {
+    discount = Math.round((subtotal * record.value) / 100 * 100) / 100
+  }
+  if (discount <= 0) return { valid: false, error: 'Code invalide' }
+  return { valid: true, discount }
 }
 
 const ordersRef = ref(db, 'orders')
@@ -233,7 +331,7 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus) {
   await update(ref(db, `orders/${orderId}`), { status })
 }
 
-export type OrderUpdate = Partial<Pick<Order, 'customer' | 'items' | 'total' | 'status' | 'deliveryMode' | 'requestedDate' | 'requestedTime' | 'adminNote' | 'clientNote' | 'deliveryFee' | 'distanceKm' | 'source' | 'excludeTrompeLoeilStock'>>
+export type OrderUpdate = Partial<Pick<Order, 'customer' | 'items' | 'total' | 'status' | 'deliveryMode' | 'requestedDate' | 'requestedTime' | 'adminNote' | 'clientNote' | 'deliveryFee' | 'distanceKm' | 'source' | 'excludeTrompeLoeilStock' | 'promoCode' | 'discountAmount' | 'donationAmount'>>
 
 export async function updateOrder(orderId: string, updates: OrderUpdate) {
   const clean = stripUndefined(updates as Record<string, unknown>)

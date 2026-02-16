@@ -63,6 +63,20 @@ export function Footer() {
                                     Commander sur WhatsApp
                                 </a>
                             </li>
+                            <li>
+                                <a
+                                    href={`https://wa.me/${PHONE_E164}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    onClick={() => hapticFeedback('light')}
+                                    className="text-xs sm:text-sm text-mayssa-brown/60 hover:text-mayssa-caramel transition-all hover:scale-105 active:scale-95 cursor-pointer inline-flex items-center gap-1.5"
+                                >
+                                    <MessageCircle size={14} />
+                                    Ouvrir le chat Maison Mayssa
+                                </a>
+                            </li>
+                            <li><FooterLink href="#occasions">Occasions</FooterLink></li>
+                            <li><FooterLink href="#soutien">Soutien / Don</FooterLink></li>
                             <li><FooterLink href="#avis">Avis</FooterLink></li>
                             <li><FooterLink href="#livraison">Zone de Livraison</FooterLink></li>
                             <li><FooterLink href="#faq">FAQ</FooterLink></li>

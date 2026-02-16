@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { LogOut, Package, Plus, Minus, Calendar, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp, Pencil, Search, Download, Bell, MessageSquare, Filter, XCircle, Star } from 'lucide-react'
+import { LogOut, Package, Plus, Minus, Calendar, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp, Pencil, Search, Download, Bell, MessageSquare, Filter, XCircle, Star, Tag } from 'lucide-react'
 import type { OrderStatus } from '../../lib/firebase'
 import {
   adminLogin, adminLogout, onAuthChange,
@@ -10,9 +10,10 @@ import {
   listenAllUsers, claimBirthdayGift, listenProductOverrides, deleteUserProfile,
   adminAddPoints, adminRemovePoints,
   listenReviews,
+  listenPromoCodes,
   isPreorderOpenNow, isTrompeLoeilProductId,
   releaseDeliverySlot,
-  type StockMap, type Settings, type Order, type OrderSource, type UserProfile, type PreorderOpening, type Review
+  type StockMap, type Settings, type Order, type OrderSource, type UserProfile, type PreorderOpening, type Review, type PromoCodeRecord
 } from '../../lib/firebase'
 import type { ProductOverrideMap } from '../../types'
 import { parseDateYyyyMmDd } from '../../lib/utils'
@@ -21,6 +22,7 @@ import { useProducts } from '../../hooks/useProducts'
 import { AdminProductsTab } from './AdminProductsTab'
 import { AdminStockTab } from './AdminStockTab'
 import { AdminLivraisonTab } from './AdminLivraisonTab'
+import { AdminPromosTab } from './AdminPromosTab'
 import { AdminOffSiteOrderForm } from './AdminOffSiteOrderForm'
 import { AdminEditOrderModal } from './AdminEditOrderModal'
 
@@ -242,10 +244,11 @@ function Dashboard({ user }: { user: User }) {
   const [settings, setSettings] = useState<Settings>({ preorderDays: [3, 6], preorderMessage: '' })
   const [orders, setOrders] = useState<Record<string, Order>>({})
   const [reviews, setReviews] = useState<Record<string, Review>>({})
-  const [tab, setTab] = useState<'commandes' | 'historique' | 'livraison' | 'ca' | 'avis' | 'stock' | 'jours' | 'anniversaires' | 'inscrits' | 'produits'>('commandes')
+  const [tab, setTab] = useState<'commandes' | 'historique' | 'livraison' | 'ca' | 'avis' | 'stock' | 'jours' | 'anniversaires' | 'inscrits' | 'produits' | 'promos'>('commandes')
   const [caPeriod, setCaPeriod] = useState<'jour' | 'semaine' | 'mois'>('semaine')
   const [allUsers, setAllUsers] = useState<Record<string, UserProfile>>({})
   const [productOverrides, setProductOverrides] = useState<ProductOverrideMap>({})
+  const [promoCodes, setPromoCodes] = useState<Record<string, PromoCodeRecord>>({})
   const { allProducts } = useProducts()
   const [showOffSiteForm, setShowOffSiteForm] = useState(false)
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null)
@@ -298,7 +301,8 @@ function Dashboard({ user }: { user: User }) {
     const unsub4 = listenAllUsers(setAllUsers)
     const unsub5 = listenProductOverrides(setProductOverrides)
     const unsub6 = listenReviews(setReviews)
-    return () => { unsub1(); unsub2(); unsub3(); unsub4(); unsub5(); unsub6() }
+    const unsub7 = listenPromoCodes(setPromoCodes)
+    return () => { unsub1(); unsub2(); unsub3(); unsub4(); unsub5(); unsub6(); unsub7() }
   }, [])
 
   // Notification son + navigateur quand nouvelle commande en attente
@@ -608,6 +612,7 @@ function Dashboard({ user }: { user: User }) {
             { id: 'anniversaires', icon: Cake, label: 'Anniv.', badge: upcomingBirthdays.filter(b => !b.claimed).length },
             { id: 'inscrits', icon: Users, label: 'Inscrits', badge: Object.keys(allUsers).length },
             { id: 'produits', icon: ShoppingBag, label: 'Produits' },
+            { id: 'promos', icon: Tag, label: 'Codes promo' },
           ] as const).map((t) => (
             <button
               key={t.id}
@@ -1652,6 +1657,11 @@ function Dashboard({ user }: { user: User }) {
           >
             <AdminProductsTab allProducts={allProducts} overrides={productOverrides} />
           </motion.div>
+        )}
+
+        {/* ===== CODES PROMO ===== */}
+        {tab === 'promos' && (
+          <AdminPromosTab promoCodes={promoCodes} />
         )}
 
         {/* Edit order modal (toujours affiché si on édite, quel que soit l'onglet) */}

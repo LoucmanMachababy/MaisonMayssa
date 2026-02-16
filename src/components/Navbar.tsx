@@ -355,14 +355,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
         const element = document.getElementById(targetId)
 
         if (element) {
-            const navHeight = 80 // Hauteur approximative de la navbar
-            const elementPosition = element.getBoundingClientRect().top + window.pageYOffset
-            const offsetPosition = elementPosition - navHeight
-
-            window.scrollTo({
-                top: offsetPosition,
-                behavior: 'smooth'
-            })
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' })
         }
     }
 
@@ -382,19 +375,13 @@ function MobileNavLink({ href, children, onClick }: { href: string; children: Re
         hapticFeedback('light')
         e.preventDefault()
         const targetId = href.replace('#', '')
-        const element = document.getElementById(targetId)
-
-        if (element) {
-            const navHeight = 80
-            const elementPosition = element.getBoundingClientRect().top + window.pageYOffset
-            const offsetPosition = elementPosition - navHeight
-
-            window.scrollTo({
-                top: offsetPosition,
-                behavior: 'smooth'
-            })
-        }
         onClick()
+        setTimeout(() => {
+            const element = document.getElementById(targetId)
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }
+        }, 400)
     }
 
     return (
@@ -416,14 +403,7 @@ function NavLinkWithBadge({ href, children, count, icon }: { href: string; child
         const element = document.getElementById(targetId)
 
         if (element) {
-            const navHeight = 80
-            const elementPosition = element.getBoundingClientRect().top + window.pageYOffset
-            const offsetPosition = elementPosition - navHeight
-
-            window.scrollTo({
-                top: offsetPosition,
-                behavior: 'smooth'
-            })
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' })
         }
     }
 
@@ -449,19 +429,13 @@ function MobileNavLinkWithBadge({ href, children, count, onClick }: { href: stri
         hapticFeedback('light')
         e.preventDefault()
         const targetId = href.replace('#', '')
-        const element = document.getElementById(targetId)
-
-        if (element) {
-            const navHeight = 80
-            const elementPosition = element.getBoundingClientRect().top + window.pageYOffset
-            const offsetPosition = elementPosition - navHeight
-
-            window.scrollTo({
-                top: offsetPosition,
-                behavior: 'smooth'
-            })
-        }
         onClick()
+        setTimeout(() => {
+            const element = document.getElementById(targetId)
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }
+        }, 400)
     }
 
     return (

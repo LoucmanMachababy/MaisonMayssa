@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence, useDragControls } from 'framer-motion'
-import { X, Minus, Plus, Trash2, ShoppingBag, MessageCircle, User, Phone, MapPin, Truck, Calendar, Clock, Star, Gift, Instagram } from 'lucide-react'
+import { X, Minus, Plus, Trash2, ShoppingBag, MessageCircle, User, Phone, MapPin, Truck, Calendar, Clock, Star, Gift, Instagram, Tag, Heart } from 'lucide-react'
 import { SnapIcon } from '../SnapIcon'
 import { hapticFeedback } from '../../lib/haptics'
 import { cn, isBeforeOrderCutoff, isBeforeFirstPickupDate } from '../../lib/utils'
@@ -41,6 +41,13 @@ interface CartSheetProps {
   selectedReward?: { type: keyof typeof REWARD_COSTS; id: string } | null
   onSelectReward?: (reward: { type: keyof typeof REWARD_COSTS; id: string } | null) => void
   deliverySlots?: DeliverySlotsMap
+  promoCodeInput?: string
+  setPromoCodeInput?: (v: string) => void
+  appliedPromo?: { code: string; discount: number } | null
+  onApplyPromo?: () => void
+  onClearPromo?: () => void
+  donationAmount?: number
+  setDonationAmount?: (v: number) => void
 }
 
 export function CartSheet({
@@ -60,6 +67,13 @@ export function CartSheet({
   selectedReward,
   onSelectReward,
   deliverySlots = {},
+  promoCodeInput = '',
+  setPromoCodeInput,
+  appliedPromo = null,
+  onApplyPromo,
+  onClearPromo,
+  donationAmount = 0,
+  setDonationAmount,
 }: CartSheetProps) {
   const dragControls = useDragControls()
   const sheetRef = useRef<HTMLDivElement>(null)
@@ -93,9 +107,9 @@ export function CartSheet({
 
   const isWithinDeliveryZone = distanceFromAnnecy !== null && distanceFromAnnecy <= DELIVERY_RADIUS_KM
 
-  const deliveryFee = useMemo(() => computeDeliveryFee(customer, total), [customer, total])
-
-  const finalTotal = total + (deliveryFee ?? 0)
+  const totalAfterDiscount = total - (appliedPromo?.discount ?? 0)
+  const deliveryFee = useMemo(() => computeDeliveryFee(customer, totalAfterDiscount), [customer, totalAfterDiscount])
+  const finalTotal = totalAfterDiscount + (deliveryFee ?? 0) + donationAmount
 
   // Calcul des points de fidélité
   const pointsToEarn = Math.round(finalTotal) // 1 € = 1 point
@@ -443,6 +457,82 @@ export function CartSheet({
                 />
               </div>
 
+              {/* Code promo */}
+              {setPromoCodeInput != null && onApplyPromo != null && onClearPromo != null && (
+                <div className="space-y-2">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/60">Code promo</p>
+                  {appliedPromo ? (
+                    <div className="flex items-center justify-between gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2.5">
+                      <span className="text-xs font-semibold text-emerald-800">
+                        <Tag size={12} className="inline mr-1" />
+                        {appliedPromo.code} : -{appliedPromo.discount.toFixed(2).replace('.', ',')} €
+                      </span>
+                      <button type="button" onClick={() => { hapticFeedback('light'); onClearPromo() }} className="text-[10px] font-medium text-emerald-700 hover:underline">
+                        Retirer
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={promoCodeInput}
+                        onChange={(e) => setPromoCodeInput(e.target.value.toUpperCase())}
+                        placeholder="Code promo"
+                        className="flex-1 rounded-xl bg-white/80 px-3 py-2.5 text-xs ring-1 ring-mayssa-brown/10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => { hapticFeedback('light'); onApplyPromo() }}
+                        disabled={!promoCodeInput.trim()}
+                        className="rounded-xl bg-mayssa-caramel px-3 py-2.5 text-xs font-bold text-white disabled:opacity-50"
+                      >
+                        OK
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Soutien au projet */}
+              {setDonationAmount != null && (
+                <div className="space-y-2">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/60 flex items-center gap-1">
+                    <Heart size={10} /> Soutenir le projet
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[2, 5, 10, 15].map((amount) => (
+                      <button
+                        key={amount}
+                        type="button"
+                        onClick={() => { hapticFeedback('light'); setDonationAmount(donationAmount === amount ? 0 : amount) }}
+                        className={cn(
+                          'rounded-lg px-2.5 py-1.5 text-xs font-bold transition-all',
+                          donationAmount === amount ? 'bg-mayssa-rose text-white' : 'bg-white/80 text-mayssa-brown ring-1 ring-mayssa-brown/10'
+                        )}
+                      >
+                        {amount} €
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-mayssa-brown/60">Autre :</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={donationAmount > 0 && [2, 5, 10, 15].includes(donationAmount) ? '' : donationAmount || ''}
+                      onChange={(e) => {
+                        const v = parseFloat(e.target.value)
+                        setDonationAmount(isNaN(v) || v < 0 ? 0 : Math.round(v * 100) / 100)
+                      }}
+                      placeholder="0"
+                      className="w-16 rounded-lg bg-white/80 px-2 py-1.5 text-xs ring-1 ring-mayssa-brown/10"
+                    />
+                    <span className="text-[10px] text-mayssa-brown/60">€</span>
+                  </div>
+                </div>
+              )}
+
               {/* Points & Récompenses */}
               {isAuthenticated && profile && hasItems && (
                 <div className="space-y-3">
@@ -555,15 +645,21 @@ export function CartSheet({
 
             {/* Footer */}
             <div className="flex-shrink-0 border-t border-mayssa-brown/10 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-white/50 backdrop-blur-sm">
-              {customer.wantsDelivery && total > 0 && total < FREE_DELIVERY_THRESHOLD && isWithinDeliveryZone && (
+              {customer.wantsDelivery && totalAfterDiscount > 0 && totalAfterDiscount < FREE_DELIVERY_THRESHOLD && isWithinDeliveryZone && (
                 <p className="text-center text-[10px] font-semibold text-mayssa-caramel bg-mayssa-caramel/10 rounded-lg py-1.5 mb-2">
-                  Plus que {(FREE_DELIVERY_THRESHOLD - total).toFixed(2).replace('.', ',')} € pour la livraison offerte !
+                  Plus que {(FREE_DELIVERY_THRESHOLD - totalAfterDiscount).toFixed(2).replace('.', ',')} € pour la livraison offerte !
                 </p>
               )}
 
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <span className="text-xs text-mayssa-brown/60">Total</span>
+                  {appliedPromo && appliedPromo.discount > 0 && (
+                    <span className="text-[9px] text-emerald-600 ml-1">(-{appliedPromo.discount.toFixed(2)} € promo)</span>
+                  )}
+                  {donationAmount > 0 && (
+                    <span className="text-[9px] text-mayssa-rose ml-1">(+{donationAmount.toFixed(2)} € don)</span>
+                  )}
                   {customer.wantsDelivery && deliveryFee !== null && deliveryFee > 0 && (
                     <span className="text-[9px] text-mayssa-brown/40 ml-1">(+{DELIVERY_FEE}€ livraison)</span>
                   )}
@@ -579,7 +675,6 @@ export function CartSheet({
                   if (canSend) {
                     hapticFeedback('success')
                     onSend()
-                    onClose()
                   } else {
                     hapticFeedback('warning')
                   }

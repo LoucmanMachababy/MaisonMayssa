@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { ShoppingBag, Minus, Plus, MessageCircle, User, Phone, MapPin, Truck, Calendar, Clock, Star, Gift, Instagram } from 'lucide-react'
+import { ShoppingBag, Minus, Plus, MessageCircle, User, Phone, MapPin, Truck, Calendar, Clock, Star, Gift, Instagram, Tag, Heart } from 'lucide-react'
 import { SnapIcon } from './SnapIcon'
 import type { CartItem, CustomerInfo } from '../types'
 import { cn, isBeforeOrderCutoff, isBeforeFirstPickupDate } from '../lib/utils'
@@ -38,6 +38,13 @@ interface CartProps {
     selectedReward?: { type: keyof typeof REWARD_COSTS; id: string } | null
     onSelectReward?: (reward: { type: keyof typeof REWARD_COSTS; id: string } | null) => void
     deliverySlots?: DeliverySlotsMap
+    promoCodeInput?: string
+    setPromoCodeInput?: (v: string) => void
+    appliedPromo?: { code: string; discount: number } | null
+    onApplyPromo?: () => void
+    onClearPromo?: () => void
+    donationAmount?: number
+    setDonationAmount?: (v: number) => void
 }
 
 export function Cart({
@@ -55,6 +62,13 @@ export function Cart({
     selectedReward,
     onSelectReward,
     deliverySlots = {},
+    promoCodeInput = '',
+    setPromoCodeInput,
+    appliedPromo = null,
+    onApplyPromo,
+    onClearPromo,
+    donationAmount = 0,
+    setDonationAmount,
 }: CartProps) {
     const hasItems = items.length > 0
     const itemCount = items.reduce((sum, item) => sum + item.quantity, 0)
@@ -71,9 +85,9 @@ export function Cart({
 
     const isWithinDeliveryZone = distanceFromAnnecy !== null && distanceFromAnnecy <= DELIVERY_RADIUS_KM
 
-    const deliveryFee = useMemo(() => computeDeliveryFee(customer, total), [customer, total])
-
-    const finalTotal = total + (deliveryFee ?? 0)
+    const totalAfterDiscount = total - (appliedPromo?.discount ?? 0)
+    const deliveryFee = useMemo(() => computeDeliveryFee(customer, totalAfterDiscount), [customer, totalAfterDiscount])
+    const finalTotal = totalAfterDiscount + (deliveryFee ?? 0) + donationAmount
 
     // Calcul des points de fidélité
     const pointsToEarn = Math.round(finalTotal) // 1 € = 1 point
@@ -256,6 +270,89 @@ export function Cart({
                 {/* Right Column: Info & Totals */}
                 <div className="space-y-8 lg:sticky lg:top-24 lg:self-start min-w-0">
                     <div className="space-y-6 bg-mayssa-soft/50 p-6 sm:p-8 rounded-[2.5rem] border border-mayssa-brown/5">
+                        {/* Code promo */}
+                        {setPromoCodeInput != null && onApplyPromo != null && onClearPromo != null && (
+                            <div className="space-y-2">
+                                <p className="text-xs font-bold uppercase tracking-widest text-mayssa-brown/60">Code promo</p>
+                                {appliedPromo ? (
+                                    <div className="flex items-center justify-between gap-2 rounded-2xl bg-emerald-50 border border-emerald-200 px-4 py-3">
+                                        <span className="text-sm font-semibold text-emerald-800">
+                                            <Tag size={14} className="inline mr-1.5" />
+                                            {appliedPromo.code} : -{appliedPromo.discount.toFixed(2).replace('.', ',')} €
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={onClearPromo}
+                                            className="text-xs font-medium text-emerald-700 hover:underline"
+                                        >
+                                            Retirer
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={promoCodeInput}
+                                            onChange={(e) => setPromoCodeInput(e.target.value.toUpperCase())}
+                                            placeholder="Code promo"
+                                            className="flex-1 rounded-2xl bg-white px-4 py-3 text-sm ring-1 ring-mayssa-brown/10 focus:ring-2 focus:ring-mayssa-caramel"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={onApplyPromo}
+                                            disabled={!promoCodeInput.trim()}
+                                            className="rounded-2xl bg-mayssa-caramel px-4 py-3 text-sm font-bold text-white hover:bg-mayssa-brown disabled:opacity-50 cursor-pointer"
+                                        >
+                                            Appliquer
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Soutien au projet */}
+                        {setDonationAmount != null && (
+                            <div className="space-y-2">
+                                <p className="text-xs font-bold uppercase tracking-widest text-mayssa-brown/60 flex items-center gap-1.5">
+                                    <Heart size={12} /> Soutenir le projet
+                                </p>
+                                <p className="text-[10px] text-mayssa-brown/60">Montant libre (optionnel)</p>
+                                <div className="flex flex-wrap gap-2">
+                                    {[2, 5, 10, 15].map((amount) => (
+                                        <button
+                                            key={amount}
+                                            type="button"
+                                            onClick={() => setDonationAmount(donationAmount === amount ? 0 : amount)}
+                                            className={cn(
+                                                'rounded-xl px-3 py-2 text-sm font-bold transition-all',
+                                                donationAmount === amount
+                                                    ? 'bg-mayssa-rose text-white ring-2 ring-mayssa-brown/20'
+                                                    : 'bg-white text-mayssa-brown ring-1 ring-mayssa-brown/10 hover:ring-mayssa-caramel'
+                                            )}
+                                        >
+                                            {amount} €
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm text-mayssa-brown/60">Autre :</span>
+                                    <input
+                                        type="number"
+                                        min={0}
+                                        step={1}
+                                        value={donationAmount > 0 && [2, 5, 10, 15].includes(donationAmount) ? '' : donationAmount || ''}
+                                        onChange={(e) => {
+                                            const v = parseFloat(e.target.value)
+                                            setDonationAmount(isNaN(v) || v < 0 ? 0 : Math.round(v * 100) / 100)
+                                        }}
+                                        placeholder="0"
+                                        className="w-20 rounded-xl bg-white px-3 py-2 text-sm ring-1 ring-mayssa-brown/10"
+                                    />
+                                    <span className="text-sm text-mayssa-brown/60">€</span>
+                                </div>
+                            </div>
+                        )}
+
                         <p className="text-xs font-bold uppercase tracking-widest text-mayssa-brown/60 border-b border-mayssa-brown/5 pb-3">
                             Informations de livraison
                         </p>
@@ -410,17 +507,17 @@ export function Cart({
                         )}
 
                         {/* Free delivery progress banner */}
-                        {customer.wantsDelivery && total > 0 && total < FREE_DELIVERY_THRESHOLD && isWithinDeliveryZone && (
+                        {customer.wantsDelivery && totalAfterDiscount > 0 && totalAfterDiscount < FREE_DELIVERY_THRESHOLD && isWithinDeliveryZone && (
                             <div className="flex items-center gap-3 rounded-2xl bg-mayssa-caramel/10 p-3">
                                 <Truck size={16} className="text-mayssa-caramel flex-shrink-0" />
                                 <div className="flex-1">
                                     <p className="text-xs font-semibold text-mayssa-caramel">
-                                        Plus que {(FREE_DELIVERY_THRESHOLD - total).toFixed(2).replace('.', ',')} € pour la livraison offerte !
+                                        Plus que {(FREE_DELIVERY_THRESHOLD - totalAfterDiscount).toFixed(2).replace('.', ',')} € pour la livraison offerte !
                                     </p>
                                     <div className="mt-1.5 h-1.5 rounded-full bg-mayssa-brown/10 overflow-hidden">
                                         <div
                                             className="h-full rounded-full bg-mayssa-caramel transition-all"
-                                            style={{ width: `${Math.min(100, (total / FREE_DELIVERY_THRESHOLD) * 100)}%` }}
+                                            style={{ width: `${Math.min(100, (totalAfterDiscount / FREE_DELIVERY_THRESHOLD) * 100)}%` }}
                                         />
                                     </div>
                                 </div>
@@ -433,12 +530,24 @@ export function Cart({
                                     <span className="text-mayssa-brown/60">Sous-total</span>
                                     <span className="font-bold text-mayssa-brown">{total.toFixed(2)} €</span>
                                 </div>
+                                {appliedPromo && appliedPromo.discount > 0 && (
+                                    <div className="flex items-center justify-between text-sm text-emerald-600">
+                                        <span>Code promo ({appliedPromo.code})</span>
+                                        <span className="font-bold">-{appliedPromo.discount.toFixed(2)} €</span>
+                                    </div>
+                                )}
                                 {customer.wantsDelivery && (
                                     <div className="flex items-center justify-between text-sm">
                                         <span className="text-mayssa-brown/60">Livraison</span>
                                         <span className="font-bold text-mayssa-brown">
                                             {!customer.addressCoordinates ? 'À définir' : deliveryFee === 0 ? 'Gratuite' : `${DELIVERY_FEE.toFixed(2)} €`}
                                         </span>
+                                    </div>
+                                )}
+                                {donationAmount > 0 && (
+                                    <div className="flex items-center justify-between text-sm text-mayssa-rose">
+                                        <span>Don au projet</span>
+                                        <span className="font-bold">+{donationAmount.toFixed(2)} €</span>
                                     </div>
                                 )}
                                 <div className="flex items-center justify-between pt-3 border-t-2 border-dashed border-mayssa-brown/10">
