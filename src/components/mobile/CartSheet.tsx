@@ -232,7 +232,9 @@ export function CartSheet({
                 <h2 className="font-bold text-lg text-mayssa-brown">Ma Commande</h2>
               </div>
               <button
+                type="button"
                 onClick={() => { hapticFeedback('light'); onClose() }}
+                aria-label="Fermer le panier"
                 className="flex h-9 w-9 items-center justify-center rounded-xl bg-mayssa-brown/5 text-mayssa-brown/60 cursor-pointer"
               >
                 <X size={18} />
@@ -363,7 +365,9 @@ export function CartSheet({
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   <button
+                    type="button"
                     onClick={() => { hapticFeedback('light'); onCustomerChange({ ...customer, wantsDelivery: false }) }}
+                    aria-label="Choisir retrait sur place"
                     className={cn(
                       "flex flex-col items-center justify-center gap-1 rounded-xl p-3 text-xs font-bold transition-all cursor-pointer",
                       !customer.wantsDelivery
@@ -375,7 +379,9 @@ export function CartSheet({
                     <span>Retrait</span>
                   </button>
                   <button
+                    type="button"
                     onClick={() => { hapticFeedback('light'); onCustomerChange({ ...customer, wantsDelivery: true }) }}
+                    aria-label="Choisir livraison"
                     className={cn(
                       "flex flex-col items-center justify-center gap-1 rounded-xl p-3 text-xs font-bold transition-all cursor-pointer",
                       customer.wantsDelivery
@@ -395,6 +401,7 @@ export function CartSheet({
                         value={customer.address}
                         onChange={(address, coordinates) => onCustomerChange({ ...customer, address, addressCoordinates: coordinates })}
                         placeholder="Tape ton adresse..."
+                        ariaLabel="Adresse de livraison"
                       />
                     </div>
                     {isAuthenticated && profile?.address && customer.address === profile.address && (
@@ -404,12 +411,14 @@ export function CartSheet({
                       </p>
                     )}
                     <div className="mt-2">
-                      <label className="block text-[9px] font-medium text-mayssa-brown/70 mb-0.5">Instructions livreur</label>
+                      <label id="cart-sheet-delivery-instructions-label" className="block text-[9px] font-medium text-mayssa-brown/70 mb-0.5">Instructions livreur</label>
                       <input
+                        id="cart-sheet-delivery-instructions"
                         type="text"
                         value={customer.deliveryInstructions ?? ''}
                         onChange={(e) => onCustomerChange({ ...customer, deliveryInstructions: e.target.value })}
                         placeholder="Code, étage, sonner 2 fois…"
+                        aria-labelledby="cart-sheet-delivery-instructions-label"
                         className="w-full rounded-lg bg-white/80 px-2.5 py-1.5 text-xs text-mayssa-brown placeholder:text-mayssa-brown/40 ring-1 ring-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel/30"
                       />
                     </div>
@@ -431,14 +440,16 @@ export function CartSheet({
                       value={customer.date}
                       onChange={(e) => onCustomerChange({ ...customer, date: e.target.value })}
                       className="w-full bg-transparent text-xs font-medium text-mayssa-brown focus:outline-none"
+                      aria-label="Date de retrait ou livraison"
                     />
                   </div>
                   <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", validationErrors.time ? "ring-red-300" : "ring-mayssa-brown/10")}>
-                    <Clock size={14} className="text-mayssa-caramel flex-shrink-0" />
+                    <Clock size={14} className="text-mayssa-caramel flex-shrink-0" aria-hidden="true" />
                     <select
                       value={customer.time}
                       onChange={(e) => onCustomerChange({ ...customer, time: e.target.value })}
                       className="w-full bg-transparent text-xs font-medium text-mayssa-brown focus:outline-none cursor-pointer"
+                      aria-label="Heure de retrait ou livraison"
                     >
                       <option value="">Heure</option>
                       {allTimeSlots.map((time) => {
@@ -486,7 +497,7 @@ export function CartSheet({
                         <Tag size={12} className="inline mr-1" />
                         {appliedPromo.code} : -{appliedPromo.discount.toFixed(2).replace('.', ',')} €
                       </span>
-                      <button type="button" onClick={() => { hapticFeedback('light'); onClearPromo() }} className="text-[10px] font-medium text-emerald-700 hover:underline">
+                      <button type="button" onClick={() => { hapticFeedback('light'); onClearPromo() }} aria-label="Retirer le code promo" className="text-[10px] font-medium text-emerald-700 hover:underline">
                         Retirer
                       </button>
                     </div>
@@ -497,12 +508,14 @@ export function CartSheet({
                         value={promoCodeInput}
                         onChange={(e) => setPromoCodeInput(e.target.value.toUpperCase())}
                         placeholder="Code promo"
+                        aria-label="Code promo"
                         className="flex-1 rounded-xl bg-white/80 px-3 py-2.5 text-xs ring-1 ring-mayssa-brown/10"
                       />
                       <button
                         type="button"
                         onClick={() => { hapticFeedback('light'); onApplyPromo() }}
                         disabled={!promoCodeInput.trim()}
+                        aria-label="Appliquer le code promo"
                         className="rounded-xl bg-mayssa-caramel px-3 py-2.5 text-xs font-bold text-white disabled:opacity-50"
                       >
                         OK
@@ -521,6 +534,7 @@ export function CartSheet({
                     value={referralCodeInput}
                     onChange={(e) => setReferralCodeInput(e.target.value.toUpperCase())}
                     placeholder="ex. MAYSSA-ABC1 (-5 €)"
+                    aria-label="Code parrain"
                     className="w-full rounded-xl bg-white/80 px-3 py-2.5 text-xs ring-1 ring-mayssa-brown/10"
                   />
                 </div>
@@ -538,6 +552,7 @@ export function CartSheet({
                         key={amount}
                         type="button"
                         onClick={() => { hapticFeedback('light'); setDonationAmount(donationAmount === amount ? 0 : amount) }}
+                        aria-label={donationAmount === amount ? `Retirer le don de ${amount} €` : `Ajouter un don de ${amount} €`}
                         className={cn(
                           'rounded-lg px-2.5 py-1.5 text-xs font-bold transition-all',
                           donationAmount === amount ? 'bg-mayssa-rose text-white' : 'bg-white/80 text-mayssa-brown ring-1 ring-mayssa-brown/10'
@@ -548,8 +563,9 @@ export function CartSheet({
                     ))}
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-mayssa-brown/60">Autre :</span>
+                    <label htmlFor="cart-sheet-donation-other" className="text-[10px] text-mayssa-brown/60">Autre :</label>
                     <input
+                      id="cart-sheet-donation-other"
                       type="number"
                       min={0}
                       step={1}
@@ -559,6 +575,7 @@ export function CartSheet({
                         setDonationAmount(isNaN(v) || v < 0 ? 0 : Math.round(v * 100) / 100)
                       }}
                       placeholder="0"
+                      aria-label="Montant du don en euros (autre)"
                       className="w-16 rounded-lg bg-white/80 px-2 py-1.5 text-xs ring-1 ring-mayssa-brown/10"
                     />
                     <span className="text-[10px] text-mayssa-brown/60">€</span>
@@ -646,6 +663,7 @@ export function CartSheet({
                     Crée ton compte pour des récompenses gratuites.
                   </p>
                   <button
+                    type="button"
                     onClick={() => {
                       if (onAccountClick) {
                         hapticFeedback('light')
@@ -653,6 +671,7 @@ export function CartSheet({
                         onClose()
                       }
                     }}
+                    aria-label="Créer mon compte pour gagner des points bonus"
                     className="w-full py-2 px-3 bg-mayssa-caramel text-white rounded-xl text-[10px] font-bold hover:bg-mayssa-brown transition-colors"
                   >
                     Créer mon compte (+15 pts bonus)
@@ -703,6 +722,7 @@ export function CartSheet({
               </div>
 
               <motion.button
+                type="button"
                 whileTap={{ scale: 0.98 }}
                 onClick={() => {
                   if (canSend) {
@@ -713,6 +733,7 @@ export function CartSheet({
                   }
                 }}
                 disabled={!canSend}
+                aria-label={hasItems && canSend ? 'Envoyer la commande sur WhatsApp' : hasItems ? 'Complète tes infos pour envoyer' : 'Panier vide'}
                 className={cn(
                   "w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base shadow-xl transition-all cursor-pointer",
                   canSend
@@ -720,7 +741,7 @@ export function CartSheet({
                     : "bg-mayssa-brown/30 text-mayssa-cream/70"
                 )}
               >
-                <MessageCircle size={18} />
+                <MessageCircle size={18} aria-hidden="true" />
                 {hasItems
                   ? canSend
                     ? 'Envoyer sur WhatsApp'
@@ -730,6 +751,7 @@ export function CartSheet({
 
               <div className="grid grid-cols-2 gap-2 mt-2">
                 <motion.button
+                  type="button"
                   whileTap={{ scale: 0.98 }}
                   onClick={() => {
                     if (canSend) {
@@ -739,6 +761,7 @@ export function CartSheet({
                     }
                   }}
                   disabled={!canSend}
+                  aria-label={canSend ? 'Envoyer la commande sur Instagram' : 'Complète tes infos pour envoyer'}
                   className={cn(
                     "flex items-center justify-center gap-1.5 py-3 rounded-xl font-bold text-xs shadow-lg transition-all cursor-pointer",
                     canSend
@@ -746,10 +769,11 @@ export function CartSheet({
                       : "bg-mayssa-brown/20 text-mayssa-cream/70"
                   )}
                 >
-                  <Instagram size={16} />
+                  <Instagram size={16} aria-hidden="true" />
                   Instagram
                 </motion.button>
                 <motion.button
+                  type="button"
                   whileTap={{ scale: 0.98 }}
                   onClick={() => {
                     if (canSend) {
@@ -759,6 +783,7 @@ export function CartSheet({
                     }
                   }}
                   disabled={!canSend}
+                  aria-label={canSend ? 'Envoyer la commande sur Snapchat' : 'Complète tes infos pour envoyer'}
                   className={cn(
                     "flex items-center justify-center gap-1.5 py-3 rounded-xl font-bold text-xs shadow-lg transition-all cursor-pointer",
                     canSend
@@ -766,7 +791,7 @@ export function CartSheet({
                       : "bg-mayssa-brown/20 text-mayssa-cream/70"
                   )}
                 >
-                  <SnapIcon size={16} />
+                  <SnapIcon size={16} aria-hidden="true" />
                   Snapchat
                 </motion.button>
               </div>

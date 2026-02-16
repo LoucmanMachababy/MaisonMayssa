@@ -113,10 +113,13 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
                             {isAuthenticated ? (
                                 <div className="relative">
                                     <button
+                                        type="button"
                                         onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                                        aria-label={isUserMenuOpen ? 'Fermer le menu compte' : 'Ouvrir le menu compte'}
+                                        aria-expanded={isUserMenuOpen}
                                         className="relative flex items-center gap-2 text-sm font-bold text-mayssa-brown/70 hover:text-mayssa-brown transition-all uppercase tracking-widest hover:scale-105 active:scale-95 cursor-pointer"
                                     >
-                                        <User size={14} />
+                                        <User size={14} aria-hidden="true" />
                                         Mon Compte
                                         <ChevronDown size={12} className={`transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
                                         {profile && (
@@ -157,10 +160,12 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
                                 </div>
                             ) : (
                                 <button
+                                    type="button"
                                     onClick={onAccountClick}
+                                    aria-label="S'inscrire ou se connecter"
                                     className="relative flex items-center gap-2 text-sm font-bold text-mayssa-caramel hover:text-mayssa-brown transition-all uppercase tracking-widest hover:scale-105 active:scale-95 cursor-pointer"
                                 >
-                                    <Gift size={14} />
+                                    <Gift size={14} aria-hidden="true" />
                                     S&apos;inscrire / Se connecter
                                     <span className="px-1.5 py-0.5 bg-mayssa-caramel/20 text-mayssa-caramel rounded-full text-[9px] font-bold normal-case animate-pulse">
                                       +15 pts
@@ -180,6 +185,7 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
                                 rel="noreferrer"
                                 onClick={() => hapticFeedback('light')}
                                 className="p-1.5 sm:p-2 text-mayssa-brown hover:text-mayssa-caramel transition-colors rounded-lg hover:bg-mayssa-soft/50 active:scale-95 cursor-pointer"
+                                aria-label="Suivre Maison Mayssa sur Instagram"
                             >
                                 <Instagram size={18} className="sm:w-5 sm:h-5" />
                             </a>
@@ -189,6 +195,7 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
                                 rel="noreferrer"
                                 onClick={() => hapticFeedback('light')}
                                 className="hidden sm:flex items-center gap-2 rounded-full bg-[#25D366] px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-white shadow-sm ring-1 ring-[#25D366]/80 hover:bg-[#20bd5a] transition-all active:scale-95 cursor-pointer"
+                                aria-label="Commander sur WhatsApp"
                             >
                                 <MessageCircle size={14} className="sm:w-4 sm:h-4" />
                                 <span className="hidden md:inline">Commander sur WhatsApp</span>

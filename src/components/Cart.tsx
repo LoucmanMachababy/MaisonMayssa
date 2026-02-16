@@ -291,6 +291,7 @@ export function Cart({
                                         <button
                                             type="button"
                                             onClick={onClearPromo}
+                                            aria-label="Retirer le code promo"
                                             className="text-xs font-medium text-emerald-700 hover:underline"
                                         >
                                             Retirer
@@ -309,6 +310,7 @@ export function Cart({
                                             type="button"
                                             onClick={onApplyPromo}
                                             disabled={!promoCodeInput.trim()}
+                                            aria-label="Appliquer le code promo"
                                             className="rounded-2xl bg-mayssa-caramel px-4 py-3 text-sm font-bold text-white hover:bg-mayssa-brown disabled:opacity-50 cursor-pointer"
                                         >
                                             Appliquer
@@ -346,6 +348,7 @@ export function Cart({
                                             key={amount}
                                             type="button"
                                             onClick={() => setDonationAmount(donationAmount === amount ? 0 : amount)}
+                                            aria-label={donationAmount === amount ? `Retirer le don de ${amount} €` : `Ajouter un don de ${amount} €`}
                                             className={cn(
                                                 'rounded-xl px-3 py-2 text-sm font-bold transition-all',
                                                 donationAmount === amount
@@ -444,6 +447,7 @@ export function Cart({
                             <button
                                 type="button"
                                 onClick={() => onCustomerChange({ ...customer, wantsDelivery: false })}
+                                aria-label="Choisir retrait sur place"
                                 className={cn(
                                     "flex flex-col items-center gap-2 rounded-2xl py-4 transition-all shadow-sm cursor-pointer",
                                     !customer.wantsDelivery ? "bg-mayssa-brown text-white ring-2 ring-mayssa-caramel shadow-xl -translate-y-1" : "bg-white text-mayssa-brown border border-mayssa-brown/10 hover:bg-mayssa-rose/10"
@@ -455,6 +459,7 @@ export function Cart({
                             <button
                                 type="button"
                                 onClick={() => onCustomerChange({ ...customer, wantsDelivery: true })}
+                                aria-label="Choisir livraison"
                                 className={cn(
                                     "flex flex-col items-center gap-2 rounded-2xl py-4 transition-all shadow-sm cursor-pointer",
                                     customer.wantsDelivery ? "bg-mayssa-caramel text-white ring-2 ring-mayssa-brown shadow-xl -translate-y-1" : "bg-white text-mayssa-brown border border-mayssa-brown/10 hover:bg-mayssa-rose/10"
@@ -502,24 +507,28 @@ export function Cart({
                                 "flex items-center gap-2 rounded-2xl bg-white px-3 py-3 shadow-sm transition-all",
                                 validationErrors.date ? "ring-2 ring-red-300" : "ring-1 ring-mayssa-brown/5"
                             )}>
-                                <Calendar size={16} className="text-mayssa-caramel" />
+                                <Calendar size={16} className="text-mayssa-caramel" aria-hidden="true" />
                                 <input
+                                    id="cart-date"
                                     type="date"
                                     min={minDate}
                                     value={customer.date}
                                     onChange={(e) => onCustomerChange({ ...customer, date: e.target.value })}
                                     className="w-full bg-transparent text-xs font-bold text-mayssa-brown focus:outline-none"
+                                    aria-label="Date de retrait ou livraison"
                                 />
                             </div>
                             <div className={cn(
                                 "flex items-center gap-2 rounded-2xl bg-white px-3 py-3 shadow-sm transition-all",
                                 validationErrors.time ? "ring-2 ring-red-300" : "ring-1 ring-mayssa-brown/5"
                             )}>
-                                <Clock size={16} className="text-mayssa-caramel" />
+                                <Clock size={16} className="text-mayssa-caramel" aria-hidden="true" />
                                 <select
+                                    id="cart-time"
                                     value={customer.time}
                                     onChange={(e) => onCustomerChange({ ...customer, time: e.target.value })}
                                     className="w-full bg-transparent text-xs font-bold text-mayssa-brown focus:outline-none cursor-pointer"
+                                    aria-label="Heure de retrait ou livraison"
                                 >
                                     <option value="">L'heure</option>
                                     {allTimeSlots.map((t) => {
@@ -672,7 +681,9 @@ export function Cart({
                                         Crée ton compte pour accumuler des points et débloquer des récompenses gratuites.
                                     </p>
                                     <button
+                                        type="button"
                                         onClick={onAccountClick}
+                                        aria-label="Ouvrir mon compte"
                                         className="w-full py-2 px-3 bg-mayssa-caramel text-white rounded-xl text-xs font-bold hover:bg-mayssa-brown transition-colors"
                                     >
                                         Créer mon compte (+15 pts bonus)
@@ -698,8 +709,10 @@ export function Cart({
                                 )}
 
                                 <button
+                                    type="button"
                                     onClick={onSend}
                                     disabled={!canSend}
+                                    aria-label="Envoyer la commande sur WhatsApp"
                                     className="w-full flex items-center justify-center gap-3 rounded-[2rem] bg-[#25D366] text-white py-5 text-base font-bold shadow-2xl transition-all hover:bg-[#20bd5a] hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:grayscale disabled:hover:scale-100 cursor-pointer"
                                 >
                                     <MessageCircle size={24} />
@@ -708,16 +721,20 @@ export function Cart({
 
                                 <div className="grid grid-cols-2 gap-3">
                                     <button
+                                        type="button"
                                         onClick={onSendInstagram}
                                         disabled={!canSend}
+                                        aria-label="Envoyer la commande sur Instagram"
                                         className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white py-4 text-sm font-bold shadow-lg transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:grayscale disabled:hover:scale-100 cursor-pointer"
                                     >
                                         <Instagram size={20} />
                                         <span>Instagram</span>
                                     </button>
                                     <button
+                                        type="button"
                                         onClick={onSendSnap}
                                         disabled={!canSend}
+                                        aria-label="Envoyer la commande sur Snapchat"
                                         className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#FFFC00] text-black py-4 text-sm font-bold shadow-lg transition-all hover:scale-[1.02] hover:brightness-105 active:scale-95 disabled:opacity-50 disabled:grayscale disabled:hover:scale-100 cursor-pointer"
                                     >
                                         <SnapIcon size={20} />

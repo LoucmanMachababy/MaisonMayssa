@@ -41,8 +41,8 @@ export function Footer() {
                             Pâtisseries artisanales d'exception à Annecy. Des créations faites maison avec passion pour sublimer vos moments gourmands.
                         </p>
                         <div className="flex gap-3 sm:gap-4">
-                            <SocialIcon href="https://www.instagram.com/maison_mayssa74/" icon={<Instagram size={16} className="sm:w-[18px] sm:h-[18px]" />} />
-                            <SocialIcon href={`https://wa.me/${PHONE_E164}`} icon={<Phone size={16} className="sm:w-[18px] sm:h-[18px]" />} />
+                            <SocialIcon href="https://www.instagram.com/maison_mayssa74/" icon={<Instagram size={16} className="sm:w-[18px] sm:h-[18px]" />} label="Instagram Maison Mayssa" />
+                            <SocialIcon href={`https://wa.me/${PHONE_E164}`} icon={<Phone size={16} className="sm:w-[18px] sm:h-[18px]" />} label="WhatsApp Maison Mayssa" />
                         </div>
                     </div>
 
@@ -130,6 +130,7 @@ export function Footer() {
                                 }}
                                 className="text-mayssa-brown/20 hover:text-mayssa-caramel text-xs hover:scale-110 transition-all cursor-pointer"
                                 title="Administration"
+                                aria-label="Accès administration"
                             >
                                 ⚙️
                             </button>
@@ -146,7 +147,7 @@ export function Footer() {
     )
 }
 
-function SocialIcon({ href, icon }: { href: string; icon: React.ReactNode }) {
+function SocialIcon({ href, icon, label }: { href: string; icon: React.ReactNode; label: string }) {
     return (
         <a
             href={href}
@@ -154,6 +155,7 @@ function SocialIcon({ href, icon }: { href: string; icon: React.ReactNode }) {
             rel="noreferrer"
             onClick={() => hapticFeedback('light')}
             className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-mayssa-brown text-mayssa-cream shadow-sm transition-all hover:-translate-y-1 hover:bg-mayssa-caramel active:scale-95 cursor-pointer"
+            aria-label={label}
         >
             {icon}
         </a>

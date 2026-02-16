@@ -13,15 +13,17 @@ export function Header() {
                     <motion.div
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.25 }}
                         className="relative"
                     >
-                        <div className="absolute -inset-3 sm:-inset-4 rounded-full bg-mayssa-caramel/20 blur-2xl animate-pulse-slow" />
+                        <div className="absolute -inset-3 sm:-inset-4 rounded-full bg-mayssa-caramel/20 blur-2xl animate-pulse-slow" aria-hidden="true" />
                         <img
                             src="/logo.webp"
                             alt="Maison Mayssa - Trompe l'œil pâtissier Annecy"
                             width={128}
                             height={128}
                             fetchPriority="high"
+                            decoding="async"
                             className="relative h-20 w-20 sm:h-24 sm:w-24 md:h-28 md:w-28 lg:h-32 lg:w-32 rounded-3xl object-contain shadow-2xl ring-4 ring-white/50"
                         />
                     </motion.div>

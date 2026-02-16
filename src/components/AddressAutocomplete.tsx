@@ -31,6 +31,8 @@ interface AddressAutocompleteProps {
   onChange: (address: string, coordinates: Coordinates) => void
   placeholder?: string
   className?: string
+  /** Accessible name for the input (e.g. "Adresse de livraison") */
+  ariaLabel?: string
 }
 
 export function AddressAutocomplete({
@@ -38,6 +40,7 @@ export function AddressAutocomplete({
   onChange,
   placeholder = "Commencez à taper votre adresse...",
   className,
+  ariaLabel,
 }: AddressAutocompleteProps) {
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -158,6 +161,7 @@ export function AddressAutocomplete({
           }}
           placeholder={placeholder}
           className="w-full bg-transparent text-sm text-mayssa-brown placeholder:text-mayssa-brown/50 focus:outline-none pl-10 pr-10"
+          aria-label={ariaLabel ?? placeholder}
         />
         {value && (
           <button
