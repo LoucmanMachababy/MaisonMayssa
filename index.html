@@ -127,7 +127,7 @@
     <!-- Fonts en async pour ne pas bloquer l'affichage -->
     <!-- Polices non bloquantes : display=swap évite le blocage du premier paint -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Quicksand:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Quicksand:wght@400;500;600;700&display=optional"
       rel="stylesheet"
       media="print"
       onload="this.media='all'"
@@ -141,11 +141,17 @@
   </head>
   <body>
     <script>
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function(regs) {
-          regs.forEach(function(r) { r.unregister(); });
-        });
-      }
+      (function deferSW() {
+        function unregister() {
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(regs) {
+              regs.forEach(function(r) { r.unregister(); });
+            });
+          }
+        }
+        if (document.readyState === 'complete') setTimeout(unregister, 0);
+        else window.addEventListener('load', function() { setTimeout(unregister, 0); });
+      })();
     </script>
     <div id="root" style="min-height:100vh;min-height:100dvh;background:linear-gradient(135deg,#fef5ec 0%,#fff9f4 100%);"></div>
     <script type="module" src="/src/main.tsx"></script>

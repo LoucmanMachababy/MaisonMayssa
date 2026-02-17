@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { LogOut, Package, Plus, Minus, Calendar, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp, Pencil, Search, Download, Bell, MessageSquare, Filter, XCircle, Star, Tag, BarChart3 } from 'lucide-react'
+import { LogOut, Package, Plus, Minus, Calendar, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp, Pencil, Search, Download, Bell, MessageSquare, Filter, XCircle, Star, Tag, BarChart3, Printer } from 'lucide-react'
 import type { OrderStatus } from '../../lib/firebase'
 import {
   adminLogin, adminLogout, onAuthChange,
@@ -20,6 +20,7 @@ import {
 import type { ProductOverrideMap } from '../../types'
 import { parseDateYyyyMmDd } from '../../lib/utils'
 import { hapticFeedback } from '../../lib/haptics'
+import { printOrderSlip } from '../../lib/orderPrint'
 import type { User } from 'firebase/auth'
 import { useProducts } from '../../hooks/useProducts'
 import { AdminProductsTab } from './AdminProductsTab'
@@ -890,6 +891,14 @@ function Dashboard({ user }: { user: User }) {
                   {/* Actions */}
                   <div className="flex flex-wrap gap-2">
                     <button
+                      onClick={() => { hapticFeedback('light'); printOrderSlip(order, id) }}
+                      className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-mayssa-brown/10 text-mayssa-brown text-xs font-bold hover:bg-mayssa-brown/20 transition-colors cursor-pointer"
+                      title="Imprimer le bon de commande"
+                    >
+                      <Printer size={14} />
+                      Imprimer le bon
+                    </button>
+                    <button
                       onClick={() => setEditingOrderId(id)}
                       className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-mayssa-brown/10 text-mayssa-brown text-xs font-bold hover:bg-mayssa-brown/20 transition-colors cursor-pointer"
                     >
@@ -1192,6 +1201,14 @@ function Dashboard({ user }: { user: User }) {
                           <option value="validee">Validée</option>
                           <option value="refusee">Refusée</option>
                         </select>
+                        <button
+                          onClick={() => { hapticFeedback('light'); printOrderSlip(order, id) }}
+                          className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-mayssa-brown/10 text-mayssa-brown text-xs font-bold hover:bg-mayssa-brown/20 transition-colors cursor-pointer"
+                          title="Imprimer le bon de commande"
+                        >
+                          <Printer size={14} />
+                          Imprimer le bon
+                        </button>
                         <button
                           onClick={() => setEditingOrderId(id)}
                           className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-mayssa-brown/10 text-mayssa-brown text-xs font-bold hover:bg-mayssa-brown/20 transition-colors cursor-pointer"

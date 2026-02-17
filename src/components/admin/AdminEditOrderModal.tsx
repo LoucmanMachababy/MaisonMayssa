@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
-import { X, Minus, Plus, Trash2, Truck, MapPin, Search, ChevronDown, ChevronUp } from 'lucide-react'
+import { X, Minus, Plus, Trash2, Truck, MapPin, Search, ChevronDown, ChevronUp, Printer } from 'lucide-react'
 import { updateOrder, updateStock, isTrompeLoeilProductId, releaseDeliverySlot, reserveDeliverySlot, type Order, type OrderItem, type DeliveryMode, type StockMap } from '../../lib/firebase'
+import { printOrderSlip } from '../../lib/orderPrint'
 import type { ProductWithAvailability } from '../../hooks/useProducts'
 import type { ProductCategory } from '../../types'
 
@@ -208,9 +209,33 @@ export function AdminEditOrderModal({ orderId, order, stock, allProducts, onClos
       <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-mayssa-brown/10">
           <h2 className="text-base font-display font-bold text-mayssa-brown">Modifier la commande</h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-mayssa-soft transition-colors cursor-pointer">
-            <X size={18} className="text-mayssa-brown/60" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                const currentOrder: Order = {
+                  ...order,
+                  customer: { firstName, lastName, phone, ...(address && { address }) },
+                  deliveryMode,
+                  requestedDate: requestedDate || order.requestedDate,
+                  requestedTime: requestedTime || order.requestedTime,
+                  items,
+                  total,
+                  deliveryFee: deliveryMode === 'livraison' ? deliveryFee : 0,
+                  clientNote: clientNote || undefined,
+                  adminNote: adminNote || undefined,
+                }
+                printOrderSlip(currentOrder, orderId)
+              }}
+              className="p-2 rounded-lg hover:bg-mayssa-soft transition-colors cursor-pointer text-mayssa-brown/70 hover:text-mayssa-brown"
+              title="Imprimer le bon de commande"
+            >
+              <Printer size={18} />
+            </button>
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-mayssa-soft transition-colors cursor-pointer">
+              <X size={18} className="text-mayssa-brown/60" />
+            </button>
+          </div>
         </div>
 
         <div className="p-5 space-y-5 max-h-[80vh] overflow-y-auto">

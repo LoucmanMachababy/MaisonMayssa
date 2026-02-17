@@ -10,13 +10,11 @@ import { Footer } from './components/Footer'
 import { ToastContainer, type Toast } from './components/Toast'
 import { PromoBanner } from './components/PromoBanner'
 import { Confetti, useConfetti } from './components/effects'
-import { FavorisSection } from './components/FavorisSection'
 import { OfflineIndicator } from './components/OfflineIndicator'
 import { CookieBanner } from './components/CookieBanner'
 import { InstagramInstructionModal } from './components/InstagramInstructionModal'
 import { SnapInstructionModal } from './components/SnapInstructionModal'
 import { FloatingCartBar } from './components/FloatingCartBar'
-import { ComplementarySuggestions } from './components/ComplementarySuggestions'
 import { PWAInstallPrompt } from './components/PWAInstallPrompt'
 const AdminPanel = lazy(() => import('./components/admin/AdminPanel').then(m => ({ default: m.AdminPanel })))
 import { ResourcePreloader, defaultPreloadConfig } from './components/ResourcePreloader'
@@ -56,12 +54,14 @@ const SizeSelectorModal = lazy(() => import('./components/SizeSelectorModal').th
 const TiramisuCustomizationModal = lazy(() => import('./components/TiramisuCustomizationModal').then(m => ({ default: m.TiramisuCustomizationModal })))
 const BoxCustomizationModal = lazy(() => import('./components/BoxCustomizationModal').then(m => ({ default: m.BoxCustomizationModal })))
 const BoxFlavorsModal = lazy(() => import('./components/BoxFlavorsModal').then(m => ({ default: m.BoxFlavorsModal })))
+const FavorisSection = lazy(() => import('./components/FavorisSection').then(m => ({ default: m.FavorisSection })))
+const ComplementarySuggestions = lazy(() => import('./components/ComplementarySuggestions').then(m => ({ default: m.ComplementarySuggestions })))
+const OccasionsSection = lazy(() => import('./components/OccasionsSection').then(m => ({ default: m.OccasionsSection })))
+const PollSection = lazy(() => import('./components/PollSection').then(m => ({ default: m.PollSection })))
+const CommunityMapSection = lazy(() => import('./components/CommunityMapSection').then(m => ({ default: m.CommunityMapSection })))
 import { TrompeLOeilModal } from './components/TrompeLOeilModal'
 import { OrderConfirmation } from './components/OrderConfirmation'
 import { OrderRecapModal } from './components/OrderRecapModal'
-import { OccasionsSection } from './components/OccasionsSection'
-import { PollSection } from './components/PollSection'
-import { CommunityMapSection } from './components/CommunityMapSection'
 import { AggregateRatingSchema } from './components/AggregateRatingSchema'
 import { OrderStatusPage } from './components/OrderStatusPage'
 import { DeliveryZoneMap } from './components/DeliveryZoneMap'
@@ -1379,13 +1379,15 @@ function AppContent() {
             )}
           </motion.section>
 
-          {/* Favoris Section */}
-          <FavorisSection
-            favorites={favorites}
-            onRemove={removeFavorite}
-            onAddToCart={handleAddToCart}
-            onClear={clearFavorites}
-          />
+          {/* Favoris Section (lazy — below fold) */}
+          <Suspense fallback={null}>
+            <FavorisSection
+              favorites={favorites}
+              onRemove={removeFavorite}
+              onAddToCart={handleAddToCart}
+              onClear={clearFavorites}
+            />
+          </Suspense>
 
           {/* Cart Section - Centered at the bottom for Desktop */}
           <motion.section
@@ -1718,12 +1720,14 @@ function AppContent() {
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
-      {/* Complementary product suggestions */}
-      <ComplementarySuggestions
-        products={suggestedProducts}
-        onAdd={(p) => { setSuggestedProducts([]); handleAddToCart(p) }}
-        onDismiss={() => setSuggestedProducts([])}
-      />
+      {/* Complementary product suggestions (lazy) */}
+      <Suspense fallback={null}>
+        <ComplementarySuggestions
+          products={suggestedProducts}
+          onAdd={(p) => { setSuggestedProducts([]); handleAddToCart(p) }}
+          onDismiss={() => setSuggestedProducts([])}
+        />
+      </Suspense>
 
       {/* Product Detail Modal - Mobile */}
       <ProductDetailModal
