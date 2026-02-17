@@ -93,7 +93,9 @@ export function OrderStatusPage({ orderId, onBack }: OrderStatusPageProps) {
       <div className="bg-white rounded-2xl shadow-lg border border-mayssa-brown/5 overflow-hidden">
         <div className="px-6 py-6 border-b border-mayssa-brown/5">
           <p className="text-xs font-bold text-mayssa-brown/50 uppercase tracking-wider">Commande n°</p>
-          <p className="text-xl font-mono font-bold text-mayssa-brown mt-1">{order.id}</p>
+          <p className="text-xl font-mono font-bold text-mayssa-brown mt-1">
+            {order.orderNumber != null ? `#${order.orderNumber}` : order.id ?? '—'}
+          </p>
           <p className="text-sm text-mayssa-brown/60 mt-2">{dateStr}</p>
         </div>
 

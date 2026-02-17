@@ -184,6 +184,8 @@ export type OrderCustomer = {
 
 export type Order = {
   id?: string
+  /** Numéro de commande affiché au client (ex. 1001, 1002) */
+  orderNumber?: number
   items: OrderItem[]
   customer: OrderCustomer
   total: number
@@ -371,6 +373,17 @@ export async function getPollVote(pollId: string, voterId: string): Promise<stri
 }
 
 const ordersRef = ref(db, 'orders')
+const orderCounterRef = ref(db, 'counters/orderNumber')
+
+/** Incrémente le compteur de commandes et retourne le prochain numéro (1, 2, 3...) */
+async function getNextOrderNumber(): Promise<number> {
+  const result = await runTransaction(orderCounterRef, (current) => {
+    const next = (current ?? 0) + 1
+    return next
+  })
+  if (!result.committed || result.snapshot.val() == null) throw new Error('Impossible d\'attribuer un numéro de commande')
+  return result.snapshot.val() as number
+}
 
 export function listenOrders(callback: (orders: Record<string, Order>) => void) {
   return onValue(ordersRef, (snapshot) => {
@@ -378,10 +391,11 @@ export function listenOrders(callback: (orders: Record<string, Order>) => void) 
   })
 }
 
-export async function createOrder(order: Omit<Order, 'id'>): Promise<string | null> {
+export async function createOrder(order: Omit<Order, 'id' | 'orderNumber'>): Promise<{ orderId: string; orderNumber: number } | null> {
+  const orderNumber = await getNextOrderNumber()
   const newRef = push(ordersRef)
-  await set(newRef, order)
-  return newRef.key
+  await set(newRef, { ...order, orderNumber })
+  return newRef.key ? { orderId: newRef.key, orderNumber } : null
 }
 
 /** Lecture d'une commande par ID (publique pour page statut) */
@@ -460,9 +474,11 @@ function stripUndefined<T extends Record<string, unknown>>(obj: T): T {
 }
 
 // Créer une commande hors-site (admin)
-export async function createOffSiteOrder(order: Omit<Order, 'id' | 'createdAt'>): Promise<string | null> {
+export async function createOffSiteOrder(order: Omit<Order, 'id' | 'createdAt' | 'orderNumber'>): Promise<string | null> {
+  const orderNumber = await getNextOrderNumber()
   const fullOrder = stripUndefined({
     ...order,
+    orderNumber,
     items: order.items.map((item) => stripUndefined({ ...item } as Record<string, unknown>)),
     createdAt: Date.now(),
   } as Omit<Order, 'id'>)

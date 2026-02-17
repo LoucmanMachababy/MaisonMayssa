@@ -7,6 +7,8 @@ import { ReviewForm, type OrderItemForReview } from './ReviewForm'
 
 export type OrderConfirmationData = {
   orderId: string
+  /** Numéro de commande affiché au client (ex. 1001) */
+  orderNumber?: number
   total: number
   deliveryFee?: number
   customer: { firstName: string; lastName: string; phone: string }
@@ -42,8 +44,9 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
     navigator.clipboard.writeText(statusUrl)
   }
 
+  const displayOrderRef = data.orderNumber != null ? `#${data.orderNumber}` : data.orderId
   const copyPaypalNote = () => {
-    const note = `Commande ${data.orderId} - ${data.customer.firstName} ${data.customer.lastName}\n${data.items.map(i => `${i.quantity}× ${i.name}`).join(', ')}\nTotal: ${finalTotal.toFixed(2)} €`
+    const note = `Commande ${displayOrderRef} - ${data.customer.firstName} ${data.customer.lastName}\n${data.items.map(i => `${i.quantity}× ${i.name}`).join(', ')}\nTotal: ${finalTotal.toFixed(2)} €`
     navigator.clipboard.writeText(note)
   }
 
@@ -64,7 +67,7 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
           <CheckCircle2 size={56} className="mx-auto mb-3" />
           <h2 className="text-xl font-display font-bold">Commande enregistrée !</h2>
           <p className="text-emerald-100 text-sm mt-1">Numéro de commande</p>
-          <p className="text-2xl font-mono font-bold mt-2 tracking-wider">{data.orderId}</p>
+          <p className="text-2xl font-mono font-bold mt-2 tracking-wider">{displayOrderRef}</p>
         </div>
 
         <div className="p-6 space-y-5">
@@ -129,7 +132,7 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
               Commander via PayPal — {finalTotal.toFixed(2).replace('.', ',')} €
             </a>
             <p className="text-[10px] text-mayssa-brown/65 text-center -mt-1">
-              Indiquez &quot;Commande {data.orderId}&quot; dans la note PayPal.
+              Indiquez &quot;Commande {displayOrderRef}&quot; dans la note PayPal.
             </p>
             <button
               type="button"

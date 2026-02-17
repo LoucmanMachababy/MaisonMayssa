@@ -782,6 +782,9 @@ function Dashboard({ user }: { user: User }) {
                   {/* Header commande */}
                   <div className="flex items-start justify-between mb-3">
                     <div>
+                      <p className="text-[10px] font-bold text-mayssa-brown/50 uppercase tracking-wider mb-0.5">
+                        Commande {order.orderNumber != null ? `#${order.orderNumber}` : `#${id.slice(-8)}`}
+                      </p>
                       <div className="flex items-center gap-2 mb-0.5">
                         <p className="text-sm font-bold text-mayssa-brown">
                           {order.customer?.firstName} {order.customer?.lastName}
@@ -1075,6 +1078,9 @@ function Dashboard({ user }: { user: User }) {
                       {/* Header */}
                       <div className="flex items-start justify-between gap-2">
                         <div>
+                          <p className="text-[10px] font-bold text-mayssa-brown/50 uppercase tracking-wider mb-0.5">
+                            Commande {order.orderNumber != null ? `#${order.orderNumber}` : `#${id.slice(-8)}`}
+                          </p>
                           <div className="flex items-center gap-2 mb-0.5">
                             <p className="font-bold text-sm text-mayssa-brown">
                               {order.customer?.firstName} {order.customer?.lastName}

@@ -869,7 +869,7 @@ function AppContent() {
     setPromoCodeInput('')
   }
 
-  const saveOrderToFirebase = async (source: 'whatsapp' | 'instagram' | 'snap'): Promise<string | null> => {
+  const saveOrderToFirebase = async (source: 'whatsapp' | 'instagram' | 'snap'): Promise<{ orderId: string; orderNumber: number } | null> => {
     if (cart.length === 0) return null
     const discount = appliedPromo?.discount ?? 0
     let referralDiscount = 0
@@ -893,7 +893,7 @@ function AppContent() {
         ? calculateDistance(customer.addressCoordinates, ANNECY_GARE)
         : undefined
 
-      const orderId = await createOrder({
+      const result = await createOrder({
         items: cart.map((item) => ({
           productId: getOriginalProductId(item.product.id),
           name: item.product.name,
@@ -944,7 +944,7 @@ function AppContent() {
       if (customer.wantsDelivery && customer.date && customer.time) {
         reserveDeliverySlot(customer.date, customer.time).catch(console.error)
       }
-      return orderId
+      return result
     } catch (err) {
       console.error('[Firebase] Erreur sauvegarde commande:', err)
       return null
@@ -981,11 +981,12 @@ function AppContent() {
     if (!message) return
 
     // --- Enregistrer la commande dans Firebase d'abord (pour obtenir l'ID) ---
-    const orderId = await saveOrderToFirebase('whatsapp')
-    if (!orderId) {
+    const orderResult = await saveOrderToFirebase('whatsapp')
+    if (!orderResult) {
       showToast('Erreur lors de l\'enregistrement de la commande.', 'error')
       return
     }
+    const { orderId, orderNumber } = orderResult
 
     // --- Analytics ---
     try {
@@ -999,6 +1000,7 @@ function AppContent() {
     const donationVal = donationAmount ?? 0
     setOrderConfirmation({
       orderId,
+      orderNumber,
       total: totalAfterDiscount + deliveryFeeVal + donationVal,
       deliveryFee: deliveryFeeVal > 0 ? deliveryFeeVal : undefined,
       customer: {

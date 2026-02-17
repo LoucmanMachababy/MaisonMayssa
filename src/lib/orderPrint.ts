@@ -66,7 +66,7 @@ export function printOrderSlip(order: Order, orderId: string): void {
   <p class="sub">Maison Mayssa – Trompe l'œil Annecy</p>
 
   <section>
-    <p><span class="label">N° commande :</span> ${escapeHtml(orderId)}</p>
+    <p><span class="label">N° commande :</span> ${order.orderNumber != null ? `#${order.orderNumber}` : escapeHtml(orderId)}</p>
     <p><span class="label">Date de commande :</span> ${escapeHtml(createdAt)}</p>
   </section>
 
