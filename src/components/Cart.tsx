@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { ShoppingBag, Minus, Plus, MessageCircle, User, Phone, MapPin, Truck, Calendar, Clock, Star, Gift, Instagram, Tag, Heart } from 'lucide-react'
+import { ShoppingBag, Minus, Plus, MessageCircle, User, Phone, Mail, MapPin, Truck, Calendar, Clock, Star, Gift, Instagram, Tag, Heart } from 'lucide-react'
 import { SnapIcon } from './SnapIcon'
 import type { CartItem, CustomerInfo } from '../types'
 import { cn, isBeforeOrderCutoff, isBeforeFirstPickupDate } from '../lib/utils'
@@ -38,6 +38,14 @@ interface CartProps {
     selectedReward?: { type: keyof typeof REWARD_COSTS; id: string } | null
     onSelectReward?: (reward: { type: keyof typeof REWARD_COSTS; id: string } | null) => void
     deliverySlots?: DeliverySlotsMap
+    /** Date minimum (définie par l'admin). Par défaut = aujourd'hui. */
+    minDate?: string
+    /** Date maximum (définie par l'admin). Optionnel. */
+    maxDate?: string
+    /** Créneaux retrait (définis par l'admin). Si absent = défaut (ex. 18:30). */
+    retraitTimeSlots?: string[]
+    /** Créneaux livraison (définis par l'admin). Si absent = défaut. */
+    livraisonTimeSlots?: string[]
     promoCodeInput?: string
     setPromoCodeInput?: (v: string) => void
     appliedPromo?: { code: string; discount: number } | null
@@ -64,6 +72,10 @@ export function Cart({
     selectedReward,
     onSelectReward,
     deliverySlots = {},
+    minDate: minDateProp,
+    maxDate: maxDateProp,
+    retraitTimeSlots,
+    livraisonTimeSlots,
     promoCodeInput = '',
     setPromoCodeInput,
     appliedPromo = null,
@@ -99,7 +111,11 @@ export function Cart({
       ? Object.entries(REWARD_COSTS).filter(([_, cost]) => profile.loyalty.points >= cost)
       : []
 
-    const allTimeSlots = useMemo(() => generateTimeSlots(customer.wantsDelivery), [customer.wantsDelivery])
+    const allTimeSlots = useMemo(() => {
+      if (customer.wantsDelivery && livraisonTimeSlots && livraisonTimeSlots.length > 0) return livraisonTimeSlots
+      if (!customer.wantsDelivery && retraitTimeSlots && retraitTimeSlots.length > 0) return retraitTimeSlots
+      return generateTimeSlots(customer.wantsDelivery)
+    }, [customer.wantsDelivery, retraitTimeSlots, livraisonTimeSlots])
     const timeSlots = useMemo(() => {
       if (!customer.wantsDelivery || !customer.date) return allTimeSlots
       const taken = deliverySlots[customer.date]
@@ -113,32 +129,24 @@ export function Cart({
     const isSlotFull = (time: string) =>
       Boolean(customer.wantsDelivery && customer.date && (deliverySlots[customer.date]?.[time] ?? 0) >= DELIVERY_SLOT_MAX_CAPACITY)
 
-    // Reset time if switching mode, invalid hour, or créneau devenu indispo (livraison)
+    // Reset time if slot n'est plus dans la liste (admin) ou créneau livraison complet
     useEffect(() => {
         if (!customer.time) return
-        const [hourStr, minuteStr] = customer.time.split(':')
-        const hour = parseInt(hourStr, 10)
-        const minute = parseInt(minuteStr || '0', 10)
-
-        if (customer.wantsDelivery) {
-            if (hour < 20) {
-                onCustomerChange({ ...customer, time: '' })
-                return
-            }
-            if (customer.date) {
-                const taken = deliverySlots[customer.date]
-                if (taken && (taken[customer.time] ?? 0) >= DELIVERY_SLOT_MAX_CAPACITY) {
-                    onCustomerChange({ ...customer, time: '' })
-                }
-            }
-        } else {
-            if (hour < 18 || (hour === 18 && minute < 30)) {
+        const inList = allTimeSlots.includes(customer.time)
+        if (!inList) {
+            onCustomerChange({ ...customer, time: '' })
+            return
+        }
+        if (customer.wantsDelivery && customer.date) {
+            const taken = deliverySlots[customer.date]
+            if (taken && (taken[customer.time] ?? 0) >= DELIVERY_SLOT_MAX_CAPACITY) {
                 onCustomerChange({ ...customer, time: '' })
             }
         }
-    }, [customer.wantsDelivery, customer.date, customer.time, deliverySlots])
+    }, [customer.wantsDelivery, customer.date, customer.time, deliverySlots, allTimeSlots])
 
-    const minDate = getMinDate()
+    const minDate = minDateProp && minDateProp.trim() ? minDateProp : getMinDate()
+    const maxDate = maxDateProp && maxDateProp.trim() ? maxDateProp : undefined
 
     const validationErrors = useMemo(() => validateCustomer(customer), [customer])
     // Show error only for fields the user has interacted with
@@ -446,6 +454,21 @@ export function Cart({
                             {showError('phone') && <p className="text-[10px] text-red-400 pl-4">{validationErrors.phone}</p>}
                         </div>
 
+                        <div className="space-y-1.5">
+                            <div className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3.5 ring-1 ring-mayssa-brown/5 focus-within:ring-mayssa-caramel shadow-sm">
+                                <Mail size={18} className="text-mayssa-caramel flex-shrink-0" />
+                                <input
+                                    type="email"
+                                    value={customer.email ?? ''}
+                                    onChange={(e) => onCustomerChange({ ...customer, email: e.target.value.trim() || undefined })}
+                                    placeholder="Email (pour recevoir le récap et les notifications)"
+                                    aria-label="Email pour récap de commande"
+                                    className="w-full bg-transparent text-sm font-semibold text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
+                                />
+                            </div>
+                            <p className="text-[10px] text-mayssa-brown/50 pl-4">Optionnel. Tu recevras le récap et un mail quand ta commande est validée.</p>
+                        </div>
+
                         <div className="grid grid-cols-2 gap-3">
                             <button
                                 type="button"
@@ -515,6 +538,7 @@ export function Cart({
                                     id="cart-date"
                                     type="date"
                                     min={minDate}
+                                    max={maxDate}
                                     value={customer.date}
                                     onChange={(e) => onCustomerChange({ ...customer, date: e.target.value })}
                                     className="w-full bg-transparent text-xs font-bold text-mayssa-brown focus:outline-none"

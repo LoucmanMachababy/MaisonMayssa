@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence, useDragControls } from 'framer-motion'
-import { X, Minus, Plus, Trash2, ShoppingBag, MessageCircle, User, Phone, MapPin, Truck, Calendar, Clock, Star, Gift, Instagram, Tag, Heart } from 'lucide-react'
+import { X, Minus, Plus, Trash2, ShoppingBag, MessageCircle, User, Phone, Mail, MapPin, Truck, Calendar, Clock, Star, Gift, Instagram, Tag, Heart } from 'lucide-react'
 import { SnapIcon } from '../SnapIcon'
 import { hapticFeedback } from '../../lib/haptics'
 import { cn, isBeforeOrderCutoff, isBeforeFirstPickupDate } from '../../lib/utils'
@@ -41,6 +41,10 @@ interface CartSheetProps {
   selectedReward?: { type: keyof typeof REWARD_COSTS; id: string } | null
   onSelectReward?: (reward: { type: keyof typeof REWARD_COSTS; id: string } | null) => void
   deliverySlots?: DeliverySlotsMap
+  minDate?: string
+  maxDate?: string
+  retraitTimeSlots?: string[]
+  livraisonTimeSlots?: string[]
   promoCodeInput?: string
   setPromoCodeInput?: (v: string) => void
   appliedPromo?: { code: string; discount: number } | null
@@ -69,6 +73,10 @@ export function CartSheet({
   selectedReward,
   onSelectReward,
   deliverySlots = {},
+  minDate: minDateProp,
+  maxDate: maxDateProp,
+  retraitTimeSlots,
+  livraisonTimeSlots,
   promoCodeInput = '',
   setPromoCodeInput,
   appliedPromo = null,
@@ -121,7 +129,11 @@ export function CartSheet({
     ? Object.entries(REWARD_COSTS).filter(([_, cost]) => profile.loyalty.points >= cost)
     : []
 
-  const allTimeSlots = useMemo(() => generateTimeSlots(customer.wantsDelivery), [customer.wantsDelivery])
+  const allTimeSlots = useMemo(() => {
+    if (customer.wantsDelivery && livraisonTimeSlots && livraisonTimeSlots.length > 0) return livraisonTimeSlots
+    if (!customer.wantsDelivery && retraitTimeSlots && retraitTimeSlots.length > 0) return retraitTimeSlots
+    return generateTimeSlots(customer.wantsDelivery)
+  }, [customer.wantsDelivery, retraitTimeSlots, livraisonTimeSlots])
   const timeSlots = useMemo(() => {
     if (!customer.wantsDelivery || !customer.date) return allTimeSlots
     const taken = deliverySlots[customer.date]
@@ -135,30 +147,23 @@ export function CartSheet({
   const isSlotFull = (time: string) =>
     Boolean(customer.wantsDelivery && customer.date && (deliverySlots[customer.date]?.[time] ?? 0) >= DELIVERY_SLOT_MAX_CAPACITY)
 
-  const minDate = getMinDate()
+  const minDate = minDateProp && minDateProp.trim() ? minDateProp : getMinDate()
+  const maxDate = maxDateProp && maxDateProp.trim() ? maxDateProp : undefined
 
   useEffect(() => {
     if (!customer.time) return
-    const [hourStr, minuteStr] = customer.time.split(':')
-    const hour = parseInt(hourStr, 10)
-    const minute = parseInt(minuteStr || '0', 10)
-    if (customer.wantsDelivery) {
-      if (hour < 20) {
-        onCustomerChange({ ...customer, time: '' })
-        return
-      }
-      if (customer.date) {
-        const taken = deliverySlots[customer.date]
-        if (taken && (taken[customer.time] ?? 0) >= DELIVERY_SLOT_MAX_CAPACITY) {
-          onCustomerChange({ ...customer, time: '' })
-        }
-      }
-    } else {
-      if (hour < 18 || (hour === 18 && minute < 30)) {
+    const inList = allTimeSlots.includes(customer.time)
+    if (!inList) {
+      onCustomerChange({ ...customer, time: '' })
+      return
+    }
+    if (customer.wantsDelivery && customer.date) {
+      const taken = deliverySlots[customer.date]
+      if (taken && (taken[customer.time] ?? 0) >= DELIVERY_SLOT_MAX_CAPACITY) {
         onCustomerChange({ ...customer, time: '' })
       }
     }
-  }, [customer.wantsDelivery, customer.date, customer.time, deliverySlots])
+  }, [customer.wantsDelivery, customer.date, customer.time, deliverySlots, allTimeSlots])
 
   const validationErrors = useMemo(() => validateCustomer(customer), [customer])
   const showError = (field: keyof typeof customer) =>
@@ -358,6 +363,20 @@ export function CartSheet({
                   </div>
                   {showError('phone') && <p className="text-[9px] text-red-400 pl-3 mt-0.5">{validationErrors.phone}</p>}
                 </div>
+                <div>
+                  <div className="flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1 ring-mayssa-brown/10">
+                    <Mail size={14} className="text-mayssa-caramel flex-shrink-0" aria-hidden />
+                    <input
+                      type="email"
+                      value={customer.email ?? ''}
+                      onChange={(e) => onCustomerChange({ ...customer, email: e.target.value.trim() || undefined })}
+                      placeholder="Email (récap + notif)"
+                      aria-label="Email pour récap et notifications"
+                      className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
+                    />
+                  </div>
+                  <p className="text-[9px] text-mayssa-brown/50 pl-3 mt-0.5">Optionnel</p>
+                </div>
               </div>
 
               {/* Delivery Mode */}
@@ -439,6 +458,7 @@ export function CartSheet({
                     <input
                       type="date"
                       min={minDate}
+                      max={maxDate}
                       value={customer.date}
                       onChange={(e) => onCustomerChange({ ...customer, date: e.target.value })}
                       className="w-full bg-transparent text-xs font-medium text-mayssa-brown focus:outline-none"

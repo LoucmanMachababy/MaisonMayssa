@@ -208,7 +208,9 @@ export function AdminEditOrderModal({ orderId, order, stock, allProducts, onClos
     <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center overflow-y-auto p-4 pt-8 pb-8">
       <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-mayssa-brown/10">
-          <h2 className="text-base font-display font-bold text-mayssa-brown">Modifier la commande</h2>
+          <h2 className="text-base font-display font-bold text-mayssa-brown">
+            Modifier la commande {order.orderNumber != null ? `#${order.orderNumber}` : `#${orderId.slice(-8)}`}
+          </h2>
           <div className="flex items-center gap-1">
             <button
               type="button"

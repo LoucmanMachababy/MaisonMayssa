@@ -26,7 +26,8 @@ import { useStock } from './hooks/useStock'
 import { useAuth } from './hooks/useAuth'
 const AuthModals = lazy(() => import('./components/auth/AuthModals').then(m => ({ default: m.AuthModals })))
 const AccountPage = lazy(() => import('./components/auth/AccountPage').then(m => ({ default: m.AccountPage })))
-import { listenDeliverySlots, reserveDeliverySlot } from './lib/firebase'
+import { listenDeliverySlots, reserveDeliverySlot, listenSettings } from './lib/firebase'
+import { getMinDate } from './lib/delivery'
 // Firebase importé dynamiquement pour le reste
 // addUserPoints, createOrder, etc. sont importés via import() dans les handlers
 
@@ -149,10 +150,27 @@ function AppContent() {
   const stockMapRef = useRef(stockMap)
   const isAuthenticatedRef = useRef(isAuthenticated)
   const [deliverySlots, setDeliverySlots] = useState<Record<string, Record<string, number>>>({})
+  const [deliverySchedule, setDeliverySchedule] = useState<{
+    minDate: string
+    maxDate?: string
+    retraitTimeSlots?: string[]
+    livraisonTimeSlots?: string[]
+  }>(() => ({ minDate: getMinDate() }))
   useEffect(() => { stockMapRef.current = stockMap }, [stockMap])
   useEffect(() => { isAuthenticatedRef.current = isAuthenticated }, [isAuthenticated])
   useEffect(() => {
     return listenDeliverySlots(setDeliverySlots)
+  }, [])
+  useEffect(() => {
+    return listenSettings((s) => {
+      const today = getMinDate()
+      setDeliverySchedule({
+        minDate: (s.firstAvailableDate && s.firstAvailableDate.trim()) ? s.firstAvailableDate.trim() : today,
+        maxDate: (s.lastAvailableDate && s.lastAvailableDate.trim()) ? s.lastAvailableDate.trim() : undefined,
+        retraitTimeSlots: s.retraitTimeSlots && s.retraitTimeSlots.length > 0 ? s.retraitTimeSlots : undefined,
+        livraisonTimeSlots: s.livraisonTimeSlots && s.livraisonTimeSlots.length > 0 ? s.livraisonTimeSlots : undefined,
+      })
+    })
   }, [])
 
   // Confetti effect
@@ -380,6 +398,7 @@ function AppContent() {
           firstName: p.firstName || '',
           lastName: p.lastName || '',
           phone: p.phone || '',
+          email: p.email || '',
           address: p.address || '',
           addressCoordinates: null,
           wantsDelivery: !!p.wantsDelivery,
@@ -393,6 +412,7 @@ function AppContent() {
       firstName: '',
       lastName: '',
       phone: '',
+      email: '',
       address: '',
       addressCoordinates: null,
       wantsDelivery: false,
@@ -408,11 +428,12 @@ function AppContent() {
       firstName: customer.firstName,
       lastName: customer.lastName,
       phone: customer.phone,
+      email: customer.email || '',
       address: customer.address,
       wantsDelivery: customer.wantsDelivery,
       deliveryInstructions: customer.deliveryInstructions || '',
     }))
-  }, [customer.firstName, customer.lastName, customer.phone, customer.address, customer.wantsDelivery, customer.deliveryInstructions])
+  }, [customer.firstName, customer.lastName, customer.phone, customer.email, customer.address, customer.wantsDelivery, customer.deliveryInstructions])
 
   // Auto-remplir les infos client depuis le profil Firebase quand l'utilisateur est connecté
   const profileSyncedRef = useRef(false)
@@ -904,6 +925,7 @@ function AppContent() {
           firstName: customer.firstName || 'Client',
           lastName: customer.lastName || '',
           phone: customer.phone || '',
+          ...(customer.email?.trim() && { email: customer.email.trim() }),
           ...(customer.wantsDelivery && customer.address.trim() && { address: customer.address.trim() }),
           ...(customer.wantsDelivery && customer.addressCoordinates && { addressCoordinates: customer.addressCoordinates }),
           ...(customer.wantsDelivery && customer.deliveryInstructions?.trim() && { deliveryInstructions: customer.deliveryInstructions.trim() }),
@@ -1423,6 +1445,10 @@ function AppContent() {
               selectedReward={selectedReward}
               onSelectReward={setSelectedReward}
               deliverySlots={deliverySlots}
+              minDate={deliverySchedule.minDate}
+              maxDate={deliverySchedule.maxDate}
+              retraitTimeSlots={deliverySchedule.retraitTimeSlots}
+              livraisonTimeSlots={deliverySchedule.livraisonTimeSlots}
               promoCodeInput={promoCodeInput}
               setPromoCodeInput={setPromoCodeInput}
               appliedPromo={appliedPromo}
@@ -1676,6 +1702,10 @@ function AppContent() {
         selectedReward={selectedReward}
         onSelectReward={setSelectedReward}
         deliverySlots={deliverySlots}
+        minDate={deliverySchedule.minDate}
+        maxDate={deliverySchedule.maxDate}
+        retraitTimeSlots={deliverySchedule.retraitTimeSlots}
+        livraisonTimeSlots={deliverySchedule.livraisonTimeSlots}
         promoCodeInput={promoCodeInput}
         setPromoCodeInput={setPromoCodeInput}
         appliedPromo={appliedPromo}

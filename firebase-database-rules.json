@@ -15,6 +15,7 @@
     "orders": {
       ".read": "auth != null",
       "$orderId": {
+        ".read": true,
         ".write": "auth != null || (!data.exists() && newData.exists())"
       }
     },

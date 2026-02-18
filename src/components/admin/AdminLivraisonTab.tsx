@@ -23,8 +23,9 @@ interface AdminLivraisonTabProps {
 function exportRetraitsCSV(entries: [string, Order][]): void {
   const SEP = ';'
   const BOM = '\uFEFF'
-  const header = ['Date retrait', 'Heure', 'Client', 'Téléphone', 'Note client', 'Articles', 'Total (€)', 'Statut'].join(SEP)
-  const rows = entries.map(([, o]) => {
+  const header = ['N° commande', 'Date retrait', 'Heure', 'Client', 'Téléphone', 'Note client', 'Articles', 'Total (€)', 'Statut'].join(SEP)
+  const rows = entries.map(([id, o]) => {
+    const orderRef = o.orderNumber != null ? `#${o.orderNumber}` : id
     const dateStr = o.requestedDate ? parseDateYyyyMmDd(o.requestedDate).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
     const timeStr = o.requestedTime ?? ''
     const client = [o.customer?.firstName, o.customer?.lastName].filter(Boolean).join(' ')
@@ -33,7 +34,7 @@ function exportRetraitsCSV(entries: [string, Order][]): void {
     const items = (o.items ?? []).map((i) => `${i.quantity}× ${i.name}`).join(' | ')
     const total = (o.total ?? 0).toFixed(2).replace('.', ',')
     const status = ORDER_STATUS_LABELS[o.status] ?? o.status
-    return [dateStr, timeStr, client, phone, `"${noteClient}"`, `"${items.replace(/"/g, '""')}"`, total, status].join(SEP)
+    return [orderRef, dateStr, timeStr, client, phone, `"${noteClient}"`, `"${items.replace(/"/g, '""')}"`, total, status].join(SEP)
   })
   const csv = BOM + header + '\n' + rows.join('\n')
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
@@ -62,13 +63,18 @@ function exportRetraitsPDF(entries: [string, Order][], dateLabel: string): void 
   doc.text(dateLabel || 'Toutes dates', margin, y)
   y += 15
 
-  entries.forEach(([, o]) => {
+  entries.forEach(([id, o]) => {
     if (y > 260) {
       doc.addPage()
       y = 20
     }
     const cardY = y
     let lineY = y + 8
+    const orderRef = o.orderNumber != null ? `#${o.orderNumber}` : `#${id.slice(-8)}`
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.text('Commande ' + orderRef, margin + 3, lineY)
+    lineY += 6
     doc.setFontSize(11)
     doc.setFont('helvetica', 'bold')
     const client = [o.customer?.firstName, o.customer?.lastName].filter(Boolean).join(' ')
@@ -112,8 +118,9 @@ function exportRetraitsPDF(entries: [string, Order][], dateLabel: string): void 
 function exportLivraisonsCSV(entries: [string, Order][]): void {
   const SEP = ';'
   const BOM = '\uFEFF'
-  const header = ['Date livraison', 'Heure', 'Client', 'Téléphone', 'Adresse', 'Distance km', 'Note client', 'Articles', 'Total (€)', 'Statut'].join(SEP)
-  const rows = entries.map(([, o]) => {
+  const header = ['N° commande', 'Date livraison', 'Heure', 'Client', 'Téléphone', 'Adresse', 'Distance km', 'Note client', 'Articles', 'Total (€)', 'Statut'].join(SEP)
+  const rows = entries.map(([id, o]) => {
+    const orderRef = o.orderNumber != null ? `#${o.orderNumber}` : id
     const dateStr = o.requestedDate ? parseDateYyyyMmDd(o.requestedDate).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
     const timeStr = o.requestedTime ?? ''
     const client = [o.customer?.firstName, o.customer?.lastName].filter(Boolean).join(' ')
@@ -124,7 +131,7 @@ function exportLivraisonsCSV(entries: [string, Order][]): void {
     const items = (o.items ?? []).map((i) => `${i.quantity}× ${i.name}`).join(' | ')
     const total = (o.total ?? 0).toFixed(2).replace('.', ',')
     const status = ORDER_STATUS_LABELS[o.status] ?? o.status
-    return [dateStr, timeStr, client, phone, `"${adresse}"`, distanceKm, `"${noteClient}"`, `"${items.replace(/"/g, '""')}"`, total, status].join(SEP)
+    return [orderRef, dateStr, timeStr, client, phone, `"${adresse}"`, distanceKm, `"${noteClient}"`, `"${items.replace(/"/g, '""')}"`, total, status].join(SEP)
   })
   const csv = BOM + header + '\n' + rows.join('\n')
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
@@ -154,7 +161,7 @@ function exportLivraisonsPDF(entries: [string, Order][], dateLabel: string): voi
   doc.text(dateLabel || 'Toutes dates', margin, y)
   y += 15
 
-  entries.forEach(([, o]) => {
+  entries.forEach(([id, o]) => {
     // Nouvelle page si besoin
     if (y > 260) {
       doc.addPage()
@@ -163,7 +170,11 @@ function exportLivraisonsPDF(entries: [string, Order][], dateLabel: string): voi
 
     const cardY = y
     let lineY = y + 8
-
+    const orderRef = o.orderNumber != null ? `#${o.orderNumber}` : `#${id.slice(-8)}`
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.text('Commande ' + orderRef, margin + 3, lineY)
+    lineY += 6
     doc.setFontSize(11)
     doc.setFont('helvetica', 'bold')
     const client = [o.customer?.firstName, o.customer?.lastName].filter(Boolean).join(' ')
@@ -469,9 +480,12 @@ export function AdminLivraisonTab({ orders, onEditOrder }: AdminLivraisonTabProp
               animate={{ opacity: 1, y: 0 }}
               className={`bg-white rounded-2xl p-4 shadow-md border border-mayssa-brown/5 border-l-4 ${mode === 'livraison' ? 'border-l-blue-400' : 'border-l-emerald-400'}`}
             >
-              {/* Header: Client + Contact */}
+              {/* Header: N° commande + Client + Contact */}
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div>
+                  <p className="text-[10px] font-bold text-mayssa-brown/50 uppercase tracking-wider mb-0.5">
+                    Commande {order.orderNumber != null ? `#${order.orderNumber}` : `#${id.slice(-8)}`}
+                  </p>
                   <p className="text-sm font-bold text-mayssa-brown">
                     {order.customer?.firstName} {order.customer?.lastName}
                   </p>

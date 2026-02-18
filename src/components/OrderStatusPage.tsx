@@ -3,8 +3,9 @@ import { motion } from 'framer-motion'
 import { Package, ChefHat, CheckCircle2, Truck, XCircle } from 'lucide-react'
 import { getOrder, type Order, type OrderStatus } from '../lib/firebase'
 
+/** Libellés alignés sur le dashboard admin (À valider / Historique) */
 const STATUS_CONFIG: Record<OrderStatus, { label: string; icon: typeof Package; color: string }> = {
-  en_attente: { label: 'Reçue', icon: Package, color: 'text-amber-700 bg-amber-50' },
+  en_attente: { label: 'En attente', icon: Package, color: 'text-amber-700 bg-amber-50' },
   en_preparation: { label: 'En préparation', icon: ChefHat, color: 'text-blue-700 bg-blue-50' },
   pret: { label: 'Prête', icon: CheckCircle2, color: 'text-emerald-700 bg-emerald-50' },
   livree: { label: 'Livrée', icon: Truck, color: 'text-emerald-700 bg-emerald-50' },

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { LogOut, Package, Plus, Minus, Calendar, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp, Pencil, Search, Download, Bell, MessageSquare, Filter, XCircle, Star, Tag, BarChart3, Printer } from 'lucide-react'
+import { LogOut, Package, Plus, Minus, Calendar, Clock, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp, Pencil, Search, Download, Bell, MessageSquare, Filter, XCircle, Star, Tag, BarChart3, Printer } from 'lucide-react'
 import type { OrderStatus } from '../../lib/firebase'
 import {
   adminLogin, adminLogout, onAuthChange,
@@ -27,6 +27,7 @@ import { AdminProductsTab } from './AdminProductsTab'
 import { AdminStockTab } from './AdminStockTab'
 import { AdminLivraisonTab } from './AdminLivraisonTab'
 import { AdminPromosTab } from './AdminPromosTab'
+import { AdminCreneauxTab } from './AdminCreneauxTab'
 import { AdminPollsTab } from './AdminPollsTab'
 import { AdminRappelsTab } from './AdminRappelsTab'
 import { AdminSubscribersTab } from './AdminSubscribersTab'
@@ -252,7 +253,7 @@ function Dashboard({ user }: { user: User }) {
   const [settings, setSettings] = useState<Settings>({ preorderDays: [3, 6], preorderMessage: '' })
   const [orders, setOrders] = useState<Record<string, Order>>({})
   const [reviews, setReviews] = useState<Record<string, Review>>({})
-  const [tab, setTab] = useState<'commandes' | 'historique' | 'livraison' | 'ca' | 'avis' | 'stock' | 'jours' | 'anniversaires' | 'inscrits' | 'produits' | 'promos' | 'sondage' | 'rappels' | 'abonnes' | 'alertes' | 'carte'>('commandes')
+  const [tab, setTab] = useState<'commandes' | 'historique' | 'livraison' | 'ca' | 'avis' | 'stock' | 'jours' | 'creneaux' | 'anniversaires' | 'inscrits' | 'produits' | 'promos' | 'sondage' | 'rappels' | 'abonnes' | 'alertes' | 'carte'>('commandes')
   const [caPeriod, setCaPeriod] = useState<'jour' | 'semaine' | 'mois'>('semaine')
   const [allUsers, setAllUsers] = useState<Record<string, UserProfile>>({})
   const [productOverrides, setProductOverrides] = useState<ProductOverrideMap>({})
@@ -621,6 +622,7 @@ function Dashboard({ user }: { user: User }) {
             { id: 'avis', icon: Star, label: 'Avis', badge: Object.keys(reviews).length },
             { id: 'stock', icon: Package, label: 'Stock' },
             { id: 'jours', icon: Calendar, label: 'Jours' },
+            { id: 'creneaux', icon: Clock, label: 'Créneaux' },
             { id: 'anniversaires', icon: Cake, label: 'Anniv.', badge: upcomingBirthdays.filter(b => !b.claimed).length },
             { id: 'inscrits', icon: Users, label: 'Inscrits', badge: Object.keys(allUsers).length },
             { id: 'produits', icon: ShoppingBag, label: 'Produits' },
@@ -1508,6 +1510,11 @@ function Dashboard({ user }: { user: User }) {
               </button>
             </div>
           </motion.section>
+        )}
+
+        {/* ===== CRÉNEAUX RÉCEPTION / LIVRAISON ===== */}
+        {tab === 'creneaux' && (
+          <AdminCreneauxTab settings={settings} />
         )}
 
         {/* ===== ANNIVERSAIRES ===== */}

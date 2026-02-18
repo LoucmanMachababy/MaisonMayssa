@@ -57,6 +57,8 @@ export type CustomerInfo = {
     firstName: string
     lastName: string
     phone: string
+    /** Email pour recevoir le récap et les notifications (optionnel) */
+    email?: string
     address: string
     addressCoordinates: Coordinates
     wantsDelivery: boolean

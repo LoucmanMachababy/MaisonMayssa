@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { X, Minus, Plus, Search, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
-import { createOffSiteOrder, decrementStockBatch, isTrompeLoeilProductId, reserveDeliverySlot, type OrderSource, type OrderItem, type DeliveryMode, type StockMap } from '../../lib/firebase'
+import { createOffSiteOrder, decrementStockBatch, isTrompeLoeilProductId, reserveDeliverySlot, validatePromoCode, incrementPromoCodeUsage, type OrderSource, type OrderItem, type DeliveryMode, type StockMap } from '../../lib/firebase'
 import type { ProductWithAvailability } from '../../hooks/useProducts'
 import type { ProductCategory } from '../../types'
 
@@ -45,8 +45,14 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
   const [sizePickerFor, setSizePickerFor] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [promoCodeInput, setPromoCodeInput] = useState('')
+  const [appliedPromo, setAppliedPromo] = useState<{ code: string; discount: number } | null>(null)
+  const [manualDiscount, setManualDiscount] = useState<number>(0)
+  const [promoError, setPromoError] = useState('')
 
-  const total = cart.reduce((sum, entry) => sum + entry.unitPrice * entry.quantity, 0)
+  const subtotal = cart.reduce((sum, entry) => sum + entry.unitPrice * entry.quantity, 0)
+  const discountAmount = appliedPromo ? appliedPromo.discount : (manualDiscount > 0 ? Math.min(manualDiscount, subtotal) : 0)
+  const total = Math.max(0, subtotal - discountAmount)
 
   const availableProducts = useMemo(() => {
     return allProducts.filter(p => p.available !== false)
@@ -106,6 +112,29 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
     setCart(prev => prev.filter((_, i) => i !== index))
   }
 
+  const handleApplyPromo = async () => {
+    setPromoError('')
+    const code = promoCodeInput.trim()
+    if (!code) return
+    try {
+      const result = await validatePromoCode(code, subtotal)
+      if (result.valid) {
+        setAppliedPromo({ code: code.toUpperCase(), discount: result.discount })
+        setManualDiscount(0)
+      } else {
+        setPromoError(result.error)
+      }
+    } catch {
+      setPromoError('Erreur de vérification du code')
+    }
+  }
+
+  const handleClearPromo = () => {
+    setAppliedPromo(null)
+    setPromoCodeInput('')
+    setPromoError('')
+  }
+
   const handleSubmit = async () => {
     setError('')
     if (!source) { setError('Choisissez une source'); return }
@@ -139,6 +168,8 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
         ...(requestedTime && { requestedTime }),
         ...(adminNote.trim() && { adminNote: adminNote.trim() }),
         ...(excludeTrompeLoeilStock && { excludeTrompeLoeilStock: true }),
+        ...(appliedPromo && { promoCode: appliedPromo.code, discountAmount: appliedPromo.discount }),
+        ...(!appliedPromo && discountAmount > 0 && { discountAmount }),
       })
 
       if (deliveryMode === 'livraison' && requestedDate && requestedTime) {
@@ -151,6 +182,10 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
         : cart.map(entry => ({ productId: entry.product.id, quantity: entry.quantity }))
       if (itemsToDecrement.length > 0) {
         await decrementStockBatch(itemsToDecrement)
+      }
+
+      if (appliedPromo?.code) {
+        incrementPromoCodeUsage(appliedPromo.code).catch(console.error)
       }
 
       onOrderCreated()
@@ -338,12 +373,74 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
                   </div>
                 ))}
                 <div className="border-t border-mayssa-brown/10 pt-2 flex justify-between">
-                  <span className="text-xs font-bold text-mayssa-brown">Total</span>
-                  <span className="text-sm font-bold text-mayssa-caramel">{total.toFixed(2).replace('.', ',')} €</span>
+                  <span className="text-xs font-bold text-mayssa-brown">Sous-total</span>
+                  <span className="text-sm font-bold text-mayssa-brown">{subtotal.toFixed(2).replace('.', ',')} €</span>
                 </div>
               </div>
             )}
           </div>
+
+          {/* Promo / réduction */}
+          {cart.length > 0 && (
+            <div className="border border-mayssa-brown/10 rounded-xl p-3 space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">Promo (optionnel)</p>
+              {appliedPromo ? (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-mayssa-brown">
+                    Code <strong>{appliedPromo.code}</strong> · -{appliedPromo.discount.toFixed(2).replace('.', ',')} €
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleClearPromo}
+                    className="text-[10px] font-bold text-red-500 hover:text-red-600 cursor-pointer"
+                  >
+                    Retirer
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Code promo"
+                      value={promoCodeInput}
+                      onChange={e => { setPromoCodeInput(e.target.value); setPromoError('') }}
+                      className="flex-1 rounded-lg bg-mayssa-soft/50 px-2.5 py-2 text-xs text-mayssa-brown border border-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleApplyPromo}
+                      className="px-3 py-2 rounded-lg bg-mayssa-caramel/30 text-xs font-bold text-mayssa-brown hover:bg-mayssa-caramel/50 transition-colors cursor-pointer"
+                    >
+                      Appliquer
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-[10px] text-mayssa-brown/70 whitespace-nowrap">Ou réduction (€)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      placeholder="0"
+                      value={manualDiscount > 0 ? manualDiscount : ''}
+                      onChange={e => {
+                        const v = e.target.value
+                        const next = v === '' ? 0 : Math.max(0, parseFloat(v) || 0)
+                        setManualDiscount(next)
+                        if (next > 0) setAppliedPromo(null)
+                      }}
+                      className="w-20 rounded-lg bg-mayssa-soft/50 px-2 py-1.5 text-xs text-mayssa-brown border border-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
+                    />
+                  </div>
+                  {promoError && <p className="text-[10px] text-red-500">{promoError}</p>}
+                </>
+              )}
+              <div className="border-t border-mayssa-brown/10 pt-2 flex justify-between">
+                <span className="text-xs font-bold text-mayssa-brown">Total</span>
+                <span className="text-sm font-bold text-mayssa-caramel">{total.toFixed(2).replace('.', ',')} €</span>
+              </div>
+            </div>
+          )}
 
           {/* Mode */}
           <div>

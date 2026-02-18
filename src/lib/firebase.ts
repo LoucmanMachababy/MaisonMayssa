@@ -108,6 +108,14 @@ export type Settings = {
   /** Horaires d'ouverture des précommandes trompe-l'œil (ex. samedi 00:00, mercredi 12:00). Si absent, on utilise preorderDays avec 00:00. */
   preorderOpenings?: PreorderOpening[]
   preorderMessage: string
+  /** Première date sélectionnable pour retrait/livraison (YYYY-MM-DD). Si absent = aujourd'hui. */
+  firstAvailableDate?: string
+  /** Dernière date sélectionnable (YYYY-MM-DD). Si absent = pas de limite. */
+  lastAvailableDate?: string
+  /** Créneaux horaires proposés pour le retrait (ex. ["18:30"]). Si absent = défaut (18:30). */
+  retraitTimeSlots?: string[]
+  /** Créneaux horaires proposés pour la livraison (ex. ["20:00","20:30",...]). Si absent = défaut (20h-02h30). */
+  livraisonTimeSlots?: string[]
 }
 
 const DEFAULT_PREORDER_OPENINGS: PreorderOpening[] = [
@@ -141,10 +149,22 @@ function mergeSettings(val: unknown): Settings {
   const preorderOpenings = Array.isArray(raw.preorderOpenings) && (raw.preorderOpenings as PreorderOpening[]).length > 0
     ? (raw.preorderOpenings as PreorderOpening[])
     : DEFAULT_PREORDER_OPENINGS
+  const firstAvailableDate = typeof raw.firstAvailableDate === 'string' && raw.firstAvailableDate.trim() ? raw.firstAvailableDate.trim() : undefined
+  const lastAvailableDate = typeof raw.lastAvailableDate === 'string' && raw.lastAvailableDate.trim() ? raw.lastAvailableDate.trim() : undefined
+  const retraitTimeSlots = Array.isArray(raw.retraitTimeSlots) && (raw.retraitTimeSlots as string[]).length > 0
+    ? (raw.retraitTimeSlots as string[]).filter((t): t is string => typeof t === 'string' && /^\d{1,2}:\d{2}$/.test(t))
+    : undefined
+  const livraisonTimeSlots = Array.isArray(raw.livraisonTimeSlots) && (raw.livraisonTimeSlots as string[]).length > 0
+    ? (raw.livraisonTimeSlots as string[]).filter((t): t is string => typeof t === 'string' && /^\d{1,2}:\d{2}$/.test(t))
+    : undefined
   return {
     preorderDays,
     preorderOpenings,
     preorderMessage: typeof raw.preorderMessage === 'string' ? raw.preorderMessage : '',
+    ...(firstAvailableDate && { firstAvailableDate }),
+    ...(lastAvailableDate && { lastAvailableDate }),
+    ...(retraitTimeSlots && retraitTimeSlots.length > 0 && { retraitTimeSlots }),
+    ...(livraisonTimeSlots && livraisonTimeSlots.length > 0 && { livraisonTimeSlots }),
   }
 }
 
@@ -156,7 +176,8 @@ export function listenSettings(callback: (settings: Settings) => void) {
 
 export async function updateSettings(settings: Partial<Settings>) {
   const current = await get(settingsRef)
-  await set(settingsRef, { ...(current.val() || {}), ...settings })
+  const merged = { ...(current.val() || {}), ...settings } as Record<string, unknown>
+  await set(settingsRef, stripUndefined(merged))
 }
 
 // --- Commandes ---
@@ -176,6 +197,8 @@ export type OrderCustomer = {
   firstName: string
   lastName: string
   phone: string
+  /** Email pour envoi du récap et des notifications (optionnel) */
+  email?: string
   address?: string
   addressCoordinates?: { lat: number; lng: number } | null
   /** Instructions pour le livreur (code, étage, etc.) */
