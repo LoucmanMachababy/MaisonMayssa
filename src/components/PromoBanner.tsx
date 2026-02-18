@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import { hapticFeedback } from '../lib/haptics'
 import { isBeforeFirstPickupDate } from '../lib/utils'
 import { FIRST_PICKUP_DATE_CLASSIC, FIRST_PICKUP_DATE_CLASSIC_LABEL } from '../constants'
+import { FREE_DELIVERY_THRESHOLD } from '../lib/delivery'
 
 const STORAGE_KEY = 'maison-mayssa-promo-dismissed'
 
@@ -34,8 +35,8 @@ export function PromoBanner() {
     <div className="relative bg-mayssa-caramel/90 text-mayssa-brown py-2.5 px-4 sm:px-6 text-center">
       <p className="text-xs sm:text-sm font-semibold">
         {isPreorderPhase
-          ? `Précommandes — récupération à partir du ${FIRST_PICKUP_DATE_CLASSIC_LABEL} · Livraison offerte dès 45 €`
-          : 'Livraison offerte dès 45 € d\'achat · Annecy & alentours'}
+          ? `Précommandes — récupération à partir du ${FIRST_PICKUP_DATE_CLASSIC_LABEL} · Livraison offerte dès ${FREE_DELIVERY_THRESHOLD} €`
+          : `Livraison offerte dès ${FREE_DELIVERY_THRESHOLD} € d'achat · Annecy & alentours`}
       </p>
       <button
         type="button"

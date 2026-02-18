@@ -160,6 +160,8 @@ export type Settings = {
   firstAvailableDate?: string
   /** Dernière date sélectionnable (YYYY-MM-DD). Si absent = pas de limite. */
   lastAvailableDate?: string
+  /** Jours de la semaine proposés (0=dim, 1=lun, …, 6=sam). Si absent ou vide = tous les jours entre première et dernière date. */
+  availableWeekdays?: number[]
   /** Créneaux horaires proposés pour le retrait (ex. ["18:30"]). Si absent = défaut (18:30). */
   retraitTimeSlots?: string[]
   /** Créneaux horaires proposés pour la livraison (ex. ["20:00","20:30",...]). Si absent = défaut (20h-02h30). */
@@ -199,6 +201,9 @@ function mergeSettings(val: unknown): Settings {
     : DEFAULT_PREORDER_OPENINGS
   const firstAvailableDate = typeof raw.firstAvailableDate === 'string' && raw.firstAvailableDate.trim() ? raw.firstAvailableDate.trim() : undefined
   const lastAvailableDate = typeof raw.lastAvailableDate === 'string' && raw.lastAvailableDate.trim() ? raw.lastAvailableDate.trim() : undefined
+  const availableWeekdays = Array.isArray(raw.availableWeekdays) && (raw.availableWeekdays as number[]).length > 0
+    ? (raw.availableWeekdays as number[]).filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)
+    : undefined
   const retraitTimeSlots = Array.isArray(raw.retraitTimeSlots) && (raw.retraitTimeSlots as string[]).length > 0
     ? (raw.retraitTimeSlots as string[]).filter((t): t is string => typeof t === 'string' && /^\d{1,2}:\d{2}$/.test(t))
     : undefined
@@ -211,6 +216,7 @@ function mergeSettings(val: unknown): Settings {
     preorderMessage: typeof raw.preorderMessage === 'string' ? raw.preorderMessage : '',
     ...(firstAvailableDate && { firstAvailableDate }),
     ...(lastAvailableDate && { lastAvailableDate }),
+    ...(availableWeekdays && availableWeekdays.length > 0 && { availableWeekdays }),
     ...(retraitTimeSlots && retraitTimeSlots.length > 0 && { retraitTimeSlots }),
     ...(livraisonTimeSlots && livraisonTimeSlots.length > 0 && { livraisonTimeSlots }),
   }

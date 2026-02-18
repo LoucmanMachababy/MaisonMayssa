@@ -32,17 +32,34 @@ export function AdminCreneauxTab({ settings }: AdminCreneauxTabProps) {
   const today = getMinDate()
   const [firstAvailableDate, setFirstAvailableDate] = useState(settings.firstAvailableDate ?? today)
   const [lastAvailableDate, setLastAvailableDate] = useState(settings.lastAvailableDate ?? '')
+  const WEEKDAYS: { value: number; label: string }[] = [
+    { value: 1, label: 'Lun' },
+    { value: 2, label: 'Mar' },
+    { value: 3, label: 'Mer' },
+    { value: 4, label: 'Jeu' },
+    { value: 5, label: 'Ven' },
+    { value: 6, label: 'Sam' },
+    { value: 0, label: 'Dim' },
+  ]
+  const [availableWeekdays, setAvailableWeekdays] = useState<number[]>(settings.availableWeekdays ?? [3, 6])
   const [retraitInput, setRetraitInput] = useState(formatSlotsForInput(settings.retraitTimeSlots))
   const [livraisonInput, setLivraisonInput] = useState(formatSlotsForInput(settings.livraisonTimeSlots))
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
+  const toggleWeekday = (day: number) => {
+    setAvailableWeekdays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort((a, b) => a - b),
+    )
+  }
+
   useEffect(() => {
     setFirstAvailableDate(settings.firstAvailableDate ?? today)
     setLastAvailableDate(settings.lastAvailableDate ?? '')
+    setAvailableWeekdays(settings.availableWeekdays && settings.availableWeekdays.length > 0 ? settings.availableWeekdays : [3, 6])
     setRetraitInput(formatSlotsForInput(settings.retraitTimeSlots))
     setLivraisonInput(formatSlotsForInput(settings.livraisonTimeSlots))
-  }, [settings.firstAvailableDate, settings.lastAvailableDate, settings.retraitTimeSlots, settings.livraisonTimeSlots, today])
+  }, [settings.firstAvailableDate, settings.lastAvailableDate, settings.availableWeekdays, settings.retraitTimeSlots, settings.livraisonTimeSlots, today])
 
   const handleSave = async () => {
     setMessage(null)
@@ -53,10 +70,11 @@ export function AdminCreneauxTab({ settings }: AdminCreneauxTabProps) {
       await updateSettings({
         firstAvailableDate: firstAvailableDate.trim() || undefined,
         lastAvailableDate: lastAvailableDate.trim() || undefined,
+        availableWeekdays: availableWeekdays.length > 0 ? availableWeekdays : undefined,
         retraitTimeSlots: retraitSlots.length > 0 ? retraitSlots : undefined,
         livraisonTimeSlots: livraisonSlots.length > 0 ? livraisonSlots : undefined,
       })
-      setMessage({ type: 'success', text: 'Créneaux enregistrés. Les clients ne pourront choisir que ces dates et horaires.' })
+      setMessage({ type: 'success', text: 'Créneaux enregistrés. Les clients ne pourront choisir que ces jours et horaires.' })
     } catch (err) {
       setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Erreur enregistrement' })
     } finally {
@@ -108,6 +126,24 @@ export function AdminCreneauxTab({ settings }: AdminCreneauxTabProps) {
               className="w-full rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm border border-mayssa-brown/10 text-mayssa-brown"
             />
             <p className="text-[10px] text-mayssa-brown/50 mt-1">Laisser vide = pas de limite.</p>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-mayssa-brown/70 mb-1.5">Jours proposés (retrait / livraison)</label>
+          <p className="text-[10px] text-mayssa-brown/50 mb-2">Seuls ces jours apparaîtront dans le calendrier client. Décocher un jour (ex. Samedi) pour le désactiver.</p>
+          <div className="flex flex-wrap gap-2">
+            {WEEKDAYS.map(({ value, label }) => (
+              <label key={value} className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={availableWeekdays.includes(value)}
+                  onChange={() => toggleWeekday(value)}
+                  className="rounded border-mayssa-brown/30 text-mayssa-caramel focus:ring-mayssa-caramel"
+                />
+                <span className="text-sm text-mayssa-brown">{label}</span>
+              </label>
+            ))}
           </div>
         </div>
 

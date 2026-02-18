@@ -21,9 +21,11 @@ interface ProductCardProps {
     dayNames?: string
     /** LCP: charger l'image en priorité (premières cartes above-the-fold) */
     priority?: boolean
+    /** Cadre coloré "Nouveau" pour mettre en avant un produit */
+    highlightAsNew?: boolean
 }
 
-export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavorite, stock = null, isPreorderDay = true, dayNames = '', priority = false }: ProductCardProps) {
+export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavorite, stock = null, isPreorderDay = true, dayNames = '', priority = false, highlightAsNew = false }: ProductCardProps) {
     const { ref, style, handlers } = use3DTilt(10)
     const { getAverageRatingForProduct, getReviewCountForProduct } = useReviews()
     const isPreorderSoon = isPreorderNotYetAvailable(product)
@@ -58,7 +60,7 @@ export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavori
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className={`group relative flex flex-col gap-3 sm:gap-4 overflow-hidden rounded-2xl sm:rounded-[2rem] bg-white/60 p-3 sm:p-4 shadow-xl ring-1 ring-white/40 ${(isPreorderSoon || isUnavailable) ? 'cursor-default' : 'cursor-pointer hover:bg-white/90 hover:shadow-2xl hover:shadow-mayssa-brown/10 active:scale-[0.98]'} focus:outline-none focus-visible:ring-2 focus-visible:ring-mayssa-caramel focus-visible:ring-offset-2`}
+            className={`group relative flex flex-col gap-3 sm:gap-4 overflow-hidden rounded-2xl sm:rounded-[2rem] p-3 sm:p-4 shadow-xl ${highlightAsNew ? 'bg-amber-50/90 ring-2 ring-amber-400/90 ring-offset-2 ring-offset-amber-50/50 shadow-amber-200/25' : 'bg-white/60 ring-1 ring-white/40'} ${(isPreorderSoon || isUnavailable) ? 'cursor-default' : 'cursor-pointer hover:bg-white/90 hover:shadow-2xl hover:shadow-mayssa-brown/10 active:scale-[0.98]'} focus:outline-none focus-visible:ring-2 focus-visible:ring-mayssa-caramel focus-visible:ring-offset-2`}
         >
             {/* Action buttons */}
             <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">

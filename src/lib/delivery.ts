@@ -5,7 +5,7 @@ import { isSelectedDateTimeInPast } from './utils'
 export const ANNECY_GARE: NonNullable<Coordinates> = { lat: 45.9017, lng: 6.1217 }
 export const DELIVERY_RADIUS_KM = 5
 export const DELIVERY_FEE = 5
-export const FREE_DELIVERY_THRESHOLD = 45
+export const FREE_DELIVERY_THRESHOLD = 50
 
 // ── Calcul de distance (Haversine) ────────────────────────────────
 export function calculateDistance(coord1: Coordinates, coord2: NonNullable<Coordinates>): number | null {
@@ -48,6 +48,42 @@ export function getMinDate(): string {
   const parts = rtf.formatToParts(new Date())
   const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '01'
   return `${get('year')}-${get('month')}-${get('day')}`
+}
+
+/**
+ * Liste des dates sélectionnables entre minDate et maxDate, limitées aux jours de la semaine définis par l'admin.
+ * Si availableWeekdays est vide/undefined, retourne [] (le client utilisera alors un input date libre avec min/max).
+ */
+export function getSelectableDates(
+  minDate: string,
+  maxDate: string | undefined,
+  availableWeekdays: number[] | undefined,
+): string[] {
+  if (!availableWeekdays || availableWeekdays.length === 0) return []
+  const set = new Set(availableWeekdays)
+  const out: string[] = []
+  const min = new Date(minDate + 'T12:00:00')
+  const max = maxDate ? new Date(maxDate + 'T12:00:00') : (() => {
+    const d = new Date(min)
+    d.setDate(d.getDate() + 60)
+    return d
+  })()
+  for (const d = new Date(min); d <= max; d.setDate(d.getDate() + 1)) {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    const ymd = `${y}-${m}-${day}`
+    if (set.has(d.getDay())) out.push(ymd)
+  }
+  return out
+}
+
+/** Formater une date YYYY-MM-DD pour affichage (ex. "Samedi 22 février"). */
+export function formatDateLabel(ymd: string): string {
+  const [y, m, d] = ymd.split('-').map(Number)
+  const date = new Date(y, (m ?? 1) - 1, d ?? 1)
+  const label = date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+  return label.charAt(0).toUpperCase() + label.slice(1)
 }
 
 // ── Validation client ─────────────────────────────────────────────

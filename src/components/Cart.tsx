@@ -17,6 +17,8 @@ import {
     calculateDistance,
     generateTimeSlots,
     getMinDate,
+    getSelectableDates,
+    formatDateLabel,
     validateCustomer,
     computeDeliveryFee,
 } from '../lib/delivery'
@@ -42,6 +44,8 @@ interface CartProps {
     minDate?: string
     /** Date maximum (définie par l'admin). Optionnel. */
     maxDate?: string
+    /** Jours de la semaine autorisés (0=dim…6=sam). Si défini, le client ne peut choisir que ces jours. */
+    availableWeekdays?: number[]
     /** Créneaux retrait (définis par l'admin). Si absent = défaut (ex. 18:30). */
     retraitTimeSlots?: string[]
     /** Créneaux livraison (définis par l'admin). Si absent = défaut. */
@@ -76,6 +80,7 @@ export function Cart({
     deliverySlots = {},
     minDate: minDateProp,
     maxDate: maxDateProp,
+    availableWeekdays,
     retraitTimeSlots,
     livraisonTimeSlots,
     promoCodeInput = '',
@@ -150,6 +155,17 @@ export function Cart({
 
     const minDate = minDateProp && minDateProp.trim() ? minDateProp : getMinDate()
     const maxDate = maxDateProp && maxDateProp.trim() ? maxDateProp : undefined
+    const selectableDates = useMemo(
+      () => getSelectableDates(minDate, maxDate, availableWeekdays),
+      [minDate, maxDate, availableWeekdays],
+    )
+    const useDateSelect = selectableDates.length > 0
+
+    useEffect(() => {
+      if (useDateSelect && selectableDates.length > 0 && (!customer.date || !selectableDates.includes(customer.date))) {
+        onCustomerChange({ ...customer, date: selectableDates[0], time: '' })
+      }
+    }, [useDateSelect, selectableDates, customer.date])
 
     const validationErrors = useMemo(() => validateCustomer(customer), [customer])
     // Show error only for fields the user has interacted with
@@ -537,7 +553,21 @@ export function Cart({
                                 validationErrors.date ? "ring-2 ring-red-300" : "ring-1 ring-mayssa-brown/5"
                             )}>
                                 <Calendar size={16} className="text-mayssa-caramel" aria-hidden="true" />
-                                <input
+                                {useDateSelect ? (
+                                  <select
+                                    id="cart-date"
+                                    value={selectableDates.includes(customer.date) ? customer.date : selectableDates[0] ?? ''}
+                                    onChange={(e) => onCustomerChange({ ...customer, date: e.target.value, time: '' })}
+                                    className="w-full bg-transparent text-xs font-bold text-mayssa-brown focus:outline-none cursor-pointer"
+                                    aria-label="Date de retrait ou livraison"
+                                  >
+                                    <option value="">Choisir une date</option>
+                                    {selectableDates.map((d) => (
+                                      <option key={d} value={d}>{formatDateLabel(d)}</option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <input
                                     id="cart-date"
                                     type="date"
                                     min={minDate}
@@ -546,7 +576,8 @@ export function Cart({
                                     onChange={(e) => onCustomerChange({ ...customer, date: e.target.value })}
                                     className="w-full bg-transparent text-xs font-bold text-mayssa-brown focus:outline-none"
                                     aria-label="Date de retrait ou livraison"
-                                />
+                                  />
+                                )}
                             </div>
                             <div className={cn(
                                 "flex items-center gap-2 rounded-2xl bg-white px-3 py-3 shadow-sm transition-all",

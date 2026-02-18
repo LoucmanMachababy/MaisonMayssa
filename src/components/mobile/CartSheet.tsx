@@ -20,6 +20,8 @@ import {
   calculateDistance,
   generateTimeSlots,
   getMinDate,
+  getSelectableDates,
+  formatDateLabel,
   validateCustomer,
   computeDeliveryFee,
 } from '../../lib/delivery'
@@ -43,6 +45,7 @@ interface CartSheetProps {
   deliverySlots?: DeliverySlotsMap
   minDate?: string
   maxDate?: string
+  availableWeekdays?: number[]
   retraitTimeSlots?: string[]
   livraisonTimeSlots?: string[]
   promoCodeInput?: string
@@ -76,6 +79,7 @@ export function CartSheet({
   deliverySlots = {},
   minDate: minDateProp,
   maxDate: maxDateProp,
+  availableWeekdays,
   retraitTimeSlots,
   livraisonTimeSlots,
   promoCodeInput = '',
@@ -151,6 +155,17 @@ export function CartSheet({
 
   const minDate = minDateProp && minDateProp.trim() ? minDateProp : getMinDate()
   const maxDate = maxDateProp && maxDateProp.trim() ? maxDateProp : undefined
+  const selectableDates = useMemo(
+    () => getSelectableDates(minDate, maxDate, availableWeekdays),
+    [minDate, maxDate, availableWeekdays],
+  )
+  const useDateSelect = selectableDates.length > 0
+
+  useEffect(() => {
+    if (useDateSelect && selectableDates.length > 0 && (!customer.date || !selectableDates.includes(customer.date))) {
+      onCustomerChange({ ...customer, date: selectableDates[0], time: '' })
+    }
+  }, [useDateSelect, selectableDates, customer.date])
 
   useEffect(() => {
     if (!customer.time) return
@@ -457,15 +472,29 @@ export function CartSheet({
                 <div className="grid grid-cols-2 gap-2">
                   <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", validationErrors.date ? "ring-red-300" : "ring-mayssa-brown/10")}>
                     <Calendar size={14} className="text-mayssa-caramel flex-shrink-0" />
-                    <input
-                      type="date"
-                      min={minDate}
-                      max={maxDate}
-                      value={customer.date}
-                      onChange={(e) => onCustomerChange({ ...customer, date: e.target.value })}
-                      className="w-full bg-transparent text-xs font-medium text-mayssa-brown focus:outline-none"
-                      aria-label="Date de retrait ou livraison"
-                    />
+                    {useDateSelect ? (
+                      <select
+                        value={selectableDates.includes(customer.date) ? customer.date : selectableDates[0] ?? ''}
+                        onChange={(e) => onCustomerChange({ ...customer, date: e.target.value, time: '' })}
+                        className="w-full bg-transparent text-xs font-medium text-mayssa-brown focus:outline-none cursor-pointer"
+                        aria-label="Date de retrait ou livraison"
+                      >
+                        <option value="">Choisir une date</option>
+                        {selectableDates.map((d) => (
+                          <option key={d} value={d}>{formatDateLabel(d)}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="date"
+                        min={minDate}
+                        max={maxDate}
+                        value={customer.date}
+                        onChange={(e) => onCustomerChange({ ...customer, date: e.target.value })}
+                        className="w-full bg-transparent text-xs font-medium text-mayssa-brown focus:outline-none"
+                        aria-label="Date de retrait ou livraison"
+                      />
+                    )}
                   </div>
                   <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", validationErrors.time ? "ring-red-300" : "ring-mayssa-brown/10")}>
                     <Clock size={14} className="text-mayssa-caramel flex-shrink-0" aria-hidden="true" />

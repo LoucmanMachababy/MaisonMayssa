@@ -18,7 +18,7 @@ describe('PromoBanner', () => {
 
   it('affiche le message de livraison offerte quand pas dismiss', async () => {
     const { findByText } = render(<PromoBanner />)
-    expect(await findByText(/Livraison offerte dès 45 €/)).toBeInTheDocument()
+    expect(await findByText(/Livraison offerte dès 50 €/)).toBeInTheDocument()
   })
 
   it('a un bouton fermer accessible', async () => {
@@ -32,6 +32,6 @@ describe('PromoBanner', () => {
     const close = await findByRole('button', { name: /fermer/i })
     fireEvent.click(close)
     expect(setItem).toHaveBeenCalledWith(STORAGE_KEY, '1')
-    expect(screen.queryByText(/Livraison offerte dès 45 €/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Livraison offerte dès 50 €/)).not.toBeInTheDocument()
   })
 })

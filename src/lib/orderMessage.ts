@@ -39,11 +39,12 @@ function getTrompeLOeilPickupLabel(): string {
 const stripEmoji = (s: string) =>
   s.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '').replace(/\s+/g, ' ').trim()
 
-function getOrderLineLabel(item: CartItem): string {
+function getOrderLineLabel(item: CartItem, pickupDateLabel?: string): string {
   const p = item.product
   const name = stripEmoji(p.name)
   const cat = p.category
-  if (cat === "Trompe l'oeil") return `🎨 ${name} (PRÉCOMMANDE – récupération ${getTrompeLOeilPickupLabel()})`
+  const trompeLabel = pickupDateLabel ?? getTrompeLOeilPickupLabel()
+  if (cat === "Trompe l'oeil") return `🎨 ${name} (PRÉCOMMANDE – récupération ${trompeLabel})`
   if (cat === 'Tiramisus') {
     const base = p.description ?? ''
     return `Tiramisu – ${name}${base ? ` – ${base}` : ''}`
@@ -99,8 +100,9 @@ export function buildOrderMessage(params: BuildOrderMessageParams): string {
   }
 
   const hasTrompeLoeil = cart.some((i) => i.product.category === "Trompe l'oeil")
+  const pickupDateLabel = customer.date ? formatDateYyyyMmDdToFrench(customer.date) : getTrompeLOeilPickupLabel()
   if (hasTrompeLoeil) {
-    lines.push(`Date de récupération : ${getTrompeLOeilPickupLabel()}`)
+    lines.push(`Date de récupération : ${pickupDateLabel}`)
     if (customer.time) lines.push(`Heure souhaitée : ${customer.time}`)
   } else if (customer.date && customer.time) {
     lines.push(`Date souhaitée : ${formatDateYyyyMmDdToFrench(customer.date)}`)
@@ -117,7 +119,7 @@ export function buildOrderMessage(params: BuildOrderMessageParams): string {
   lines.push('', '')
   lines.push('*COMMANDE*', '')
   cart.forEach((item, index) => {
-    const label = getOrderLineLabel(item)
+    const label = getOrderLineLabel(item, pickupDateLabel)
     const totalPrice = (item.product.price * item.quantity).toFixed(2).replace('.', ',')
     const qty = item.quantity > 1 ? `${item.quantity}× ` : ''
     lines.push(`${index + 1}. ${qty}${label} → ${totalPrice} €`)
@@ -166,7 +168,7 @@ export function buildOrderMessage(params: BuildOrderMessageParams): string {
 
   if (hasTrompeLoeil) {
     lines.push("⚠️ *PRÉCOMMANDE TROMPE L'ŒIL*")
-    lines.push(`Récupération des trompe-l'œil : ${getTrompeLOeilPickupLabel()}.`)
+    lines.push(`Récupération des trompe-l'œil : ${pickupDateLabel}.`)
     lines.push('', '')
   }
 

@@ -22,9 +22,11 @@ interface SwipeableProductCardProps {
   dayNames?: string
   /** LCP: charger l'image en priorité (premières cartes above-the-fold) */
   priority?: boolean
+  /** Cadre coloré "Nouveau" pour mettre en avant un produit */
+  highlightAsNew?: boolean
 }
 
-export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false, onToggleFavorite, stock = null, isPreorderDay = true, dayNames = '', priority = false }: SwipeableProductCardProps) {
+export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false, onToggleFavorite, stock = null, isPreorderDay = true, dayNames = '', priority = false, highlightAsNew = false }: SwipeableProductCardProps) {
   const [isAdded, setIsAdded] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null)
@@ -121,7 +123,7 @@ export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false
   }
 
   return (
-    <div className="relative overflow-hidden rounded-2xl shadow-lg">
+    <div className={`relative overflow-hidden rounded-2xl shadow-lg ${highlightAsNew ? 'ring-2 ring-amber-400/90 ring-offset-2 ring-offset-amber-50/80 shadow-amber-200/20' : ''}`}>
       {/* Enhanced background action indicators */}
       <motion.div
         className="absolute inset-0"
@@ -187,7 +189,7 @@ export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false
         onDragEnd={handleDragEnd}
         onTap={handleTap}
         style={{ x: springX }}
-        className="relative bg-white/90 backdrop-blur-md rounded-2xl p-4 shadow-xl border border-white/20 touch-pan-y cursor-pointer"
+        className={`relative backdrop-blur-md rounded-2xl p-4 shadow-xl border touch-pan-y cursor-pointer ${highlightAsNew ? 'bg-amber-50/95 border-amber-200/50' : 'bg-white/90 border-white/20'}`}
         animate={isAdded ? { 
           scale: [1, 1.02, 1],
           boxShadow: [
