@@ -12,6 +12,9 @@ export const REFERRAL_POINTS_TO_REFERRER = 15
 /** Nombre max de commandes par créneau de livraison (affiche "Plus que X places") */
 export const DELIVERY_SLOT_MAX_CAPACITY = 5
 
+/** ID du trompe l'oeil mystère (Fraise) — le premier qui trouve a 10 % dessus */
+export const MYSTERY_TROMPE_LOEIL_ID = 'trompe-loeil-fraise'
+
 /** Précommande trompe l'oeil : à récupérer sous 3 j après préco. Dispo gérée par Firebase (jours + stock). */
 const TROMPE_LOEIL_PREORDER = { availableFrom: '2026-02-13', daysToPickup: 3 }
 
@@ -85,6 +88,17 @@ export const PRODUCTS: Product[] = [
         category: "Trompe l'oeil",
         image: '/trompe-loeil-cacahuete.webp',
         badges: ['best-seller'],
+        preorder: TROMPE_LOEIL_PREORDER,
+    },
+    {
+        id: 'trompe-loeil-fraise',
+        name: "Trompe l'oeil Fraise",
+        description: 'Fraises fraîches, coulis de fraise, crème fraise, ganache fraise, pâte à sucre. Douceur et fraîcheur.',
+        price: 6,
+        originalPrice: 7.5,
+        category: "Trompe l'oeil",
+        image: '/trompe-loeil-fraise.webp',
+        badges: ['nouveau'],
         preorder: TROMPE_LOEIL_PREORDER,
     },
 

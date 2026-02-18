@@ -54,6 +54,7 @@ interface CartSheetProps {
   setDonationAmount?: (v: number) => void
   referralCodeInput?: string
   setReferralCodeInput?: (v: string) => void
+  mysteryFraiseDiscount?: number
 }
 
 export function CartSheet({
@@ -86,6 +87,7 @@ export function CartSheet({
   setDonationAmount,
   referralCodeInput = '',
   setReferralCodeInput,
+  mysteryFraiseDiscount = 0,
 }: CartSheetProps) {
   const dragControls = useDragControls()
   const sheetRef = useRef<HTMLDivElement>(null)
@@ -730,6 +732,9 @@ export function CartSheet({
                   <span className="text-xs text-mayssa-brown/75">Total</span>
                   {appliedPromo && appliedPromo.discount > 0 && (
                     <span className="text-[9px] text-emerald-600 ml-1">(-{appliedPromo.discount.toFixed(2)} € promo)</span>
+                  )}
+                  {mysteryFraiseDiscount > 0 && (
+                    <span className="text-[9px] text-amber-600 ml-1">(-{mysteryFraiseDiscount.toFixed(2)} € mystère Fraise)</span>
                   )}
                   {donationAmount > 0 && (
                     <span className="text-[9px] text-mayssa-rose ml-1">(+{donationAmount.toFixed(2)} € don)</span>

@@ -61,15 +61,14 @@ export function BlurImage({
     }
   }, [priority, isIntersecting])
 
-  // Génère les sources d'images optimisées
+  // Génère les sources d'images optimisées (WebP uniquement si l'original n'est pas déjà .png/.jpg pour éviter 404)
   const optimizedSources = useMemo(() => {
     if (!src) return { webp: '', original: src }
-    
-    const baseSrc = src.replace(/\.[^/.]+$/, "")
-    
-    // Génère les sources WebP et originales
+    const ext = (src.match(/\.[^/.]+$/) || [])[0]?.toLowerCase()
+    const baseSrc = src.replace(/\.[^/.]+$/, '')
+    const useWebp = ext !== '.webp' && ext !== '.png' && ext !== '.jpg' && ext !== '.jpeg'
     return {
-      webp: `${baseSrc}.webp`,
+      webp: useWebp ? `${baseSrc}.webp` : '',
       original: src
     }
   }, [src])
@@ -160,9 +159,10 @@ export function BlurImage({
       {/* Progressive image loading */}
       {shouldLoad && !hasError && (
         <picture>
-          {/* WebP source pour les navigateurs compatibles */}
-          <source srcSet={optimizedSources.webp} type="image/webp" />
-          
+          {/* WebP source uniquement si on a une version .webp (évite 404 sur .png) */}
+          {optimizedSources.webp && (
+            <source srcSet={optimizedSources.webp} type="image/webp" />
+          )}
           <motion.img
             src={optimizedSources.original}
             alt={alt}

@@ -26,8 +26,10 @@ import { useStock } from './hooks/useStock'
 import { useAuth } from './hooks/useAuth'
 const AuthModals = lazy(() => import('./components/auth/AuthModals').then(m => ({ default: m.AuthModals })))
 const AccountPage = lazy(() => import('./components/auth/AccountPage').then(m => ({ default: m.AccountPage })))
-import { listenDeliverySlots, reserveDeliverySlot, listenSettings } from './lib/firebase'
+import { listenDeliverySlots, reserveDeliverySlot, listenSettings, listenMysteryFraise, type MysteryFraiseState } from './lib/firebase'
 import { getMinDate } from './lib/delivery'
+import { MYSTERY_TROMPE_LOEIL_ID } from './constants'
+import { MysteryTrompeLoeilCard } from './components/MysteryTrompeLoeilCard'
 // Firebase importé dynamiquement pour le reste
 // addUserPoints, createOrder, etc. sont importés via import() dans les handlers
 
@@ -171,6 +173,10 @@ function AppContent() {
         livraisonTimeSlots: s.livraisonTimeSlots && s.livraisonTimeSlots.length > 0 ? s.livraisonTimeSlots : undefined,
       })
     })
+  }, [])
+  const [mysteryFraise, setMysteryFraise] = useState<MysteryFraiseState>({ revealed: false, winnerUid: null })
+  useEffect(() => {
+    return listenMysteryFraise(setMysteryFraise)
   }, [])
 
   // Confetti effect
@@ -547,10 +553,17 @@ function AppContent() {
     }
   }, [cart.length])
 
-  const total = useMemo(
+  const baseTotal = useMemo(
     () => cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0),
     [cart],
   )
+  const mysteryFraiseDiscount = useMemo(() => {
+    if (!user?.uid || !mysteryFraise.winnerUid || mysteryFraise.winnerUid !== user.uid) return 0
+    return cart
+      .filter((item) => item.product.id === MYSTERY_TROMPE_LOEIL_ID)
+      .reduce((sum, item) => sum + item.product.price * item.quantity * 0.1, 0)
+  }, [cart, user?.uid, mysteryFraise.winnerUid])
+  const total = Math.max(0, baseTotal - mysteryFraiseDiscount)
 
   const categories = useMemo(() => {
     const cats = Array.from(new Set(availableProducts.map((p) => p.category)))
@@ -591,6 +604,15 @@ function AppContent() {
 
     return filtered
   }, [activeCategory, searchQuery, availableProducts])
+
+  const orderedProducts = useMemo(() => {
+    if (mysteryFraise.revealed) return filteredProducts
+    const idx = filteredProducts.findIndex((p) => p.id === MYSTERY_TROMPE_LOEIL_ID)
+    if (idx <= 0) return filteredProducts
+    const arr = [...filteredProducts]
+    const [fraise] = arr.splice(idx, 1)
+    return [fraise, ...arr]
+  }, [filteredProducts, mysteryFraise.revealed])
 
   const handleAddToCart = (product: Product) => {
     if (isPreorderNotYetAvailable(product)) return
@@ -1366,11 +1388,47 @@ function AppContent() {
                 {/* Desktop Grid */}
                 <div className="hidden md:grid gap-4 sm:gap-6 grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   <AnimatePresence mode="popLayout">
-                    {filteredProducts.map((product, index) => (
-                      <ProductCard
+                    {orderedProducts.map((product, index) =>
+                      product.id === MYSTERY_TROMPE_LOEIL_ID && !mysteryFraise.revealed ? (
+                        <MysteryTrompeLoeilCard
+                          key={product.id}
+                          product={product}
+                          onAdd={handleAddToCart}
+                          onToast={showToast}
+                        />
+                      ) : (
+                        <ProductCard
+                          key={product.id}
+                          product={product}
+                          onAdd={handleAddToCart}
+                          isFavorite={isFavorite(product.id)}
+                          onToggleFavorite={toggleFavorite}
+                          stock={getStock(product.id)}
+                          isPreorderDay={isPreorderDay}
+                          dayNames={dayNames}
+                          priority={index < 4}
+                        />
+                      ),
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Mobile Swipeable List — tap = ajout direct (pas de page détail / pavé) */}
+                <div className="md:hidden space-y-3">
+                  {orderedProducts.map((product, index) =>
+                    product.id === MYSTERY_TROMPE_LOEIL_ID && !mysteryFraise.revealed ? (
+                      <MysteryTrompeLoeilCard
                         key={product.id}
                         product={product}
                         onAdd={handleAddToCart}
+                        onToast={showToast}
+                      />
+                    ) : (
+                      <SwipeableProductCard
+                        key={product.id}
+                        product={product}
+                        onAdd={handleAddToCart}
+                        onTap={handleAddToCart}
                         isFavorite={isFavorite(product.id)}
                         onToggleFavorite={toggleFavorite}
                         stock={getStock(product.id)}
@@ -1378,26 +1436,8 @@ function AppContent() {
                         dayNames={dayNames}
                         priority={index < 4}
                       />
-                    ))}
-                  </AnimatePresence>
-                </div>
-
-                {/* Mobile Swipeable List — tap = ajout direct (pas de page détail / pavé) */}
-                <div className="md:hidden space-y-3">
-                  {filteredProducts.map((product, index) => (
-                    <SwipeableProductCard
-                      key={product.id}
-                      product={product}
-                      onAdd={handleAddToCart}
-                      onTap={handleAddToCart}
-                      isFavorite={isFavorite(product.id)}
-                      onToggleFavorite={toggleFavorite}
-                      stock={getStock(product.id)}
-                      isPreorderDay={isPreorderDay}
-                      dayNames={dayNames}
-                      priority={index < 4}
-                    />
-                  ))}
+                    ),
+                  )}
                 </div>
               </>
             )}
@@ -1458,6 +1498,7 @@ function AppContent() {
               setDonationAmount={setDonationAmount}
               referralCodeInput={referralCodeInput}
               setReferralCodeInput={setReferralCodeInput}
+              mysteryFraiseDiscount={mysteryFraiseDiscount}
             />
           </motion.section>
         </main>
@@ -1715,6 +1756,7 @@ function AppContent() {
         setDonationAmount={setDonationAmount}
         referralCodeInput={referralCodeInput}
         setReferralCodeInput={setReferralCodeInput}
+        mysteryFraiseDiscount={mysteryFraiseDiscount}
       />
       <OrderRecapModal
         isOpen={showRecapModal}

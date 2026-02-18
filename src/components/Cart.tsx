@@ -55,6 +55,8 @@ interface CartProps {
     setDonationAmount?: (v: number) => void
     referralCodeInput?: string
     setReferralCodeInput?: (v: string) => void
+    /** Réduction 10 % gagnée en trouvant le trompe l'oeil mystère (Fraise) */
+    mysteryFraiseDiscount?: number
 }
 
 export function Cart({
@@ -85,6 +87,7 @@ export function Cart({
     setDonationAmount,
     referralCodeInput = '',
     setReferralCodeInput,
+    mysteryFraiseDiscount = 0,
 }: CartProps) {
     const hasItems = items.length > 0
     const itemCount = items.reduce((sum, item) => sum + item.quantity, 0)
@@ -598,12 +601,18 @@ export function Cart({
                             <div className="flex flex-col gap-3">
                                 <div className="flex items-center justify-between text-sm">
                                     <span className="text-mayssa-brown/60">Sous-total</span>
-                                    <span className="font-bold text-mayssa-brown">{total.toFixed(2)} €</span>
+                                    <span className="font-bold text-mayssa-brown">{(total + mysteryFraiseDiscount).toFixed(2)} €</span>
                                 </div>
                                 {appliedPromo && appliedPromo.discount > 0 && (
                                     <div className="flex items-center justify-between text-sm text-emerald-600">
                                         <span>Code promo ({appliedPromo.code})</span>
                                         <span className="font-bold">-{appliedPromo.discount.toFixed(2)} €</span>
+                                    </div>
+                                )}
+                                {mysteryFraiseDiscount > 0 && (
+                                    <div className="flex items-center justify-between text-sm text-amber-600">
+                                        <span>Réduction mystère Fraise (10 %)</span>
+                                        <span className="font-bold">-{mysteryFraiseDiscount.toFixed(2)} €</span>
                                     </div>
                                 )}
                                 {customer.wantsDelivery && (

@@ -3,11 +3,12 @@
     {
       "source": "functions",
       "codebase": "default",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "*.local"
-      ]
+      "ignore": ["node_modules", ".git", "*.local"]
     }
-  ]
+  ],
+  "emulators": {
+    "database": { "port": 9000 },
+    "functions": { "port": 5001 },
+    "ui": { "enabled": true, "port": 4000 }
+  }
 }

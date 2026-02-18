@@ -8,10 +8,13 @@
  */
 
 import { onValueCreated, onValueUpdated } from 'firebase-functions/v2/database'
+import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { defineString } from 'firebase-functions/params'
 import admin from 'firebase-admin'
 
 admin.initializeApp()
+
+const db = admin.database()
 
 const RESEND_API_KEY = defineString('RESEND_API_KEY')
 const ADMIN_EMAIL = defineString('ADMIN_EMAIL', { default: 'roumayssaghazi213@gmail.com' })
@@ -146,6 +149,26 @@ export const onOrderCreated = onValueCreated(
     }
 
     await Promise.all(promises)
+  }
+)
+
+/** Callable : soumettre la réponse au mystère Trompe l'oeil Fraise. Le premier à trouver a 10 % dessus. */
+export const submitMysteryGuess = onCall(
+  { region: 'europe-west1' },
+  async (request) => {
+    const guess = request.data?.guess
+    if (guess !== 'Fraise') {
+      return { success: false, error: 'wrong' }
+    }
+    const ref = db.ref('mysteryFraise')
+    const snapshot = await ref.once('value')
+    const current = snapshot.val()
+    if (current && current.revealed) {
+      return { success: true, alreadyRevealed: true }
+    }
+    const uid = request.auth?.uid || null
+    await ref.set({ revealed: true, winnerUid: uid })
+    return { success: true, winner: !!uid }
   }
 )
 

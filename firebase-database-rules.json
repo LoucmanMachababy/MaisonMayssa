@@ -23,6 +23,10 @@
       ".read": true,
       ".write": "auth != null"
     },
+    "mysteryFraise": {
+      ".read": true,
+      ".write": false
+    },
     "reviews": {
       ".read": true,
       ".write": true

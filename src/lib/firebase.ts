@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app'
-import { getDatabase, ref, onValue, set, get, push, update, remove, runTransaction } from 'firebase/database'
+import { getDatabase, ref, onValue, set, get, push, update, remove, runTransaction, connectDatabaseEmulator } from 'firebase/database'
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from 'firebase/auth'
+import { getFunctions, httpsCallable, connectFunctionsEmulator } from 'firebase/functions'
 import type { User } from 'firebase/auth'
 
 // ⚠️ Remplace ces valeurs par celles de ton projet Firebase
@@ -18,11 +19,18 @@ const app = initializeApp(firebaseConfig)
 const db = getDatabase(app)
 const auth = getAuth(app)
 
+/** En local : avec VITE_USE_FIREBASE_EMULATOR=true dans .env.local, l'app utilise les émulateurs (pas la prod). */
+const useEmulator = import.meta.env.DEV && import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true'
+if (useEmulator) {
+  connectDatabaseEmulator(db, '127.0.0.1', 9000)
+}
+
 // --- Références DB ---
 export const stockRef = ref(db, 'stock')
 export const settingsRef = ref(db, 'settings')
 export const productsOverrideRef = ref(db, 'products')
 const deliverySlotsRef = ref(db, 'deliverySlots')
+const mysteryFraiseRef = ref(db, 'mysteryFraise')
 
 /** Structure: deliverySlots/{date}/{time} = count (1 = créneau pris, 0 = dispo) */
 export type DeliverySlotsMap = Record<string, Record<string, number>>
@@ -45,6 +53,46 @@ export async function releaseDeliverySlot(date: string, time: string): Promise<v
   if (!date || !time) return
   const slotRef = ref(db, `deliverySlots/${date}/${time}`)
   await runTransaction(slotRef, (current) => Math.max(0, (current ?? 1) - 1))
+}
+
+// --- Mystère Trompe l'oeil Fraise ---
+export type MysteryFraiseState = { revealed: boolean; winnerUid: string | null }
+
+export function listenMysteryFraise(callback: (state: MysteryFraiseState) => void) {
+  return onValue(mysteryFraiseRef, (snapshot) => {
+    const val = snapshot.val()
+    callback(
+      val && typeof val === 'object'
+        ? { revealed: !!val.revealed, winnerUid: val.winnerUid ?? null }
+        : { revealed: false, winnerUid: null },
+    )
+  })
+}
+
+let _functionsInstance: ReturnType<typeof getFunctions> | null = null
+function getFunctionsInstance() {
+  if (_functionsInstance) return _functionsInstance
+  _functionsInstance = getFunctions(app, 'europe-west1')
+  if (useEmulator) {
+    connectFunctionsEmulator(_functionsInstance, '127.0.0.1', 5001)
+  }
+  return _functionsInstance
+}
+
+/** Soumettre la réponse au mystère (Fraise). Retourne { success, winner?, alreadyRevealed?, error? } */
+export async function submitMysteryGuess(guess: string): Promise<{
+  success: boolean
+  winner?: boolean
+  alreadyRevealed?: boolean
+  error?: string
+}> {
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable<{ guess: string }, { success: boolean; winner?: boolean; alreadyRevealed?: boolean; error?: string }>(
+    functions,
+    'submitMysteryGuess',
+  )
+  const res = await fn({ guess })
+  return res.data
 }
 
 // --- Stock ---
