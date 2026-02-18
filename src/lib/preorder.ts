@@ -6,6 +6,8 @@ export type Settings = {
   preorderDays: number[]
   preorderOpenings?: PreorderOpening[]
   preorderMessage: string
+  /** Si true, les clients peuvent commander (y compris trompe-l'œil) quel que soit le jour. */
+  ordersOpen?: boolean
 }
 
 export type StockMap = Record<string, number>

@@ -42,8 +42,14 @@ interface CartProps {
     deliverySlots?: DeliverySlotsMap
     /** Date minimum (définie par l'admin). Par défaut = aujourd'hui. */
     minDate?: string
+    /** Première date retrait (si défini avec minDateLivraison, le calendrier utilise celle du mode choisi). */
+    minDateRetrait?: string
+    /** Première date livraison. */
+    minDateLivraison?: string
     /** Date maximum (définie par l'admin). Optionnel. */
     maxDate?: string
+    /** Si false, les clients ne peuvent pas envoyer de commande. */
+    ordersOpen?: boolean
     /** Jours de la semaine autorisés (0=dim…6=sam). Si défini, le client ne peut choisir que ces jours. */
     availableWeekdays?: number[]
     /** Créneaux retrait (définis par l'admin). Si absent = défaut (ex. 18:30). */
@@ -79,10 +85,13 @@ export function Cart({
     onSelectReward,
     deliverySlots = {},
     minDate: minDateProp,
+    minDateRetrait,
+    minDateLivraison,
     maxDate: maxDateProp,
     availableWeekdays,
     retraitTimeSlots,
     livraisonTimeSlots,
+    ordersOpen = true,
     promoCodeInput = '',
     setPromoCodeInput,
     appliedPromo = null,
@@ -153,7 +162,9 @@ export function Cart({
         }
     }, [customer.wantsDelivery, customer.date, customer.time, deliverySlots, allTimeSlots])
 
-    const minDate = minDateProp && minDateProp.trim() ? minDateProp : getMinDate()
+    const minDate = (minDateRetrait != null && minDateLivraison != null)
+      ? (customer.wantsDelivery ? minDateLivraison : minDateRetrait)
+      : (minDateProp && minDateProp.trim() ? minDateProp : getMinDate())
     const maxDate = maxDateProp && maxDateProp.trim() ? maxDateProp : undefined
     const selectableDates = useMemo(
       () => getSelectableDates(minDate, maxDate, availableWeekdays),
@@ -181,6 +192,7 @@ export function Cart({
     const canSend =
       hasItems &&
       isCustomerValid &&
+      ordersOpen !== false &&
       !trompeLoeilBeforeMinDate &&
       (!hasNonTrompeLoeil || !orderCutoffPassed)
 
@@ -800,7 +812,7 @@ export function Cart({
                                     className="w-full flex items-center justify-center gap-3 rounded-[2rem] bg-[#25D366] text-white py-5 text-base font-bold shadow-2xl transition-all hover:bg-[#20bd5a] hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:grayscale disabled:hover:scale-100 cursor-pointer"
                                 >
                                     <MessageCircle size={24} />
-                                    <span>{hasItems ? (canSend ? 'Envoyer sur WhatsApp' : trompeLoeilBeforeMinDate ? `À partir du ${formatDateLabel(minDate)}` : orderCutoffPassed && hasNonTrompeLoeil ? 'Commandes jusqu\'à 23h' : 'Vérifiez le formulaire') : 'Votre panier est vide'}</span>
+                                    <span>{hasItems ? (canSend ? 'Envoyer sur WhatsApp' : ordersOpen === false ? 'Commandes fermées' : trompeLoeilBeforeMinDate ? `À partir du ${formatDateLabel(minDate)}` : orderCutoffPassed && hasNonTrompeLoeil ? 'Commandes jusqu\'à 23h' : 'Vérifiez le formulaire') : 'Votre panier est vide'}</span>
                                 </button>
 
                                 <div className="grid grid-cols-2 gap-3">

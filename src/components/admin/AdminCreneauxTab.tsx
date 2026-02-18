@@ -30,7 +30,9 @@ function formatSlotsForInput(slots: string[] | undefined): string {
 
 export function AdminCreneauxTab({ settings }: AdminCreneauxTabProps) {
   const today = getMinDate()
-  const [firstAvailableDate, setFirstAvailableDate] = useState(settings.firstAvailableDate ?? today)
+  const fallbackFirst = settings.firstAvailableDate?.trim() || today
+  const [firstAvailableDateRetrait, setFirstAvailableDateRetrait] = useState(settings.firstAvailableDateRetrait?.trim() ?? settings.firstAvailableDate?.trim() ?? today)
+  const [firstAvailableDateLivraison, setFirstAvailableDateLivraison] = useState(settings.firstAvailableDateLivraison?.trim() ?? settings.firstAvailableDate?.trim() ?? today)
   const [lastAvailableDate, setLastAvailableDate] = useState(settings.lastAvailableDate ?? '')
   const WEEKDAYS: { value: number; label: string }[] = [
     { value: 1, label: 'Lun' },
@@ -54,12 +56,13 @@ export function AdminCreneauxTab({ settings }: AdminCreneauxTabProps) {
   }
 
   useEffect(() => {
-    setFirstAvailableDate(settings.firstAvailableDate ?? today)
+    setFirstAvailableDateRetrait(settings.firstAvailableDateRetrait?.trim() ?? settings.firstAvailableDate?.trim() ?? today)
+    setFirstAvailableDateLivraison(settings.firstAvailableDateLivraison?.trim() ?? settings.firstAvailableDate?.trim() ?? today)
     setLastAvailableDate(settings.lastAvailableDate ?? '')
     setAvailableWeekdays(settings.availableWeekdays && settings.availableWeekdays.length > 0 ? settings.availableWeekdays : [3, 6])
     setRetraitInput(formatSlotsForInput(settings.retraitTimeSlots))
     setLivraisonInput(formatSlotsForInput(settings.livraisonTimeSlots))
-  }, [settings.firstAvailableDate, settings.lastAvailableDate, settings.availableWeekdays, settings.retraitTimeSlots, settings.livraisonTimeSlots, today])
+  }, [settings.firstAvailableDateRetrait, settings.firstAvailableDateLivraison, settings.firstAvailableDate, settings.lastAvailableDate, settings.availableWeekdays, settings.retraitTimeSlots, settings.livraisonTimeSlots, today])
 
   const handleSave = async () => {
     setMessage(null)
@@ -68,13 +71,14 @@ export function AdminCreneauxTab({ settings }: AdminCreneauxTabProps) {
       const retraitSlots = parseSlotsInput(retraitInput)
       const livraisonSlots = parseSlotsInput(livraisonInput)
       await updateSettings({
-        firstAvailableDate: firstAvailableDate.trim() || undefined,
+        firstAvailableDateRetrait: firstAvailableDateRetrait.trim() || undefined,
+        firstAvailableDateLivraison: firstAvailableDateLivraison.trim() || undefined,
         lastAvailableDate: lastAvailableDate.trim() || undefined,
         availableWeekdays: availableWeekdays.length > 0 ? availableWeekdays : undefined,
         retraitTimeSlots: retraitSlots.length > 0 ? retraitSlots : undefined,
         livraisonTimeSlots: livraisonSlots.length > 0 ? livraisonSlots : undefined,
       })
-      setMessage({ type: 'success', text: 'Créneaux enregistrés. Les clients ne pourront choisir que ces jours et horaires.' })
+      setMessage({ type: 'success', text: 'Créneaux enregistrés. Dates de retrait et livraison gérées séparément.' })
     } catch (err) {
       setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Erreur enregistrement' })
     } finally {
@@ -102,28 +106,42 @@ export function AdminCreneauxTab({ settings }: AdminCreneauxTabProps) {
           <div>
             <label className="block text-xs font-medium text-mayssa-brown/70 mb-1.5 flex items-center gap-1">
               <Calendar size={14} />
-              Première date disponible
+              Première date retrait (sur place)
             </label>
             <input
               type="date"
-              value={firstAvailableDate}
-              onChange={(e) => setFirstAvailableDate(e.target.value)}
+              value={firstAvailableDateRetrait}
+              onChange={(e) => setFirstAvailableDateRetrait(e.target.value)}
               min={today}
               className="w-full rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm border border-mayssa-brown/10 text-mayssa-brown"
             />
-            <p className="text-[10px] text-mayssa-brown/50 mt-1">À partir de cette date, le client peut choisir un jour.</p>
+            <p className="text-[10px] text-mayssa-brown/50 mt-1">À partir de cette date pour le calendrier retrait.</p>
           </div>
           <div>
             <label className="block text-xs font-medium text-mayssa-brown/70 mb-1.5 flex items-center gap-1">
               <Calendar size={14} />
-              Dernière date disponible (optionnel)
+              Première date livraison
+            </label>
+            <input
+              type="date"
+              value={firstAvailableDateLivraison}
+              onChange={(e) => setFirstAvailableDateLivraison(e.target.value)}
+              min={today}
+              className="w-full rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm border border-mayssa-brown/10 text-mayssa-brown"
+            />
+            <p className="text-[10px] text-mayssa-brown/50 mt-1">À partir de cette date pour le calendrier livraison.</p>
+          </div>
+          <div className="sm:col-span-2">
+            <label className="block text-xs font-medium text-mayssa-brown/70 mb-1.5 flex items-center gap-1">
+              <Calendar size={14} />
+              Dernière date disponible (optionnel, retrait et livraison)
             </label>
             <input
               type="date"
               value={lastAvailableDate}
               onChange={(e) => setLastAvailableDate(e.target.value)}
-              min={firstAvailableDate || today}
-              className="w-full rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm border border-mayssa-brown/10 text-mayssa-brown"
+              min={firstAvailableDateRetrait && firstAvailableDateLivraison ? (firstAvailableDateRetrait < firstAvailableDateLivraison ? firstAvailableDateRetrait : firstAvailableDateLivraison) : today}
+              className="w-full rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm border border-mayssa-brown/10 text-mayssa-brown max-w-xs"
             />
             <p className="text-[10px] text-mayssa-brown/50 mt-1">Laisser vide = pas de limite.</p>
           </div>

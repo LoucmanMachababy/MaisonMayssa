@@ -151,13 +151,19 @@ function AppContent() {
   const stockMapRef = useRef(stockMap)
   const isAuthenticatedRef = useRef(isAuthenticated)
   const [deliverySlots, setDeliverySlots] = useState<Record<string, Record<string, number>>>({})
+  const [ordersOpen, setOrdersOpen] = useState(true)
   const [deliverySchedule, setDeliverySchedule] = useState<{
     minDate: string
+    minDateRetrait: string
+    minDateLivraison: string
     maxDate?: string
     availableWeekdays?: number[]
     retraitTimeSlots?: string[]
     livraisonTimeSlots?: string[]
-  }>(() => ({ minDate: getMinDate() }))
+  }>(() => {
+    const today = getMinDate()
+    return { minDate: today, minDateRetrait: today, minDateLivraison: today }
+  })
   useEffect(() => { stockMapRef.current = stockMap }, [stockMap])
   useEffect(() => { isAuthenticatedRef.current = isAuthenticated }, [isAuthenticated])
   useEffect(() => {
@@ -166,8 +172,14 @@ function AppContent() {
   useEffect(() => {
     return listenSettings((s) => {
       const today = getMinDate()
+      const fallback = (s.firstAvailableDate && s.firstAvailableDate.trim()) ? s.firstAvailableDate.trim() : today
+      const minRetrait = (s.firstAvailableDateRetrait && s.firstAvailableDateRetrait.trim()) ? s.firstAvailableDateRetrait.trim() : fallback
+      const minLivraison = (s.firstAvailableDateLivraison && s.firstAvailableDateLivraison.trim()) ? s.firstAvailableDateLivraison.trim() : fallback
+      setOrdersOpen(s.ordersOpen !== false)
       setDeliverySchedule({
-        minDate: (s.firstAvailableDate && s.firstAvailableDate.trim()) ? s.firstAvailableDate.trim() : today,
+        minDate: minRetrait,
+        minDateRetrait: minRetrait,
+        minDateLivraison: minLivraison,
         maxDate: (s.lastAvailableDate && s.lastAvailableDate.trim()) ? s.lastAvailableDate.trim() : undefined,
         availableWeekdays: s.availableWeekdays && s.availableWeekdays.length > 0 ? s.availableWeekdays : undefined,
         retraitTimeSlots: s.retraitTimeSlots && s.retraitTimeSlots.length > 0 ? s.retraitTimeSlots : undefined,
@@ -986,10 +998,15 @@ function AppContent() {
   }
 
   const handleSend = async () => {
+    if (!ordersOpen) {
+      showToast('Les commandes sont fermées pour le moment.', 'error', 5000)
+      return
+    }
     const hasNonTrompeLoeil = cart.some((item) => item.product.category !== "Trompe l'oeil")
     const hasTrompeLoeil = cart.some((item) => item.product.category === "Trompe l'oeil")
-    if (hasTrompeLoeil && isBeforeFirstPickupDate(deliverySchedule.minDate)) {
-      showToast(`Les précommandes trompe l'œil sont possibles à partir du ${formatDateLabel(deliverySchedule.minDate)}.`, 'error', 5000)
+    const minDateForMode = customer.wantsDelivery ? deliverySchedule.minDateLivraison : deliverySchedule.minDateRetrait
+    if (hasTrompeLoeil && isBeforeFirstPickupDate(minDateForMode)) {
+      showToast(`Les précommandes trompe l'œil sont possibles à partir du ${formatDateLabel(minDateForMode)}.`, 'error', 5000)
       return
     }
     if (hasNonTrompeLoeil && !isBeforeOrderCutoff()) {
@@ -1122,10 +1139,15 @@ function AppContent() {
   }
 
   const handleSendInstagram = async () => {
+    if (!ordersOpen) {
+      showToast('Les commandes sont fermées pour le moment.', 'error', 5000)
+      return
+    }
     const hasNonTrompeLoeil = cart.some((item) => item.product.category !== "Trompe l'oeil")
     const hasTrompeLoeil = cart.some((item) => item.product.category === "Trompe l'oeil")
-    if (hasTrompeLoeil && isBeforeFirstPickupDate(deliverySchedule.minDate)) {
-      showToast(`Les précommandes trompe l'œil sont possibles à partir du ${formatDateLabel(deliverySchedule.minDate)}.`, 'error', 5000)
+    const minDateForMode = customer.wantsDelivery ? deliverySchedule.minDateLivraison : deliverySchedule.minDateRetrait
+    if (hasTrompeLoeil && isBeforeFirstPickupDate(minDateForMode)) {
+      showToast(`Les précommandes trompe l'œil sont possibles à partir du ${formatDateLabel(minDateForMode)}.`, 'error', 5000)
       return
     }
     if (hasNonTrompeLoeil && !isBeforeOrderCutoff()) {
@@ -1184,10 +1206,15 @@ function AppContent() {
   }
 
   const handleSendSnap = async () => {
+    if (!ordersOpen) {
+      showToast('Les commandes sont fermées pour le moment.', 'error', 5000)
+      return
+    }
     const hasNonTrompeLoeil = cart.some((item) => item.product.category !== "Trompe l'oeil")
     const hasTrompeLoeil = cart.some((item) => item.product.category === "Trompe l'oeil")
-    if (hasTrompeLoeil && isBeforeFirstPickupDate(deliverySchedule.minDate)) {
-      showToast(`Les précommandes trompe l'œil sont possibles à partir du ${formatDateLabel(deliverySchedule.minDate)}.`, 'error', 5000)
+    const minDateForMode = customer.wantsDelivery ? deliverySchedule.minDateLivraison : deliverySchedule.minDateRetrait
+    if (hasTrompeLoeil && isBeforeFirstPickupDate(minDateForMode)) {
+      showToast(`Les précommandes trompe l'œil sont possibles à partir du ${formatDateLabel(minDateForMode)}.`, 'error', 5000)
       return
     }
     if (hasNonTrompeLoeil && !isBeforeOrderCutoff()) {
@@ -1475,10 +1502,13 @@ function AppContent() {
               onSelectReward={setSelectedReward}
               deliverySlots={deliverySlots}
               minDate={deliverySchedule.minDate}
+              minDateRetrait={deliverySchedule.minDateRetrait}
+              minDateLivraison={deliverySchedule.minDateLivraison}
               maxDate={deliverySchedule.maxDate}
               availableWeekdays={deliverySchedule.availableWeekdays}
               retraitTimeSlots={deliverySchedule.retraitTimeSlots}
               livraisonTimeSlots={deliverySchedule.livraisonTimeSlots}
+              ordersOpen={ordersOpen}
               promoCodeInput={promoCodeInput}
               setPromoCodeInput={setPromoCodeInput}
               appliedPromo={appliedPromo}
@@ -1741,10 +1771,13 @@ function AppContent() {
         onSelectReward={setSelectedReward}
         deliverySlots={deliverySlots}
         minDate={deliverySchedule.minDate}
+        minDateRetrait={deliverySchedule.minDateRetrait}
+        minDateLivraison={deliverySchedule.minDateLivraison}
         maxDate={deliverySchedule.maxDate}
         availableWeekdays={deliverySchedule.availableWeekdays}
         retraitTimeSlots={deliverySchedule.retraitTimeSlots}
         livraisonTimeSlots={deliverySchedule.livraisonTimeSlots}
+        ordersOpen={ordersOpen}
         promoCodeInput={promoCodeInput}
         setPromoCodeInput={setPromoCodeInput}
         appliedPromo={appliedPromo}

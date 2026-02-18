@@ -44,10 +44,13 @@ interface CartSheetProps {
   onSelectReward?: (reward: { type: keyof typeof REWARD_COSTS; id: string } | null) => void
   deliverySlots?: DeliverySlotsMap
   minDate?: string
+  minDateRetrait?: string
+  minDateLivraison?: string
   maxDate?: string
   availableWeekdays?: number[]
   retraitTimeSlots?: string[]
   livraisonTimeSlots?: string[]
+  ordersOpen?: boolean
   promoCodeInput?: string
   setPromoCodeInput?: (v: string) => void
   appliedPromo?: { code: string; discount: number } | null
@@ -78,10 +81,13 @@ export function CartSheet({
   onSelectReward,
   deliverySlots = {},
   minDate: minDateProp,
+  minDateRetrait,
+  minDateLivraison,
   maxDate: maxDateProp,
   availableWeekdays,
   retraitTimeSlots,
   livraisonTimeSlots,
+  ordersOpen = true,
   promoCodeInput = '',
   setPromoCodeInput,
   appliedPromo = null,
@@ -153,7 +159,9 @@ export function CartSheet({
   const isSlotFull = (time: string) =>
     Boolean(customer.wantsDelivery && customer.date && (deliverySlots[customer.date]?.[time] ?? 0) >= DELIVERY_SLOT_MAX_CAPACITY)
 
-  const minDate = minDateProp && minDateProp.trim() ? minDateProp : getMinDate()
+  const minDate = (minDateRetrait != null && minDateLivraison != null)
+    ? (customer.wantsDelivery ? minDateLivraison : minDateRetrait)
+    : (minDateProp && minDateProp.trim() ? minDateProp : getMinDate())
   const maxDate = maxDateProp && maxDateProp.trim() ? maxDateProp : undefined
   const selectableDates = useMemo(
     () => getSelectableDates(minDate, maxDate, availableWeekdays),
@@ -195,6 +203,7 @@ export function CartSheet({
   const canSend =
     hasItems &&
     isCustomerValid &&
+    ordersOpen !== false &&
     !trompeLoeilBeforeMinDate &&
     (!hasNonTrompeLoeil || !orderCutoffPassed)
 
@@ -818,11 +827,13 @@ export function CartSheet({
                 {hasItems
                   ? canSend
                     ? 'Envoyer sur WhatsApp'
-                    : trompeLoeilBeforeMinDate
-                      ? `À partir du ${formatDateLabel(minDate)}`
-                      : orderCutoffPassed && hasNonTrompeLoeil
-                        ? "Jusqu'à 23h"
-                        : 'Complète tes infos'
+                    : ordersOpen === false
+                      ? 'Commandes fermées'
+                      : trompeLoeilBeforeMinDate
+                        ? `À partir du ${formatDateLabel(minDate)}`
+                        : orderCutoffPassed && hasNonTrompeLoeil
+                          ? "Jusqu'à 23h"
+                          : 'Complète tes infos'
                   : 'Panier vide'}
               </motion.button>
 

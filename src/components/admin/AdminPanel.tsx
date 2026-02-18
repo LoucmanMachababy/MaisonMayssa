@@ -769,15 +769,21 @@ function Dashboard({ user }: { user: User }) {
 
       <main className="max-w-2xl mx-auto px-4 py-4 space-y-4 pb-8">
         {/* Status banner */}
-        <div className={`rounded-2xl p-4 text-center shadow-sm ${isPreorderDay ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'}`}>
-          <p className={`text-sm font-bold ${isPreorderDay ? 'text-emerald-800' : 'text-amber-800'}`}>
-            {isPreorderDay
-              ? 'Précommandes ouvertes aujourd\'hui'
-              : (() => {
-                  const next = openings.find(o => o.day > today) ?? openings[0]
-                  const label = next ? `${DAY_LABELS[next.day]}${next.fromTime && next.fromTime !== '00:00' ? ` ${next.fromTime}` : ''}` : 'bientôt'
-                  return `Fermé — prochaine ouverture : ${label}`
-                })()
+        <div className={`rounded-2xl p-4 text-center shadow-sm ${
+          settings.ordersOpen === false ? 'bg-red-50 border border-red-200' : isPreorderDay ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'
+        }`}>
+          <p className={`text-sm font-bold ${
+            settings.ordersOpen === false ? 'text-red-800' : isPreorderDay ? 'text-emerald-800' : 'text-amber-800'
+          }`}>
+            {settings.ordersOpen === false
+              ? 'Commandes fermées — les clients ne peuvent pas envoyer de commande'
+              : isPreorderDay
+                ? 'Précommandes ouvertes aujourd\'hui'
+                : (() => {
+                    const next = openings.find(o => o.day > today) ?? openings[0]
+                    const label = next ? `${DAY_LABELS[next.day]}${next.fromTime && next.fromTime !== '00:00' ? ` ${next.fromTime}` : ''}` : 'bientôt'
+                    return `Fermé — prochaine ouverture : ${label}`
+                  })()
             }
           </p>
         </div>
@@ -1590,6 +1596,33 @@ function Dashboard({ user }: { user: User }) {
             transition={{ duration: 0.2 }}
             className="bg-white rounded-2xl p-6 shadow-sm border border-mayssa-brown/5 space-y-4"
           >
+            {/* Toggle Commandes ouvertes / fermées */}
+            <div className={`rounded-xl p-4 border-2 ${settings.ordersOpen === false ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'}`}>
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <p className="text-sm font-bold text-mayssa-brown">
+                    {settings.ordersOpen === false ? 'Commandes fermées' : 'Commandes ouvertes'}
+                  </p>
+                  <p className="text-[10px] text-mayssa-brown/60 mt-0.5">
+                    {settings.ordersOpen === false
+                      ? 'Les clients ne peuvent pas envoyer de commande. Active pour rouvrir.'
+                      : 'Les clients peuvent commander. Désactive pour fermer temporairement.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => updateSettings({ ordersOpen: !(settings.ordersOpen !== false) })}
+                  className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-colors cursor-pointer ${
+                    settings.ordersOpen === false
+                      ? 'bg-emerald-500 text-white hover:bg-emerald-600'
+                      : 'bg-white border-2 border-amber-300 text-amber-700 hover:bg-amber-50'
+                  }`}
+                >
+                  {settings.ordersOpen === false ? 'Ouvrir les commandes' : 'Fermer les commandes'}
+                </button>
+              </div>
+            </div>
+
             <p className="text-xs text-mayssa-brown/60">
               Jours et horaires d&apos;ouverture des précommandes (ex. Samedi toute la journée, Mercredi à partir de midi) :
             </p>

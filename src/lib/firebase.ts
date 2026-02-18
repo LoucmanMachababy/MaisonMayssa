@@ -156,7 +156,13 @@ export type Settings = {
   /** Horaires d'ouverture des précommandes trompe-l'œil (ex. samedi 00:00, mercredi 12:00). Si absent, on utilise preorderDays avec 00:00. */
   preorderOpenings?: PreorderOpening[]
   preorderMessage: string
-  /** Première date sélectionnable pour retrait/livraison (YYYY-MM-DD). Si absent = aujourd'hui. */
+  /** Si false, les clients ne peuvent pas envoyer de commande (bouton désactivé). Si true ou absent = commandes ouvertes. */
+  ordersOpen?: boolean
+  /** Première date sélectionnable pour retrait (YYYY-MM-DD). Si absent = firstAvailableDate puis aujourd'hui. */
+  firstAvailableDateRetrait?: string
+  /** Première date sélectionnable pour livraison (YYYY-MM-DD). Si absent = firstAvailableDate puis aujourd'hui. */
+  firstAvailableDateLivraison?: string
+  /** Première date sélectionnable pour retrait/livraison (YYYY-MM-DD). Rétrocompat : utilisée si les dates retrait/livraison ne sont pas définies. */
   firstAvailableDate?: string
   /** Dernière date sélectionnable (YYYY-MM-DD). Si absent = pas de limite. */
   lastAvailableDate?: string
@@ -199,7 +205,10 @@ function mergeSettings(val: unknown): Settings {
   const preorderOpenings = Array.isArray(raw.preorderOpenings) && (raw.preorderOpenings as PreorderOpening[]).length > 0
     ? (raw.preorderOpenings as PreorderOpening[])
     : DEFAULT_PREORDER_OPENINGS
+  const ordersOpen = raw.ordersOpen === false ? false : true
   const firstAvailableDate = typeof raw.firstAvailableDate === 'string' && raw.firstAvailableDate.trim() ? raw.firstAvailableDate.trim() : undefined
+  const firstAvailableDateRetrait = typeof raw.firstAvailableDateRetrait === 'string' && raw.firstAvailableDateRetrait.trim() ? raw.firstAvailableDateRetrait.trim() : undefined
+  const firstAvailableDateLivraison = typeof raw.firstAvailableDateLivraison === 'string' && raw.firstAvailableDateLivraison.trim() ? raw.firstAvailableDateLivraison.trim() : undefined
   const lastAvailableDate = typeof raw.lastAvailableDate === 'string' && raw.lastAvailableDate.trim() ? raw.lastAvailableDate.trim() : undefined
   const availableWeekdays = Array.isArray(raw.availableWeekdays) && (raw.availableWeekdays as number[]).length > 0
     ? (raw.availableWeekdays as number[]).filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)
@@ -214,6 +223,9 @@ function mergeSettings(val: unknown): Settings {
     preorderDays,
     preorderOpenings,
     preorderMessage: typeof raw.preorderMessage === 'string' ? raw.preorderMessage : '',
+    ordersOpen,
+    ...(firstAvailableDateRetrait && { firstAvailableDateRetrait }),
+    ...(firstAvailableDateLivraison && { firstAvailableDateLivraison }),
     ...(firstAvailableDate && { firstAvailableDate }),
     ...(lastAvailableDate && { lastAvailableDate }),
     ...(availableWeekdays && availableWeekdays.length > 0 && { availableWeekdays }),
