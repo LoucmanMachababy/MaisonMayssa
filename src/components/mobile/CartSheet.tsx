@@ -522,7 +522,7 @@ export function CartSheet({
                 </p>
                 {customer.wantsDelivery && customer.date && timeSlots.length === 0 && (
                   <p className="text-[10px] text-amber-600 bg-amber-50 rounded-lg px-2 py-1.5">
-                    Plus de créneaux pour cette date. Choisissez une autre date.
+                    Plus de créneaux disponibles pour cette date en livraison. Choisissez une autre date ou heure.
                   </p>
                 )}
               </div>

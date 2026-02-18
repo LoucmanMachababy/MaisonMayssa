@@ -179,6 +179,14 @@ export function buildOrderMessage(params: BuildOrderMessageParams): string {
     lines.push('', '')
   }
 
+  // Mini récap rapide en une ligne (mode, date, heure) pour lecture instantanée
+  const recapDate = customer.date
+    ? formatDateYyyyMmDdToFrench(customer.date, { weekday: 'short' })
+    : 'date à définir'
+  const recapTime = customer.time || 'heure à définir'
+  lines.push('')
+  lines.push(`Récap rapide : ${modeTexte} — ${recapDate} à ${recapTime}`)
+
   lines.push('Merci beaucoup, à très vite !')
   lines.push('— Site de précommande Maison Mayssa (WhatsApp uniquement)')
 

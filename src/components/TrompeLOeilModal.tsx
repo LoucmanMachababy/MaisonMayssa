@@ -110,6 +110,7 @@ export function TrompeLOeilModal({ product, stock, onClose, onConfirm }: TrompeL
                   <p className="font-medium text-mayssa-brown">Comment ça marche :</p>
                   <p>Tu commandes <strong>le mercredi</strong> → tu récupères <strong>le samedi</strong>.</p>
                   <p>Tu commandes <strong>le samedi</strong> → tu récupères <strong>le mercredi</strong>.</p>
+                  <p className="text-mayssa-brown/70 italic">(La date de récupération peut être décalée de 1 à 2 jours selon la préparation.)</p>
                 </div>
               </div>
 

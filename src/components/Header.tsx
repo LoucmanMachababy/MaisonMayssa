@@ -88,7 +88,7 @@ export function Header() {
                                     </span>
                                 </div>
                                 <p className="text-[11px] sm:text-xs text-mayssa-brown/80 font-medium">
-                                    Trompes l&apos;œil uniquement : commande mercredi → récup samedi · commande samedi → récup mercredi
+                                    Trompes l&apos;œil uniquement : commande mercredi → récup samedi · commande samedi → récup mercredi (date pouvant varier de 1 à 2 jours)
                                 </p>
                             </div>
                         </motion.div>

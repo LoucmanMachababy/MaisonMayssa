@@ -606,7 +606,7 @@ export function Cart({
                         </div>
                         {customer.wantsDelivery && customer.date && timeSlots.length === 0 && (
                             <p className="text-xs text-amber-600 bg-amber-50 rounded-xl px-3 py-2">
-                                Plus de créneaux disponibles pour cette date. Choisissez une autre date.
+                                Plus de créneaux disponibles pour cette date en livraison. Choisissez une autre date ou heure.
                             </p>
                         )}
 
