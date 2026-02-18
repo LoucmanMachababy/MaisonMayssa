@@ -5,7 +5,7 @@ const FAQ_ITEMS = [
   { q: 'Quels sont les horaires de retrait et livraison ?', a: 'Service de 18h30 à 2h du matin. Livraison sur Annecy et alentours. Retrait possible sur place.' },
   { q: 'Comment se passe le paiement ?', a: 'Tu peux régler par PayPal (lien proposé après la commande) ou à la livraison / au retrait. Aucun paiement en ligne obligatoire.' },
   { q: "C'est quoi la précommande ?", a: "Trompes l'œil : le mercredi on prend les précommandes pour une récupération le samedi ; le samedi on prend les précommandes pour une récupération le mercredi. La date de récupération peut être décalée de 1 à 2 jours selon la préparation. Pâtisseries, cookies, boxes et le reste sont disponibles en permanence (pas de jour fixe)." },
-  { q: 'Livraison offerte ?', a: "Oui, dès 45 € d'achat sur la zone habituelle (rayon d'environ 5 km depuis Annecy). Sinon forfait 5 €. Pour les secteurs plus éloignés, nous contacter par WhatsApp." },
+  { q: 'Livraison offerte ?', a: "Oui, dès 50 € d'achat sur la zone habituelle (rayon d'environ 5 km depuis Annecy). Sinon forfait 5 €. Pour les secteurs plus éloignés, nous contacter par WhatsApp." },
 ]
 
 export function FAQSection() {

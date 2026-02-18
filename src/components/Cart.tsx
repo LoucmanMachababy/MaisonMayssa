@@ -174,11 +174,14 @@ export function Cart({
 
     const isCustomerValid = Object.keys(validationErrors).length === 0
     const hasNonTrompeLoeil = items.some((item) => item.product.category !== "Trompe l'oeil")
+    const hasTrompeLoeil = items.some((item) => item.product.category === "Trompe l'oeil")
+    const trompeLoeilBeforeMinDate = hasTrompeLoeil && isBeforeFirstPickupDate(minDate)
     const orderCutoffPassed = !isBeforeOrderCutoff()
     const isClassicPreorderPhase = isBeforeFirstPickupDate(FIRST_PICKUP_DATE_CLASSIC)
     const canSend =
       hasItems &&
       isCustomerValid &&
+      !trompeLoeilBeforeMinDate &&
       (!hasNonTrompeLoeil || !orderCutoffPassed)
 
     return (
@@ -299,7 +302,7 @@ export function Cart({
                         <textarea
                             value={note}
                             onChange={(e) => onNoteChange(e.target.value)}
-                            placeholder="Allergies, une occasion spéciale, ou une demande particulière pour votre livraison ?"
+                            placeholder="Allergies ou instructions livraison"
                             className="w-full min-h-[120px] resize-none rounded-[2rem] bg-white p-5 text-sm md:text-base text-mayssa-brown ring-1 ring-mayssa-brown/10 focus:ring-2 focus:ring-mayssa-caramel transition-all premium-shadow"
                         />
                     </div>
@@ -480,7 +483,7 @@ export function Cart({
                                     type="email"
                                     value={customer.email ?? ''}
                                     onChange={(e) => onCustomerChange({ ...customer, email: e.target.value.trim() || undefined })}
-                                    placeholder="Email (pour recevoir le récap et les notifications)"
+                                    placeholder="Email (récap + notifs)"
                                     aria-label="Email pour récap de commande"
                                     className="w-full bg-transparent text-sm font-semibold text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
                                 />
@@ -745,7 +748,7 @@ export function Cart({
                                         </span>
                                     </div>
                                     <p className="text-xs text-mayssa-brown/70 mb-2">
-                                        Crée ton compte pour accumuler des points et débloquer des récompenses gratuites.
+                                        1 € dépensé = 1 point. Cadeaux à 60, 100, 150 ou 250 pts (surprise, 5€, mini box, box).
                                     </p>
                                     <button
                                         type="button"
@@ -763,6 +766,15 @@ export function Cart({
                                     <MessageCircle size={14} />
                                     Envoyez votre commande via WhatsApp, Instagram ou Snapchat.
                                 </p>
+                                <div className="max-w-md mx-auto rounded-2xl bg-mayssa-soft/60 border border-mayssa-brown/10 px-3 py-3 text-[10px] text-mayssa-brown/80 space-y-1.5">
+                                    <p className="font-semibold text-[11px] text-mayssa-brown">
+                                        Parcours de commande Maison Mayssa :
+                                    </p>
+                                    <p><span className="font-semibold">Étape 1 :</span> je remplis mon panier sur le site.</p>
+                                    <p><span className="font-semibold">Étape 2 :</span> j&apos;envoie ma commande sur WhatsApp (ou Insta / Snap).</p>
+                                    <p><span className="font-semibold">Étape 3 :</span> Maison Mayssa me confirme la commande et l&apos;heure exacte.</p>
+                                    <p><span className="font-semibold">Étape 4 :</span> je règle à la livraison / au retrait ou par PayPal (optionnel).</p>
+                                </div>
 
                                 {hasNonTrompeLoeil && isClassicPreorderPhase && (
                                     <p className="text-xs text-mayssa-brown/80 text-center bg-mayssa-cream/80 rounded-xl px-3 py-2 border border-mayssa-caramel/30">
@@ -774,6 +786,11 @@ export function Cart({
                                         Commandes (pâtisseries, cookies…) possibles jusqu&apos;à 23h. Les précommandes trompe-l&apos;œil restent disponibles.
                                     </p>
                                 )}
+                                {trompeLoeilBeforeMinDate && (
+                                    <p className="text-xs text-amber-700 text-center bg-amber-50 rounded-xl px-3 py-2 border border-amber-200">
+                                        Les précommandes trompe l&apos;œil sont possibles à partir du {formatDateLabel(minDate)}.
+                                    </p>
+                                )}
 
                                 <button
                                     type="button"
@@ -783,7 +800,7 @@ export function Cart({
                                     className="w-full flex items-center justify-center gap-3 rounded-[2rem] bg-[#25D366] text-white py-5 text-base font-bold shadow-2xl transition-all hover:bg-[#20bd5a] hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:grayscale disabled:hover:scale-100 cursor-pointer"
                                 >
                                     <MessageCircle size={24} />
-                                    <span>{hasItems ? (canSend ? 'Envoyer sur WhatsApp' : orderCutoffPassed && hasNonTrompeLoeil ? 'Commandes jusqu\'à 23h' : 'Vérifiez le formulaire') : 'Votre panier est vide'}</span>
+                                    <span>{hasItems ? (canSend ? 'Envoyer sur WhatsApp' : trompeLoeilBeforeMinDate ? `À partir du ${formatDateLabel(minDate)}` : orderCutoffPassed && hasNonTrompeLoeil ? 'Commandes jusqu\'à 23h' : 'Vérifiez le formulaire') : 'Votre panier est vide'}</span>
                                 </button>
 
                                 <div className="grid grid-cols-2 gap-3">

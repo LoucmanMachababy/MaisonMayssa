@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
+import { jsPDF } from 'jspdf'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { LogOut, Package, Plus, Minus, Calendar, Clock, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp, Pencil, Search, Download, Bell, MessageSquare, Filter, XCircle, Star, Tag, BarChart3, Printer } from 'lucide-react'
+import { LogOut, Package, Plus, Minus, Calendar, Clock, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp, Pencil, Search, Download, Bell, MessageSquare, Filter, XCircle, Star, Tag, BarChart3, Printer, FileText } from 'lucide-react'
 import type { OrderStatus } from '../../lib/firebase'
 import {
   adminLogin, adminLogout, onAuthChange,
@@ -97,6 +98,118 @@ function exportOrdersToCSV(entries: [string, Order][]): void {
   a.download = `commandes-maison-mayssa-${new Date().toISOString().slice(0, 10)}.csv`
   a.click()
   URL.revokeObjectURL(a.href)
+}
+
+// Export PDF lisible des commandes filtrées (respecte les filtres de l'onglet Historique)
+function exportOrdersToPDF(entries: [string, Order][]): void {
+  if (entries.length === 0) return
+
+  const doc = new jsPDF({ format: 'a4' })
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const margin = 15
+  const maxWidth = pageWidth - margin * 2
+  let y = 20
+
+  // Titre
+  doc.setFontSize(18)
+  doc.setFont('helvetica', 'bold')
+  doc.text('Commandes Maison Mayssa', margin, y)
+  y += 8
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'normal')
+  doc.text('Vue filtrée depuis l’onglet Historique', margin, y)
+  y += 15
+
+  entries.forEach(([id, o]) => {
+    if (y > 260) {
+      doc.addPage()
+      y = 20
+    }
+
+    const cardY = y
+    let lineY = y + 8
+
+    const orderRef = o.orderNumber != null ? `#${o.orderNumber}` : `#${id.slice(-8)}`
+    const createdAtDate = o.createdAt ? new Date(o.createdAt) : null
+    const dateStr = createdAtDate
+      ? createdAtDate.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      : ''
+    const timeStr = createdAtDate
+      ? createdAtDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+      : ''
+
+    const client = [o.customer?.firstName, o.customer?.lastName].filter(Boolean).join(' ') || 'Client'
+    const phone = o.customer?.phone ?? ''
+    const statusLabel =
+      ORDER_STATUS_LABELS[o.status ?? ''] ??
+      (o.status === 'en_attente'
+        ? 'En attente'
+        : o.status === 'en_preparation'
+          ? 'En préparation'
+          : o.status === 'pret'
+            ? 'Prête'
+            : o.status === 'livree'
+              ? 'Livrée'
+              : o.status === 'validee'
+                ? 'Validée'
+                : o.status === 'refusee'
+                  ? 'Refusée'
+                  : (o.status ?? ''))
+    const modeLabel = o.deliveryMode === 'livraison' ? 'Livraison' : 'Retrait'
+
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.text('Commande ' + orderRef, margin + 3, lineY)
+    if (dateStr || timeStr) {
+      doc.text(`${dateStr} ${timeStr}`, pageWidth - margin - 40, lineY)
+    }
+    lineY += 6
+
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.text(client, margin + 3, lineY)
+    lineY += 6
+
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    if (phone) {
+      doc.text('Tel: ' + phone, margin + 3, lineY)
+      lineY += 5
+    }
+    doc.text(`Statut: ${statusLabel} · Mode: ${modeLabel}`, margin + 3, lineY)
+    lineY += 6
+
+    if (o.customer?.address) {
+      const addrLines = doc.splitTextToSize(o.customer.address, maxWidth - 6)
+      doc.text(addrLines, margin + 3, lineY)
+      lineY += addrLines.length * 4.5 + 2
+    }
+
+    const itemsStr = (o.items ?? []).map(i => `${i.quantity}x ${i.name}`).join(', ')
+    if (itemsStr) {
+      const itemsLines = doc.splitTextToSize('Articles: ' + itemsStr, maxWidth - 6)
+      doc.text(itemsLines, margin + 3, lineY)
+      lineY += itemsLines.length * 4.5 + 2
+    }
+
+    if (o.clientNote) {
+      const noteLines = doc.splitTextToSize('Note client: ' + o.clientNote, maxWidth - 6)
+      doc.text(noteLines, margin + 3, lineY)
+      lineY += noteLines.length * 4.5 + 2
+    }
+
+    doc.setFont('helvetica', 'bold')
+    doc.text('Total: ' + (o.total ?? 0).toFixed(2) + ' €', margin + 3, lineY)
+
+    const cardHeight = Math.max(45, lineY - cardY + 8)
+    doc.setDrawColor(91, 58, 41)
+    doc.setLineWidth(0.3)
+    doc.rect(margin, cardY, maxWidth, cardHeight)
+    y = cardY + cardHeight + 8
+  })
+
+  const dateSuffix = new Date().toISOString().slice(0, 10)
+  doc.save(`commandes-maison-mayssa-${dateSuffix}.pdf`)
 }
 
 function exportReviewsToCSV(reviewsMap: Record<string, Review>): void {
@@ -968,13 +1081,22 @@ function Dashboard({ user }: { user: User }) {
                 <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">Résultats</span>
                 <p className="text-lg font-display font-bold text-mayssa-brown">{sortedOrders.length} commande{sortedOrders.length !== 1 ? 's' : ''}</p>
               </div>
-              <button
-                onClick={() => exportOrdersToCSV(sortedOrders)}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow-md transition-all cursor-pointer"
-              >
-                <Download size={16} />
-                Export CSV
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => exportOrdersToPDF(sortedOrders)}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-mayssa-brown text-white text-xs font-bold hover:bg-mayssa-caramel shadow-md transition-all cursor-pointer"
+                >
+                  <FileText size={16} />
+                  Export PDF
+                </button>
+                <button
+                  onClick={() => exportOrdersToCSV(sortedOrders)}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow-md transition-all cursor-pointer"
+                >
+                  <Download size={16} />
+                  Export CSV
+                </button>
+              </div>
             </div>
 
             {/* Filtres premium avec statut */}

@@ -80,9 +80,10 @@ import {
   FREE_DELIVERY_THRESHOLD,
   calculateDistance,
   computeDeliveryFee,
+  formatDateLabel,
 } from './lib/delivery'
 import { buildOrderMessage } from './lib/orderMessage'
-import { isPreorderNotYetAvailable, isBeforeOrderCutoff } from './lib/utils'
+import { isPreorderNotYetAvailable, isBeforeOrderCutoff, isBeforeFirstPickupDate } from './lib/utils'
 import {
   Sparkles,
   Search,
@@ -986,6 +987,11 @@ function AppContent() {
 
   const handleSend = async () => {
     const hasNonTrompeLoeil = cart.some((item) => item.product.category !== "Trompe l'oeil")
+    const hasTrompeLoeil = cart.some((item) => item.product.category === "Trompe l'oeil")
+    if (hasTrompeLoeil && isBeforeFirstPickupDate(deliverySchedule.minDate)) {
+      showToast(`Les précommandes trompe l'œil sont possibles à partir du ${formatDateLabel(deliverySchedule.minDate)}.`, 'error', 5000)
+      return
+    }
     if (hasNonTrompeLoeil && !isBeforeOrderCutoff()) {
       showToast('Commandes (pâtisseries, cookies…) possibles jusqu\'à 23h. Les précommandes trompe-l\'œil restent disponibles.', 'error', 5000)
       return
@@ -1117,6 +1123,11 @@ function AppContent() {
 
   const handleSendInstagram = async () => {
     const hasNonTrompeLoeil = cart.some((item) => item.product.category !== "Trompe l'oeil")
+    const hasTrompeLoeil = cart.some((item) => item.product.category === "Trompe l'oeil")
+    if (hasTrompeLoeil && isBeforeFirstPickupDate(deliverySchedule.minDate)) {
+      showToast(`Les précommandes trompe l'œil sont possibles à partir du ${formatDateLabel(deliverySchedule.minDate)}.`, 'error', 5000)
+      return
+    }
     if (hasNonTrompeLoeil && !isBeforeOrderCutoff()) {
       showToast('Commandes (pâtisseries, cookies…) possibles jusqu\'à 23h.', 'error', 5000)
       return
@@ -1174,6 +1185,11 @@ function AppContent() {
 
   const handleSendSnap = async () => {
     const hasNonTrompeLoeil = cart.some((item) => item.product.category !== "Trompe l'oeil")
+    const hasTrompeLoeil = cart.some((item) => item.product.category === "Trompe l'oeil")
+    if (hasTrompeLoeil && isBeforeFirstPickupDate(deliverySchedule.minDate)) {
+      showToast(`Les précommandes trompe l'œil sont possibles à partir du ${formatDateLabel(deliverySchedule.minDate)}.`, 'error', 5000)
+      return
+    }
     if (hasNonTrompeLoeil && !isBeforeOrderCutoff()) {
       showToast('Commandes (pâtisseries, cookies…) possibles jusqu\'à 23h.', 'error', 5000)
       return
@@ -1275,7 +1291,7 @@ function AppContent() {
                 <div className="relative flex-1 md:flex-none">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-mayssa-brown/40" size={18} />
                   <input
-                    id="search-products"
+                    id="recherche-produits"
                     type="search"
                     placeholder="Rechercher un produit..."
                     value={searchQuery}
@@ -1520,57 +1536,12 @@ function AppContent() {
               <h3 className="font-display text-base sm:text-lg text-mayssa-brown">
                 Les valeurs de Maison Mayssa
               </h3>
-              <ul className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-mayssa-brown/80">
-                <li>• Des recettes maison, testées et approuvées au fil du temps</li>
-                <li>• Une carte courte mais travaillée, pour garantir la qualité</li>
-                <li>• Des portions généreuses, comme à la maison</li>
-                <li>• Un service de précommande simple, par WhatsApp uniquement</li>
+              <ul className="list-disc pl-5 sm:pl-6 space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-mayssa-brown/80">
+                <li>Des recettes maison, testées et approuvées au fil du temps</li>
+                <li>Une carte courte mais travaillée, pour garantir la qualité</li>
+                <li>Des portions généreuses, comme à la maison</li>
+                <li>Un service de précommande simple, par WhatsApp uniquement</li>
               </ul>
-            </div>
-          </div>
-
-          {/* Le projet : future boutique + soutien */}
-          <div id="soutien" className="mt-10 sm:mt-12 pt-8 sm:pt-10 border-t border-mayssa-brown/10">
-            <div className="rounded-2xl overflow-hidden border border-mayssa-brown/10 shadow-lg mb-6 sm:mb-8">
-              <picture>
-                <source srcSet="/boutique-fictif.webp" type="image/webp" />
-                <img
-                  src="/boutique-fictif.png"
-                  alt="Maison Mayssa – Sucrée & Salée, future boutique à Annecy"
-                  className="w-full h-auto object-cover"
-                  width={800}
-                  height={534}
-                  loading="lazy"
-                  decoding="async"
-                />
-              </picture>
-            </div>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 rounded-2xl bg-gradient-to-br from-mayssa-caramel/10 to-mayssa-brown/5 p-5 sm:p-6 border border-mayssa-caramel/20">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-mayssa-caramel/20 text-mayssa-caramel">
-                <Heart size={24} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.3em] text-mayssa-caramel/80 mb-1">
-                  Le projet
-                </p>
-                <h3 className="text-lg sm:text-xl font-display font-bold text-mayssa-brown mb-2">
-                  Une boutique trompe l&apos;œil à Annecy
-                </h3>
-                <p className="text-xs sm:text-sm text-mayssa-brown/80 leading-relaxed">
-                  L&apos;objectif est d&apos;ouvrir ma boutique de pâtisserie trompe l&apos;œil à Annecy.
-                  Chaque don compte et m&apos;aide à concrétiser ce rêve. Merci de tout cœur pour votre soutien.
-                </p>
-              </div>
-              <a
-                href={`https://www.paypal.me/${PAYPAL_ME_USER}`}
-                target="_blank"
-                rel="noreferrer noopener"
-                onClick={() => hapticFeedback('medium')}
-                className="shrink-0 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#0070ba] hover:bg-[#005ea6] text-white px-5 py-3.5 text-sm font-bold shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-              >
-                <Heart size={18} className="text-white/90" />
-                Faire un don (PayPal)
-              </a>
             </div>
           </div>
         </motion.section>
@@ -1607,12 +1578,12 @@ function AppContent() {
 
             <div className="space-y-3 sm:space-y-4 rounded-2xl sm:rounded-3xl bg-white/80 p-4 sm:p-5 border border-mayssa-brown/10">
               <h3 className="font-display text-base sm:text-lg text-mayssa-brown">Infos pratiques</h3>
-              <ul className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-mayssa-brown/80">
-                <li>• Service de 18h30 à 2h du matin</li>
-                <li>• Livraison Annecy & alentours</li>
-                <li>• Livraison offerte dès {FREE_DELIVERY_THRESHOLD}&nbsp;€ d&apos;achat</li>
-                <li>• Précommande uniquement — paiement par PayPal (optionnel) ou sur place</li>
-                <li>• Règlement à la livraison, au retrait ou par PayPal</li>
+              <ul className="list-disc pl-5 sm:pl-6 space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-mayssa-brown/80">
+                <li>Service de 18h30 à 2h du matin</li>
+                <li>Livraison Annecy & alentours</li>
+                <li>Livraison offerte dès {FREE_DELIVERY_THRESHOLD}&nbsp;€ d&apos;achat</li>
+                <li>Précommande uniquement — paiement par PayPal (optionnel) ou sur place</li>
+                <li>Règlement à la livraison, au retrait ou par PayPal</li>
               </ul>
               <p className="mt-2 sm:mt-3 text-[10px] sm:text-xs text-mayssa-brown/60">
                 Pour toute question sur la zone de livraison ou un besoin particulier (grosse
@@ -1623,6 +1594,58 @@ function AppContent() {
           </div>
           <div className="mt-6">
             <DeliveryZoneMap />
+          </div>
+        </motion.section>
+
+        {/* Le projet : soutien & future boutique — après les infos pratiques */}
+        <motion.section
+          id="soutien"
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-80px' }}
+          transition={{ duration: 0.5, ease: 'easeOut' }}
+          className="mt-12 sm:mt-16 section-shell bg-white/60 border border-mayssa-brown/5"
+        >
+          <div className="rounded-2xl overflow-hidden border border-mayssa-brown/10 shadow-lg mb-6">
+            <picture>
+              <source srcSet="/boutique-fictif.webp" type="image/webp" />
+              <img
+                src="/boutique-fictif.png"
+                alt="Maison Mayssa – Sucrée & Salée, future boutique à Annecy"
+                className="w-full h-auto object-cover"
+                width={800}
+                height={534}
+                loading="lazy"
+                decoding="async"
+              />
+            </picture>
+          </div>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 rounded-2xl bg-gradient-to-br from-mayssa-caramel/10 to-mayssa-brown/5 p-5 sm:p-6 border border-mayssa-caramel/20">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-mayssa-caramel/20 text-mayssa-caramel">
+              <Heart size={24} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.3em] text-mayssa-caramel/80 mb-1">
+                Le projet
+              </p>
+              <h3 className="text-lg sm:text-xl font-display font-bold text-mayssa-brown mb-2">
+                Une boutique trompe l&apos;œil à Annecy
+              </h3>
+              <p className="text-xs sm:text-sm text-mayssa-brown/80 leading-relaxed">
+                L&apos;objectif est d&apos;ouvrir ma boutique de pâtisserie trompe l&apos;œil à Annecy.
+                Chaque don compte et m&apos;aide à concrétiser ce rêve. Merci de tout cœur pour votre soutien.
+              </p>
+            </div>
+            <a
+              href={`https://www.paypal.me/${PAYPAL_ME_USER}`}
+              target="_blank"
+              rel="noreferrer noopener"
+              onClick={() => hapticFeedback('medium')}
+              className="shrink-0 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#0070ba] hover:bg-[#005ea6] text-white px-5 py-3.5 text-sm font-bold shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+            >
+              <Heart size={18} className="text-white/90" />
+              Faire un don (PayPal)
+            </a>
           </div>
         </motion.section>
 

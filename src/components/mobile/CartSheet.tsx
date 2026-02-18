@@ -188,11 +188,14 @@ export function CartSheet({
 
   const isCustomerValid = Object.keys(validationErrors).length === 0
   const hasNonTrompeLoeil = items.some((item) => item.product.category !== "Trompe l'oeil")
+  const hasTrompeLoeil = items.some((item) => item.product.category === "Trompe l'oeil")
+  const trompeLoeilBeforeMinDate = hasTrompeLoeil && isBeforeFirstPickupDate(minDate)
   const orderCutoffPassed = !isBeforeOrderCutoff()
   const isClassicPreorderPhase = isBeforeFirstPickupDate(FIRST_PICKUP_DATE_CLASSIC)
   const canSend =
     hasItems &&
     isCustomerValid &&
+    !trompeLoeilBeforeMinDate &&
     (!hasNonTrompeLoeil || !orderCutoffPassed)
 
   const handleDragEnd = (_: any, info: { velocity: { y: number }; offset: { y: number } }) => {
@@ -713,7 +716,7 @@ export function CartSheet({
                     </span>
                   </div>
                   <p className="text-[10px] text-mayssa-brown/70 mb-2">
-                    Crée ton compte pour des récompenses gratuites.
+                    1 € = 1 point. Cadeaux à 60, 100, 150 ou 250 pts.
                   </p>
                   <button
                     type="button"
@@ -736,6 +739,15 @@ export function CartSheet({
                 <MessageCircle size={12} />
                 Commande via WhatsApp, Instagram ou Snapchat.
               </p>
+              <div className="mt-1 rounded-xl bg-mayssa-soft/60 border border-mayssa-brown/10 px-3 py-2.5 text-[9px] text-mayssa-brown/80 space-y-1">
+                <p className="font-semibold text-[10px] text-mayssa-brown text-center">
+                  Comment se passe la commande ?
+                </p>
+                <p><span className="font-semibold">1.</span> Je remplis mon panier sur le site.</p>
+                <p><span className="font-semibold">2.</span> J&apos;envoie ma commande sur WhatsApp (ou Insta / Snap).</p>
+                <p><span className="font-semibold">3.</span> Maison Mayssa me confirme la commande et l&apos;heure.</p>
+                <p><span className="font-semibold">4.</span> Paiement à la livraison / au retrait ou via PayPal.</p>
+              </div>
               {hasNonTrompeLoeil && isClassicPreorderPhase && (
                 <p className="text-[10px] text-mayssa-brown/80 text-center bg-mayssa-cream/80 rounded-lg px-2 py-1.5 border border-mayssa-caramel/30">
                   Précommandes — récup. à partir du {FIRST_PICKUP_DATE_CLASSIC_LABEL}.
@@ -744,6 +756,11 @@ export function CartSheet({
               {orderCutoffPassed && hasNonTrompeLoeil && (
                 <p className="text-[10px] text-amber-700 text-center bg-amber-50 rounded-lg px-2 py-1.5 border border-amber-200">
                   Commandes (pâtisseries, cookies…) jusqu&apos;à 23h. Trompe-l&apos;œil toujours dispo.
+                </p>
+              )}
+              {trompeLoeilBeforeMinDate && (
+                <p className="text-[10px] text-amber-700 text-center bg-amber-50 rounded-lg px-2 py-1.5 border border-amber-200">
+                  Les précommandes trompe l&apos;œil sont possibles à partir du {formatDateLabel(minDate)}.
                 </p>
               )}
             </div>
@@ -801,7 +818,11 @@ export function CartSheet({
                 {hasItems
                   ? canSend
                     ? 'Envoyer sur WhatsApp'
-                    : orderCutoffPassed && hasNonTrompeLoeil ? "Jusqu'à 23h" : 'Complète tes infos'
+                    : trompeLoeilBeforeMinDate
+                      ? `À partir du ${formatDateLabel(minDate)}`
+                      : orderCutoffPassed && hasNonTrompeLoeil
+                        ? "Jusqu'à 23h"
+                        : 'Complète tes infos'
                   : 'Panier vide'}
               </motion.button>
 
