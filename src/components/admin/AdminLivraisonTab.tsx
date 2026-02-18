@@ -17,6 +17,8 @@ const ORDER_STATUS_LABELS: Record<string, string> = {
 interface AdminLivraisonTabProps {
   orders: Record<string, Order>
   onEditOrder: (orderId: string) => void
+  /** Affiche uniquement les livraisons ou uniquement les retraits (onglets séparés dans l'admin). */
+  mode: 'livraison' | 'retrait'
 }
 
 // Export CSV des retraits (date retrait, heure, client, articles)
@@ -225,9 +227,13 @@ function exportLivraisonsPDF(entries: [string, Order][], dateLabel: string): voi
   doc.save(`livraisons-maison-mayssa-${dateSuffix}.pdf`)
 }
 
-export function AdminLivraisonTab({ orders, onEditOrder }: AdminLivraisonTabProps) {
-  const [mode, setMode] = useState<'livraison' | 'retrait'>('livraison')
-  const [dateFilter, setDateFilter] = useState('')
+function getTodayYyyyMmDd(): string {
+  const t = new Date()
+  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`
+}
+
+export function AdminLivraisonTab({ orders, onEditOrder, mode }: AdminLivraisonTabProps) {
+  const [dateFilter, setDateFilter] = useState(getTodayYyyyMmDd)
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all')
   const [sortBy, setSortBy] = useState<'date' | 'distance' | 'client' | 'total'>('date')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
@@ -320,6 +326,15 @@ export function AdminLivraisonTab({ orders, onEditOrder }: AdminLivraisonTabProp
 
   const displayOrders = mode === 'livraison' ? deliveryOrders : pickupOrders
 
+  const slotsSummary = useMemo(() => {
+    const byTime: Record<string, number> = {}
+    for (const [, o] of displayOrders) {
+      const t = o.requestedTime ?? '—'
+      byTime[t] = (byTime[t] ?? 0) + 1
+    }
+    return Object.entries(byTime).sort(([a], [b]) => a.localeCompare(b))
+  }, [displayOrders])
+
   const hasFilters = !!dateFilter || !!statusFilter && statusFilter !== 'all'
 
   const clearFilters = () => {
@@ -334,30 +349,6 @@ export function AdminLivraisonTab({ orders, onEditOrder }: AdminLivraisonTabProp
       transition={{ duration: 0.2 }}
       className="space-y-4"
     >
-      {/* Toggle Livraison / Retrait */}
-      <div className="flex gap-2 p-1 bg-white rounded-xl shadow-sm border border-mayssa-brown/5">
-        <button
-          type="button"
-          onClick={() => setMode('livraison')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-            mode === 'livraison' ? 'bg-mayssa-brown text-white shadow-md' : 'text-mayssa-brown/60 hover:bg-mayssa-soft/50'
-          }`}
-        >
-          <Truck size={16} />
-          Livraison ({deliveryOrders.length})
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode('retrait')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-            mode === 'retrait' ? 'bg-mayssa-brown text-white shadow-md' : 'text-mayssa-brown/60 hover:bg-mayssa-soft/50'
-          }`}
-        >
-          <MapPin size={16} />
-          Retrait ({pickupOrders.length})
-        </button>
-      </div>
-
       {/* En-tête avec stats et export */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -398,6 +389,17 @@ export function AdminLivraisonTab({ orders, onEditOrder }: AdminLivraisonTabProp
           </button>
         </div>
       </div>
+
+      {slotsSummary.length > 0 && (
+        <div className="rounded-xl px-4 py-2.5 bg-mayssa-soft/60 border border-mayssa-brown/10">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">
+            {dateFilter ? new Date(dateFilter + 'T00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Par créneau'}
+          </span>
+          <p className="text-sm font-bold text-mayssa-brown mt-0.5">
+            {slotsSummary.map(([time, count]) => `${time} → ${count}`).join(' · ')}
+          </p>
+        </div>
+      )}
 
       {/* Filtres */}
       <div className="bg-white rounded-2xl p-4 shadow-sm border border-mayssa-brown/5 space-y-3">

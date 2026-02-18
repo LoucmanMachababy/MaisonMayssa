@@ -993,12 +993,19 @@ function AppContent() {
         : undefined
 
       const result = await createOrder({
-        items: cart.map((item) => ({
-          productId: getOriginalProductId(item.product.id),
-          name: item.product.name,
-          quantity: item.quantity,
-          price: item.product.price,
-        })),
+        items: cart.map((item) => {
+          // Tiramisu : inclure base + toppings dans le nom pour admin / récap
+          const name =
+            item.product.category === 'Tiramisus' && item.product.description
+              ? `${item.product.name} – ${item.product.description}`
+              : item.product.name
+          return {
+            productId: getOriginalProductId(item.product.id),
+            name,
+            quantity: item.quantity,
+            price: item.product.price,
+          }
+        }),
         customer: {
           firstName: customer.firstName || 'Client',
           lastName: customer.lastName || '',

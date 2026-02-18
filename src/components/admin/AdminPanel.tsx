@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { jsPDF } from 'jspdf'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { LogOut, Package, Plus, Minus, Calendar, Clock, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp, Pencil, Search, Download, Bell, MessageSquare, Filter, XCircle, Star, Tag, BarChart3, Printer, FileText } from 'lucide-react'
+import { LogOut, Package, Plus, Minus, Calendar, Clock, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp, Pencil, Search, Download, Bell, MessageSquare, MessageCircle, Filter, XCircle, Star, Tag, BarChart3, Printer, FileText, LayoutDashboard, Copy } from 'lucide-react'
 import type { OrderStatus } from '../../lib/firebase'
 import {
   adminLogin, adminLogout, onAuthChange,
@@ -38,6 +38,15 @@ import { AdminEditOrderModal } from './AdminEditOrderModal'
 
 const DAY_LABELS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
 
+/** Numéro au format wa.me (33...) pour lien WhatsApp */
+function phoneToWhatsApp(phone: string): string {
+  const digits = phone.replace(/\D/g, '')
+  if (digits.startsWith('33') && digits.length >= 11) return digits
+  if (digits.startsWith('0') && digits.length >= 10) return '33' + digits.slice(1)
+  if (digits.length >= 9) return '33' + digits
+  return digits
+}
+
 const ORDER_STATUS_LABELS: Record<string, string> = {
   en_attente: 'En attente',
   en_preparation: 'En préparation',
@@ -66,8 +75,8 @@ function playNewOrderSound() {
   } catch { /* ignore */ }
 }
 
-// Export CSV pour Excel (séparateur ;, BOM UTF-8)
-function exportOrdersToCSV(entries: [string, Order][]): void {
+// Export CSV pour Excel (séparateur ;, BOM UTF-8). filenameSuffix optionnel (ex. a_faire_2026-02-18).
+function exportOrdersToCSV(entries: [string, Order][], filenameSuffix?: string): void {
   const SEP = ';'
   const BOM = '\uFEFF'
   const header = ['Date', 'Heure', 'Client', 'Téléphone', 'Source', 'Statut', 'Mode', 'Adresse', 'Distance km', 'Date retrait', 'Note client', 'Articles', 'Frais livr.', 'Total (€)'].join(SEP)
@@ -95,13 +104,13 @@ function exportOrdersToCSV(entries: [string, Order][]): void {
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
-  a.download = `commandes-maison-mayssa-${new Date().toISOString().slice(0, 10)}.csv`
+  a.download = `commandes-maison-mayssa-${filenameSuffix ?? new Date().toISOString().slice(0, 10)}.csv`
   a.click()
   URL.revokeObjectURL(a.href)
 }
 
-// Export PDF lisible des commandes filtrées (respecte les filtres de l'onglet Historique)
-function exportOrdersToPDF(entries: [string, Order][]): void {
+// Export PDF lisible des commandes filtrées. filenameSuffix optionnel (ex. a_faire_2026-02-18).
+function exportOrdersToPDF(entries: [string, Order][], filenameSuffix?: string): void {
   if (entries.length === 0) return
 
   const doc = new jsPDF({ format: 'a4' })
@@ -208,8 +217,8 @@ function exportOrdersToPDF(entries: [string, Order][]): void {
     y = cardY + cardHeight + 8
   })
 
-  const dateSuffix = new Date().toISOString().slice(0, 10)
-  doc.save(`commandes-maison-mayssa-${dateSuffix}.pdf`)
+  const suffix = filenameSuffix ?? new Date().toISOString().slice(0, 10)
+  doc.save(`commandes-maison-mayssa-${suffix}.pdf`)
 }
 
 function exportReviewsToCSV(reviewsMap: Record<string, Review>): void {
@@ -366,7 +375,7 @@ function Dashboard({ user }: { user: User }) {
   const [settings, setSettings] = useState<Settings>({ preorderDays: [3, 6], preorderMessage: '' })
   const [orders, setOrders] = useState<Record<string, Order>>({})
   const [reviews, setReviews] = useState<Record<string, Review>>({})
-  const [tab, setTab] = useState<'commandes' | 'historique' | 'livraison' | 'ca' | 'avis' | 'stock' | 'jours' | 'creneaux' | 'anniversaires' | 'inscrits' | 'produits' | 'promos' | 'sondage' | 'rappels' | 'abonnes' | 'alertes' | 'carte'>('commandes')
+  const [tab, setTab] = useState<'resume' | 'commandes' | 'historique' | 'livraison' | 'retrait' | 'ca' | 'avis' | 'stock' | 'jours' | 'creneaux' | 'anniversaires' | 'inscrits' | 'produits' | 'promos' | 'sondage' | 'rappels' | 'abonnes' | 'alertes' | 'carte'>('resume')
   const [caPeriod, setCaPeriod] = useState<'jour' | 'semaine' | 'mois'>('semaine')
   const [allUsers, setAllUsers] = useState<Record<string, UserProfile>>({})
   const [productOverrides, setProductOverrides] = useState<ProductOverrideMap>({})
@@ -381,7 +390,19 @@ function Dashboard({ user }: { user: User }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  /** Vue Historique : À faire | À traiter (en attente / en prépa) | Passées / Livrées | Toutes */
+  const [historiqueVue, setHistoriqueVue] = useState<'a_faire' | 'a_traiter' | 'passees' | 'toutes'>('a_faire')
+  /** En vue À faire : filtrer uniquement les commandes dont la date de retrait = aujourd'hui */
+  const [aFaireAujourdhuiOnly, setAFaireAujourdhuiOnly] = useState(false)
+  /** Ids des commandes sélectionnées (À valider) pour actions groupées */
+  const [selectedPendingIds, setSelectedPendingIds] = useState<Set<string>>(new Set())
+  /** Ids des commandes sélectionnées (Historique) pour changement de statut en masse */
+  const [selectedHistoriqueIds, setSelectedHistoriqueIds] = useState<Set<string>>(new Set())
   const [soundEnabled, setSoundEnabled] = useState(true)
+  /** Date cible pour "À préparer" (vide = demain). Permet de préparer à l'avance. */
+  const [prepTargetDate, setPrepTargetDate] = useState<string>('')
+  /** Ids des commandes en cours de mise à jour (spinner). */
+  const [preparingOrderIds, setPreparingOrderIds] = useState<Set<string>>(new Set())
 
   const setDatePreset = (preset: 'today' | '7d' | '30d' | 'month') => {
     const now = new Date()
@@ -413,8 +434,10 @@ function Dashboard({ user }: { user: User }) {
     setDateTo('')
     setSourceFilter('all')
     setStatusFilter('all')
+    setHistoriqueVue('a_faire')
+    setAFaireAujourdhuiOnly(false)
   }
-  const hasActiveFilters = searchQuery.trim() || dateFrom || dateTo || sourceFilter !== 'all' || statusFilter !== 'all'
+  const hasActiveFilters = searchQuery.trim() || dateFrom || dateTo || sourceFilter !== 'all' || statusFilter !== 'all' || historiqueVue !== 'a_faire'
   const previousPendingIdsRef = useRef<Set<string>>(new Set())
   const isInitialLoadRef = useRef(true)
 
@@ -526,6 +549,38 @@ function Dashboard({ user }: { user: User }) {
     }
   }
 
+  const handleSetOrderPreparationStatus = async (orderId: string, status: 'en_preparation' | 'pret') => {
+    setPreparingOrderIds((prev) => new Set(prev).add(orderId))
+    try {
+      await updateOrderStatus(orderId, status)
+    } finally {
+      setPreparingOrderIds((prev) => {
+        const next = new Set(prev)
+        next.delete(orderId)
+        return next
+      })
+    }
+  }
+
+  const handleBulkStartPreparation = async () => {
+    const toStart = ordersPourPrepDate.filter(([, o]) => o.status === 'en_attente').map(([id]) => id)
+    if (toStart.length === 0) return
+    for (const id of toStart) {
+      setPreparingOrderIds((prev) => new Set(prev).add(id))
+    }
+    try {
+      for (const id of toStart) {
+        await updateOrderStatus(id, 'en_preparation')
+      }
+    } finally {
+      setPreparingOrderIds((prev) => {
+        const next = new Set(prev)
+        toStart.forEach((id) => next.delete(id))
+        return next
+      })
+    }
+  }
+
   const handleDeleteOrder = async (orderId: string, order?: Order) => {
     if (!window.confirm("T'es sûr ? Cette commande sera définitivement supprimée.")) return
     const o = order ?? orders[orderId]
@@ -568,17 +623,97 @@ function Dashboard({ user }: { user: User }) {
 
   const matchesStatus = (o: Order) => statusFilter === 'all' || o.status === statusFilter
 
+  // Aujourd'hui et demain en YYYY-MM-DD (date de retrait/livraison)
+  const todayRetraitStr = useMemo(() => {
+    const t = new Date()
+    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`
+  }, [])
+  const tomorrowRetraitStr = useMemo(() => {
+    const t = new Date()
+    t.setDate(t.getDate() + 1)
+    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`
+  }, [])
+
   // Commandes à valider (toutes en_attente, toutes sources)
   const ordersToValidate = Object.entries(orders)
     .filter(([, o]) => o.status === 'en_attente' && (sourceFilter === 'all' || (o.source ?? 'site') === sourceFilter))
     .filter(([, o]) => matchesSearch(o) && matchesDateRange(o))
   const pendingCount = Object.entries(orders).filter(([, o]) => o.status === 'en_attente').length
 
-  // Toutes les commandes triées (pour historique) avec filtres
-  const sortedOrders = Object.entries(orders)
-    .filter(([, o]) => (sourceFilter === 'all' || (o.source ?? 'site') === sourceFilter) && matchesStatus(o))
-    .filter(([, o]) => matchesSearch(o) && matchesDateRange(o))
-    .sort(([, a], [, b]) => (b.createdAt || 0) - (a.createdAt || 0))
+  // Historique : vue "À faire" (retrait >= aujourd'hui, à préparer) | "Passées" (déjà livrées/refusées ou date passée) | "Toutes"
+  const sortedOrders = useMemo(() => {
+    const entries = Object.entries(orders).filter(
+      ([, o]) => sourceFilter === 'all' || (o.source ?? 'site') === sourceFilter
+    )
+    const filteredBySearch = entries.filter(([, o]) => matchesSearch(o))
+
+    if (historiqueVue === 'a_faire') {
+      const aFaire = filteredBySearch.filter(([, o]) => {
+        if (o.status === 'livree' || o.status === 'refusee') return false
+        if (!o.requestedDate) return true
+        return o.requestedDate >= todayRetraitStr
+      })
+      return aFaire.sort(([, a], [, b]) => {
+        const dateA = a.requestedDate ?? '9999-12-31'
+        const dateB = b.requestedDate ?? '9999-12-31'
+        if (dateA !== dateB) return dateA.localeCompare(dateB)
+        const timeA = a.requestedTime ?? '00:00'
+        const timeB = b.requestedTime ?? '00:00'
+        if (timeA !== timeB) return timeA.localeCompare(timeB)
+        return (b.createdAt || 0) - (a.createdAt || 0)
+      })
+    }
+
+    if (historiqueVue === 'a_traiter') {
+      const aTraiter = filteredBySearch.filter(([, o]) => o.status === 'en_attente' || o.status === 'en_preparation')
+      return aTraiter.sort(([, a], [, b]) => (b.createdAt || 0) - (a.createdAt || 0))
+    }
+
+    if (historiqueVue === 'passees') {
+      const passees = filteredBySearch.filter(([, o]) => {
+        if (o.status === 'livree' || o.status === 'refusee') return true
+        if (!o.requestedDate) return true
+        return o.requestedDate < todayRetraitStr
+      })
+      return passees.sort(([, a], [, b]) => {
+        const dateA = a.requestedDate ?? '0000-01-01'
+        const dateB = b.requestedDate ?? '0000-01-01'
+        if (dateA !== dateB) return dateB.localeCompare(dateA)
+        return (b.createdAt || 0) - (a.createdAt || 0)
+      })
+    }
+
+    // Toutes : filtres manuels (date = date de création, statut, etc.)
+    return filteredBySearch
+      .filter(([, o]) => matchesStatus(o) && matchesDateRange(o))
+      .sort(([, a], [, b]) => (b.createdAt || 0) - (a.createdAt || 0))
+  }, [orders, sourceFilter, statusFilter, searchQuery, dateFrom, dateTo, historiqueVue, todayRetraitStr])
+
+  // En vue À faire : commandes dont la date de retrait = aujourd'hui (count + filtre optionnel)
+  const aFaireAujourdhuiCount = useMemo(() => {
+    if (historiqueVue !== 'a_faire') return 0
+    return sortedOrders.filter(([, o]) => o.requestedDate === todayRetraitStr).length
+  }, [sortedOrders, historiqueVue, todayRetraitStr])
+  const displayedOrders = useMemo(() => {
+    if (historiqueVue === 'a_faire' && aFaireAujourdhuiOnly) {
+      return sortedOrders.filter(([, o]) => o.requestedDate === todayRetraitStr)
+    }
+    return sortedOrders
+  }, [sortedOrders, historiqueVue, aFaireAujourdhuiOnly, todayRetraitStr])
+
+  // Date effective pour "À préparer" (vide = demain)
+  const prepDateEffective = prepTargetDate || tomorrowRetraitStr
+  // Commandes à préparer pour la date choisie (demain ou autre), tri par créneau puis date création
+  const ordersPourPrepDate = useMemo(() => {
+    return Object.entries(orders)
+      .filter(([, o]) => o.requestedDate === prepDateEffective && o.status !== 'refusee' && o.status !== 'livree')
+      .sort(([, a], [, b]) => {
+        const timeA = a.requestedTime ?? '00:00'
+        const timeB = b.requestedTime ?? '00:00'
+        if (timeA !== timeB) return timeA.localeCompare(timeB)
+        return (a.createdAt ?? 0) - (b.createdAt ?? 0)
+      })
+  }, [orders, prepDateEffective])
 
   // Stats CA (commandes validées uniquement)
   const validatedOrders = Object.values(orders).filter((o) => o.status === 'validee')
@@ -666,6 +801,34 @@ function Dashboard({ user }: { user: User }) {
       .slice(0, 10)
   }, [validatedOrders])
 
+  // Commandes cette semaine (toutes commandes, pour activité)
+  const commandesCetteSemaine = useMemo(() => {
+    const n = new Date()
+    const start = new Date(n)
+    start.setDate(n.getDate() - n.getDay())
+    start.setHours(0, 0, 0, 0)
+    return Object.values(orders).filter((o) => o.createdAt != null && o.createdAt >= start.getTime()).length
+  }, [orders])
+
+  // Top 3 produits du mois (commandes validées, ce mois-ci)
+  const top3Mois = useMemo(() => {
+    const n = new Date()
+    const start = new Date(n.getFullYear(), n.getMonth(), 1).getTime()
+    const end = new Date(n.getFullYear(), n.getMonth() + 1, 0, 23, 59, 59, 999).getTime()
+    const ordersMois = validatedOrders.filter((o) => o.createdAt != null && o.createdAt >= start && o.createdAt <= end)
+    const counts: Record<string, { name: string; qty: number }> = {}
+    for (const order of ordersMois) {
+      for (const item of order.items ?? []) {
+        const key = item.name || item.productId || 'Inconnu'
+        if (!counts[key]) counts[key] = { name: key.length > 20 ? key.slice(0, 17) + '…' : key, qty: 0 }
+        counts[key].qty += item.quantity
+      }
+    }
+    return Object.values(counts)
+      .sort((a, b) => b.qty - a.qty)
+      .slice(0, 3)
+  }, [validatedOrders])
+
   // Commandes par jour (14 derniers jours, toutes commandes)
   const ordersPerDayData = useMemo(() => {
     const now = new Date()
@@ -724,45 +887,74 @@ function Dashboard({ user }: { user: User }) {
         </div>
       </header>
 
-      {/* Tabs */}
+      {/* Tabs groupés */}
       <div className="max-w-2xl mx-auto px-4 pt-4">
-        <div className="flex gap-1.5 bg-white/80 backdrop-blur rounded-2xl p-1.5 shadow-md border border-mayssa-brown/5 overflow-x-auto">
-          {([
-            { id: 'commandes', icon: ClipboardList, label: 'À valider', badge: pendingCount },
-            { id: 'historique', icon: History, label: 'Historique' },
-            { id: 'livraison', icon: Truck, label: 'Livraison', badge: Object.values(orders).filter(o => o.deliveryMode === 'livraison' && o.status !== 'refusee').length },
-            { id: 'ca', icon: TrendingUp, label: 'CA' },
-            { id: 'avis', icon: Star, label: 'Avis', badge: Object.keys(reviews).length },
-            { id: 'stock', icon: Package, label: 'Stock' },
-            { id: 'jours', icon: Calendar, label: 'Jours' },
-            { id: 'creneaux', icon: Clock, label: 'Créneaux' },
-            { id: 'anniversaires', icon: Cake, label: 'Anniv.', badge: upcomingBirthdays.filter(b => !b.claimed).length },
-            { id: 'inscrits', icon: Users, label: 'Inscrits', badge: Object.keys(allUsers).length },
-            { id: 'produits', icon: ShoppingBag, label: 'Produits' },
-            { id: 'promos', icon: Tag, label: 'Codes promo' },
-            { id: 'sondage', icon: BarChart3, label: 'Sondage' },
-            { id: 'rappels', icon: Bell, label: 'Rappels' },
-            { id: 'abonnes', icon: Package, label: 'Abonnés' },
-            { id: 'alertes', icon: Bell, label: 'Alertes', badge: Object.keys(notifyWhenAvailableEntries).length },
-            { id: 'carte', icon: MapPin, label: 'Carte' },
-          ] as const).map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`flex-shrink-0 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                tab === t.id
-                  ? 'bg-mayssa-brown text-white shadow-md'
-                  : 'text-mayssa-brown/60 hover:bg-mayssa-soft/80'
-              }`}
-            >
-              <t.icon size={14} />
-              {t.label}
-              {'badge' in t && t.badge > 0 && (
-                <span className="bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                  {t.badge}
+        <div className="flex flex-wrap gap-x-4 gap-y-2 bg-white/80 backdrop-blur rounded-2xl p-2 shadow-md border border-mayssa-brown/5 overflow-x-auto">
+          {[
+            { label: null, tabs: [{ id: 'resume', icon: LayoutDashboard, label: 'Résumé' }] },
+            {
+              label: 'Commandes',
+              tabs: [
+                { id: 'commandes', icon: ClipboardList, label: 'À valider', badge: pendingCount },
+                { id: 'historique', icon: History, label: 'Historique' },
+                { id: 'livraison', icon: Truck, label: 'Livraison', badge: Object.values(orders).filter(o => o.deliveryMode === 'livraison' && o.status !== 'refusee').length },
+                { id: 'retrait', icon: MapPin, label: 'Retrait', badge: Object.values(orders).filter(o => o.deliveryMode === 'retrait' && o.status !== 'refusee').length },
+              ],
+            },
+            {
+              label: 'Vente',
+              tabs: [
+                { id: 'ca', icon: TrendingUp, label: 'CA' },
+                { id: 'stock', icon: Package, label: 'Stock' },
+                { id: 'produits', icon: ShoppingBag, label: 'Produits' },
+                { id: 'promos', icon: Tag, label: 'Codes promo' },
+              ],
+            },
+            {
+              label: 'Communauté',
+              tabs: [
+                { id: 'avis', icon: Star, label: 'Avis', badge: Object.keys(reviews).length },
+                { id: 'inscrits', icon: Users, label: 'Inscrits', badge: Object.keys(allUsers).length },
+                { id: 'anniversaires', icon: Cake, label: 'Anniv.', badge: upcomingBirthdays.filter(b => !b.claimed).length },
+                { id: 'alertes', icon: Bell, label: 'Alertes', badge: Object.keys(notifyWhenAvailableEntries).length },
+                { id: 'abonnes', icon: Package, label: 'Abonnés' },
+              ],
+            },
+            {
+              label: 'Réglages',
+              tabs: [
+                { id: 'jours', icon: Calendar, label: 'Jours' },
+                { id: 'creneaux', icon: Clock, label: 'Créneaux' },
+                { id: 'sondage', icon: BarChart3, label: 'Sondage' },
+                { id: 'rappels', icon: Bell, label: 'Rappels' },
+              ],
+            },
+            { label: null, tabs: [{ id: 'carte', icon: MapPin, label: 'Carte' }] },
+          ].map((group, gi) => (
+            <div key={gi} className="flex items-center gap-1.5 flex-shrink-0">
+              {group.label && (
+                <span className="text-[9px] font-bold uppercase tracking-wider text-mayssa-brown/40 hidden sm:inline">
+                  {group.label}
                 </span>
               )}
-            </button>
+              {group.tabs.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setTab(t.id)}
+                  className={`flex-shrink-0 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    tab === t.id ? 'bg-mayssa-brown text-white shadow-md' : 'text-mayssa-brown/60 hover:bg-mayssa-soft/80'
+                  }`}
+                >
+                  <t.icon size={14} />
+                  {t.label}
+                  {'badge' in t && t.badge > 0 && (
+                    <span className="bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                      {t.badge}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
           ))}
         </div>
       </div>
@@ -787,6 +979,208 @@ function Dashboard({ user }: { user: User }) {
             }
           </p>
         </div>
+
+        {/* ===== TABLEAU DE BORD RÉSUMÉ ===== */}
+        {tab === 'resume' && (() => {
+          const now = new Date()
+          const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+          const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+          const endOfToday = startOfToday + 86400000 - 1
+          const caJour = validatedOrders.filter(o => o.createdAt != null && o.createdAt >= startOfToday && o.createdAt <= endOfToday).reduce((s, o) => s + (o.total ?? 0), 0)
+          const livraisonsAujourdhui = Object.values(orders).filter(o => o.deliveryMode === 'livraison' && o.requestedDate === todayStr && o.status !== 'refusee').length
+          const retraitsAujourdhui = Object.values(orders).filter(o => o.deliveryMode === 'retrait' && o.requestedDate === todayStr && o.status !== 'refusee').length
+          const annivNonSouhaites = upcomingBirthdays.filter(b => !b.claimed).length
+          return (
+            <motion.section
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-4"
+            >
+              {/* Ouvrir / Fermer les commandes */}
+              <div className={`rounded-2xl p-4 border-2 ${settings.ordersOpen === false ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'}`}>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-bold text-mayssa-brown">
+                      {settings.ordersOpen === false ? 'Commandes fermées' : 'Commandes ouvertes'}
+                    </p>
+                    <p className="text-[10px] text-mayssa-brown/60 mt-0.5">
+                      {settings.ordersOpen === false ? 'Les clients ne peuvent pas envoyer de commande.' : 'Les clients peuvent commander.'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => updateSettings({ ordersOpen: !(settings.ordersOpen !== false) })}
+                    className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-colors cursor-pointer ${
+                      settings.ordersOpen === false ? 'bg-emerald-500 text-white hover:bg-emerald-600' : 'bg-white border-2 border-amber-300 text-amber-700 hover:bg-amber-50'
+                    }`}
+                  >
+                    {settings.ordersOpen === false ? 'Ouvrir les commandes' : 'Fermer les commandes'}
+                  </button>
+                </div>
+              </div>
+
+              {/* KPIs cliquables */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setTab('commandes')}
+                  className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5 text-left hover:ring-2 hover:ring-mayssa-caramel transition-all cursor-pointer"
+                >
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">À valider</span>
+                  <p className="text-xl font-display font-bold text-mayssa-brown mt-0.5">{pendingCount}</p>
+                  <p className="text-[10px] text-mayssa-caramel mt-1">Voir →</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTab('ca')}
+                  className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5 text-left hover:ring-2 hover:ring-mayssa-caramel transition-all cursor-pointer"
+                >
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">CA aujourd'hui</span>
+                  <p className="text-xl font-display font-bold text-mayssa-caramel mt-0.5">{caJour.toFixed(2).replace('.', ',')} €</p>
+                  <p className="text-[10px] text-mayssa-brown/50 mt-1">Semaine : {caSemaine.toFixed(2).replace('.', ',')} €</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTab('livraison')}
+                  className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5 text-left hover:ring-2 hover:ring-mayssa-caramel transition-all cursor-pointer"
+                >
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">Aujourd'hui</span>
+                  <p className="text-xl font-display font-bold text-mayssa-brown mt-0.5">{livraisonsAujourdhui} livr. · {retraitsAujourdhui} retr.</p>
+                  <p className="text-[10px] text-mayssa-caramel mt-1">Voir Livraison →</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTab('anniversaires')}
+                  className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5 text-left hover:ring-2 hover:ring-mayssa-caramel transition-all cursor-pointer"
+                >
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">Anniversaires</span>
+                  <p className="text-xl font-display font-bold text-mayssa-brown mt-0.5">{annivNonSouhaites} à souhaiter</p>
+                  <p className="text-[10px] text-mayssa-caramel mt-1">Voir →</p>
+                </button>
+              </div>
+
+              {/* Stats : commandes cette semaine + Top 3 du mois */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">Commandes cette semaine</span>
+                  <p className="text-lg font-display font-bold text-mayssa-brown mt-0.5">{commandesCetteSemaine} commande{commandesCetteSemaine !== 1 ? 's' : ''}</p>
+                </div>
+                <div className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">Top 3 du mois</span>
+                  {top3Mois.length === 0 ? (
+                    <p className="text-sm text-mayssa-brown/50 mt-0.5">Aucune vente ce mois</p>
+                  ) : (
+                    <ul className="mt-1 space-y-0.5 text-xs font-medium text-mayssa-brown">
+                      {top3Mois.map((p, i) => (
+                        <li key={i}>{i + 1}. {p.name} — {p.qty} vendu{p.qty > 1 ? 's' : ''}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+
+              {/* À préparer pour demain (ou date au choix) — préparer à l'avance */}
+              <div className="bg-white rounded-2xl p-4 shadow-sm border border-mayssa-brown/5">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-bold text-mayssa-brown">À préparer pour le</span>
+                    <input
+                      type="date"
+                      value={prepDateEffective}
+                      min={todayRetraitStr}
+                      onChange={(e) => setPrepTargetDate(e.target.value || '')}
+                      className="rounded-xl border border-mayssa-brown/20 px-3 py-2 text-sm font-medium text-mayssa-brown focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setPrepTargetDate('')}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                        prepDateEffective === tomorrowRetraitStr ? 'bg-mayssa-brown text-white' : 'bg-mayssa-brown/10 text-mayssa-brown hover:bg-mayssa-brown/20'
+                      }`}
+                    >
+                      Demain
+                    </button>
+                  </div>
+                  {ordersPourPrepDate.some(([, o]) => o.status === 'en_attente') && (
+                    <button
+                      type="button"
+                      onClick={handleBulkStartPreparation}
+                      disabled={preparingOrderIds.size > 0}
+                      className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500 text-white text-xs font-bold hover:bg-amber-600 disabled:opacity-50 transition-colors cursor-pointer"
+                    >
+                      <Package size={14} />
+                      Tout mettre en préparation
+                    </button>
+                  )}
+                </div>
+                {ordersPourPrepDate.length === 0 ? (
+                  <p className="text-sm text-mayssa-brown/50 py-2">Aucune commande pour cette date.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {ordersPourPrepDate.map(([id, order]) => {
+                      const client = [order.customer?.firstName, order.customer?.lastName].filter(Boolean).join(' ') || 'Client'
+                      const creneau = order.requestedTime
+                        ? `${parseDateYyyyMmDd(order.requestedDate).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })} à ${order.requestedTime}`
+                        : parseDateYyyyMmDd(order.requestedDate).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
+                      const itemsSummary = (order.items ?? []).map((i) => `${i.quantity}× ${i.name}`).join(', ')
+                      const isPreparing = preparingOrderIds.has(id)
+                      return (
+                        <li
+                          key={id}
+                          className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-mayssa-soft/50 border border-mayssa-brown/10"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-mayssa-brown truncate">{client}</p>
+                            <p className="text-[10px] text-mayssa-brown/60">{creneau}</p>
+                            <p className="text-[10px] text-mayssa-brown/70 truncate mt-0.5">{itemsSummary || '—'}</p>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold ${
+                              order.status === 'en_attente' ? 'bg-amber-50 text-amber-700' : order.status === 'en_preparation' ? 'bg-blue-50 text-blue-700' : 'bg-emerald-50 text-emerald-700'
+                            }`}>
+                              {order.status === 'en_attente' ? 'En attente' : order.status === 'en_preparation' ? 'En préparation' : 'Prête'}
+                            </span>
+                            {order.status === 'en_attente' && (
+                              <button
+                                type="button"
+                                onClick={() => handleSetOrderPreparationStatus(id, 'en_preparation')}
+                                disabled={isPreparing}
+                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-500 text-white text-[10px] font-bold hover:bg-amber-600 disabled:opacity-50 transition-colors cursor-pointer"
+                              >
+                                {isPreparing ? <RefreshCw size={12} className="animate-spin" /> : <Package size={12} />}
+                                Préparer
+                              </button>
+                            )}
+                            {order.status === 'en_preparation' && (
+                              <button
+                                type="button"
+                                onClick={() => handleSetOrderPreparationStatus(id, 'pret')}
+                                disabled={isPreparing}
+                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-500 text-white text-[10px] font-bold hover:bg-emerald-600 disabled:opacity-50 transition-colors cursor-pointer"
+                              >
+                                {isPreparing ? <RefreshCw size={12} className="animate-spin" /> : <Check size={12} />}
+                                Prête
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setEditingOrderId(id)}
+                              className="p-1.5 rounded-lg text-mayssa-brown/60 hover:bg-mayssa-brown/10 transition-colors cursor-pointer"
+                              title="Modifier"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                          </div>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </div>
+            </motion.section>
+          )
+        })()}
 
         {/* ===== COMMANDES À VALIDER ===== */}
         {tab === 'commandes' && (
@@ -885,14 +1279,60 @@ function Dashboard({ user }: { user: User }) {
                 <p className="text-xs text-mayssa-brown/40 mt-1">{hasActiveFilters ? 'Essayez d\'effacer les filtres' : 'Les nouvelles commandes apparaîtront ici'}</p>
               </div>
             ) : (
-              ordersToValidate.map(([id, order]) => {
+              <>
+                <div className="flex flex-wrap items-center gap-2 py-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPendingIds(ordersToValidate.length === selectedPendingIds.size ? new Set() : new Set(ordersToValidate.map(([id]) => id)))}
+                    className="text-[10px] font-bold text-mayssa-brown/70 hover:text-mayssa-brown cursor-pointer"
+                  >
+                    {selectedPendingIds.size === ordersToValidate.length ? 'Tout désélectionner' : 'Tout sélectionner'}
+                  </button>
+                  {selectedPendingIds.size > 0 && (
+                    <>
+                      <span className="text-[10px] text-mayssa-brown/50">
+                        {selectedPendingIds.size} sélectionnée{selectedPendingIds.size > 1 ? 's' : ''}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!window.confirm(`Valider ${selectedPendingIds.size} commande(s) ?`)) return
+                          for (const id of selectedPendingIds) {
+                            const o = orders[id]
+                            if (o) await handleValidateOrder(id, o)
+                          }
+                          setSelectedPendingIds(new Set())
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-emerald-500 text-white text-[10px] font-bold hover:bg-emerald-600 cursor-pointer"
+                      >
+                        Valider la sélection
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!window.confirm(`Refuser ${selectedPendingIds.size} commande(s) ? Les créneaux livraison seront libérés.`)) return
+                          for (const id of selectedPendingIds) {
+                            const o = orders[id]
+                            if (o) await handleRefuseOrder(id, o)
+                          }
+                          setSelectedPendingIds(new Set())
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-red-500 text-white text-[10px] font-bold hover:bg-red-600 cursor-pointer"
+                      >
+                        Refuser la sélection
+                      </button>
+                    </>
+                  )}
+                </div>
+              {ordersToValidate.map(([id, order]) => {
                 const orderSource = order.source ?? 'site'
+                const isSelected = selectedPendingIds.has(id)
                 return (
                 <motion.div
                   key={id}
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className={`bg-white rounded-2xl p-4 shadow-md border border-mayssa-brown/5 border-l-4 ${
+                  className={`bg-white rounded-2xl p-4 shadow-md border border-mayssa-brown/5 border-l-4 ${isSelected ? 'ring-2 ring-mayssa-caramel' : ''} ${
                     order.status === 'en_attente'
                       ? 'border-l-amber-400'
                       : order.status === 'validee'
@@ -901,8 +1341,22 @@ function Dashboard({ user }: { user: User }) {
                   }`}
                 >
                   {/* Header commande */}
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
+                  <div className="flex items-start justify-between mb-3 gap-2">
+                    <label className="flex items-center gap-2 cursor-pointer flex-shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => setSelectedPendingIds(prev => {
+                          const next = new Set(prev)
+                          if (next.has(id)) next.delete(id)
+                          else next.add(id)
+                          return next
+                        })}
+                        className="rounded border-mayssa-brown/30 text-mayssa-caramel focus:ring-mayssa-caramel"
+                      />
+                      <span className="sr-only">Sélectionner</span>
+                    </label>
+                    <div className="min-w-0 flex-1">
                       <p className="text-[10px] font-bold text-mayssa-brown/50 uppercase tracking-wider mb-0.5">
                         Commande {order.orderNumber != null ? `#${order.orderNumber}` : `#${id.slice(-8)}`}
                       </p>
@@ -920,10 +1374,31 @@ function Dashboard({ user }: { user: User }) {
                         </span>
                       </div>
                       {order.customer?.phone && (
-                        <p className="text-[10px] text-mayssa-brown/50 flex items-center gap-1">
-                          <Phone size={10} />
-                          {order.customer.phone}
-                        </p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <p className="text-[10px] text-mayssa-brown/50 flex items-center gap-1">
+                            <Phone size={10} />
+                            {order.customer.phone}
+                          </p>
+                          <a
+                            href={`https://wa.me/${phoneToWhatsApp(order.customer.phone)}`}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-green-500 text-white text-[9px] font-bold hover:bg-green-600 transition-colors"
+                            title="Ouvrir WhatsApp"
+                          >
+                            <MessageCircle size={10} />
+                            WhatsApp
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => { navigator.clipboard.writeText(order.customer!.phone!); }}
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-mayssa-brown/10 text-mayssa-brown text-[9px] font-bold hover:bg-mayssa-brown/20 transition-colors cursor-pointer"
+                            title="Copier le numéro"
+                          >
+                            <Copy size={10} />
+                            Copier
+                          </button>
+                        </div>
                       )}
                       {(order.deliveryMode || order.requestedDate) && (
                         <div className="flex items-center gap-2 mt-1">
@@ -1058,7 +1533,8 @@ function Dashboard({ user }: { user: User }) {
                   </div>
                 </motion.div>
                 )
-              })
+              })}
+              </>
             )}
 
             {/* Off-site order form modal */}
@@ -1081,22 +1557,82 @@ function Dashboard({ user }: { user: User }) {
             transition={{ duration: 0.2 }}
             className="space-y-4"
           >
+            {/* Vue : À faire | Passées / Livrées | Toutes */}
+            <div className="flex flex-wrap gap-2 p-1.5 bg-white rounded-2xl shadow-sm border border-mayssa-brown/5">
+              <button
+                type="button"
+                onClick={() => setHistoriqueVue('a_faire')}
+                className={`flex-1 min-w-[80px] py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  historiqueVue === 'a_faire' ? 'bg-mayssa-caramel text-white shadow-md' : 'text-mayssa-brown/60 hover:bg-mayssa-soft/50'
+                }`}
+              >
+                À faire
+              </button>
+              <button
+                type="button"
+                onClick={() => setHistoriqueVue('a_traiter')}
+                className={`flex-1 min-w-[80px] py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  historiqueVue === 'a_traiter' ? 'bg-amber-500 text-white shadow-md' : 'text-mayssa-brown/60 hover:bg-mayssa-soft/50'
+                }`}
+              >
+                À traiter
+              </button>
+              <button
+                type="button"
+                onClick={() => setHistoriqueVue('passees')}
+                className={`flex-1 min-w-[80px] py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  historiqueVue === 'passees' ? 'bg-mayssa-brown text-white shadow-md' : 'text-mayssa-brown/60 hover:bg-mayssa-soft/50'
+                }`}
+              >
+                Passées / Livrées
+              </button>
+              <button
+                type="button"
+                onClick={() => setHistoriqueVue('toutes')}
+                className={`flex-1 min-w-[80px] py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  historiqueVue === 'toutes' ? 'bg-mayssa-brown/80 text-white shadow-md' : 'text-mayssa-brown/60 hover:bg-mayssa-soft/50'
+                }`}
+              >
+                Toutes
+              </button>
+            </div>
+
+            {(historiqueVue === 'a_faire' || historiqueVue === 'a_traiter') && historiqueVue === 'a_faire' && (
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="rounded-xl px-3 py-2 bg-mayssa-caramel/10 border border-mayssa-caramel/20">
+                  <span className="text-[10px] font-bold text-mayssa-brown/70">Retrait aujourd&apos;hui</span>
+                  <p className="text-sm font-display font-bold text-mayssa-brown">{aFaireAujourdhuiCount} commande{aFaireAujourdhuiCount !== 1 ? 's' : ''}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAFaireAujourdhuiOnly((v) => !v)}
+                  className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    aFaireAujourdhuiOnly ? 'bg-mayssa-caramel text-white' : 'bg-white border border-mayssa-brown/10 text-mayssa-brown/70 hover:bg-mayssa-soft/50'
+                  }`}
+                >
+                  Aujourd&apos;hui uniquement
+                </button>
+              </div>
+            )}
+
             {/* KPI + Export */}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="bg-white rounded-xl px-4 py-2 shadow-sm border border-mayssa-brown/5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">Résultats</span>
-                <p className="text-lg font-display font-bold text-mayssa-brown">{sortedOrders.length} commande{sortedOrders.length !== 1 ? 's' : ''}</p>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">
+                  {historiqueVue === 'a_faire' ? (aFaireAujourdhuiOnly ? "Aujourd'hui" : 'À faire') : historiqueVue === 'a_traiter' ? 'À traiter' : historiqueVue === 'passees' ? 'Passées / Livrées' : 'Résultats'}
+                </span>
+                <p className="text-lg font-display font-bold text-mayssa-brown">{displayedOrders.length} commande{displayedOrders.length !== 1 ? 's' : ''}</p>
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => exportOrdersToPDF(sortedOrders)}
+                  onClick={() => exportOrdersToPDF(displayedOrders, historiqueVue === 'a_faire' ? (aFaireAujourdhuiOnly ? `a_faire_aujourdhui_${todayRetraitStr}` : `a_faire_${todayRetraitStr}`) : historiqueVue === 'a_traiter' ? `a_traiter_${todayRetraitStr}` : historiqueVue === 'passees' ? `passees_${todayRetraitStr}` : `toutes_${new Date().toISOString().slice(0, 10)}`)}
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-mayssa-brown text-white text-xs font-bold hover:bg-mayssa-caramel shadow-md transition-all cursor-pointer"
                 >
                   <FileText size={16} />
                   Export PDF
                 </button>
                 <button
-                  onClick={() => exportOrdersToCSV(sortedOrders)}
+                  onClick={() => exportOrdersToCSV(displayedOrders, historiqueVue === 'a_faire' ? (aFaireAujourdhuiOnly ? `a_faire_aujourdhui_${todayRetraitStr}` : `a_faire_${todayRetraitStr}`) : historiqueVue === 'a_traiter' ? `a_traiter_${todayRetraitStr}` : historiqueVue === 'passees' ? `passees_${todayRetraitStr}` : `toutes_${new Date().toISOString().slice(0, 10)}`)}
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow-md transition-all cursor-pointer"
                 >
                   <Download size={16} />
@@ -1131,42 +1667,48 @@ function Dashboard({ user }: { user: User }) {
                     className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-mayssa-brown/10 text-xs text-mayssa-brown bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
                   />
                 </div>
-                <select
-                  value={statusFilter}
-                  onChange={e => setStatusFilter(e.target.value as typeof statusFilter)}
-                  className="rounded-xl border border-mayssa-brown/10 px-3 py-2 text-xs font-bold text-mayssa-brown bg-white"
-                >
-                  <option value="all">Tous statuts</option>
-                  <option value="en_attente">En attente</option>
-                  <option value="en_preparation">En préparation</option>
-                  <option value="pret">Prête</option>
-                  <option value="livree">Livrée</option>
-                  <option value="validee">Validées</option>
-                  <option value="refusee">Refusées</option>
-                </select>
-                <div className="flex gap-1">
-                  {(['today', '7d', '30d', 'month'] as const).map((p) => (
-                    <button
-                      key={p}
-                      onClick={() => setDatePreset(p)}
-                      className="px-2.5 py-2 rounded-lg text-[10px] font-bold bg-slate-100 text-mayssa-brown/70 hover:bg-mayssa-soft transition-colors cursor-pointer"
+                {historiqueVue === 'toutes' && (
+                  <>
+                    <select
+                      value={statusFilter}
+                      onChange={e => setStatusFilter(e.target.value as typeof statusFilter)}
+                      className="rounded-xl border border-mayssa-brown/10 px-3 py-2 text-xs font-bold text-mayssa-brown bg-white"
                     >
-                      {p === 'today' ? "Aujourd'hui" : p === '7d' ? '7 j' : p === '30d' ? '30 j' : 'Ce mois'}
-                    </button>
-                  ))}
-                </div>
-                <input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                  className="rounded-xl border border-mayssa-brown/10 px-2.5 py-2 text-xs font-medium text-mayssa-brown bg-white w-32"
-                />
-                <input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => setDateTo(e.target.value)}
-                  className="rounded-xl border border-mayssa-brown/10 px-2.5 py-2 text-xs font-medium text-mayssa-brown bg-white w-32"
-                />
+                      <option value="all">Tous statuts</option>
+                      <option value="en_attente">En attente</option>
+                      <option value="en_preparation">En préparation</option>
+                      <option value="pret">Prête</option>
+                      <option value="livree">Livrée</option>
+                      <option value="validee">Validées</option>
+                      <option value="refusee">Refusées</option>
+                    </select>
+                    <div className="flex gap-1">
+                      {(['today', '7d', '30d', 'month'] as const).map((p) => (
+                        <button
+                          key={p}
+                          onClick={() => setDatePreset(p)}
+                          className="px-2.5 py-2 rounded-lg text-[10px] font-bold bg-slate-100 text-mayssa-brown/70 hover:bg-mayssa-soft transition-colors cursor-pointer"
+                        >
+                          {p === 'today' ? "Aujourd'hui" : p === '7d' ? '7 j' : p === '30d' ? '30 j' : 'Ce mois'}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                      className="rounded-xl border border-mayssa-brown/10 px-2.5 py-2 text-xs font-medium text-mayssa-brown bg-white w-32"
+                      title="Date de création"
+                    />
+                    <input
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)}
+                      className="rounded-xl border border-mayssa-brown/10 px-2.5 py-2 text-xs font-medium text-mayssa-brown bg-white w-32"
+                      title="Date de création"
+                    />
+                  </>
+                )}
                 <select
                   value={sourceFilter}
                   onChange={e => setSourceFilter(e.target.value as OrderSource | 'all')}
@@ -1179,25 +1721,69 @@ function Dashboard({ user }: { user: User }) {
                   <option value="whatsapp">WhatsApp</option>
                 </select>
               </div>
+              {historiqueVue !== 'toutes' && (
+                <p className="text-[10px] text-mayssa-brown/50">
+                  {historiqueVue === 'a_faire' && 'Commandes à préparer/livrer (date de retrait ≥ aujourd\'hui).'}
+                  {historiqueVue === 'a_traiter' && 'En attente ou en préparation — à valider ou à faire avancer.'}
+                  {historiqueVue === 'passees' && 'Commandes déjà livrées, refusées ou date de retrait passée.'}
+                </p>
+              )}
             </div>
 
+            {displayedOrders.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 py-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedHistoriqueIds(selectedHistoriqueIds.size === displayedOrders.length ? new Set() : new Set(displayedOrders.map(([id]) => id)))}
+                  className="text-[10px] font-bold text-mayssa-brown/70 hover:text-mayssa-brown cursor-pointer"
+                >
+                  {selectedHistoriqueIds.size === displayedOrders.length ? 'Tout désélectionner' : 'Tout sélectionner'}
+                </button>
+                {selectedHistoriqueIds.size > 0 && (
+                  <>
+                    <span className="text-[10px] text-mayssa-brown/50">{selectedHistoriqueIds.size} sélectionnée{selectedHistoriqueIds.size > 1 ? 's' : ''}</span>
+                    <select
+                      className="rounded-lg border border-mayssa-brown/20 px-2 py-1.5 text-[10px] font-bold text-mayssa-brown bg-white cursor-pointer"
+                      defaultValue=""
+                      onChange={async (e) => {
+                        const status = e.target.value as OrderStatus | ''
+                        if (!status) return
+                        e.target.value = ''
+                        for (const id of selectedHistoriqueIds) {
+                          await updateOrderStatus(id, status)
+                        }
+                        setSelectedHistoriqueIds(new Set())
+                      }}
+                    >
+                      <option value="">Changer le statut…</option>
+                      <option value="en_preparation">En préparation</option>
+                      <option value="pret">Prête</option>
+                      <option value="livree">Livrée</option>
+                      <option value="validee">Validée</option>
+                    </select>
+                  </>
+                )}
+              </div>
+            )}
+
             <div className="bg-white rounded-2xl p-5 shadow-sm border border-mayssa-brown/5">
-            {sortedOrders.length === 0 ? (
+            {displayedOrders.length === 0 ? (
               <div className="py-12 text-center">
                 <History size={40} className="mx-auto text-mayssa-brown/15 mb-3" />
                 <p className="text-sm font-medium text-mayssa-brown/60">Aucune commande trouvée</p>
-                <p className="text-xs text-mayssa-brown/40 mt-1">{hasActiveFilters ? 'Effacez les filtres ou élargissez la période' : 'Les commandes validées ou refusées apparaissent ici'}</p>
+                <p className="text-xs text-mayssa-brown/40 mt-1">{hasActiveFilters || aFaireAujourdhuiOnly ? 'Effacez les filtres ou élargissez la période' : 'Les commandes validées ou refusées apparaissent ici'}</p>
               </div>
             ) : (
               <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-                {sortedOrders.map(([id, order]) => {
+                {displayedOrders.map(([id, order]) => {
                   const orderSource = order.source ?? 'site'
+                  const isSelectedHist = selectedHistoriqueIds.has(id)
                   return (
                     <motion.div
                       key={id}
                       initial={{ opacity: 0, y: 4 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className={`p-3 rounded-xl border text-left ${
+                      className={`p-3 rounded-xl border text-left ${isSelectedHist ? 'ring-2 ring-mayssa-caramel' : ''} ${
                         order.status === 'validee'
                           ? 'border-emerald-200 bg-emerald-50/50'
                           : order.status === 'refusee'
@@ -1207,7 +1793,21 @@ function Dashboard({ user }: { user: User }) {
                     >
                       {/* Header */}
                       <div className="flex items-start justify-between gap-2">
-                        <div>
+                        <label className="flex items-center gap-2 cursor-pointer flex-shrink-0">
+                          <input
+                            type="checkbox"
+                            checked={isSelectedHist}
+                            onChange={() => setSelectedHistoriqueIds(prev => {
+                              const next = new Set(prev)
+                              if (next.has(id)) next.delete(id)
+                              else next.add(id)
+                              return next
+                            })}
+                            className="rounded border-mayssa-brown/30 text-mayssa-caramel focus:ring-mayssa-caramel"
+                          />
+                          <span className="sr-only">Sélectionner</span>
+                        </label>
+                        <div className="min-w-0 flex-1">
                           <p className="text-[10px] font-bold text-mayssa-brown/50 uppercase tracking-wider mb-0.5">
                             Commande {order.orderNumber != null ? `#${order.orderNumber}` : `#${id.slice(-8)}`}
                           </p>
@@ -1225,10 +1825,31 @@ function Dashboard({ user }: { user: User }) {
                             </span>
                           </div>
                           {order.customer?.phone && (
-                            <p className="text-[10px] text-mayssa-brown/50 flex items-center gap-1">
-                              <Phone size={10} />
-                              {order.customer.phone}
-                            </p>
+                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                              <p className="text-[10px] text-mayssa-brown/50 flex items-center gap-1">
+                                <Phone size={10} />
+                                {order.customer.phone}
+                              </p>
+                              <a
+                                href={`https://wa.me/${phoneToWhatsApp(order.customer.phone)}`}
+                                target="_blank"
+                                rel="noreferrer noopener"
+                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-green-500 text-white text-[9px] font-bold hover:bg-green-600 transition-colors"
+                                title="Ouvrir WhatsApp"
+                              >
+                                <MessageCircle size={10} />
+                                WhatsApp
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => { navigator.clipboard.writeText(order.customer!.phone!); }}
+                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-mayssa-brown/10 text-mayssa-brown text-[9px] font-bold hover:bg-mayssa-brown/20 transition-colors cursor-pointer"
+                                title="Copier le numéro"
+                              >
+                                <Copy size={10} />
+                                Copier
+                              </button>
+                            </div>
                           )}
                           {(order.deliveryMode || order.requestedDate) && (
                             <div className="flex items-center gap-2 mt-1">
@@ -1380,7 +2001,10 @@ function Dashboard({ user }: { user: User }) {
 
         {/* ===== LIVRAISON ===== */}
         {tab === 'livraison' && (
-          <AdminLivraisonTab orders={orders} onEditOrder={(id) => setEditingOrderId(id)} />
+          <AdminLivraisonTab orders={orders} onEditOrder={(id) => setEditingOrderId(id)} mode="livraison" />
+        )}
+        {tab === 'retrait' && (
+          <AdminLivraisonTab orders={orders} onEditOrder={(id) => setEditingOrderId(id)} mode="retrait" />
         )}
 
         {/* ===== CHIFFRE D'AFFAIRES ===== */}

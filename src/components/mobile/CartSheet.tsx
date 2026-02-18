@@ -292,7 +292,9 @@ export function CartSheet({
                       )}
                       <div className="flex-1 min-w-0">
                         <h3 className="font-semibold text-xs text-mayssa-brown truncate">{item.product.name}</h3>
-                        <p className="text-[10px] text-mayssa-brown/65 truncate">{item.product.description}</p>
+                        {item.product.description ? (
+                          <p className="text-[10px] text-mayssa-brown/65 truncate">{item.product.description}</p>
+                        ) : null}
                         <div className="flex items-center justify-between mt-1.5">
                           <span className="font-bold text-sm text-mayssa-caramel">
                             {(item.product.price * item.quantity).toFixed(2).replace('.', ',')} €
