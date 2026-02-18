@@ -42,7 +42,7 @@ export function Testimonials() {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-50px' }}
       transition={{ duration: 0.5, ease: 'easeOut' }}
-      className="mt-12 sm:mt-16 md:mt-24"
+      className="mt-12 sm:mt-16 md:mt-24 scroll-mt-24"
     >
       <div className="section-shell bg-white/80 border border-mayssa-brown/5">
         <div className="text-center mb-8 sm:mb-10">

@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useRef, lazy, Suspense } from 'react'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useFavorites } from './hooks/useFavorites'
 import { Navbar } from './components/Navbar'
@@ -100,8 +101,9 @@ import {
 import { PAYPAL_ME_USER, REFERRAL_DISCOUNT_EUR } from './constants'
 
 function AppRouter() {
-  const [isAdmin, setIsAdmin] = useState(window.location.hash === '#admin')
+  const [isAdmin, setIsAdmin] = useState(() => window.location.hash === '#admin')
   const [orderStatusId, setOrderStatusId] = useState<string | null>(null)
+  const [adminRetryKey, setAdminRetryKey] = useState(0)
 
   useEffect(() => {
     const handler = () => {
@@ -112,10 +114,36 @@ function AppRouter() {
     }
     handler()
     window.addEventListener('hashchange', handler)
-    return () => window.removeEventListener('hashchange', handler)
+    window.addEventListener('popstate', handler)
+    return () => {
+      window.removeEventListener('hashchange', handler)
+      window.removeEventListener('popstate', handler)
+    }
   }, [])
 
-  if (isAdmin) return <Suspense fallback={<div className="flex items-center justify-center min-h-screen text-mayssa-brown">Chargement admin...</div>}><AdminPanel /></Suspense>
+  if (isAdmin) {
+    return (
+      <div key={adminRetryKey}>
+        <ErrorBoundary
+          message="Erreur lors du chargement de l'espace admin."
+          subMessage="Vérifiez votre connexion ou réessayez. En cas de problème, rechargez la page."
+          onRetry={() => setAdminRetryKey((k) => k + 1)}
+          onBack={() => { window.location.hash = '' }}
+          backLabel="Retour au site"
+        >
+          <Suspense
+            fallback={
+              <div className="flex items-center justify-center min-h-screen bg-mayssa-soft text-mayssa-brown">
+                <span>Chargement admin...</span>
+              </div>
+            }
+          >
+            <AdminPanel />
+          </Suspense>
+        </ErrorBoundary>
+      </div>
+    )
+  }
   if (orderStatusId) {
     return (
       <div className="min-h-screen bg-mayssa-soft">
@@ -187,6 +215,32 @@ function AppContent() {
       })
     })
   }, [])
+
+  // Redirection ancre au chargement (ex. https://www.maison-mayssa.fr/#avis → scroll vers la section avis)
+  useEffect(() => {
+    const scrollToHash = () => {
+      const hash = window.location.hash.replace(/^#/, '').split('/')[0]
+      if (!hash || hash === 'admin') return
+      const scrollToEl = (id: string) => {
+        const el = document.getElementById(id)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          return true
+        }
+        return false
+      }
+      if (scrollToEl(hash)) return
+      // Section peut être lazy-loadée (ex. Testimonials) : réessayer après un délai
+      const delays = [200, 500, 1000]
+      delays.forEach((ms) => {
+        setTimeout(() => scrollToEl(hash), ms)
+      })
+    }
+    scrollToHash()
+    window.addEventListener('hashchange', scrollToHash)
+    return () => window.removeEventListener('hashchange', scrollToHash)
+  }, [])
+
   // Confetti effect
   const { trigger: confettiTrigger, origin: confettiOrigin, fire: fireConfetti } = useConfetti()
 

@@ -15,6 +15,16 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || '',
 }
 
+const databaseURL = (firebaseConfig.databaseURL || '').trim()
+if (!databaseURL || !databaseURL.startsWith('https://')) {
+  throw new Error(
+    'Firebase Database URL manquante. Crée un fichier .env ou .env.local à la racine du projet avec :\n' +
+    'VITE_FIREBASE_DATABASE_URL=https://TON_PROJECT_ID.firebaseio.com\n' +
+    'ou pour Realtime Database (europe) : https://TON_PROJECT_ID-default-rtdb.europe-west1.firebasedatabase.app\n' +
+    'Récupère l’URL dans la console Firebase → Realtime Database → URL.'
+  )
+}
+
 const app = initializeApp(firebaseConfig)
 const db = getDatabase(app)
 const auth = getAuth(app)
