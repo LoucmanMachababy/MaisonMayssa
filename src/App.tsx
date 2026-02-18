@@ -880,10 +880,11 @@ function AppContent() {
   const [snapMessage, setSnapMessage] = useState('')
   const [orderConfirmation, setOrderConfirmation] = useState<{
     orderId: string
+    orderNumber?: number
     total: number
     deliveryFee?: number
     customer: { firstName: string; lastName: string; phone: string }
-    items: { name: string; quantity: number; price: number }[]
+    items: { name: string; quantity: number; price: number; productId?: string }[]
     deliveryMode?: 'livraison' | 'retrait'
     requestedDate?: string
     requestedTime?: string

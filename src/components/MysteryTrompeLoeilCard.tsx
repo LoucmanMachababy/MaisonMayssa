@@ -10,11 +10,11 @@ const PARFUM_OPTIONS = ['Gousse de vanille', 'Fraise', 'Myrtilles'] as const
 
 interface MysteryTrompeLoeilCardProps {
   product: Product
-  onAdd: (product: Product) => void
+  onAdd?: (product: Product) => void
   onToast: (message: string, type: 'success' | 'error' | 'info') => void
 }
 
-export function MysteryTrompeLoeilCard({ product, onAdd, onToast }: MysteryTrompeLoeilCardProps) {
+export function MysteryTrompeLoeilCard({ product, onToast }: MysteryTrompeLoeilCardProps) {
   const [guess, setGuess] = useState<string>('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -60,7 +60,7 @@ export function MysteryTrompeLoeilCard({ product, onAdd, onToast }: MysteryTromp
       className="group relative flex flex-col gap-3 sm:gap-4 overflow-hidden rounded-2xl sm:rounded-[2rem] bg-white/60 p-3 sm:p-4 shadow-xl ring-1 ring-white/40 ring-2 ring-amber-200/60"
     >
       <div className="absolute top-4 right-4 z-10">
-        <ProductBadges badges={product.badges} />
+        <ProductBadges badges={product.badges ?? []} />
       </div>
 
       {/* Placeholder image */}
