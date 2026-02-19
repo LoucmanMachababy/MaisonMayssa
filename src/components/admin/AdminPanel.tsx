@@ -430,9 +430,6 @@ function Dashboard({ user }: { user: User }) {
   const hasActiveFilters = searchQuery.trim() || dateFrom || dateTo || sourceFilter !== 'all' || statusFilter !== 'all' || historiqueVue !== 'a_faire'
   const previousPendingIdsRef = useRef<Set<string>>(new Set())
   const isInitialLoadRef = useRef(true)
-  /** Ids déjà passés en "en préparation" quand ils sont apparus dans À faire (évite de les retraiter). */
-  const aFaireAutoPreparedRef = useRef<Set<string>>(new Set())
-
   useEffect(() => {
     const unsub1 = listenStock(setStock)
     const unsub2 = listenSettings(setSettings)
