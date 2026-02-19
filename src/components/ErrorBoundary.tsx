@@ -61,9 +61,14 @@ export class ErrorBoundary extends Component<Props, State> {
           <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 12, textAlign: 'center' }}>
             {message}
           </h1>
-          <p style={{ fontSize: 14, color: '#8b5a3c', marginBottom: 24, textAlign: 'center' }}>
+          <p style={{ fontSize: 14, color: '#8b5a3c', marginBottom: 16, textAlign: 'center' }}>
             {subMessage}
           </p>
+          {this.state.error && (
+            <p style={{ fontSize: 11, color: '#c0392b', background: '#fdecea', border: '1px solid #f5c6cb', borderRadius: 8, padding: '6px 12px', marginBottom: 16, maxWidth: 320, wordBreak: 'break-all', textAlign: 'left' }}>
+              {this.state.error.message}
+            </p>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
             {onRetry && (
               <button

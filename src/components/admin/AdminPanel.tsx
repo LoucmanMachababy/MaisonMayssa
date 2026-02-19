@@ -457,7 +457,7 @@ function Dashboard({ user }: { user: User }) {
     previousPendingIdsRef.current = pendingIds
     if (newIds.length > 0 && soundEnabled) {
       playNewOrderSound()
-      if (Notification.permission === 'granted') {
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
         const count = newIds.length
         new Notification('Nouvelle commande !', {
           body: count === 1 ? 'Une nouvelle commande est en attente.' : `${count} nouvelles commandes en attente.`,
@@ -904,7 +904,7 @@ function Dashboard({ user }: { user: User }) {
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
-                if (soundEnabled && Notification.permission === 'default') {
+                if (soundEnabled && typeof Notification !== 'undefined' && Notification.permission === 'default') {
                   Notification.requestPermission()
                 }
                 setSoundEnabled((s) => !s)
