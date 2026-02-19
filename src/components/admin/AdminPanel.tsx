@@ -955,16 +955,16 @@ function Dashboard({ user }: { user: User }) {
               {group.tabs.map((t) => (
                 <button
                   key={t.id}
-                  onClick={() => setTab(t.id)}
+                  onClick={() => setTab(t.id as typeof tab)}
                   className={`flex-shrink-0 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     tab === t.id ? 'bg-mayssa-brown text-white shadow-md' : 'text-mayssa-brown/60 hover:bg-mayssa-soft/80'
                   }`}
                 >
                   <t.icon size={14} />
                   {t.label}
-                  {'badge' in t && t.badge > 0 && (
+                  {'badge' in t && (t.badge ?? 0) > 0 && (
                     <span className="bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                      {t.badge}
+                      {Number(t.badge)}
                     </span>
                   )}
                 </button>
@@ -1135,9 +1135,10 @@ function Dashboard({ user }: { user: User }) {
                   <ul className="space-y-2">
                     {ordersPourPrepDate.map(([id, order]) => {
                       const client = [order.customer?.firstName, order.customer?.lastName].filter(Boolean).join(' ') || 'Client'
+                      const reqDate = order.requestedDate ?? ''
                       const creneau = order.requestedTime
-                        ? `${parseDateYyyyMmDd(order.requestedDate).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })} à ${order.requestedTime}`
-                        : parseDateYyyyMmDd(order.requestedDate).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
+                        ? `${parseDateYyyyMmDd(reqDate).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })} à ${order.requestedTime}`
+                        : parseDateYyyyMmDd(reqDate).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
                       const itemsSummary = (order.items ?? []).map((i) => `${i.quantity}× ${i.name}`).join(', ')
                       const isPreparing = preparingOrderIds.has(id)
                       return (

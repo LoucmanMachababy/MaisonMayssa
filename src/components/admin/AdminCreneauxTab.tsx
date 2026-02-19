@@ -30,7 +30,6 @@ function formatSlotsForInput(slots: string[] | undefined): string {
 
 export function AdminCreneauxTab({ settings }: AdminCreneauxTabProps) {
   const today = getMinDate()
-  const fallbackFirst = settings.firstAvailableDate?.trim() || today
   const [firstAvailableDateRetrait, setFirstAvailableDateRetrait] = useState(settings.firstAvailableDateRetrait?.trim() ?? settings.firstAvailableDate?.trim() ?? today)
   const [firstAvailableDateLivraison, setFirstAvailableDateLivraison] = useState(settings.firstAvailableDateLivraison?.trim() ?? settings.firstAvailableDate?.trim() ?? today)
   const [lastAvailableDate, setLastAvailableDate] = useState(settings.lastAvailableDate ?? '')
