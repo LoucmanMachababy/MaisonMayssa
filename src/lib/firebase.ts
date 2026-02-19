@@ -505,6 +505,19 @@ export async function getOrder(orderId: string): Promise<Order | null> {
   return { ...val, id: orderId } as Order
 }
 
+/** Écoute en temps réel une commande (page statut client : voit "En préparation" dès que l'admin valide) */
+export function listenOrder(orderId: string, callback: (order: Order | null) => void): () => void {
+  const orderRef = ref(db, `orders/${orderId}`)
+  return onValue(orderRef, (snapshot) => {
+    const val = snapshot.val()
+    if (!val) {
+      callback(null)
+      return
+    }
+    callback({ ...val, id: orderId } as Order)
+  })
+}
+
 export async function updateOrderStatus(orderId: string, status: OrderStatus) {
   await update(ref(db, `orders/${orderId}`), { status })
 }
@@ -546,13 +559,25 @@ export function listenReviews(callback: (reviews: Record<string, Review>) => voi
   })
 }
 
-export async function submitReview(review: Omit<Review, 'createdAt'>): Promise<string | null> {
+/** Soumet un avis. Si uid est fourni (client connecté), ajoute 10 points fidélité (review_bonus). */
+export async function submitReview(review: Omit<Review, 'createdAt'>, uid?: string | null): Promise<string | null> {
   const newRef = push(reviewsRef)
   const data: Review = {
     ...review,
     createdAt: Date.now(),
   }
   await set(newRef, stripUndefined(data as unknown as Record<string, unknown>))
+  if (uid) {
+    try {
+      await addUserPoints(uid, {
+        reason: 'review_bonus',
+        points: 10,
+        at: Date.now(),
+      })
+    } catch (err) {
+      console.error('Error adding review bonus points:', err)
+    }
+  }
   return newRef.key
 }
 

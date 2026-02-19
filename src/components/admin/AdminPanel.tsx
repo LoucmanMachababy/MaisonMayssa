@@ -440,6 +440,8 @@ function Dashboard({ user }: { user: User }) {
   const hasActiveFilters = searchQuery.trim() || dateFrom || dateTo || sourceFilter !== 'all' || statusFilter !== 'all' || historiqueVue !== 'a_faire'
   const previousPendingIdsRef = useRef<Set<string>>(new Set())
   const isInitialLoadRef = useRef(true)
+  /** Ids déjà passés en "en préparation" quand ils sont apparus dans À faire (évite de les retraiter). */
+  const aFaireAutoPreparedRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     const unsub1 = listenStock(setStock)
@@ -715,7 +717,20 @@ function Dashboard({ user }: { user: User }) {
       })
   }, [orders, prepDateEffective])
 
-  // Stats CA (commandes validées uniquement)
+  // Quand on est en Historique > À faire : passer automatiquement les commandes "en attente" en "en préparation" (le CA ne compte que les "validées")
+  useEffect(() => {
+    if (tab !== 'historique' || historiqueVue !== 'a_faire') return
+    const toPrepare = displayedOrders.filter(([, o]) => o.status === 'en_attente').map(([id]) => id)
+    const newIds = toPrepare.filter((id) => !aFaireAutoPreparedRef.current.has(id))
+    newIds.forEach((id) => aFaireAutoPreparedRef.current.add(id))
+    newIds.forEach((id) => {
+      updateOrderStatus(id, 'en_preparation').catch(() => {
+        aFaireAutoPreparedRef.current.delete(id)
+      })
+    })
+  }, [tab, historiqueVue, displayedOrders])
+
+  // Stats CA : uniquement les commandes "validées" (pas en préparation ni prête)
   const validatedOrders = Object.values(orders).filter((o) => o.status === 'validee')
   const caTotal = validatedOrders.reduce((s, o) => s + (o.total ?? 0), 0)
   const now = new Date()

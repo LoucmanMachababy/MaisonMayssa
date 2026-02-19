@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Package, ChefHat, CheckCircle2, Truck, XCircle } from 'lucide-react'
-import { getOrder, type Order, type OrderStatus } from '../lib/firebase'
+import { listenOrder, type Order, type OrderStatus } from '../lib/firebase'
 
 /** Libellés alignés sur le dashboard admin (À valider / Historique) */
-const STATUS_CONFIG: Record<OrderStatus, { label: string; icon: typeof Package; color: string }> = {
+const STATUS_CONFIG: Record<OrderStatus, { label: string; subtitle?: string; icon: typeof Package; color: string }> = {
   en_attente: { label: 'En attente', icon: Package, color: 'text-amber-700 bg-amber-50' },
-  en_preparation: { label: 'En préparation', icon: ChefHat, color: 'text-blue-700 bg-blue-50' },
+  en_preparation: { label: 'En préparation', subtitle: 'Nous préparons votre commande avec soin.', icon: ChefHat, color: 'text-blue-700 bg-blue-50' },
   pret: { label: 'Prête', icon: CheckCircle2, color: 'text-emerald-700 bg-emerald-50' },
   livree: { label: 'Livrée', icon: Truck, color: 'text-emerald-700 bg-emerald-50' },
   validee: { label: 'Validée', icon: CheckCircle2, color: 'text-emerald-700 bg-emerald-50' },
@@ -23,23 +23,16 @@ export function OrderStatusPage({ orderId, onBack }: OrderStatusPageProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Écoute en temps réel : le client voit "En préparation" dès que l'admin met la commande en préparation
   useEffect(() => {
-    let cancelled = false
-    async function load() {
-      try {
-        const o = await getOrder(orderId)
-        if (!cancelled) {
-          setOrder(o)
-          setError(o ? null : 'Commande introuvable')
-        }
-      } catch {
-        if (!cancelled) setError('Erreur de chargement')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-    load()
-    return () => { cancelled = true }
+    setLoading(true)
+    setError(null)
+    const unsubscribe = listenOrder(orderId, (o) => {
+      setOrder(o)
+      setError(o ? null : 'Commande introuvable')
+      setLoading(false)
+    })
+    return () => unsubscribe()
   }, [orderId])
 
   if (loading) {
@@ -107,6 +100,9 @@ export function OrderStatusPage({ orderId, onBack }: OrderStatusPageProps) {
             <Icon size={20} />
             {config.label}
           </div>
+          {config.subtitle && (
+            <p className="mt-2 text-sm text-mayssa-brown/70">{config.subtitle}</p>
+          )}
 
           <div className="mt-6 space-y-4">
             <div>

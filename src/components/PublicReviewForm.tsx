@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { Star, Send, X } from 'lucide-react'
 import { submitReview, type Review } from '../lib/firebase'
+import { useAuth } from '../hooks/useAuth'
 import { PRODUCTS } from '../constants'
 import { cn } from '../lib/utils'
 
 const STARS = [1, 2, 3, 4, 5] as const
 
 export function PublicReviewForm() {
+  const { user } = useAuth()
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [productRatings, setProductRatings] = useState<Record<string, number>>({})
   const [comment, setComment] = useState('')
@@ -62,7 +64,7 @@ export function PublicReviewForm() {
         authorName: authorName.trim() || undefined,
         productRatings: Object.keys(ratings).length > 0 ? ratings : undefined,
       }
-      await submitReview(payload)
+      await submitReview(payload, user?.uid)
       setSent(true)
       setSelectedIds([])
       setProductRatings({})
@@ -81,6 +83,9 @@ export function PublicReviewForm() {
       <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-6 text-center">
         <p className="text-sm font-semibold text-emerald-800">Merci pour ton avis !</p>
         <p className="text-xs text-emerald-600 mt-1">Il apparaîtra bientôt ici.</p>
+        {user && (
+          <p className="text-xs font-medium text-emerald-700 mt-1">+10 points de fidélité ajoutés à ton compte.</p>
+        )}
       </div>
     )
   }

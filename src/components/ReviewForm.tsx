@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Star, Send } from 'lucide-react'
 import { submitReview, isTrompeLoeilProductId, type Review } from '../lib/firebase'
+import { useAuth } from '../hooks/useAuth'
 import { cn } from '../lib/utils'
 
 export type OrderItemForReview = { name: string; quantity: number; price: number; productId?: string }
@@ -25,6 +26,7 @@ export function ReviewForm({
   onSkip,
   alreadySubmitted = false,
 }: ReviewFormProps) {
+  const { user } = useAuth()
   const [rating, setRating] = useState<number>(0)
   const [hoverRating, setHoverRating] = useState<number>(0)
   const [comment, setComment] = useState('')
@@ -54,7 +56,7 @@ export function ReviewForm({
       if (Object.keys(productRatings).length > 0) {
         payload.productRatings = { ...productRatings }
       }
-      await submitReview(payload)
+      await submitReview(payload, user?.uid)
       onSubmitted()
     } catch (err) {
       console.error(err)
@@ -68,6 +70,9 @@ export function ReviewForm({
     return (
       <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-center">
         <p className="text-sm font-medium text-emerald-800">Merci pour ton avis !</p>
+        {user && (
+          <p className="text-xs text-emerald-600 mt-1">+10 points de fidélité ajoutés à ton compte.</p>
+        )}
       </div>
     )
   }
