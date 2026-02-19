@@ -658,8 +658,15 @@ function Dashboard({ user }: { user: User }) {
     }
 
     if (historiqueVue === 'a_traiter') {
-      // "À traiter" = commandes en cours de préparation
-      const aTraiter = filteredBySearch.filter(([, o]) => o.status === 'en_preparation')
+      // "À traiter" = commandes en préparation + commandes validées (ex. hors site) à préparer pour aujourd'hui ou plus tard
+      const aTraiter = filteredBySearch.filter(([, o]) => {
+        if (o.status === 'en_preparation') return true
+        if (o.status === 'validee') {
+          if (!o.requestedDate) return true
+          return o.requestedDate >= todayRetraitStr
+        }
+        return false
+      })
       return aTraiter.sort(([, a], [, b]) => (b.createdAt || 0) - (a.createdAt || 0))
     }
 
@@ -704,14 +711,15 @@ function Dashboard({ user }: { user: User }) {
     return result
   }, [sortedOrders, historiqueVue, aFaireAujourdhuiOnly, todayRetraitStr, trompeLoeilFilter])
 
-  // Récap trompes l'œil en préparation (vue Historique > À traiter)
+  // Récap trompes l'œil à préparer (vue Historique > À traiter : en préparation + validées ex. hors site)
   const trompeLoeilSummary = useMemo(() => {
     if (historiqueVue !== 'a_traiter') return [] as { name: string; quantity: number }[]
 
     const map = new Map<string, number>()
 
     for (const [, order] of sortedOrders) {
-      if (order.status !== 'en_preparation') continue
+      if (order.status !== 'en_preparation' && order.status !== 'validee') continue
+      if (order.status === 'validee' && order.requestedDate && order.requestedDate < todayRetraitStr) continue
 
       for (const item of order.items ?? []) {
         if (!item.productId || !isTrompeLoeilProductId(item.productId)) continue
@@ -724,7 +732,7 @@ function Dashboard({ user }: { user: User }) {
     return Array.from(map.entries())
       .map(([name, quantity]) => ({ name, quantity }))
       .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
-  }, [sortedOrders, historiqueVue])
+  }, [sortedOrders, historiqueVue, todayRetraitStr])
 
   // Date effective pour "À préparer" (vide = demain)
   const prepDateEffective = prepTargetDate || tomorrowRetraitStr

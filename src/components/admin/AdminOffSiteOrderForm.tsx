@@ -161,7 +161,7 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
           ...(deliveryMode === 'livraison' && address.trim() && { address: address.trim() }),
         },
         total,
-        status: 'validee',
+        status: 'en_preparation',
         source,
         deliveryMode,
         ...(requestedDate && { requestedDate }),
