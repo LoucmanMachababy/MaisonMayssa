@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app'
-import { getDatabase, ref, onValue, set, get, push, update, remove, runTransaction, connectDatabaseEmulator } from 'firebase/database'
+import { getDatabase, ref, onValue, set, get, push, update, remove, runTransaction, connectDatabaseEmulator, onDisconnect } from 'firebase/database'
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from 'firebase/auth'
 import { getFunctions, httpsCallable, connectFunctionsEmulator } from 'firebase/functions'
 import type { User } from 'firebase/auth'
@@ -1066,6 +1066,26 @@ export async function addNotifyWhenAvailable(productId: string, productName: str
 
 export function listenNotifyWhenAvailable(callback: (entries: Record<string, NotifyWhenAvailableEntry>) => void) {
   return onValue(notifyWhenAvailableRef, (snapshot) => {
+    callback(snapshot.exists() ? snapshot.val() : {})
+  })
+}
+
+// --- Sessions actives (clients en train de commander) ---
+import type { ActiveSession } from '../types'
+
+export async function upsertActiveSession(sessionId: string, data: Omit<ActiveSession, 'sessionId'>): Promise<void> {
+  const sessionRef = ref(db, `activeSessions/${sessionId}`)
+  await set(sessionRef, { sessionId, ...data })
+  // Nettoie automatiquement si la connexion est perdue (fermeture onglet/réseau)
+  await onDisconnect(sessionRef).remove()
+}
+
+export async function removeActiveSession(sessionId: string): Promise<void> {
+  await remove(ref(db, `activeSessions/${sessionId}`))
+}
+
+export function listenActiveSessions(callback: (sessions: Record<string, ActiveSession>) => void) {
+  return onValue(ref(db, 'activeSessions'), (snapshot) => {
     callback(snapshot.exists() ? snapshot.val() : {})
   })
 }

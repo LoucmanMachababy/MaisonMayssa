@@ -31,6 +31,7 @@ import { AdminPromosTab } from './AdminPromosTab'
 import { AdminCreneauxTab } from './AdminCreneauxTab'
 import { AdminPollsTab } from './AdminPollsTab'
 import { AdminRappelsTab } from './AdminRappelsTab'
+import { AdminSessionsTab } from './AdminSessionsTab'
 import { AdminSubscribersTab } from './AdminSubscribersTab'
 import { AdminCommunityTab } from './AdminCommunityTab'
 import { AdminOffSiteOrderForm } from './AdminOffSiteOrderForm'
@@ -87,7 +88,7 @@ function exportOrdersToCSV(entries: [string, Order][], filenameSuffix?: string):
     const client = [o.customer?.firstName, o.customer?.lastName].filter(Boolean).join(' ')
     const phone = o.customer?.phone ?? ''
     const source = o.source === 'snap' ? 'Snap' : o.source === 'instagram' ? 'Insta' : o.source === 'whatsapp' ? 'WhatsApp' : 'Site'
-    const status = o.status === 'en_attente' ? 'En attente' : o.status === 'en_preparation' ? 'En préparation' : o.status === 'pret' ? 'Prête' : o.status === 'livree' ? 'Livrée' : o.status === 'validee' ? 'Validée' : 'Refusée'
+    const status = ORDER_STATUS_LABELS[o.status] ?? o.status
     const mode = o.deliveryMode === 'livraison' ? 'Livraison' : 'Retrait'
     const adresse = (o.customer?.address ?? '').replace(/"/g, '""')
     const distanceKm = o.distanceKm != null ? o.distanceKm.toFixed(1) : ''
@@ -149,21 +150,7 @@ function exportOrdersToPDF(entries: [string, Order][], filenameSuffix?: string):
 
     const client = [o.customer?.firstName, o.customer?.lastName].filter(Boolean).join(' ') || 'Client'
     const phone = o.customer?.phone ?? ''
-    const statusLabel =
-      ORDER_STATUS_LABELS[o.status ?? ''] ??
-      (o.status === 'en_attente'
-        ? 'En attente'
-        : o.status === 'en_preparation'
-          ? 'En préparation'
-          : o.status === 'pret'
-            ? 'Prête'
-            : o.status === 'livree'
-              ? 'Livrée'
-              : o.status === 'validee'
-                ? 'Validée'
-                : o.status === 'refusee'
-                  ? 'Refusée'
-                  : (o.status ?? ''))
+    const statusLabel = ORDER_STATUS_LABELS[o.status ?? ''] ?? (o.status ?? '')
     const modeLabel = o.deliveryMode === 'livraison' ? 'Livraison' : 'Retrait'
 
     doc.setFontSize(9)
@@ -375,7 +362,7 @@ function Dashboard({ user }: { user: User }) {
   const [settings, setSettings] = useState<Settings>({ preorderDays: [3, 6], preorderMessage: '' })
   const [orders, setOrders] = useState<Record<string, Order>>({})
   const [reviews, setReviews] = useState<Record<string, Review>>({})
-  const [tab, setTab] = useState<'resume' | 'commandes' | 'historique' | 'livraison' | 'retrait' | 'ca' | 'avis' | 'stock' | 'jours' | 'creneaux' | 'anniversaires' | 'inscrits' | 'produits' | 'promos' | 'sondage' | 'rappels' | 'abonnes' | 'alertes' | 'carte'>('resume')
+  const [tab, setTab] = useState<'resume' | 'commandes' | 'historique' | 'livraison' | 'retrait' | 'ca' | 'avis' | 'stock' | 'jours' | 'creneaux' | 'anniversaires' | 'inscrits' | 'produits' | 'promos' | 'sondage' | 'rappels' | 'abonnes' | 'alertes' | 'carte' | 'sessions'>('resume')
   const [caPeriod, setCaPeriod] = useState<'jour' | 'semaine' | 'mois'>('semaine')
   const [allUsers, setAllUsers] = useState<Record<string, UserProfile>>({})
   const [productOverrides, setProductOverrides] = useState<ProductOverrideMap>({})
@@ -403,6 +390,8 @@ function Dashboard({ user }: { user: User }) {
   const [prepTargetDate, setPrepTargetDate] = useState<string>('')
   /** Ids des commandes en cours de mise à jour (spinner). */
   const [preparingOrderIds, setPreparingOrderIds] = useState<Set<string>>(new Set())
+  /** Filtre trompe l'oeil actif en vue "À traiter" (nom du parfum, null = tous) */
+  const [trompeLoeilFilter, setTrompeLoeilFilter] = useState<string | null>(null)
 
   const setDatePreset = (preset: 'today' | '7d' | '30d' | 'month') => {
     const now = new Date()
@@ -436,6 +425,7 @@ function Dashboard({ user }: { user: User }) {
     setStatusFilter('all')
     setHistoriqueVue('a_faire')
     setAFaireAujourdhuiOnly(false)
+    setTrompeLoeilFilter(null)
   }
   const hasActiveFilters = searchQuery.trim() || dateFrom || dateTo || sourceFilter !== 'all' || statusFilter !== 'all' || historiqueVue !== 'a_faire'
   const previousPendingIdsRef = useRef<Set<string>>(new Set())
@@ -530,9 +520,8 @@ function Dashboard({ user }: { user: User }) {
   }
 
   const handleValidateOrder = async (orderId: string, _order: Order) => {
-    // Le stock a déjà été décrémenté lors de l'ajout au panier client
-    // On marque juste la commande comme validée
-    await updateOrderStatus(orderId, 'validee')
+    // Accepter = lancer la préparation directement
+    await updateOrderStatus(orderId, 'en_preparation')
   }
 
   const handleRefuseOrder = async (orderId: string, order: Order) => {
@@ -581,6 +570,10 @@ function Dashboard({ user }: { user: User }) {
         return next
       })
     }
+  }
+
+  const handleFinishOrder = async (orderId: string) => {
+    await updateOrderStatus(orderId, 'livree')
   }
 
   const handleDeleteOrder = async (orderId: string, order?: Order) => {
@@ -651,7 +644,8 @@ function Dashboard({ user }: { user: User }) {
 
     if (historiqueVue === 'a_faire') {
       const aFaire = filteredBySearch.filter(([, o]) => {
-        if (o.status === 'livree' || o.status === 'refusee') return false
+        // "À faire" = commandes en attente d'acceptation
+        if (o.status !== 'en_attente') return false
         if (!o.requestedDate) return true
         return o.requestedDate >= todayRetraitStr
       })
@@ -667,7 +661,8 @@ function Dashboard({ user }: { user: User }) {
     }
 
     if (historiqueVue === 'a_traiter') {
-      const aTraiter = filteredBySearch.filter(([, o]) => o.status === 'en_attente' || o.status === 'en_preparation')
+      // "À traiter" = commandes en cours de préparation
+      const aTraiter = filteredBySearch.filter(([, o]) => o.status === 'en_preparation')
       return aTraiter.sort(([, a], [, b]) => (b.createdAt || 0) - (a.createdAt || 0))
     }
 
@@ -697,11 +692,42 @@ function Dashboard({ user }: { user: User }) {
     return sortedOrders.filter(([, o]) => o.requestedDate === todayRetraitStr).length
   }, [sortedOrders, historiqueVue, todayRetraitStr])
   const displayedOrders = useMemo(() => {
+    let result = sortedOrders
     if (historiqueVue === 'a_faire' && aFaireAujourdhuiOnly) {
-      return sortedOrders.filter(([, o]) => o.requestedDate === todayRetraitStr)
+      result = result.filter(([, o]) => o.requestedDate === todayRetraitStr)
     }
-    return sortedOrders
-  }, [sortedOrders, historiqueVue, aFaireAujourdhuiOnly, todayRetraitStr])
+    if (historiqueVue === 'a_traiter' && trompeLoeilFilter) {
+      result = result.filter(([, o]) =>
+        o.items?.some((item) =>
+          isTrompeLoeilProductId(item.productId ?? '') &&
+          (item.name || item.productId) === trompeLoeilFilter
+        )
+      )
+    }
+    return result
+  }, [sortedOrders, historiqueVue, aFaireAujourdhuiOnly, todayRetraitStr, trompeLoeilFilter])
+
+  // Récap trompes l'œil en préparation (vue Historique > À traiter)
+  const trompeLoeilSummary = useMemo(() => {
+    if (historiqueVue !== 'a_traiter') return [] as { name: string; quantity: number }[]
+
+    const map = new Map<string, number>()
+
+    for (const [, order] of sortedOrders) {
+      if (order.status !== 'en_preparation') continue
+
+      for (const item of order.items ?? []) {
+        if (!item.productId || !isTrompeLoeilProductId(item.productId)) continue
+        const label = item.name || item.productId
+        const qty = item.quantity ?? 1
+        map.set(label, (map.get(label) ?? 0) + qty)
+      }
+    }
+
+    return Array.from(map.entries())
+      .map(([name, quantity]) => ({ name, quantity }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
+  }, [sortedOrders, historiqueVue])
 
   // Date effective pour "À préparer" (vide = demain)
   const prepDateEffective = prepTargetDate || tomorrowRetraitStr
@@ -717,18 +743,7 @@ function Dashboard({ user }: { user: User }) {
       })
   }, [orders, prepDateEffective])
 
-  // Quand on est en Historique > À faire : passer automatiquement les commandes "en attente" en "en préparation" (le CA ne compte que les "validées")
-  useEffect(() => {
-    if (tab !== 'historique' || historiqueVue !== 'a_faire') return
-    const toPrepare = displayedOrders.filter(([, o]) => o.status === 'en_attente').map(([id]) => id)
-    const newIds = toPrepare.filter((id) => !aFaireAutoPreparedRef.current.has(id))
-    newIds.forEach((id) => aFaireAutoPreparedRef.current.add(id))
-    newIds.forEach((id) => {
-      updateOrderStatus(id, 'en_preparation').catch(() => {
-        aFaireAutoPreparedRef.current.delete(id)
-      })
-    })
-  }, [tab, historiqueVue, displayedOrders])
+  // (Auto-transition supprimée : c'est désormais le bouton "Mettre en prépa" dans "À valider" qui lance la préparation)
 
   // Stats CA : uniquement les commandes "validées" (pas en préparation ni prête)
   const validatedOrders = Object.values(orders).filter((o) => o.status === 'validee')
@@ -933,6 +948,7 @@ function Dashboard({ user }: { user: User }) {
                 { id: 'anniversaires', icon: Cake, label: 'Anniv.', badge: upcomingBirthdays.filter(b => !b.claimed).length },
                 { id: 'alertes', icon: Bell, label: 'Alertes', badge: Object.keys(notifyWhenAvailableEntries).length },
                 { id: 'abonnes', icon: Package, label: 'Abonnés' },
+                { id: 'sessions', icon: ShoppingBag, label: 'Sessions' },
               ],
             },
             {
@@ -1524,10 +1540,10 @@ function Dashboard({ user }: { user: User }) {
                       <>
                         <button
                           onClick={() => handleValidateOrder(id, order)}
-                          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 transition-colors cursor-pointer"
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-blue-500 text-white text-xs font-bold hover:bg-blue-600 transition-colors cursor-pointer"
                         >
-                          <Check size={14} />
-                          Valider
+                          <Package size={14} />
+                          Accepter
                         </button>
                         <button
                           onClick={() => handleRefuseOrder(id, order)}
@@ -1573,7 +1589,7 @@ function Dashboard({ user }: { user: User }) {
             transition={{ duration: 0.2 }}
             className="space-y-4"
           >
-            {/* Vue : À faire | Passées / Livrées | Toutes */}
+            {/* Vue : À faire | À traiter | Passées / Livrées | Toutes */}
             <div className="flex flex-wrap gap-2 p-1.5 bg-white rounded-2xl shadow-sm border border-mayssa-brown/5">
               <button
                 type="button"
@@ -1586,7 +1602,7 @@ function Dashboard({ user }: { user: User }) {
               </button>
               <button
                 type="button"
-                onClick={() => setHistoriqueVue('a_traiter')}
+                onClick={() => { setHistoriqueVue('a_traiter'); setTrompeLoeilFilter(null) }}
                 className={`flex-1 min-w-[80px] py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   historiqueVue === 'a_traiter' ? 'bg-amber-500 text-white shadow-md' : 'text-mayssa-brown/60 hover:bg-mayssa-soft/50'
                 }`}
@@ -1633,11 +1649,56 @@ function Dashboard({ user }: { user: User }) {
 
             {/* KPI + Export */}
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="bg-white rounded-xl px-4 py-2 shadow-sm border border-mayssa-brown/5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">
-                  {historiqueVue === 'a_faire' ? (aFaireAujourdhuiOnly ? "Aujourd'hui" : 'À faire') : historiqueVue === 'a_traiter' ? 'À traiter' : historiqueVue === 'passees' ? 'Passées / Livrées' : 'Résultats'}
-                </span>
-                <p className="text-lg font-display font-bold text-mayssa-brown">{displayedOrders.length} commande{displayedOrders.length !== 1 ? 's' : ''}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="bg-white rounded-xl px-4 py-2 shadow-sm border border-mayssa-brown/5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">
+                    {historiqueVue === 'a_faire' ? (aFaireAujourdhuiOnly ? "Aujourd'hui" : 'À faire') : historiqueVue === 'a_traiter' ? 'À traiter' : historiqueVue === 'passees' ? 'Passées / Livrées' : 'Résultats'}
+                  </span>
+                  <p className="text-lg font-display font-bold text-mayssa-brown">{displayedOrders.length} commande{displayedOrders.length !== 1 ? 's' : ''}</p>
+                </div>
+                {historiqueVue === 'a_traiter' && trompeLoeilSummary.length > 0 && (
+                  <div className="bg-mayssa-caramel/10 rounded-xl px-4 py-2 shadow-sm border border-mayssa-caramel/30 max-w-full">
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-caramel/80">
+                        Trompes l&apos;œil — cliquer pour filtrer
+                      </span>
+                      {trompeLoeilFilter && (
+                        <button
+                          type="button"
+                          onClick={() => setTrompeLoeilFilter(null)}
+                          className="flex items-center gap-0.5 text-[9px] font-bold text-mayssa-caramel hover:text-mayssa-brown cursor-pointer"
+                        >
+                          <XCircle size={11} />
+                          Tout voir
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {trompeLoeilSummary.map((item) => {
+                        const isActive = trompeLoeilFilter === item.name
+                        return (
+                          <button
+                            key={item.name}
+                            type="button"
+                            onClick={() => setTrompeLoeilFilter(isActive ? null : item.name)}
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                              isActive
+                                ? 'bg-mayssa-caramel text-white shadow-sm'
+                                : 'bg-white/70 text-mayssa-brown hover:bg-white border border-mayssa-caramel/20'
+                            }`}
+                          >
+                            <span>{item.name}</span>
+                            <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-display font-bold tabular-nums ${
+                              isActive ? 'bg-white/20' : 'bg-mayssa-caramel/10 text-mayssa-caramel'
+                            }`}>
+                              {item.quantity}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="flex gap-2">
                 <button
@@ -1739,8 +1800,8 @@ function Dashboard({ user }: { user: User }) {
               </div>
               {historiqueVue !== 'toutes' && (
                 <p className="text-[10px] text-mayssa-brown/50">
-                  {historiqueVue === 'a_faire' && 'Commandes à préparer/livrer (date de retrait ≥ aujourd\'hui).'}
-                  {historiqueVue === 'a_traiter' && 'En attente ou en préparation — à valider ou à faire avancer.'}
+                  {historiqueVue === 'a_faire' && 'Nouvelles commandes en attente de validation (date de retrait ≥ aujourd\'hui).'}
+                  {historiqueVue === 'a_traiter' && 'Commandes en cours de préparation. Cliquez "Terminé" quand la commande est remise au client.'}
                   {historiqueVue === 'passees' && 'Commandes déjà livrées, refusées ou date de retrait passée.'}
                 </p>
               )}
@@ -1800,11 +1861,13 @@ function Dashboard({ user }: { user: User }) {
                       initial={{ opacity: 0, y: 4 }}
                       animate={{ opacity: 1, y: 0 }}
                       className={`p-3 rounded-xl border text-left ${isSelectedHist ? 'ring-2 ring-mayssa-caramel' : ''} ${
-                        order.status === 'validee'
-                          ? 'border-emerald-200 bg-emerald-50/50'
-                          : order.status === 'refusee'
-                            ? 'border-red-200 bg-red-50/30'
-                            : 'border-amber-200 bg-amber-50/50'
+                        order.status === 'refusee'
+                          ? 'border-red-200 bg-red-50/30'
+                          : order.status === 'en_preparation'
+                            ? 'border-blue-200 bg-blue-50/40'
+                            : order.status === 'pret' || order.status === 'livree' || order.status === 'validee'
+                              ? 'border-emerald-200 bg-emerald-50/40'
+                              : 'border-amber-200 bg-amber-50/50'
                       }`}
                     >
                       {/* Header */}
@@ -1989,6 +2052,24 @@ function Dashboard({ user }: { user: User }) {
                           <Pencil size={14} />
                           Modifier
                         </button>
+                        {historiqueVue === 'a_faire' && order.status === 'en_attente' && (
+                          <button
+                            onClick={() => updateOrderStatus(id, 'en_preparation')}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-blue-500 text-white text-xs font-bold hover:bg-blue-600 transition-colors cursor-pointer"
+                          >
+                            <Package size={14} />
+                            Accepter → En prépa
+                          </button>
+                        )}
+                        {historiqueVue === 'a_traiter' && order.status === 'en_preparation' && (
+                          <button
+                            onClick={() => handleFinishOrder(id)}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 transition-colors cursor-pointer"
+                          >
+                            <Check size={14} />
+                            Terminé
+                          </button>
+                        )}
                         {order.status === 'validee' && (
                           <button
                             onClick={() => handleRefuseOrder(id, order)}
@@ -2571,6 +2652,10 @@ function Dashboard({ user }: { user: User }) {
               )
             })()}
           </motion.section>
+        )}
+
+        {tab === 'sessions' && (
+          <AdminSessionsTab />
         )}
 
         {tab === 'carte' && (

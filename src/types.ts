@@ -98,6 +98,19 @@ export type AuthUser = {
     displayName: string | null
 }
 
+// --- Session active (client en train de commander) ---
+export type ActiveSession = {
+    sessionId: string
+    updatedAt: number
+    cartItemCount: number
+    cartTotal: number
+    deliveryMode: 'livraison' | 'retrait' | null
+    city: string | null
+    hasPhone: boolean
+    hasDate: boolean
+    source: 'web'
+}
+
 // Simplifié pour l'interface (les types complets sont dans firebase.ts)
 export type UserProfileSummary = {
     email: string

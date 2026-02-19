@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useFavorites } from './hooks/useFavorites'
+import { useActiveSession } from './hooks/useActiveSession'
 import { Navbar } from './components/Navbar'
 import { BirthdayBanner } from './components/BirthdayBanner'
 import { Header } from './components/Header'
@@ -621,6 +622,9 @@ function AppContent() {
   )
   const total = baseTotal
 
+  // Suivi des sessions actives côté admin
+  const { sessionId } = useActiveSession(cart, customer, total)
+
   const categories = useMemo(() => {
     const cats = Array.from(new Set(availableProducts.map((p) => p.category)))
     return ['Tous', ...cats] as const
@@ -1195,7 +1199,9 @@ function AppContent() {
       }
     }
 
-    // Vider le panier après envoi (évite qu'un autre compte voie l'ancienne commande)
+    // Supprimer la session active + vider le panier
+    const { removeActiveSession } = await import('./lib/firebase')
+    await removeActiveSession(sessionId)
     setCart([])
   }
 
@@ -1262,6 +1268,8 @@ function AppContent() {
       await navigator.clipboard.writeText(parts[0])
     } catch { /* fallback: l'utilisateur copiera manuellement */ }
 
+    const { removeActiveSession } = await import('./lib/firebase')
+    await removeActiveSession(sessionId)
     setInstagramParts(parts)
     setIsInstagramModalOpen(true)
   }
@@ -1305,6 +1313,8 @@ function AppContent() {
     if (!message) return
 
     await saveOrderToFirebase('snap')
+    const { removeActiveSession: removeSessionSnap } = await import('./lib/firebase')
+    await removeSessionSnap(sessionId)
     setSnapMessage(message)
     setIsSnapModalOpen(true)
   }

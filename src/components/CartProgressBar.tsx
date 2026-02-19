@@ -17,7 +17,7 @@ const steps = [
 export function CartProgressBar({ 
   currentStep, 
   totalAmount, 
-  freeDeliveryThreshold = 30 
+  freeDeliveryThreshold = 50
 }: CartProgressBarProps) {
   if (currentStep === 0) return null
 
