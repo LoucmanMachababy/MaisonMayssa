@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { jsPDF } from 'jspdf'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { LogOut, Package, Plus, Minus, Calendar, Clock, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp, Pencil, Search, Download, Bell, MessageSquare, MessageCircle, Filter, XCircle, Star, Tag, BarChart3, Printer, FileText, LayoutDashboard, Copy } from 'lucide-react'
+import { LogOut, Package, Plus, Minus, Calendar, Clock, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp, Pencil, Search, Download, Bell, MessageSquare, MessageCircle, Filter, XCircle, Star, Tag, Printer, FileText, LayoutDashboard, Copy } from 'lucide-react'
 import type { OrderStatus } from '../../lib/firebase'
 import {
   adminLogin, adminLogout, onAuthChange,
@@ -734,6 +734,12 @@ function Dashboard({ user }: { user: User }) {
       .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
   }, [sortedOrders, historiqueVue, todayRetraitStr])
 
+  // CA total des commandes affichées dans À traiter
+  const caATraiter = useMemo(() => {
+    if (historiqueVue !== 'a_traiter') return 0
+    return displayedOrders.reduce((sum, [, o]) => sum + (o.total ?? 0), 0)
+  }, [historiqueVue, displayedOrders])
+
   // Date effective pour "À préparer" (vide = demain)
   const prepDateEffective = prepTargetDate || tomorrowRetraitStr
   // Commandes à préparer pour la date choisie (demain ou autre), tri par créneau puis date création
@@ -953,7 +959,6 @@ function Dashboard({ user }: { user: User }) {
                 { id: 'anniversaires', icon: Cake, label: 'Anniv.', badge: upcomingBirthdays.filter(b => !b.claimed).length },
                 { id: 'alertes', icon: Bell, label: 'Alertes', badge: Object.keys(notifyWhenAvailableEntries).length },
                 { id: 'abonnes', icon: Package, label: 'Abonnés' },
-                { id: 'sessions', icon: ShoppingBag, label: 'Sessions' },
               ],
             },
             {
@@ -961,11 +966,9 @@ function Dashboard({ user }: { user: User }) {
               tabs: [
                 { id: 'jours', icon: Calendar, label: 'Jours' },
                 { id: 'creneaux', icon: Clock, label: 'Créneaux' },
-                { id: 'sondage', icon: BarChart3, label: 'Sondage' },
                 { id: 'rappels', icon: Bell, label: 'Rappels' },
               ],
             },
-            { label: null, tabs: [{ id: 'carte', icon: MapPin, label: 'Carte' }] },
           ].map((group, gi) => (
             <div key={gi} className="flex items-center gap-1.5 flex-shrink-0">
               {group.label && (
@@ -1057,44 +1060,58 @@ function Dashboard({ user }: { user: User }) {
               </div>
 
               {/* KPIs cliquables */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setTab('commandes')}
-                  className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5 text-left hover:ring-2 hover:ring-mayssa-caramel transition-all cursor-pointer"
-                >
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">À valider</span>
-                  <p className="text-xl font-display font-bold text-mayssa-brown mt-0.5">{pendingCount}</p>
-                  <p className="text-[10px] text-mayssa-caramel mt-1">Voir →</p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTab('ca')}
-                  className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5 text-left hover:ring-2 hover:ring-mayssa-caramel transition-all cursor-pointer"
-                >
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">CA aujourd'hui</span>
-                  <p className="text-xl font-display font-bold text-mayssa-caramel mt-0.5">{caJour.toFixed(2).replace('.', ',')} €</p>
-                  <p className="text-[10px] text-mayssa-brown/50 mt-1">Semaine : {caSemaine.toFixed(2).replace('.', ',')} €</p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTab('livraison')}
-                  className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5 text-left hover:ring-2 hover:ring-mayssa-caramel transition-all cursor-pointer"
-                >
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">Aujourd'hui</span>
-                  <p className="text-xl font-display font-bold text-mayssa-brown mt-0.5">{livraisonsAujourdhui} livr. · {retraitsAujourdhui} retr.</p>
-                  <p className="text-[10px] text-mayssa-caramel mt-1">Voir Livraison →</p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTab('anniversaires')}
-                  className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5 text-left hover:ring-2 hover:ring-mayssa-caramel transition-all cursor-pointer"
-                >
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">Anniversaires</span>
-                  <p className="text-xl font-display font-bold text-mayssa-brown mt-0.5">{annivNonSouhaites} à souhaiter</p>
-                  <p className="text-[10px] text-mayssa-caramel mt-1">Voir →</p>
-                </button>
-              </div>
+              {(() => {
+                const preparationCount = Object.values(orders).filter(o => o.status === 'en_preparation').length
+                return (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setTab('commandes')}
+                      className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5 text-left hover:ring-2 hover:ring-amber-400 transition-all cursor-pointer"
+                    >
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">À valider</span>
+                      <p className={`text-xl font-display font-bold mt-0.5 ${pendingCount > 0 ? 'text-amber-600' : 'text-mayssa-brown'}`}>{pendingCount}</p>
+                      <p className="text-[10px] text-mayssa-caramel mt-1">Voir →</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setTab('historique'); setHistoriqueVue('a_traiter') }}
+                      className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5 text-left hover:ring-2 hover:ring-blue-400 transition-all cursor-pointer"
+                    >
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">En préparation</span>
+                      <p className={`text-xl font-display font-bold mt-0.5 ${preparationCount > 0 ? 'text-blue-600' : 'text-mayssa-brown'}`}>{preparationCount}</p>
+                      <p className="text-[10px] text-blue-500 mt-1">Voir →</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTab('ca')}
+                      className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5 text-left hover:ring-2 hover:ring-mayssa-caramel transition-all cursor-pointer"
+                    >
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">CA aujourd'hui</span>
+                      <p className="text-xl font-display font-bold text-mayssa-caramel mt-0.5">{caJour.toFixed(2).replace('.', ',')} €</p>
+                      <p className="text-[10px] text-mayssa-brown/50 mt-1">Semaine : {caSemaine.toFixed(2).replace('.', ',')} €</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTab('livraison')}
+                      className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5 text-left hover:ring-2 hover:ring-mayssa-caramel transition-all cursor-pointer"
+                    >
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">Aujourd'hui</span>
+                      <p className="text-xl font-display font-bold text-mayssa-brown mt-0.5">{livraisonsAujourdhui} livr. · {retraitsAujourdhui} retr.</p>
+                      <p className="text-[10px] text-mayssa-caramel mt-1">Voir Livraison →</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTab('anniversaires')}
+                      className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5 text-left hover:ring-2 hover:ring-mayssa-caramel transition-all cursor-pointer"
+                    >
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">Anniversaires</span>
+                      <p className="text-xl font-display font-bold text-mayssa-brown mt-0.5">{annivNonSouhaites} à souhaiter</p>
+                      <p className="text-[10px] text-mayssa-caramel mt-1">Voir →</p>
+                    </button>
+                  </div>
+                )
+              })()}
 
               {/* Stats : commandes cette semaine + Top 3 du mois */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1594,45 +1611,59 @@ function Dashboard({ user }: { user: User }) {
             transition={{ duration: 0.2 }}
             className="space-y-4"
           >
-            {/* Vue : À faire | À traiter | Passées / Livrées | Toutes */}
-            <div className="flex flex-wrap gap-2 p-1.5 bg-white rounded-2xl shadow-sm border border-mayssa-brown/5">
-              <button
-                type="button"
-                onClick={() => setHistoriqueVue('a_faire')}
-                className={`flex-1 min-w-[80px] py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  historiqueVue === 'a_faire' ? 'bg-mayssa-caramel text-white shadow-md' : 'text-mayssa-brown/60 hover:bg-mayssa-soft/50'
-                }`}
-              >
-                À faire
-              </button>
-              <button
-                type="button"
-                onClick={() => { setHistoriqueVue('a_traiter'); setTrompeLoeilFilter(null) }}
-                className={`flex-1 min-w-[80px] py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  historiqueVue === 'a_traiter' ? 'bg-amber-500 text-white shadow-md' : 'text-mayssa-brown/60 hover:bg-mayssa-soft/50'
-                }`}
-              >
-                À traiter
-              </button>
-              <button
-                type="button"
-                onClick={() => setHistoriqueVue('passees')}
-                className={`flex-1 min-w-[80px] py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  historiqueVue === 'passees' ? 'bg-mayssa-brown text-white shadow-md' : 'text-mayssa-brown/60 hover:bg-mayssa-soft/50'
-                }`}
-              >
-                Passées / Livrées
-              </button>
-              <button
-                type="button"
-                onClick={() => setHistoriqueVue('toutes')}
-                className={`flex-1 min-w-[80px] py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  historiqueVue === 'toutes' ? 'bg-mayssa-brown/80 text-white shadow-md' : 'text-mayssa-brown/60 hover:bg-mayssa-soft/50'
-                }`}
-              >
-                Toutes
-              </button>
-            </div>
+            {/* Pipeline visuel : En attente → En prépa → Passées + bouton Toutes */}
+            {(() => {
+              const cntAttente = Object.values(orders).filter(o => o.status === 'en_attente').length
+              const cntPrepa = Object.values(orders).filter(o => o.status === 'en_preparation').length
+              const cntPassees = Object.values(orders).filter(o => o.status === 'livree' || o.status === 'refusee').length
+              const steps: { vue: typeof historiqueVue; label: string; count: number; activeColor: string; dotColor: string }[] = [
+                { vue: 'a_faire', label: 'En attente', count: cntAttente, activeColor: 'bg-amber-500 text-white shadow-md', dotColor: 'bg-amber-400' },
+                { vue: 'a_traiter', label: 'En prépa', count: cntPrepa, activeColor: 'bg-blue-500 text-white shadow-md', dotColor: 'bg-blue-400' },
+                { vue: 'passees', label: 'Passées', count: cntPassees, activeColor: 'bg-mayssa-brown text-white shadow-md', dotColor: 'bg-mayssa-brown/40' },
+              ]
+              return (
+                <div className="bg-white rounded-2xl shadow-sm border border-mayssa-brown/5 p-3">
+                  <div className="flex items-stretch gap-0">
+                    {steps.map((step, i) => (
+                      <div key={step.vue} className="flex items-center flex-1 min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => { setHistoriqueVue(step.vue); if (step.vue === 'a_traiter') setTrompeLoeilFilter(null) }}
+                          className={`flex-1 flex flex-col items-center py-2.5 px-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            historiqueVue === step.vue ? step.activeColor : 'text-mayssa-brown/60 hover:bg-mayssa-soft/50'
+                          }`}
+                        >
+                          <span className={`text-base font-display font-bold leading-none mb-0.5 ${
+                            historiqueVue === step.vue ? 'text-white' : step.count > 0 ? 'text-mayssa-brown' : 'text-mayssa-brown/30'
+                          }`}>{step.count}</span>
+                          <span className="truncate w-full text-center">{step.label}</span>
+                        </button>
+                        {i < steps.length - 1 && (
+                          <div className="flex items-center shrink-0 px-1">
+                            <div className="w-3 h-[2px] bg-mayssa-brown/15 relative">
+                              <div className={`absolute right-0 top-1/2 -translate-y-1/2 w-1 h-1 rounded-full ${step.dotColor}`} />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    <div className="w-px bg-mayssa-brown/10 mx-1.5 self-stretch" />
+                    <button
+                      type="button"
+                      onClick={() => setHistoriqueVue('toutes')}
+                      className={`flex flex-col items-center py-2.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                        historiqueVue === 'toutes' ? 'bg-mayssa-brown/80 text-white shadow-md' : 'text-mayssa-brown/60 hover:bg-mayssa-soft/50'
+                      }`}
+                    >
+                      <span className={`text-base font-display font-bold leading-none mb-0.5 ${historiqueVue === 'toutes' ? 'text-white' : 'text-mayssa-brown/40'}`}>
+                        {Object.keys(orders).length}
+                      </span>
+                      <span>Toutes</span>
+                    </button>
+                  </div>
+                </div>
+              )
+            })()}
 
             {(historiqueVue === 'a_faire' || historiqueVue === 'a_traiter') && historiqueVue === 'a_faire' && (
               <div className="flex flex-wrap items-center gap-2">
@@ -1661,6 +1692,12 @@ function Dashboard({ user }: { user: User }) {
                   </span>
                   <p className="text-lg font-display font-bold text-mayssa-brown">{displayedOrders.length} commande{displayedOrders.length !== 1 ? 's' : ''}</p>
                 </div>
+                {historiqueVue === 'a_traiter' && (
+                  <div className="bg-emerald-50 rounded-xl px-4 py-2 shadow-sm border border-emerald-200">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700/80">CA total à traiter</span>
+                    <p className="text-lg font-display font-bold text-emerald-800">{caATraiter.toFixed(2)} €</p>
+                  </div>
+                )}
                 {historiqueVue === 'a_traiter' && trompeLoeilSummary.length > 0 && (
                   <div className="bg-mayssa-caramel/10 rounded-xl px-4 py-2 shadow-sm border border-mayssa-caramel/30 max-w-full">
                     <div className="flex items-center justify-between gap-2 mb-1.5">
