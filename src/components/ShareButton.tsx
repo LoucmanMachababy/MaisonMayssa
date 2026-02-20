@@ -168,11 +168,6 @@ export function ShareButton({ product, variant = 'icon', className = '' }: Share
                     <p className="text-sm text-mayssa-caramel font-semibold">
                       {product.price.toFixed(2).replace('.', ',')} €
                     </p>
-                    {product.originalPrice && (
-                      <p className="text-xs text-mayssa-brown/50 font-semibold line-through">
-                        {product.originalPrice.toFixed(2).replace('.', ',')} €
-                      </p>
-                    )}
                   </div>
                 </div>
               </div>

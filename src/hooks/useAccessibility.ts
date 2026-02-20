@@ -89,42 +89,39 @@ export function useFocusTrap(
   isActive: boolean,
   onClose: () => void
 ) {
+  // Garder onClose dans un ref pour éviter qu'un changement de référence
+  // ne re-déclenche l'effet (ce qui appelait first?.focus() et volait le focus des inputs)
+  const onCloseRef = useRef(onClose)
+  useEffect(() => { onCloseRef.current = onClose })
+
   useEffect(() => {
     if (!isActive || !containerRef.current) return
     const container = containerRef.current
-    const focusable = container.querySelectorAll(FOCUSABLE_SELECTOR) as NodeListOf<HTMLElement>
-    const first = focusable[0]
-    const last = focusable[focusable.length - 1]
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault()
-        onClose()
+        onCloseRef.current()
         return
       }
       if (e.key === 'Tab') {
-        if (focusable.length === 0) {
-          e.preventDefault()
-          return
-        }
+        const focusable = container.querySelectorAll(FOCUSABLE_SELECTOR) as NodeListOf<HTMLElement>
+        if (focusable.length === 0) { e.preventDefault(); return }
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
         if (e.shiftKey) {
-          if (document.activeElement === first) {
-            e.preventDefault()
-            last?.focus()
-          }
+          if (document.activeElement === first) { e.preventDefault(); last?.focus() }
         } else {
-          if (document.activeElement === last) {
-            e.preventDefault()
-            first?.focus()
-          }
+          if (document.activeElement === last) { e.preventDefault(); first?.focus() }
         }
       }
     }
 
     container.addEventListener('keydown', handleKeyDown)
-    first?.focus()
+    // NE PAS appeler first?.focus() ici : ça volerait le focus à l'utilisateur
+    // en cours de saisie à chaque re-render du parent
     return () => container.removeEventListener('keydown', handleKeyDown)
-  }, [isActive, onClose, containerRef])
+  }, [isActive, containerRef])
 }
 
 /**

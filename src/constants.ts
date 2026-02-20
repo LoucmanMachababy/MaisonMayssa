@@ -25,6 +25,26 @@ export const FIRST_PICKUP_DATE_CLASSIC_LABEL = 'mercredi 18 février 2026'
 export const PRODUCTS: Product[] = [
     // Trompe l'oeil — Best sellers, bientôt disponibles, précommande à partir du 14/02/2026
     {
+        id: 'box-trompe-loeil',
+        name: "Box Trompe l'œil — Les 7 saveurs",
+        description: "L'intégrale des 7 trompe-l'œil dans une seule box : Mangue, Citron, Pistache, Passion, Framboise, Cacahuète, Fraise.",
+        price: 50,
+        originalPrice: 55.5,
+        category: "Trompe l'oeil",
+        image: '/Boxe-trompeloeil.webp',
+        badges: ['best-seller'],
+        preorder: TROMPE_LOEIL_PREORDER,
+        bundleProductIds: [
+            'trompe-loeil-mangue',
+            'trompe-loeil-citron',
+            'trompe-loeil-pistache',
+            'trompe-loeil-passion',
+            'trompe-loeil-framboise',
+            'trompe-loeil-cacahuete',
+            'trompe-loeil-fraise',
+        ],
+    },
+    {
         id: 'trompe-loeil-mangue',
         name: "Trompe l'oeil Mangue",
         description: 'Morceaux de mangue fraîche, coulis de mangue, ganache mangue, pâte à sucre. Une création qui trompe l\'œil et régale les papilles.',
@@ -188,9 +208,18 @@ export const PRODUCTS: Product[] = [
         image: '/brownie-caramel-cacahuete.webp',
     },
     {
+        id: 'brownie-el-mordjene',
+        name: 'El Mordjene',
+        description: 'La pâte à tartiner El Mordjene coulante au cœur d\'un brownie ultra fondant.',
+        price: 3.5,
+        category: 'Brownies',
+        image: '/brownie-elmordjene-kinder.webp',
+        badges: ['populaire'],
+    },
+    {
         id: 'brownie-el-mordjen-kinder',
-        name: 'El Mordjen Kinder',
-        description: 'Ultra gourmand, cœur fondant et éclats de Kinder Bueno.',
+        name: 'El Mordjene Kinder',
+        description: 'Ultra gourmand, cœur fondant El Mordjene et éclats de Kinder Bueno.',
         price: 3.5,
         category: 'Brownies',
         image: '/brownie-elmordjene-kinder.webp',

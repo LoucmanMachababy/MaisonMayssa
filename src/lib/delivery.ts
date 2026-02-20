@@ -51,14 +51,29 @@ export function getMinDate(): string {
 }
 
 /**
- * Liste des dates sélectionnables entre minDate et maxDate, limitées aux jours de la semaine définis par l'admin.
- * Si availableWeekdays est vide/undefined, retourne [] (le client utilisera alors un input date libre avec min/max).
+ * Liste des dates sélectionnables entre minDate et maxDate.
+ * Si pickupDates est fourni et non vide, et que preorderIsOpen=true, retourne ces dates directement (filtrées >= minDate).
+ * Si pickupDates est fourni mais preorderIsOpen=false, retourne [] (précommandes pas encore ouvertes).
+ * Si pickupDates est vide/undefined, utilise availableWeekdays pour générer les dates.
+ * Si availableWeekdays est aussi vide/undefined, retourne [] (input date libre avec min/max).
  */
 export function getSelectableDates(
   minDate: string,
   maxDate: string | undefined,
   availableWeekdays: number[] | undefined,
+  pickupDates?: string[],
+  preorderIsOpen?: boolean,
 ): string[] {
+  if (pickupDates && pickupDates.length > 0) {
+    if (!preorderIsOpen) return []
+    return pickupDates
+      .filter(date => {
+        if (date < minDate) return false
+        if (maxDate && date > maxDate) return false
+        return true
+      })
+      .sort()
+  }
   if (!availableWeekdays || availableWeekdays.length === 0) return []
   const set = new Set(availableWeekdays)
   const out: string[] = []

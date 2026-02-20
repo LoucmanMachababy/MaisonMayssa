@@ -193,11 +193,6 @@ export function FavoritesSheet({
                             <span className="font-bold text-mayssa-caramel">
                               {product.price.toFixed(2).replace('.', ',')} €
                             </span>
-                            {product.originalPrice && (
-                              <span className="text-sm font-bold text-mayssa-brown/50 line-through">
-                                {product.originalPrice.toFixed(2).replace('.', ',')} €
-                              </span>
-                            )}
                           </div>
                           <motion.button
                             whileTap={{ scale: 0.9 }}

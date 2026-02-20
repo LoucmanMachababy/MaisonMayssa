@@ -29,6 +29,7 @@ import { useAuth } from './hooks/useAuth'
 const AuthModals = lazy(() => import('./components/auth/AuthModals').then(m => ({ default: m.AuthModals })))
 const AccountPage = lazy(() => import('./components/auth/AccountPage').then(m => ({ default: m.AccountPage })))
 import { listenDeliverySlots, reserveDeliverySlot, listenSettings } from './lib/firebase'
+import { PRODUCTS } from './constants'
 import { getMinDate } from './lib/delivery'
 // Firebase importé dynamiquement pour le reste
 // addUserPoints, createOrder, etc. sont importés via import() dans les handlers
@@ -85,7 +86,7 @@ import {
   formatDateLabel,
 } from './lib/delivery'
 import { buildOrderMessage } from './lib/orderMessage'
-import { isPreorderNotYetAvailable, isBeforeOrderCutoff, isBeforeFirstPickupDate } from './lib/utils'
+import { isPreorderNotYetAvailable, isBeforeOrderCutoff } from './lib/utils'
 import {
   Sparkles,
   Search,
@@ -100,6 +101,13 @@ import {
   Heart
 } from 'lucide-react'
 import { PAYPAL_ME_USER, REFERRAL_DISCOUNT_EUR } from './constants'
+
+/** Stock effectif d'un produit : pour un bundle, retourne le minimum des stocks de ses composants. */
+function getBundleEffectiveStock(product: { id: string; bundleProductIds?: string[] }, getStockFn: (id: string) => number | null): number | null {
+  if (!product.bundleProductIds?.length) return getStockFn(product.id)
+  const managed = product.bundleProductIds.map(id => getStockFn(id)).filter((s): s is number => s !== null)
+  return managed.length === 0 ? null : Math.min(...managed)
+}
 
 function AppRouter() {
   const [isAdmin, setIsAdmin] = useState(() => window.location.hash === '#admin')
@@ -181,6 +189,8 @@ function AppContent() {
   const isAuthenticatedRef = useRef(isAuthenticated)
   const [deliverySlots, setDeliverySlots] = useState<Record<string, Record<string, number>>>({})
   const [ordersOpen, setOrdersOpen] = useState(true)
+  const [globalMessage, setGlobalMessage] = useState('')
+  const [globalMessageEnabled, setGlobalMessageEnabled] = useState(false)
   const [deliverySchedule, setDeliverySchedule] = useState<{
     minDate: string
     minDateRetrait: string
@@ -189,6 +199,9 @@ function AppContent() {
     availableWeekdays?: number[]
     retraitTimeSlots?: string[]
     livraisonTimeSlots?: string[]
+    pickupDates?: string[]
+    preorderOpenDate?: string
+    preorderOpenTime?: string
   }>(() => {
     const today = getMinDate()
     return { minDate: today, minDateRetrait: today, minDateLivraison: today }
@@ -205,6 +218,8 @@ function AppContent() {
       const minRetrait = (s.firstAvailableDateRetrait && s.firstAvailableDateRetrait.trim()) ? s.firstAvailableDateRetrait.trim() : fallback
       const minLivraison = (s.firstAvailableDateLivraison && s.firstAvailableDateLivraison.trim()) ? s.firstAvailableDateLivraison.trim() : fallback
       setOrdersOpen(s.ordersOpen !== false)
+      setGlobalMessage(s.globalMessage ?? '')
+      setGlobalMessageEnabled(s.globalMessageEnabled === true)
       setDeliverySchedule({
         minDate: minRetrait,
         minDateRetrait: minRetrait,
@@ -213,6 +228,9 @@ function AppContent() {
         availableWeekdays: s.availableWeekdays && s.availableWeekdays.length > 0 ? s.availableWeekdays : undefined,
         retraitTimeSlots: s.retraitTimeSlots && s.retraitTimeSlots.length > 0 ? s.retraitTimeSlots : undefined,
         livraisonTimeSlots: s.livraisonTimeSlots && s.livraisonTimeSlots.length > 0 ? s.livraisonTimeSlots : undefined,
+        pickupDates: s.pickupDates && s.pickupDates.length > 0 ? s.pickupDates : undefined,
+        preorderOpenDate: s.preorderOpenDate,
+        preorderOpenTime: s.preorderOpenTime,
       })
     })
   }, [])
@@ -364,12 +382,15 @@ function AppContent() {
     if (isAuthenticated) {
       ;(async () => {
         try {
-          const { getStock: fetchAll, updateStock } = await import('./lib/firebase')
+          const { getStock: fetchAll, updateStock, getStockDecrementItems } = await import('./lib/firebase')
           const currentStock = await fetchAll()
           for (const item of expired) {
             const origId = getOriginalProductId(item.product.id)
-            const qty = currentStock[origId] ?? 0
-            await updateStock(origId, qty + item.quantity)
+            const pairs = getStockDecrementItems(origId, item.quantity, PRODUCTS)
+            for (const pair of pairs) {
+              const qty = currentStock[pair.productId] ?? 0
+              await updateStock(pair.productId, qty + pair.quantity)
+            }
           }
         } catch {
           /* ignore */
@@ -402,11 +423,14 @@ function AppContent() {
 
       // Relâcher le stock (uniquement si connecté)
       if (isAuthenticatedRef.current) {
-        import('./lib/firebase').then(({ updateStock }) => {
+        import('./lib/firebase').then(({ updateStock, getStockDecrementItems }) => {
           for (const item of expired) {
             const origId = getOriginalProductId(item.product.id)
-            const qty = stockMapRef.current[origId] ?? 0
-            updateStock(origId, qty + item.quantity)
+            const pairs = getStockDecrementItems(origId, item.quantity, PRODUCTS)
+            for (const pair of pairs) {
+              const qty = stockMapRef.current[pair.productId] ?? 0
+              updateStock(pair.productId, qty + pair.quantity)
+            }
           }
         })
       }
@@ -678,14 +702,28 @@ function AppContent() {
 
     // Trompe l'oeil → modal dédiée (choix quantité + précommande)
     if (product.category === "Trompe l'oeil") {
-      if (!isPreorderDay) {
+      // Si des dates de récupération spécifiques sont configurées → ouvrir le modal (il affichera la date d'ouverture)
+      // Sinon si pas le bon jour → toast d'erreur
+      if (!isPreorderDay && !deliverySchedule.preorderOpenDate) {
         showToast(`Précommande dispo ${dayNames} uniquement`, 'error')
         return
       }
-      const qty = getStock(product.id)
-      if (qty !== null && qty <= 0) {
-        showToast(`${product.name} est en rupture de stock`, 'error')
-        return
+      if (product.bundleProductIds?.length) {
+        // Bundle : vérifier que chaque composant a du stock
+        const minStock = product.bundleProductIds.reduce((min, id) => {
+          const q = getStock(id)
+          return q === null ? min : Math.min(min, q)
+        }, Infinity)
+        if (minStock !== Infinity && minStock <= 0) {
+          showToast(`${product.name} est indisponible (un parfum en rupture)`, 'error')
+          return
+        }
+      } else {
+        const qty = getStock(product.id)
+        if (qty !== null && qty <= 0) {
+          showToast(`${product.name} est en rupture de stock`, 'error')
+          return
+        }
       }
       setSelectedProductForTrompeLoeil(product)
       return
@@ -853,10 +891,13 @@ function AppContent() {
   const handleTrompeLOeilConfirm = async (product: Product, quantity: number) => {
     // 1. Décrémenter le stock dans Firebase uniquement si connecté (règles : auth != null)
     if (isAuthenticated) {
-      const currentQty = getStock(product.id)
-      if (currentQty !== null) {
-        const { updateStock } = await import('./lib/firebase')
-        await updateStock(product.id, Math.max(0, currentQty - quantity))
+      const { updateStock, getStockDecrementItems } = await import('./lib/firebase')
+      const pairs = getStockDecrementItems(product.id, quantity, PRODUCTS)
+      for (const pair of pairs) {
+        const currentQty = getStock(pair.productId)
+        if (currentQty !== null) {
+          await updateStock(pair.productId, Math.max(0, currentQty - pair.quantity))
+        }
       }
     }
 
@@ -894,10 +935,12 @@ function AppContent() {
       // Relâcher le stock réservé si trompe l'oeil en cours de réservation (uniquement si connecté)
       if (isTrompeReservation && item && isAuthenticated) {
         const origId = getOriginalProductId(item.product.id)
-        const currentQty = getStock(origId)
-        if (currentQty !== null) {
-          const { updateStock } = await import('./lib/firebase')
-          await updateStock(origId, currentQty + item.quantity)
+        const { updateStock, getStockDecrementItems } = await import('./lib/firebase')
+
+        const pairs = getStockDecrementItems(origId, item.quantity, PRODUCTS)
+        for (const pair of pairs) {
+          const currentQty = getStock(pair.productId)
+          if (currentQty !== null) await updateStock(pair.productId, currentQty + pair.quantity)
         }
       }
       setCart((current) => current.filter((i) => i.product.id !== id))
@@ -909,19 +952,27 @@ function AppContent() {
       const delta = quantity - item.quantity
       if (delta !== 0) {
         const origId = getOriginalProductId(item.product.id)
-        const currentQty = getStock(origId)
-        const { updateStock } = await import('./lib/firebase')
+        const { updateStock, getStockDecrementItems } = await import('./lib/firebase')
+
+        const pairs = getStockDecrementItems(origId, Math.abs(delta), PRODUCTS)
         if (delta > 0) {
-          if (currentQty !== null && currentQty < delta) {
-            showToast(`Stock insuffisant (${currentQty} restant${currentQty > 1 ? 's' : ''})`, 'error')
+          // Vérifier le stock minimum parmi tous les composants
+          const minStock = pairs.reduce((min, pair) => {
+            const q = getStock(pair.productId)
+            return q === null ? min : Math.min(min, q)
+          }, Infinity)
+          if (minStock !== Infinity && minStock < delta) {
+            showToast(`Stock insuffisant (${minStock} restant${minStock > 1 ? 's' : ''})`, 'error')
             return
           }
-          if (currentQty !== null) {
-            await updateStock(origId, currentQty - delta)
+          for (const pair of pairs) {
+            const currentQty = getStock(pair.productId)
+            if (currentQty !== null) await updateStock(pair.productId, currentQty - pair.quantity)
           }
         } else {
-          if (currentQty !== null) {
-            await updateStock(origId, currentQty + Math.abs(delta))
+          for (const pair of pairs) {
+            const currentQty = getStock(pair.productId)
+            if (currentQty !== null) await updateStock(pair.productId, currentQty + pair.quantity)
           }
         }
       }
@@ -1070,7 +1121,7 @@ function AppContent() {
     const hasNonTrompeLoeil = cart.some((item) => item.product.category !== "Trompe l'oeil")
     const hasTrompeLoeil = cart.some((item) => item.product.category === "Trompe l'oeil")
     const minDateForMode = customer.wantsDelivery ? deliverySchedule.minDateLivraison : deliverySchedule.minDateRetrait
-    if (hasTrompeLoeil && isBeforeFirstPickupDate(minDateForMode)) {
+    if (hasTrompeLoeil && customer.date && customer.date < minDateForMode) {
       showToast(`Les précommandes trompe l'œil sont possibles à partir du ${formatDateLabel(minDateForMode)}.`, 'error', 5000)
       return
     }
@@ -1213,7 +1264,7 @@ function AppContent() {
     const hasNonTrompeLoeil = cart.some((item) => item.product.category !== "Trompe l'oeil")
     const hasTrompeLoeil = cart.some((item) => item.product.category === "Trompe l'oeil")
     const minDateForMode = customer.wantsDelivery ? deliverySchedule.minDateLivraison : deliverySchedule.minDateRetrait
-    if (hasTrompeLoeil && isBeforeFirstPickupDate(minDateForMode)) {
+    if (hasTrompeLoeil && customer.date && customer.date < minDateForMode) {
       showToast(`Les précommandes trompe l'œil sont possibles à partir du ${formatDateLabel(minDateForMode)}.`, 'error', 5000)
       return
     }
@@ -1282,7 +1333,7 @@ function AppContent() {
     const hasNonTrompeLoeil = cart.some((item) => item.product.category !== "Trompe l'oeil")
     const hasTrompeLoeil = cart.some((item) => item.product.category === "Trompe l'oeil")
     const minDateForMode = customer.wantsDelivery ? deliverySchedule.minDateLivraison : deliverySchedule.minDateRetrait
-    if (hasTrompeLoeil && isBeforeFirstPickupDate(minDateForMode)) {
+    if (hasTrompeLoeil && customer.date && customer.date < minDateForMode) {
       showToast(`Les précommandes trompe l'œil sont possibles à partir du ${formatDateLabel(minDateForMode)}.`, 'error', 5000)
       return
     }
@@ -1319,6 +1370,33 @@ function AppContent() {
     setIsSnapModalOpen(true)
   }
 
+  // Page maintenance : si les commandes sont fermées, afficher une page dédiée
+  // (sauf pour l'admin qui accède via #admin)
+  const isAdminRoute = typeof window !== 'undefined' && window.location.hash === '#admin'
+  if (!ordersOpen && !isAdminRoute) {
+    return (
+      <div className="min-h-screen bg-mayssa-soft flex flex-col items-center justify-center px-6 py-12 text-center font-sans">
+        <div className="max-w-sm w-full space-y-6">
+          <div className="flex justify-center">
+            <img src="/logo.webp" alt="Maison Mayssa" className="w-24 h-24 object-contain rounded-2xl shadow-lg" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="font-display text-3xl font-bold text-mayssa-brown">Maison Mayssa</h1>
+          </div>
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-mayssa-brown/10">
+            <p className="text-mayssa-brown text-base font-semibold leading-relaxed">
+              Le site est fermé pour le moment.
+            </p>
+            <p className="text-mayssa-brown/60 text-sm mt-2">
+              Revenez bientôt 🍪
+            </p>
+          </div>
+          <p className="text-[10px] text-mayssa-brown/30">© {new Date().getFullYear()} Maison Mayssa</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-mayssa-soft selection:bg-mayssa-caramel/30 font-sans overflow-x-hidden">
       {/* Skip links for accessibility */}
@@ -1342,6 +1420,13 @@ function AppContent() {
 
       <Navbar favoritesCount={favoritesCount} onAccountClick={handleAccountClick} />
       <BirthdayBanner />
+
+      {/* Bannière message global admin */}
+      {globalMessageEnabled && globalMessage.trim() && (
+        <div className="sticky top-0 z-40 w-full bg-mayssa-caramel text-white text-center text-sm font-semibold px-4 py-2.5 shadow-md">
+          📢 {globalMessage}
+        </div>
+      )}
 
       {/* Background Decorative Elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -1498,9 +1583,11 @@ function AppContent() {
                         onAdd={handleAddToCart}
                         isFavorite={isFavorite(product.id)}
                         onToggleFavorite={toggleFavorite}
-                        stock={getStock(product.id)}
+                        stock={getBundleEffectiveStock(product, getStock)}
                         isPreorderDay={isPreorderDay}
                         dayNames={dayNames}
+                        preorderOpenDate={deliverySchedule.preorderOpenDate}
+                        preorderOpenTime={deliverySchedule.preorderOpenTime}
                         priority={index < 4}
                         highlightAsNew={product.id === 'trompe-loeil-fraise'}
                       />
@@ -1518,9 +1605,11 @@ function AppContent() {
                       onTap={handleAddToCart}
                       isFavorite={isFavorite(product.id)}
                       onToggleFavorite={toggleFavorite}
-                      stock={getStock(product.id)}
+                      stock={getBundleEffectiveStock(product, getStock)}
                       isPreorderDay={isPreorderDay}
                       dayNames={dayNames}
+                      preorderOpenDate={deliverySchedule.preorderOpenDate}
+                      preorderOpenTime={deliverySchedule.preorderOpenTime}
                       priority={index < 4}
                       highlightAsNew={product.id === 'trompe-loeil-fraise'}
                     />
@@ -1577,6 +1666,9 @@ function AppContent() {
               minDateLivraison={deliverySchedule.minDateLivraison}
               maxDate={deliverySchedule.maxDate}
               availableWeekdays={deliverySchedule.availableWeekdays}
+              pickupDates={deliverySchedule.pickupDates}
+              preorderOpenDate={deliverySchedule.preorderOpenDate}
+              preorderOpenTime={deliverySchedule.preorderOpenTime}
               retraitTimeSlots={deliverySchedule.retraitTimeSlots}
               livraisonTimeSlots={deliverySchedule.livraisonTimeSlots}
               ordersOpen={ordersOpen}
@@ -1807,9 +1899,11 @@ function AppContent() {
       {/* Modal Trompe l'oeil (précommande) */}
       <TrompeLOeilModal
         product={selectedProductForTrompeLoeil}
-        stock={selectedProductForTrompeLoeil ? getStock(selectedProductForTrompeLoeil.id) : null}
+        stock={selectedProductForTrompeLoeil ? getBundleEffectiveStock(selectedProductForTrompeLoeil, getStock) : null}
         onClose={() => setSelectedProductForTrompeLoeil(null)}
         onConfirm={handleTrompeLOeilConfirm}
+        preorderOpenDate={deliverySchedule.preorderOpenDate}
+        preorderOpenTime={deliverySchedule.preorderOpenTime}
       />
 
       {/* Mobile Components */}
@@ -1846,6 +1940,9 @@ function AppContent() {
         minDateLivraison={deliverySchedule.minDateLivraison}
         maxDate={deliverySchedule.maxDate}
         availableWeekdays={deliverySchedule.availableWeekdays}
+        pickupDates={deliverySchedule.pickupDates}
+        preorderOpenDate={deliverySchedule.preorderOpenDate}
+        preorderOpenTime={deliverySchedule.preorderOpenTime}
         retraitTimeSlots={deliverySchedule.retraitTimeSlots}
         livraisonTimeSlots={deliverySchedule.livraisonTimeSlots}
         ordersOpen={ordersOpen}
@@ -1860,6 +1957,7 @@ function AppContent() {
         setReferralCodeInput={setReferralCodeInput}
         mysteryFraiseDiscount={0}
       />
+
       <OrderRecapModal
         isOpen={showRecapModal}
         onClose={() => setShowRecapModal(false)}
@@ -1912,7 +2010,7 @@ function AppContent() {
         onAdd={handleAddToCart}
         isFavorite={isFavorite}
         onToggleFavorite={toggleFavorite}
-        stock={selectedProductForDetail ? getStock(selectedProductForDetail.id) : null}
+        stock={selectedProductForDetail ? getBundleEffectiveStock(selectedProductForDetail, getStock) : null}
         isPreorderDay={isPreorderDay}
         dayNames={dayNames}
       />

@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf'
 import type { Order } from './firebase'
+import { formatOrderItemName } from './utils'
 
 function formatDateYyyyMmDd(yyyyMmDd: string): string {
   const [y, m, d] = yyyyMmDd.split('-')
@@ -36,7 +37,7 @@ export function printOrderSlip(order: Order, orderId: string): void {
       (i) =>
         `<tr>
           <td>${i.quantity}</td>
-          <td>${escapeHtml(i.name)}</td>
+          <td>${escapeHtml(formatOrderItemName(i))}</td>
           <td style="text-align:right">${(i.price * i.quantity).toFixed(2).replace('.', ',')} €</td>
         </tr>`
     )
@@ -245,7 +246,7 @@ export function exportSingleOrderPDF(order: Order, orderId: string): void {
   doc.setFont('helvetica', 'normal')
   for (const item of order.items ?? []) {
     const amount = (item.price * item.quantity).toFixed(2).replace('.', ',') + ' €'
-    const nameLines = doc.splitTextToSize(item.name + (item.sizeLabel ? ` (${item.sizeLabel})` : ''), maxWidth - 40)
+    const nameLines = doc.splitTextToSize(formatOrderItemName(item) + (item.sizeLabel ? ` (${item.sizeLabel})` : ''), maxWidth - 40)
     doc.rect(margin, y, maxWidth, nameLines.length * 5 + 2)
     doc.text(String(item.quantity), margin + 2, y + 5)
     doc.text(nameLines, margin + 14, y + 5)

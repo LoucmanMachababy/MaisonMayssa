@@ -1,12 +1,25 @@
 import { useState, useMemo } from 'react'
 import { X, Minus, Plus, Search, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
-import { createOffSiteOrder, decrementStockBatch, isTrompeLoeilProductId, reserveDeliverySlot, validatePromoCode, incrementPromoCodeUsage, type OrderSource, type OrderItem, type DeliveryMode, type StockMap } from '../../lib/firebase'
+import { createOffSiteOrder, decrementStockBatch, isTrompeLoeilProductId, getStockDecrementItems, reserveDeliverySlot, validatePromoCode, incrementPromoCodeUsage, type OrderSource, type OrderItem, type DeliveryMode, type StockMap } from '../../lib/firebase'
 import type { ProductWithAvailability } from '../../hooks/useProducts'
-import type { ProductCategory } from '../../types'
+import type { Product, ProductCategory, ProductSize } from '../../types'
+import { TiramisuCustomizationModal } from '../TiramisuCustomizationModal'
 
 const ALL_CATEGORIES: ProductCategory[] = [
   "Trompe l'oeil", 'Mini Gourmandises', 'Brownies', 'Cookies', 'Layer Cups', 'Boxes', 'Tiramisus',
 ]
+
+/** Affiche le nom sous forme "Catégorie - Goût" pour les produits simples (Brownies, Cookies, Layer Cups) */
+function displayName(product: { name: string; category: string }): string {
+  const prefixes: Partial<Record<string, string>> = {
+    'Brownies': 'Brownie',
+    'Cookies': 'Cookie',
+    'Layer Cups': 'Layer Cup',
+  }
+  const prefix = prefixes[product.category]
+  if (!prefix) return product.name
+  return `${prefix} - ${product.name}`
+}
 
 const SOURCE_OPTIONS: { value: OrderSource; label: string; color: string }[] = [
   { value: 'snap', label: 'Snapchat', color: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
@@ -43,16 +56,18 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
   const [sizePickerFor, setSizePickerFor] = useState<string | null>(null)
+  const [tiramisuProduct, setTiramisuProduct] = useState<ProductWithAvailability | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [promoCodeInput, setPromoCodeInput] = useState('')
   const [appliedPromo, setAppliedPromo] = useState<{ code: string; discount: number } | null>(null)
   const [manualDiscount, setManualDiscount] = useState<number>(0)
+  const [deliveryFee, setDeliveryFee] = useState(0)
   const [promoError, setPromoError] = useState('')
 
   const subtotal = cart.reduce((sum, entry) => sum + entry.unitPrice * entry.quantity, 0)
   const discountAmount = appliedPromo ? appliedPromo.discount : (manualDiscount > 0 ? Math.min(manualDiscount, subtotal) : 0)
-  const total = Math.max(0, subtotal - discountAmount)
+  const total = Math.max(0, subtotal - discountAmount + (deliveryMode === 'livraison' ? deliveryFee : 0))
 
   const availableProducts = useMemo(() => {
     return allProducts.filter(p => p.available !== false)
@@ -97,6 +112,23 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
       setCart(prev => [...prev, { product, quantity: 1, sizeLabel, unitPrice }])
     }
     setSizePickerFor(null)
+  }
+
+  const handleTiramisuSelect = (product: Product, size: ProductSize, base: string, allToppings: string[]) => {
+    const extraToppings = Math.max(0, allToppings.length - 2)
+    const extraPrice = extraToppings * 0.5
+    const totalPrice = size.price + extraPrice
+    const toppingsText = allToppings.join(', ')
+    const extraText = extraToppings > 0 ? ` (${extraToppings} supp. +${extraPrice.toFixed(2).replace('.', ',')}€)` : ''
+    const cartProduct = {
+      ...tiramisuProduct!,
+      id: `${product.id}-${size.ml}-${Date.now()}`,
+      name: size.label,
+      description: `Base: ${base} • Toppings: ${toppingsText}${extraText}`,
+      price: totalPrice,
+    } as ProductWithAvailability
+    setCart(prev => [...prev, { product: cartProduct, quantity: 1, unitPrice: totalPrice }])
+    setTiramisuProduct(null)
   }
 
   const updateCartQuantity = (index: number, delta: number) => {
@@ -170,6 +202,7 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
         ...(excludeTrompeLoeilStock && { excludeTrompeLoeilStock: true }),
         ...(appliedPromo && { promoCode: appliedPromo.code, discountAmount: appliedPromo.discount }),
         ...(!appliedPromo && discountAmount > 0 && { discountAmount }),
+        ...(deliveryMode === 'livraison' && deliveryFee > 0 ? { deliveryFee } : {}),
       })
 
       if (deliveryMode === 'livraison' && requestedDate && requestedTime) {
@@ -177,9 +210,12 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
       }
 
       // Ne déduire que les produits dont le stock doit être mis à jour (exclure trompes l'oeil si coché)
-      const itemsToDecrement = excludeTrompeLoeilStock
-        ? cart.filter(entry => !isTrompeLoeilProductId(entry.product.id)).map(entry => ({ productId: entry.product.id, quantity: entry.quantity }))
-        : cart.map(entry => ({ productId: entry.product.id, quantity: entry.quantity }))
+      // Les bundles sont développés en leurs composants individuels
+      const itemsToDecrement = cart.flatMap(entry => {
+        const isTrompe = isTrompeLoeilProductId(entry.product.id) || !!entry.product.bundleProductIds?.length
+        if (excludeTrompeLoeilStock && isTrompe) return []
+        return getStockDecrementItems(entry.product.id, entry.quantity, allProducts)
+      })
       if (itemsToDecrement.length > 0) {
         await decrementStockBatch(itemsToDecrement)
       }
@@ -205,6 +241,7 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
   }
 
   return (
+    <>
     <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center overflow-y-auto p-4 pt-8 pb-8">
       <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden">
         {/* Header */}
@@ -289,19 +326,33 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
                     {expandedCategories.has(cat) ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                   </button>
                   {expandedCategories.has(cat) && products.map(product => {
-                    const stockQty = stock[product.id]
+                    const stockQty = product.bundleProductIds?.length
+                      ? (() => {
+                          const vals = product.bundleProductIds!.map(id => stock[id]).filter((v): v is number => v !== undefined)
+                          return vals.length ? Math.min(...vals) : undefined
+                        })()
+                      : stock[product.id]
                     const isSoldOut = stockQty !== undefined && stockQty <= 0
                     return (
                       <div key={product.id}>
                         <div className={`flex items-center justify-between px-3 py-2 border-t border-mayssa-brown/5 ${isSoldOut ? 'opacity-40' : ''}`}>
                           <div className="min-w-0 flex-1">
-                            <p className="text-xs font-medium text-mayssa-brown truncate">{product.name}</p>
+                            <p className="text-xs font-medium text-mayssa-brown truncate">{displayName(product)}</p>
                             <p className="text-[10px] text-mayssa-brown/50">
                               {product.price.toFixed(2).replace('.', ',')} €
                               {stockQty !== undefined && <span className="ml-1">· {stockQty} en stock</span>}
                             </p>
                           </div>
-                          {product.sizes && product.sizes.length > 0 ? (
+                          {product.category === 'Tiramisus' ? (
+                            <button
+                              type="button"
+                              onClick={() => setTiramisuProduct(product)}
+                              disabled={isSoldOut}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg bg-mayssa-brown text-white hover:bg-mayssa-caramel disabled:bg-mayssa-brown/20 transition-colors cursor-pointer text-xs"
+                            >
+                              <Plus size={14} />
+                            </button>
+                          ) : product.sizes && product.sizes.length > 0 ? (
                             <button
                               type="button"
                               onClick={() => setSizePickerFor(sizePickerFor === product.id ? null : product.id)}
@@ -351,7 +402,7 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
                   <div key={`${entry.product.id}-${entry.sizeLabel ?? ''}`} className="flex items-center gap-2">
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium text-mayssa-brown truncate">
-                        {entry.product.name}
+                        {displayName(entry.product)}
                         {entry.sizeLabel && <span className="text-mayssa-brown/50"> ({entry.sizeLabel})</span>}
                       </p>
                     </div>
@@ -435,6 +486,12 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
                   {promoError && <p className="text-[10px] text-red-500">{promoError}</p>}
                 </>
               )}
+              {deliveryMode === 'livraison' && deliveryFee > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-xs text-mayssa-brown/70">Frais de livraison</span>
+                  <span className="text-xs font-bold text-mayssa-brown">+{deliveryFee.toFixed(2).replace('.', ',')} €</span>
+                </div>
+              )}
               <div className="border-t border-mayssa-brown/10 pt-2 flex justify-between">
                 <span className="text-xs font-bold text-mayssa-brown">Total</span>
                 <span className="text-sm font-bold text-mayssa-caramel">{total.toFixed(2).replace('.', ',')} €</span>
@@ -464,16 +521,39 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
           </div>
 
           {deliveryMode === 'livraison' && (
-            <div>
-              <label className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60 mb-2 block">Adresse de livraison (obligatoire)</label>
-              <input
-                type="text"
-                placeholder="Adresse complète..."
-                value={address}
-                onChange={e => setAddress(e.target.value)}
-                className="w-full rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm text-mayssa-brown border border-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
-              />
-            </div>
+            <>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60 mb-2 block">Adresse de livraison (obligatoire)</label>
+                <input
+                  type="text"
+                  placeholder="Adresse complète..."
+                  value={address}
+                  onChange={e => setAddress(e.target.value)}
+                  className="w-full rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm text-mayssa-brown border border-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60 mb-2 block">Frais de livraison (€)</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {[0, 3, 5, 8].map(fee => (
+                    <button key={fee} type="button"
+                      onClick={() => setDeliveryFee(fee)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                        deliveryFee === fee ? 'bg-mayssa-caramel text-white' : 'bg-mayssa-soft text-mayssa-brown hover:bg-mayssa-caramel/20'
+                      }`}
+                    >
+                      {fee === 0 ? 'Offerts' : `${fee} €`}
+                    </button>
+                  ))}
+                  <input type="number" min={0} step={0.5}
+                    value={[0, 3, 5, 8].includes(deliveryFee) ? '' : deliveryFee || ''}
+                    onChange={e => setDeliveryFee(parseFloat(e.target.value) || 0)}
+                    placeholder="Autre"
+                    className="w-20 rounded-xl border border-mayssa-brown/10 px-2 py-1.5 text-xs text-mayssa-brown bg-mayssa-soft/50 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                </div>
+              </div>
+            </>
           )}
 
           {/* Date / Heure */}
@@ -496,7 +576,7 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
           </div>
 
           {/* Exclure trompes l'oeil du stock */}
-          {cart.some(e => isTrompeLoeilProductId(e.product.id)) && (
+          {cart.some(e => isTrompeLoeilProductId(e.product.id) || !!e.product.bundleProductIds?.length) && (
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -534,5 +614,14 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
         </div>
       </div>
     </div>
+
+    {tiramisuProduct && (
+      <TiramisuCustomizationModal
+        product={tiramisuProduct}
+        onClose={() => setTiramisuProduct(null)}
+        onSelect={handleTiramisuSelect}
+      />
+    )}
+    </>
   )
 }

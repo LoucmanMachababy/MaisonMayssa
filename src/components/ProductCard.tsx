@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Plus, ShoppingCart, Heart, Calendar, Star } from 'lucide-react'
+import { Plus, ShoppingCart, Heart, Calendar, Star, CalendarClock } from 'lucide-react'
 import type { Product } from '../types'
 import { use3DTilt } from '../hooks/use3DTilt'
 import { useReviews } from '../hooks/useReviews'
@@ -10,6 +10,7 @@ import { BlurImage } from './BlurImage'
 import { StockBadge } from './StockBadge'
 import { NotifyWhenAvailable } from './NotifyWhenAvailable'
 import { hapticFeedback } from '../lib/haptics'
+import { formatDateLabel } from '../lib/delivery'
 
 interface ProductCardProps {
     product: Product
@@ -19,13 +20,17 @@ interface ProductCardProps {
     stock?: number | null
     isPreorderDay?: boolean
     dayNames?: string
+    /** Date d'ouverture des précommandes (YYYY-MM-DD). Affiché sur les trompe-l'œil si pas encore ouvert. */
+    preorderOpenDate?: string
+    /** Heure d'ouverture des précommandes (HH:mm). */
+    preorderOpenTime?: string
     /** LCP: charger l'image en priorité (premières cartes above-the-fold) */
     priority?: boolean
     /** Cadre coloré "Nouveau" pour mettre en avant un produit */
     highlightAsNew?: boolean
 }
 
-export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavorite, stock = null, isPreorderDay = true, dayNames = '', priority = false, highlightAsNew = false }: ProductCardProps) {
+export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavorite, stock = null, isPreorderDay = true, dayNames = '', preorderOpenDate, preorderOpenTime, priority = false, highlightAsNew = false }: ProductCardProps) {
     const { ref, style, handlers } = use3DTilt(10)
     const { getAverageRatingForProduct, getReviewCountForProduct } = useReviews()
     const isPreorderSoon = isPreorderNotYetAvailable(product)
@@ -33,6 +38,25 @@ export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavori
     const isTrompeLoeil = product.category === "Trompe l'oeil"
     const isStockManaged = stock !== null
     const isUnavailable = isStockManaged && (stock <= 0 || (isTrompeLoeil && !isPreorderDay))
+
+    // Label "Ouverture le X à Yh" — basé uniquement sur preorderOpenDate/Time (indépendant de isPreorderDay)
+    const openingBannerLabel = (() => {
+        if (!isTrompeLoeil || !preorderOpenDate) return null
+        const now = new Date()
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+        let closed = false
+        if (preorderOpenDate > todayStr) {
+            closed = true
+        } else if (preorderOpenDate === todayStr) {
+            const [h, m] = (preorderOpenTime ?? '00:00').split(':').map(Number)
+            closed = now.getHours() * 60 + now.getMinutes() < (h ?? 0) * 60 + (m ?? 0)
+        }
+        if (!closed) return null
+        const dateLabel = formatDateLabel(preorderOpenDate)
+        return preorderOpenTime && preorderOpenTime !== '00:00'
+            ? `Ouverture ${dateLabel} à ${preorderOpenTime}`
+            : `Ouverture ${dateLabel}`
+    })()
     const productRating = isTrompeLoeil ? getAverageRatingForProduct(product.id) : null
     const productReviewCount = isTrompeLoeil ? getReviewCountForProduct(product.id) : 0
 
@@ -143,6 +167,12 @@ export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavori
                     {isStockManaged && (
                         <StockBadge stock={stock} isPreorderDay={isPreorderDay} dayNames={dayNames} isPreorderProduct={isTrompeLoeil} />
                     )}
+                    {openingBannerLabel && (
+                        <div className="flex items-center gap-1.5 mt-1">
+                            <CalendarClock size={12} className="text-amber-500 flex-shrink-0" />
+                            <span className="text-[10px] font-semibold text-amber-700 leading-tight">{openingBannerLabel}</span>
+                        </div>
+                    )}
                 </div>
 
                 <div className="mt-auto flex items-center justify-between gap-3 sm:gap-4">
@@ -166,17 +196,17 @@ export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavori
                         ) : (
                             <>
                                 <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-mayssa-caramel">
-                                    {product.sizes ? 'À partir de' : product.originalPrice ? 'Promo' : 'Prix'}
+                                    {product.sizes ? 'À partir de' : 'Prix'}
                                 </span>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-lg sm:text-xl font-display font-bold text-mayssa-brown">
-                                        {product.price.toFixed(2).replace('.', ',')} €
-                                    </span>
-                                    {product.originalPrice && (
-                                        <span className="text-sm sm:text-base font-display font-bold text-mayssa-brown/50 line-through">
+                                    {product.originalPrice && product.originalPrice > product.price && (
+                                        <span className="text-sm text-mayssa-brown/40 line-through">
                                             {product.originalPrice.toFixed(2).replace('.', ',')} €
                                         </span>
                                     )}
+                                    <span className="text-lg sm:text-xl font-display font-bold text-mayssa-brown">
+                                        {product.price.toFixed(2).replace('.', ',')} €
+                                    </span>
                                 </div>
                             </>
                         )}

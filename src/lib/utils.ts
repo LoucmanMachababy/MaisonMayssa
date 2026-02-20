@@ -163,6 +163,19 @@ export function formatDateYyyyMmDdToFrench(dateYyyyMmDd: string, options?: { wee
   })
 }
 
+/**
+ * Formate le nom d'un article de commande sous la forme "Catégorie - Nom" pour les brownies,
+ * cookies et layer cups. Ex: "Brownie - Spéculoos Framboise", "Cookie - El Mordjene".
+ * Pour les autres catégories, retourne le nom tel quel.
+ */
+export function formatOrderItemName(item: { name: string; productId?: string }): string {
+  const id = item.productId ?? ''
+  if (id.startsWith('brownie-')) return `Brownie - ${item.name}`
+  if (id.startsWith('cookie-')) return `Cookie - ${item.name}`
+  if (id.startsWith('layer-')) return `Layer Cup - ${item.name}`
+  return item.name
+}
+
 /** Vérifier si on est dans la semaine d'anniversaire (3 jours avant à 4 jours après) */
 export function isBirthdayWeek(birthday: string): boolean {
   const now = new Date()

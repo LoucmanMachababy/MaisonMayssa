@@ -37,6 +37,8 @@ export type Product = {
     badges?: ProductBadge[]
     /** Si défini, produit en précommande (disponible à partir de availableFrom, à récupérer sous daysToPickup j après préco.) */
     preorder?: ProductPreorder
+    /** IDs des produits individuels contenus dans ce bundle. Si défini, décrémenter le stock de chaque composant à l'achat. */
+    bundleProductIds?: string[]
 }
 
 export type CartItem = {

@@ -48,6 +48,9 @@ interface CartSheetProps {
   minDateLivraison?: string
   maxDate?: string
   availableWeekdays?: number[]
+  pickupDates?: string[]
+  preorderOpenDate?: string
+  preorderOpenTime?: string
   retraitTimeSlots?: string[]
   livraisonTimeSlots?: string[]
   ordersOpen?: boolean
@@ -85,6 +88,9 @@ export function CartSheet({
   minDateLivraison,
   maxDate: maxDateProp,
   availableWeekdays,
+  pickupDates,
+  preorderOpenDate,
+  preorderOpenTime,
   retraitTimeSlots,
   livraisonTimeSlots,
   ordersOpen = true,
@@ -163,11 +169,32 @@ export function CartSheet({
     ? (customer.wantsDelivery ? minDateLivraison : minDateRetrait)
     : (minDateProp && minDateProp.trim() ? minDateProp : getMinDate())
   const maxDate = maxDateProp && maxDateProp.trim() ? maxDateProp : undefined
+  // Précommandes ouvertes si la date+heure d'ouverture est passée (ou si pas configurée)
+  const preorderIsOpen = useMemo(() => {
+    if (!preorderOpenDate) return true
+    const now = new Date()
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    if (preorderOpenDate > todayStr) return false
+    if (preorderOpenDate < todayStr) return true
+    // Même jour → vérifier l'heure
+    const [h, m] = (preorderOpenTime ?? '00:00').split(':').map(Number)
+    return now.getHours() * 60 + now.getMinutes() >= (h ?? 0) * 60 + (m ?? 0)
+  }, [preorderOpenDate, preorderOpenTime])
   const selectableDates = useMemo(
-    () => getSelectableDates(minDate, maxDate, availableWeekdays),
-    [minDate, maxDate, availableWeekdays],
+    () => getSelectableDates(minDate, maxDate, availableWeekdays, pickupDates, preorderIsOpen),
+    [minDate, maxDate, availableWeekdays, pickupDates, preorderIsOpen],
   )
+  // Si des dates de récupération sont configurées mais les précommandes pas encore ouvertes → bloquer
+  const pickupDatesMode = !!(pickupDates && pickupDates.length > 0)
   const useDateSelect = selectableDates.length > 0
+  // Message d'attente : afficher quand les précommandes sont configurées mais pas encore ouvertes
+  const openingLabel = useMemo(() => {
+    if (!pickupDatesMode || useDateSelect || !preorderOpenDate) return null
+    const dateLabel = formatDateLabel(preorderOpenDate)
+    return preorderOpenTime && preorderOpenTime !== '00:00'
+      ? `Ouverture ${dateLabel} à ${preorderOpenTime}`
+      : `Ouverture ${dateLabel}`
+  }, [pickupDatesMode, useDateSelect, preorderOpenDate, preorderOpenTime])
 
   useEffect(() => {
     if (useDateSelect && selectableDates.length > 0 && (!customer.date || !selectableDates.includes(customer.date))) {
@@ -197,7 +224,7 @@ export function CartSheet({
   const isCustomerValid = Object.keys(validationErrors).length === 0
   const hasNonTrompeLoeil = items.some((item) => item.product.category !== "Trompe l'oeil")
   const hasTrompeLoeil = items.some((item) => item.product.category === "Trompe l'oeil")
-  const trompeLoeilBeforeMinDate = hasTrompeLoeil && isBeforeFirstPickupDate(minDate)
+  const trompeLoeilBeforeMinDate = hasTrompeLoeil && !!customer.date && customer.date < minDate
   const orderCutoffPassed = !isBeforeOrderCutoff()
   const isClassicPreorderPhase = isBeforeFirstPickupDate(FIRST_PICKUP_DATE_CLASSIC)
   const canSend =
@@ -239,6 +266,7 @@ export function CartSheet({
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
             drag="y"
             dragControls={dragControls}
+            dragListener={false}
             dragConstraints={{ top: 0, bottom: 0 }}
             dragElastic={{ top: 0, bottom: 0.5 }}
             onDragEnd={handleDragEnd}
@@ -498,6 +526,10 @@ export function CartSheet({
                           <option key={d} value={d}>{formatDateLabel(d)}</option>
                         ))}
                       </select>
+                    ) : pickupDatesMode ? (
+                      <span className="text-xs text-mayssa-brown/50 italic">
+                        {openingLabel ?? 'Aucune date disponible'}
+                      </span>
                     ) : (
                       <input
                         type="date"

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, useMotionValue, useTransform, useSpring } from 'framer-motion'
 import type { PanInfo } from 'framer-motion'
-import { Plus, Check, ShoppingBag, Heart, Calendar, ChevronRight, Star } from 'lucide-react'
+import { Plus, Check, ShoppingBag, Heart, Calendar, ChevronRight, Star, CalendarClock } from 'lucide-react'
 import type { Product } from '../../types'
 import { useReviews } from '../../hooks/useReviews'
 import { hapticFeedback } from '../../lib/haptics'
@@ -10,6 +10,7 @@ import { ProductBadges } from '../ProductBadges'
 import { BlurImage } from '../BlurImage'
 import { ShareButton } from '../ShareButton'
 import { StockBadge } from '../StockBadge'
+import { formatDateLabel } from '../../lib/delivery'
 
 interface SwipeableProductCardProps {
   product: Product
@@ -20,13 +21,15 @@ interface SwipeableProductCardProps {
   stock?: number | null
   isPreorderDay?: boolean
   dayNames?: string
+  preorderOpenDate?: string
+  preorderOpenTime?: string
   /** LCP: charger l'image en priorité (premières cartes above-the-fold) */
   priority?: boolean
   /** Cadre coloré "Nouveau" pour mettre en avant un produit */
   highlightAsNew?: boolean
 }
 
-export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false, onToggleFavorite, stock = null, isPreorderDay = true, dayNames = '', priority = false, highlightAsNew = false }: SwipeableProductCardProps) {
+export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false, onToggleFavorite, stock = null, isPreorderDay = true, dayNames = '', preorderOpenDate, preorderOpenTime, priority = false, highlightAsNew = false }: SwipeableProductCardProps) {
   const [isAdded, setIsAdded] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null)
@@ -43,6 +46,24 @@ export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false
   const isUnavailable = isStockManaged && (stock <= 0 || (isTrompeLoeil && !isPreorderDay))
   const productRating = isTrompeLoeil ? getAverageRatingForProduct(product.id) : null
   const productReviewCount = isTrompeLoeil ? getReviewCountForProduct(product.id) : 0
+
+  const openingBannerLabel = (() => {
+    if (!isTrompeLoeil || !preorderOpenDate) return null
+    const now = new Date()
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    let closed = false
+    if (preorderOpenDate > todayStr) {
+      closed = true
+    } else if (preorderOpenDate === todayStr) {
+      const [h, m] = (preorderOpenTime ?? '00:00').split(':').map(Number)
+      closed = now.getHours() * 60 + now.getMinutes() < (h ?? 0) * 60 + (m ?? 0)
+    }
+    if (!closed) return null
+    const dateLabel = formatDateLabel(preorderOpenDate)
+    return preorderOpenTime && preorderOpenTime !== '00:00'
+      ? `Ouverture ${dateLabel} à ${preorderOpenTime}`
+      : `Ouverture ${dateLabel}`
+  })()
 
   // Enhanced transforms with better thresholds
   const background = useTransform(
@@ -267,6 +288,12 @@ export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false
             {isStockManaged && (
               <StockBadge stock={stock} isPreorderDay={isPreorderDay} dayNames={dayNames} compact isPreorderProduct={isTrompeLoeil} />
             )}
+            {openingBannerLabel && (
+              <div className="flex items-center gap-1 mt-0.5">
+                <CalendarClock size={11} className="text-amber-500 flex-shrink-0" />
+                <span className="text-[10px] font-semibold text-amber-700 leading-tight">{openingBannerLabel}</span>
+              </div>
+            )}
             <div className="mt-1 flex items-center justify-between">
               {isPreorderSoon && product.preorder ? (
                 <span className="text-[10px] text-mayssa-brown/70 leading-tight">
@@ -281,14 +308,14 @@ export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false
                 </span>
               ) : (
                 <div className="flex items-center gap-2">
-                  <span className="text-lg font-display font-bold text-mayssa-caramel">
-                    {product.price.toFixed(2).replace('.', ',')} €
-                  </span>
-                  {product.originalPrice && (
-                    <span className="text-sm font-display font-bold text-mayssa-brown/50 line-through">
+                  {product.originalPrice && product.originalPrice > product.price && (
+                    <span className="text-sm text-mayssa-brown/40 line-through">
                       {product.originalPrice.toFixed(2).replace('.', ',')} €
                     </span>
                   )}
+                  <span className="text-lg font-display font-bold text-mayssa-caramel">
+                    {product.price.toFixed(2).replace('.', ',')} €
+                  </span>
                 </div>
               )}
 

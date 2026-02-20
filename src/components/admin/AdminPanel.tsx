@@ -13,13 +13,13 @@ import {
   listenReviews,
   listenPromoCodes,
   listenNotifyWhenAvailable,
-  isPreorderOpenNow, isTrompeLoeilProductId,
+  isPreorderOpenNow, isTrompeLoeilProductId, getStockDecrementItems,
   releaseDeliverySlot,
   type StockMap, type Settings, type Order, type OrderSource, type UserProfile, type PreorderOpening, type Review, type PromoCodeRecord, type Poll, type NotifyWhenAvailableEntry,
   listenPolls
 } from '../../lib/firebase'
 import type { ProductOverrideMap } from '../../types'
-import { parseDateYyyyMmDd } from '../../lib/utils'
+import { parseDateYyyyMmDd, formatOrderItemName } from '../../lib/utils'
 import { hapticFeedback } from '../../lib/haptics'
 import { exportSingleOrderPDF } from '../../lib/orderPrint'
 import type { User } from 'firebase/auth'
@@ -35,6 +35,7 @@ import { AdminSessionsTab } from './AdminSessionsTab'
 import { AdminSubscribersTab } from './AdminSubscribersTab'
 import { AdminCommunityTab } from './AdminCommunityTab'
 import { AdminOffSiteOrderForm } from './AdminOffSiteOrderForm'
+import { PRODUCTS } from '../../constants'
 import { AdminEditOrderModal } from './AdminEditOrderModal'
 
 const DAY_LABELS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
@@ -96,7 +97,7 @@ function exportOrdersToCSV(entries: [string, Order][], filenameSuffix?: string):
       ? parseDateYyyyMmDd(o.requestedDate).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'short' }) + (o.requestedTime ? ` ${o.requestedTime}` : '')
       : ''
     const clientNote = (o.clientNote ?? '').replace(/"/g, '""')
-    const items = (o.items ?? []).map((i) => `${i.quantity}× ${i.name}`).join(' | ')
+    const items = (o.items ?? []).map((i) => `${i.quantity}× ${formatOrderItemName(i)}`).join(' | ')
     const deliveryFee = (o.deliveryFee ?? 0) > 0 ? (o.deliveryFee ?? 0).toFixed(2).replace('.', ',') : ''
     const total = (o.total ?? 0).toFixed(2).replace('.', ',')
     return [dateStr, timeStr, client, phone, source, status, mode, `"${adresse}"`, distanceKm, retrait, `"${clientNote}"`, `"${items.replace(/"/g, '""')}"`, deliveryFee, total].join(SEP)
@@ -181,7 +182,7 @@ function exportOrdersToPDF(entries: [string, Order][], filenameSuffix?: string):
       lineY += addrLines.length * 4.5 + 2
     }
 
-    const itemsStr = (o.items ?? []).map(i => `${i.quantity}x ${i.name}`).join(', ')
+    const itemsStr = (o.items ?? []).map(i => `${i.quantity}x ${formatOrderItemName(i)}`).join(', ')
     if (itemsStr) {
       const itemsLines = doc.splitTextToSize('Articles: ' + itemsStr, maxWidth - 6)
       doc.text(itemsLines, margin + 3, lineY)
@@ -362,7 +363,7 @@ function Dashboard({ user }: { user: User }) {
   const [settings, setSettings] = useState<Settings>({ preorderDays: [3, 6], preorderMessage: '' })
   const [orders, setOrders] = useState<Record<string, Order>>({})
   const [reviews, setReviews] = useState<Record<string, Review>>({})
-  const [tab, setTab] = useState<'resume' | 'commandes' | 'historique' | 'livraison' | 'retrait' | 'ca' | 'avis' | 'stock' | 'jours' | 'creneaux' | 'anniversaires' | 'inscrits' | 'produits' | 'promos' | 'sondage' | 'rappels' | 'abonnes' | 'alertes' | 'carte' | 'sessions'>('resume')
+  const [tab, setTab] = useState<'resume' | 'commandes' | 'historique' | 'livraison' | 'retrait' | 'ca' | 'avis' | 'stock' | 'jours' | 'creneaux' | 'anniversaires' | 'inscrits' | 'produits' | 'promos' | 'sondage' | 'rappels' | 'abonnes' | 'alertes' | 'carte' | 'sessions' | 'production' | 'planning'>('resume')
   const [caPeriod, setCaPeriod] = useState<'jour' | 'semaine' | 'mois'>('semaine')
   const [allUsers, setAllUsers] = useState<Record<string, UserProfile>>({})
   const [productOverrides, setProductOverrides] = useState<ProductOverrideMap>({})
@@ -373,12 +374,13 @@ function Dashboard({ user }: { user: User }) {
   const [showOffSiteForm, setShowOffSiteForm] = useState(false)
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null)
   const [sourceFilter, setSourceFilter] = useState<OrderSource | 'all'>('all')
+  const [deliveryFilter, setDeliveryFilter] = useState<'all' | 'livraison' | 'retrait'>('all')
   const [statusFilter, setStatusFilter] = useState<'all' | 'en_attente' | 'en_preparation' | 'pret' | 'livree' | 'validee' | 'refusee'>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   /** Vue Historique : À faire | À traiter (en attente / en prépa) | Passées / Livrées | Toutes */
-  const [historiqueVue, setHistoriqueVue] = useState<'a_faire' | 'a_traiter' | 'passees' | 'toutes'>('a_faire')
+  const [historiqueVue, setHistoriqueVue] = useState<'a_faire' | 'a_traiter' | 'pret' | 'livree' | 'validee' | 'refusee' | 'toutes'>('a_faire')
   /** En vue À faire : filtrer uniquement les commandes dont la date de retrait = aujourd'hui */
   const [aFaireAujourdhuiOnly, setAFaireAujourdhuiOnly] = useState(false)
   /** Ids des commandes sélectionnées (À valider) pour actions groupées */
@@ -392,6 +394,10 @@ function Dashboard({ user }: { user: User }) {
   const [preparingOrderIds, setPreparingOrderIds] = useState<Set<string>>(new Set())
   /** Filtre trompe l'oeil actif en vue "À traiter" (nom du parfum, null = tous) */
   const [trompeLoeilFilter, setTrompeLoeilFilter] = useState<string | null>(null)
+  /** Filtre produit actif en vue "À valider" (productId, '' = tous) */
+  const [pendingProductFilter, setPendingProductFilter] = useState<string>('')
+  /** Dates sélectionnées pour l'onglet Production (Set vide = aujourd'hui par défaut) */
+  const [productionDates, setProductionDates] = useState<Set<string>>(new Set([]))
 
   const setDatePreset = (preset: 'today' | '7d' | '30d' | 'month') => {
     const now = new Date()
@@ -422,12 +428,14 @@ function Dashboard({ user }: { user: User }) {
     setDateFrom('')
     setDateTo('')
     setSourceFilter('all')
+    setDeliveryFilter('all')
     setStatusFilter('all')
     setHistoriqueVue('a_faire')
     setAFaireAujourdhuiOnly(false)
     setTrompeLoeilFilter(null)
+    setPendingProductFilter('')
   }
-  const hasActiveFilters = searchQuery.trim() || dateFrom || dateTo || sourceFilter !== 'all' || statusFilter !== 'all' || historiqueVue !== 'a_faire'
+  const hasActiveFilters = searchQuery.trim() || dateFrom || dateTo || sourceFilter !== 'all' || deliveryFilter !== 'all' || statusFilter !== 'all' || !['a_faire', 'toutes'].includes(historiqueVue) || !!pendingProductFilter
   const previousPendingIdsRef = useRef<Set<string>>(new Set())
   const isInitialLoadRef = useRef(true)
   useEffect(() => {
@@ -526,13 +534,17 @@ function Dashboard({ user }: { user: User }) {
     if (order.deliveryMode === 'livraison' && order.requestedDate && order.requestedTime) {
       releaseDeliverySlot(order.requestedDate, order.requestedTime).catch(console.error)
     }
-    // Remettre le stock uniquement pour les produits suivis (trompe l'oeil), sauf si la commande est exclue
-    const skipTrompeLoeil = order.excludeTrompeLoeilStock === true
+    // Remettre le stock UNIQUEMENT pour les trompe-l'œil (seuls produits dont le stock est décrémenté à la commande)
+    // sauf si la commande a été créée hors-site avec excludeTrompeLoeilStock=true (stock jamais décrémenté)
+    if (order.excludeTrompeLoeilStock === true) return
     for (const item of order.items) {
-      if (skipTrompeLoeil && isTrompeLoeilProductId(item.productId)) continue
-      if (item.productId in stock) {
-        const currentQty = stock[item.productId] ?? 0
-        await updateStock(item.productId, currentQty + item.quantity)
+      const pairs = getStockDecrementItems(item.productId ?? '', item.quantity ?? 1, PRODUCTS)
+      for (const pair of pairs) {
+        if (!isTrompeLoeilProductId(pair.productId)) continue
+        if (pair.productId in stock) {
+          const currentQty = stock[pair.productId] ?? 0
+          await updateStock(pair.productId, currentQty + pair.quantity)
+        }
       }
     }
   }
@@ -628,14 +640,31 @@ function Dashboard({ user }: { user: User }) {
 
   // Commandes à valider (toutes en_attente, toutes sources)
   const ordersToValidate = Object.entries(orders)
-    .filter(([, o]) => o.status === 'en_attente' && (sourceFilter === 'all' || (o.source ?? 'site') === sourceFilter))
+    .filter(([, o]) => o.status === 'en_attente' && (sourceFilter === 'all' || (o.source ?? 'site') === sourceFilter) && (deliveryFilter === 'all' || o.deliveryMode === deliveryFilter))
     .filter(([, o]) => matchesSearch(o) && matchesDateRange(o))
+    .filter(([, o]) => !pendingProductFilter || o.items?.some(i => i.productId === pendingProductFilter))
   const pendingCount = Object.entries(orders).filter(([, o]) => o.status === 'en_attente').length
+
+  // Produits distincts présents dans les commandes en_attente (pour le filtre par produit)
+  const allProductsInPendingOrders = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const [, o] of Object.entries(orders)) {
+      if (o.status !== 'en_attente') continue
+      for (const item of o.items ?? []) {
+        if (item.productId && !map.has(item.productId)) {
+          map.set(item.productId, formatOrderItemName(item))
+        }
+      }
+    }
+    return Array.from(map.entries()).sort(([, a], [, b]) => a.localeCompare(b, 'fr'))
+  }, [orders])
 
   // Historique : vue "À faire" (retrait >= aujourd'hui, à préparer) | "Passées" (déjà livrées/refusées ou date passée) | "Toutes"
   const sortedOrders = useMemo(() => {
     const entries = Object.entries(orders).filter(
-      ([, o]) => sourceFilter === 'all' || (o.source ?? 'site') === sourceFilter
+      ([, o]) =>
+        (sourceFilter === 'all' || (o.source ?? 'site') === sourceFilter) &&
+        (deliveryFilter === 'all' || o.deliveryMode === deliveryFilter)
     )
     const filteredBySearch = entries.filter(([, o]) => matchesSearch(o))
 
@@ -670,18 +699,28 @@ function Dashboard({ user }: { user: User }) {
       return aTraiter.sort(([, a], [, b]) => (b.createdAt || 0) - (a.createdAt || 0))
     }
 
-    if (historiqueVue === 'passees') {
-      const passees = filteredBySearch.filter(([, o]) => {
-        if (o.status === 'livree' || o.status === 'refusee') return true
-        if (!o.requestedDate) return true
-        return o.requestedDate < todayRetraitStr
-      })
-      return passees.sort(([, a], [, b]) => {
-        const dateA = a.requestedDate ?? '0000-01-01'
-        const dateB = b.requestedDate ?? '0000-01-01'
-        if (dateA !== dateB) return dateB.localeCompare(dateA)
-        return (b.createdAt || 0) - (a.createdAt || 0)
-      })
+    if (historiqueVue === 'pret') {
+      return filteredBySearch
+        .filter(([, o]) => o.status === 'pret')
+        .sort(([, a], [, b]) => (b.createdAt || 0) - (a.createdAt || 0))
+    }
+
+    if (historiqueVue === 'livree') {
+      return filteredBySearch
+        .filter(([, o]) => o.status === 'livree')
+        .sort(([, a], [, b]) => (b.createdAt || 0) - (a.createdAt || 0))
+    }
+
+    if (historiqueVue === 'validee') {
+      return filteredBySearch
+        .filter(([, o]) => o.status === 'validee')
+        .sort(([, a], [, b]) => (b.createdAt || 0) - (a.createdAt || 0))
+    }
+
+    if (historiqueVue === 'refusee') {
+      return filteredBySearch
+        .filter(([, o]) => o.status === 'refusee')
+        .sort(([, a], [, b]) => (b.createdAt || 0) - (a.createdAt || 0))
     }
 
     // Toutes : filtres manuels (date = date de création, statut, etc.)
@@ -722,10 +761,13 @@ function Dashboard({ user }: { user: User }) {
       if (order.status === 'validee' && order.requestedDate && order.requestedDate < todayRetraitStr) continue
 
       for (const item of order.items ?? []) {
-        if (!item.productId || !isTrompeLoeilProductId(item.productId)) continue
-        const label = item.name || item.productId
-        const qty = item.quantity ?? 1
-        map.set(label, (map.get(label) ?? 0) + qty)
+        const pairs = getStockDecrementItems(item.productId ?? '', item.quantity ?? 1, PRODUCTS)
+        for (const pair of pairs) {
+          if (!isTrompeLoeilProductId(pair.productId)) continue
+          const component = PRODUCTS.find(p => p.id === pair.productId)
+          const label = component?.name ?? pair.productId
+          map.set(label, (map.get(label) ?? 0) + pair.quantity)
+        }
       }
     }
 
@@ -939,6 +981,8 @@ function Dashboard({ user }: { user: User }) {
               tabs: [
                 { id: 'commandes', icon: ClipboardList, label: 'À valider', badge: pendingCount },
                 { id: 'historique', icon: History, label: 'Historique' },
+                { id: 'production', icon: FileText, label: 'Production' },
+                { id: 'planning', icon: LayoutDashboard, label: 'Planning' },
                 { id: 'livraison', icon: Truck, label: 'Livraison', badge: Object.values(orders).filter(o => o.deliveryMode === 'livraison' && o.status !== 'refusee').length },
                 { id: 'retrait', icon: MapPin, label: 'Retrait', badge: Object.values(orders).filter(o => o.deliveryMode === 'retrait' && o.status !== 'refusee').length },
               ],
@@ -1187,7 +1231,7 @@ function Dashboard({ user }: { user: User }) {
                       const creneau = order.requestedTime
                         ? `${parseDateYyyyMmDd(reqDate).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })} à ${order.requestedTime}`
                         : parseDateYyyyMmDd(reqDate).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
-                      const itemsSummary = (order.items ?? []).map((i) => `${i.quantity}× ${i.name}`).join(', ')
+                      const itemsSummary = (order.items ?? []).map((i) => `${i.quantity}× ${formatOrderItemName(i)}`).join(', ')
                       const isPreparing = preparingOrderIds.has(id)
                       return (
                         <li
@@ -1333,6 +1377,27 @@ function Dashboard({ user }: { user: User }) {
                   <option value="instagram">Insta</option>
                   <option value="whatsapp">WhatsApp</option>
                 </select>
+                <select
+                  value={deliveryFilter}
+                  onChange={e => setDeliveryFilter(e.target.value as 'all' | 'livraison' | 'retrait')}
+                  className="rounded-xl border border-mayssa-brown/10 px-3 py-2 text-xs font-bold text-mayssa-brown bg-white"
+                >
+                  <option value="all">Tous modes</option>
+                  <option value="livraison">Livraison</option>
+                  <option value="retrait">Retrait</option>
+                </select>
+                {allProductsInPendingOrders.length > 0 && (
+                  <select
+                    value={pendingProductFilter}
+                    onChange={e => setPendingProductFilter(e.target.value)}
+                    className="rounded-xl border border-mayssa-brown/10 px-3 py-2 text-xs font-bold text-mayssa-brown bg-white"
+                  >
+                    <option value="">Tous les produits</option>
+                    {allProductsInPendingOrders.map(([id, label]) => (
+                      <option key={id} value={id}>{label}</option>
+                    ))}
+                  </select>
+                )}
               </div>
             </div>
 
@@ -1530,7 +1595,7 @@ function Dashboard({ user }: { user: User }) {
                     {order.items?.map((item, i) => (
                       <div key={i} className="flex items-center justify-between text-xs">
                         <span className="text-mayssa-brown">
-                          {item.quantity}× {item.name}
+                          {item.quantity}× {formatOrderItemName(item)}
                         </span>
                         <span className="font-bold text-mayssa-brown">
                           {(item.price * item.quantity).toFixed(2).replace('.', ',')} €
@@ -1552,11 +1617,18 @@ function Dashboard({ user }: { user: User }) {
                         <span className="font-bold text-emerald-700">-{(order.discountAmount ?? 0).toFixed(2).replace('.', ',')} €</span>
                       </div>
                     )}
-                    <div className="border-t border-mayssa-brown/10 pt-1 mt-1 flex justify-between">
+                    <div className="border-t border-mayssa-brown/10 pt-1 mt-1 flex justify-between items-center">
                       <span className="text-xs font-bold text-mayssa-brown">Total</span>
-                      <span className="text-sm font-bold text-mayssa-caramel">
-                        {(order.total ?? 0).toFixed(2).replace('.', ',')} €
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {(order.discountAmount ?? 0) > 0 && (
+                          <span className="text-xs text-mayssa-brown/40 line-through">
+                            {((order.total ?? 0) + (order.discountAmount ?? 0)).toFixed(2).replace('.', ',')} €
+                          </span>
+                        )}
+                        <span className="text-sm font-bold text-mayssa-caramel">
+                          {(order.total ?? 0).toFixed(2).replace('.', ',')} €
+                        </span>
+                      </div>
                     </div>
                   </div>
 
@@ -1570,6 +1642,30 @@ function Dashboard({ user }: { user: User }) {
                       <Download size={14} />
                       PDF
                     </button>
+                    {order.customer?.phone && (() => {
+                      const prenom = order.customer?.firstName ?? ''
+                      const ref = order.orderNumber ? `#${order.orderNumber}` : ''
+                      const msgs: Record<string, string> = {
+                        en_attente: `Bonjour ${prenom} 👋 Votre commande ${ref} a bien été reçue chez Maison Mayssa ! Nous la préparerons très prochainement. Merci de votre confiance 🍪`,
+                        en_preparation: `Bonjour ${prenom} 👋 Votre commande ${ref} est en cours de préparation chez Maison Mayssa 🍰`,
+                        pret: `Bonjour ${prenom} ✅ Votre commande ${ref} est prête ! Vous pouvez venir la récupérer dès maintenant chez Maison Mayssa 🎁\n\nSi vous avez apprécié, un petit avis Google nous aiderait énormément 🙏⭐ → https://share.google/hWmuK4HB8Bcp69KWC\n\nMerci et à bientôt 🍪`,
+                        livree: `Bonjour ${prenom} 🚗 Votre commande ${ref} est en route, notre livreur arrive bientôt !\n\nSi vous avez apprécié, un petit avis Google nous aiderait énormément 🙏⭐ → https://share.google/hWmuK4HB8Bcp69KWC\n\nMerci et à bientôt 🍪`,
+                        refusee: `Bonjour ${prenom}, malheureusement nous ne pouvons pas honorer votre commande ${ref} pour le moment. N'hésitez pas à nous recontacter pour reprogrammer 🙏`,
+                      }
+                      const msg = msgs[order.status] ?? msgs['en_attente']
+                      return (
+                        <a
+                          href={`https://wa.me/${phoneToWhatsApp(order.customer.phone)}?text=${encodeURIComponent(msg)}`}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-green-500 text-white text-xs font-bold hover:bg-green-600 transition-colors"
+                          title="Envoyer un message WhatsApp"
+                        >
+                          <MessageCircle size={14} />
+                          {order.status === 'pret' ? 'Prête ✅' : order.status === 'livree' ? 'En route 🚗' : order.status === 'refusee' ? 'Refus' : 'Message'}
+                        </a>
+                      )
+                    })()}
                     <button
                       onClick={() => setEditingOrderId(id)}
                       className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-mayssa-brown/10 text-mayssa-brown text-xs font-bold hover:bg-mayssa-brown/20 transition-colors cursor-pointer"
@@ -1577,14 +1673,15 @@ function Dashboard({ user }: { user: User }) {
                       <Pencil size={14} />
                       Modifier
                     </button>
-                    {order.status === 'en_attente' ? (
+                    {/* Boutons de progression de statut */}
+                    {order.status === 'en_attente' && (
                       <>
                         <button
                           onClick={() => handleValidateOrder(id, order)}
                           className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-blue-500 text-white text-xs font-bold hover:bg-blue-600 transition-colors cursor-pointer"
                         >
                           <Package size={14} />
-                          Accepter
+                          En prépa
                         </button>
                         <button
                           onClick={() => handleRefuseOrder(id, order)}
@@ -1594,7 +1691,26 @@ function Dashboard({ user }: { user: User }) {
                           Refuser
                         </button>
                       </>
-                    ) : (
+                    )}
+                    {order.status === 'en_preparation' && (
+                      <button
+                        onClick={() => handleSetOrderPreparationStatus(id, 'pret')}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 transition-colors cursor-pointer"
+                      >
+                        <Check size={14} />
+                        Prête ✅
+                      </button>
+                    )}
+                    {order.status === 'pret' && (
+                      <button
+                        onClick={() => handleFinishOrder(id)}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-mayssa-caramel text-white text-xs font-bold hover:bg-mayssa-brown transition-colors cursor-pointer"
+                      >
+                        <Truck size={14} />
+                        Livrée 🚗
+                      </button>
+                    )}
+                    {(order.status === 'livree' || order.status === 'validee' || order.status === 'refusee') && (
                       <button
                         onClick={() => handleDeleteOrder(id, order)}
                         className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-mayssa-soft/50 text-mayssa-brown/40 text-[10px] font-bold hover:bg-red-50 hover:text-red-400 transition-colors cursor-pointer"
@@ -1630,55 +1746,39 @@ function Dashboard({ user }: { user: User }) {
             transition={{ duration: 0.2 }}
             className="space-y-4"
           >
-            {/* Pipeline visuel : En attente → En prépa → Passées + bouton Toutes */}
+            {/* Onglets statut — chaque statut séparé */}
             {(() => {
-              const cntAttente = Object.values(orders).filter(o => o.status === 'en_attente').length
-              const cntPrepa = Object.values(orders).filter(o => o.status === 'en_preparation').length
-              const cntPassees = Object.values(orders).filter(o => o.status === 'livree' || o.status === 'refusee').length
-              const steps: { vue: typeof historiqueVue; label: string; count: number; activeColor: string; dotColor: string }[] = [
-                { vue: 'a_faire', label: 'En attente', count: cntAttente, activeColor: 'bg-amber-500 text-white shadow-md', dotColor: 'bg-amber-400' },
-                { vue: 'a_traiter', label: 'En prépa', count: cntPrepa, activeColor: 'bg-blue-500 text-white shadow-md', dotColor: 'bg-blue-400' },
-                { vue: 'passees', label: 'Passées', count: cntPassees, activeColor: 'bg-mayssa-brown text-white shadow-md', dotColor: 'bg-mayssa-brown/40' },
+              const cnt = (status: string | string[]) => {
+                const statuses = Array.isArray(status) ? status : [status]
+                return Object.values(orders).filter(o => statuses.includes(o.status)).length
+              }
+              const tabs: { vue: typeof historiqueVue; label: string; count: number; color: string }[] = [
+                { vue: 'a_faire',  label: 'En attente',  count: cnt('en_attente'),   color: 'bg-amber-500 text-white' },
+                { vue: 'a_traiter',label: 'En prépa',    count: cnt('en_preparation'),color: 'bg-blue-500 text-white' },
+                { vue: 'pret',     label: 'Prête',       count: cnt('pret'),          color: 'bg-emerald-500 text-white' },
+                { vue: 'livree',   label: 'Livrée',      count: cnt('livree'),        color: 'bg-mayssa-caramel text-white' },
+                { vue: 'validee',  label: 'Validée',     count: cnt('validee'),       color: 'bg-purple-500 text-white' },
+                { vue: 'refusee',  label: 'Refusée',     count: cnt('refusee'),       color: 'bg-red-500 text-white' },
+                { vue: 'toutes',   label: 'Toutes',      count: Object.keys(orders).length, color: 'bg-mayssa-brown text-white' },
               ]
               return (
                 <div className="bg-white rounded-2xl shadow-sm border border-mayssa-brown/5 p-3">
-                  <div className="flex items-stretch gap-0">
-                    {steps.map((step, i) => (
-                      <div key={step.vue} className="flex items-center flex-1 min-w-0">
-                        <button
-                          type="button"
-                          onClick={() => { setHistoriqueVue(step.vue); if (step.vue === 'a_traiter') setTrompeLoeilFilter(null) }}
-                          className={`flex-1 flex flex-col items-center py-2.5 px-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                            historiqueVue === step.vue ? step.activeColor : 'text-mayssa-brown/60 hover:bg-mayssa-soft/50'
-                          }`}
-                        >
-                          <span className={`text-base font-display font-bold leading-none mb-0.5 ${
-                            historiqueVue === step.vue ? 'text-white' : step.count > 0 ? 'text-mayssa-brown' : 'text-mayssa-brown/30'
-                          }`}>{step.count}</span>
-                          <span className="truncate w-full text-center">{step.label}</span>
-                        </button>
-                        {i < steps.length - 1 && (
-                          <div className="flex items-center shrink-0 px-1">
-                            <div className="w-3 h-[2px] bg-mayssa-brown/15 relative">
-                              <div className={`absolute right-0 top-1/2 -translate-y-1/2 w-1 h-1 rounded-full ${step.dotColor}`} />
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {tabs.map((t) => (
+                      <button
+                        key={t.vue}
+                        type="button"
+                        onClick={() => { setHistoriqueVue(t.vue); if (t.vue !== 'a_traiter') setTrompeLoeilFilter(null) }}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          historiqueVue === t.vue ? t.color + ' shadow-sm' : 'bg-mayssa-soft/60 text-mayssa-brown/60 hover:bg-mayssa-soft'
+                        }`}
+                      >
+                        <span>{t.label}</span>
+                        <span className={`text-[10px] font-display font-bold px-1.5 py-0.5 rounded-md tabular-nums ${
+                          historiqueVue === t.vue ? 'bg-white/25 text-white' : t.count > 0 ? 'bg-mayssa-brown/10 text-mayssa-brown' : 'bg-mayssa-brown/5 text-mayssa-brown/30'
+                        }`}>{t.count}</span>
+                      </button>
                     ))}
-                    <div className="w-px bg-mayssa-brown/10 mx-1.5 self-stretch" />
-                    <button
-                      type="button"
-                      onClick={() => setHistoriqueVue('toutes')}
-                      className={`flex flex-col items-center py-2.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                        historiqueVue === 'toutes' ? 'bg-mayssa-brown/80 text-white shadow-md' : 'text-mayssa-brown/60 hover:bg-mayssa-soft/50'
-                      }`}
-                    >
-                      <span className={`text-base font-display font-bold leading-none mb-0.5 ${historiqueVue === 'toutes' ? 'text-white' : 'text-mayssa-brown/40'}`}>
-                        {Object.keys(orders).length}
-                      </span>
-                      <span>Toutes</span>
-                    </button>
                   </div>
                 </div>
               )
@@ -1707,7 +1807,7 @@ function Dashboard({ user }: { user: User }) {
               <div className="flex flex-wrap items-center gap-2">
                 <div className="bg-white rounded-xl px-4 py-2 shadow-sm border border-mayssa-brown/5">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">
-                    {historiqueVue === 'a_faire' ? (aFaireAujourdhuiOnly ? "Aujourd'hui" : 'À faire') : historiqueVue === 'a_traiter' ? 'À traiter' : historiqueVue === 'passees' ? 'Passées / Livrées' : 'Résultats'}
+                    {historiqueVue === 'a_faire' ? (aFaireAujourdhuiOnly ? "Aujourd'hui" : 'En attente') : historiqueVue === 'a_traiter' ? 'En préparation' : historiqueVue === 'pret' ? 'Prêtes' : historiqueVue === 'livree' ? 'Livrées' : historiqueVue === 'validee' ? 'Validées' : historiqueVue === 'refusee' ? 'Refusées' : 'Toutes'}
                   </span>
                   <p className="text-lg font-display font-bold text-mayssa-brown">{displayedOrders.length} commande{displayedOrders.length !== 1 ? 's' : ''}</p>
                 </div>
@@ -1763,14 +1863,14 @@ function Dashboard({ user }: { user: User }) {
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => exportOrdersToPDF(displayedOrders, historiqueVue === 'a_faire' ? (aFaireAujourdhuiOnly ? `a_faire_aujourdhui_${todayRetraitStr}` : `a_faire_${todayRetraitStr}`) : historiqueVue === 'a_traiter' ? `a_traiter_${todayRetraitStr}` : historiqueVue === 'passees' ? `passees_${todayRetraitStr}` : `toutes_${new Date().toISOString().slice(0, 10)}`)}
+                  onClick={() => exportOrdersToPDF(displayedOrders, `${historiqueVue}_${todayRetraitStr}`)}
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-mayssa-brown text-white text-xs font-bold hover:bg-mayssa-caramel shadow-md transition-all cursor-pointer"
                 >
                   <FileText size={16} />
                   Export PDF
                 </button>
                 <button
-                  onClick={() => exportOrdersToCSV(displayedOrders, historiqueVue === 'a_faire' ? (aFaireAujourdhuiOnly ? `a_faire_aujourdhui_${todayRetraitStr}` : `a_faire_${todayRetraitStr}`) : historiqueVue === 'a_traiter' ? `a_traiter_${todayRetraitStr}` : historiqueVue === 'passees' ? `passees_${todayRetraitStr}` : `toutes_${new Date().toISOString().slice(0, 10)}`)}
+                  onClick={() => exportOrdersToCSV(displayedOrders, `${historiqueVue}_${todayRetraitStr}`)}
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow-md transition-all cursor-pointer"
                 >
                   <Download size={16} />
@@ -1858,12 +1958,24 @@ function Dashboard({ user }: { user: User }) {
                   <option value="instagram">Insta</option>
                   <option value="whatsapp">WhatsApp</option>
                 </select>
+                <select
+                  value={deliveryFilter}
+                  onChange={e => setDeliveryFilter(e.target.value as 'all' | 'livraison' | 'retrait')}
+                  className="rounded-xl border border-mayssa-brown/10 px-3 py-2 text-xs font-bold text-mayssa-brown bg-white"
+                >
+                  <option value="all">Tous modes</option>
+                  <option value="livraison">Livraison</option>
+                  <option value="retrait">Retrait</option>
+                </select>
               </div>
               {historiqueVue !== 'toutes' && (
                 <p className="text-[10px] text-mayssa-brown/50">
-                  {historiqueVue === 'a_faire' && 'Nouvelles commandes en attente de validation (date de retrait ≥ aujourd\'hui).'}
-                  {historiqueVue === 'a_traiter' && 'Commandes en cours de préparation. Cliquez "Terminé" quand la commande est remise au client.'}
-                  {historiqueVue === 'passees' && 'Commandes déjà livrées, refusées ou date de retrait passée.'}
+                  {historiqueVue === 'a_faire' && 'Nouvelles commandes en attente de validation.'}
+                  {historiqueVue === 'a_traiter' && 'Commandes en cours de préparation.'}
+                  {historiqueVue === 'pret' && 'Commandes prêtes à être récupérées ou livrées.'}
+                  {historiqueVue === 'livree' && 'Commandes livrées au client.'}
+                  {historiqueVue === 'validee' && 'Commandes confirmées.'}
+                  {historiqueVue === 'refusee' && 'Commandes refusées.'}
                 </p>
               )}
             </div>
@@ -2063,7 +2175,7 @@ function Dashboard({ user }: { user: User }) {
                         {order.items?.map((item, i) => (
                           <div key={i} className="flex items-center justify-between text-xs">
                             <span className="text-mayssa-brown">
-                              {item.quantity}× {item.name}
+                              {item.quantity}× {formatOrderItemName(item)}
                             </span>
                             <span className="font-bold text-mayssa-brown">
                               {(item.price * item.quantity).toFixed(2).replace('.', ',')} €
@@ -2085,11 +2197,18 @@ function Dashboard({ user }: { user: User }) {
                             <span className="font-bold text-emerald-700">-{(order.discountAmount ?? 0).toFixed(2).replace('.', ',')} €</span>
                           </div>
                         )}
-                        <div className="border-t border-mayssa-brown/10 pt-1 mt-1 flex justify-between">
+                        <div className="border-t border-mayssa-brown/10 pt-1 mt-1 flex justify-between items-center">
                           <span className="text-xs font-bold text-mayssa-brown">Total</span>
-                          <span className="text-sm font-bold text-mayssa-caramel">
-                            {(order.total ?? 0).toFixed(2).replace('.', ',')} €
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {(order.discountAmount ?? 0) > 0 && (
+                              <span className="text-xs text-mayssa-brown/40 line-through">
+                                {((order.total ?? 0) + (order.discountAmount ?? 0)).toFixed(2).replace('.', ',')} €
+                              </span>
+                            )}
+                            <span className="text-sm font-bold text-mayssa-caramel">
+                              {(order.total ?? 0).toFixed(2).replace('.', ',')} €
+                            </span>
+                          </div>
                         </div>
                       </div>
 
@@ -2115,6 +2234,31 @@ function Dashboard({ user }: { user: User }) {
                           <Download size={14} />
                           PDF
                         </button>
+                        {order.customer?.phone && (() => {
+                          const prenom = order.customer?.firstName ?? ''
+                          const ref = order.orderNumber ? `#${order.orderNumber}` : ''
+                          const msgs: Record<string, string> = {
+                            en_attente: `Bonjour ${prenom} 👋 Votre commande ${ref} a bien été reçue chez Maison Mayssa ! Nous la préparerons très prochainement. Merci de votre confiance 🍪`,
+                            en_preparation: `Bonjour ${prenom} 👋 Votre commande ${ref} est en cours de préparation chez Maison Mayssa 🍰`,
+                            pret: `Bonjour ${prenom} ✅ Votre commande ${ref} est prête ! Vous pouvez venir la récupérer dès maintenant chez Maison Mayssa 🎁\n\nSi vous avez apprécié, un petit avis Google nous aiderait énormément 🙏⭐ → https://share.google/hWmuK4HB8Bcp69KWC\n\nMerci et à bientôt 🍪`,
+                            livree: `Bonjour ${prenom} 🚗 Votre commande ${ref} est en route, notre livreur arrive bientôt !\n\nSi vous avez apprécié, un petit avis Google nous aiderait énormément 🙏⭐ → https://share.google/hWmuK4HB8Bcp69KWC\n\nMerci et à bientôt 🍪`,
+                            validee: `Bonjour ${prenom} ✅ Votre commande ${ref} est confirmée. Merci pour votre commande chez Maison Mayssa 🍪`,
+                            refusee: `Bonjour ${prenom}, malheureusement nous ne pouvons pas honorer votre commande ${ref} pour le moment. N'hésitez pas à nous recontacter pour reprogrammer 🙏`,
+                          }
+                          const msg = msgs[order.status] ?? msgs['en_attente']
+                          return (
+                            <a
+                              href={`https://wa.me/${phoneToWhatsApp(order.customer.phone)}?text=${encodeURIComponent(msg)}`}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-green-500 text-white text-xs font-bold hover:bg-green-600 transition-colors"
+                              title="Envoyer un message WhatsApp contextualisé"
+                            >
+                              <MessageCircle size={14} />
+                              {order.status === 'pret' ? 'Prête ✅' : order.status === 'livree' ? 'En route 🚗' : order.status === 'validee' ? 'Confirmée ✅' : order.status === 'refusee' ? 'Refus' : 'Message'}
+                            </a>
+                          )
+                        })()}
                         <button
                           onClick={() => setEditingOrderId(id)}
                           className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-mayssa-brown/10 text-mayssa-brown text-xs font-bold hover:bg-mayssa-brown/20 transition-colors cursor-pointer"
@@ -2412,6 +2556,184 @@ function Dashboard({ user }: { user: User }) {
                   {settings.ordersOpen === false ? 'Ouvrir les commandes' : 'Fermer les commandes'}
                 </button>
               </div>
+            </div>
+
+            {/* Résumé de l'état actuel */}
+            <div className="rounded-xl px-4 py-3 bg-mayssa-soft/60 border border-mayssa-brown/8 space-y-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/40 mb-2">État actuel</p>
+              {/* Ouverture précommandes */}
+              <div className="flex items-center gap-2">
+                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                  settings.preorderOpenDate
+                    ? (() => {
+                        const now = new Date()
+                        const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`
+                        const open = settings.preorderOpenDate < todayStr ||
+                          (settings.preorderOpenDate === todayStr && (() => {
+                            const [h,m] = (settings.preorderOpenTime ?? '00:00').split(':').map(Number)
+                            return now.getHours()*60+now.getMinutes() >= (h??0)*60+(m??0)
+                          })())
+                        return open ? 'bg-emerald-400' : 'bg-amber-400'
+                      })()
+                    : 'bg-mayssa-brown/20'
+                }`} />
+                <span className="text-xs text-mayssa-brown/70">
+                  {settings.preorderOpenDate
+                    ? (() => {
+                        const now = new Date()
+                        const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`
+                        const open = settings.preorderOpenDate < todayStr ||
+                          (settings.preorderOpenDate === todayStr && (() => {
+                            const [h,m] = (settings.preorderOpenTime ?? '00:00').split(':').map(Number)
+                            return now.getHours()*60+now.getMinutes() >= (h??0)*60+(m??0)
+                          })())
+                        const dateLabel = parseDateYyyyMmDd(settings.preorderOpenDate).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
+                        const timeLabel = settings.preorderOpenTime && settings.preorderOpenTime !== '00:00' ? ` à ${settings.preorderOpenTime}` : ''
+                        return open
+                          ? <><span className="font-semibold text-emerald-700">Précommandes ouvertes</span> (depuis {dateLabel}{timeLabel})</>
+                          : <><span className="font-semibold text-amber-700">Ouverture</span> {dateLabel}{timeLabel}</>
+                      })()
+                    : <span className="text-mayssa-brown/40">Ouverture : jours récurrents</span>
+                  }
+                </span>
+              </div>
+              {/* Dates de récupération */}
+              <div className="flex items-center gap-2">
+                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${settings.pickupDates && settings.pickupDates.length > 0 ? 'bg-mayssa-caramel' : 'bg-mayssa-brown/20'}`} />
+                <span className="text-xs text-mayssa-brown/70">
+                  {settings.pickupDates && settings.pickupDates.length > 0
+                    ? <><span className="font-semibold text-mayssa-brown">{settings.pickupDates.length} date{settings.pickupDates.length > 1 ? 's' : ''} de récupération</span> — {settings.pickupDates.slice(0,2).map(d => parseDateYyyyMmDd(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })).join(', ')}{settings.pickupDates.length > 2 ? ` +${settings.pickupDates.length - 2}` : ''}</>
+                    : <span className="text-mayssa-brown/40">Récupération : jours récurrents</span>
+                  }
+                </span>
+              </div>
+            </div>
+
+            {/* Message global aux clients */}
+            <div className="rounded-xl p-4 border border-mayssa-brown/10 bg-white space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-bold text-mayssa-brown">Message global aux clients</p>
+                <button
+                  type="button"
+                  onClick={() => updateSettings({ globalMessageEnabled: !settings.globalMessageEnabled })}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                    settings.globalMessageEnabled
+                      ? 'bg-mayssa-caramel text-white hover:bg-mayssa-brown'
+                      : 'bg-slate-100 text-mayssa-brown/60 hover:bg-slate-200'
+                  }`}
+                >
+                  {settings.globalMessageEnabled ? 'Activé ✓' : 'Désactivé'}
+                </button>
+              </div>
+              <textarea
+                value={settings.globalMessage ?? ''}
+                onChange={e => updateSettings({ globalMessage: e.target.value })}
+                placeholder="Ex : Fermeture du 20 au 25 mars. Reprise des commandes le 26."
+                rows={3}
+                className="w-full rounded-xl border border-mayssa-brown/10 px-3 py-2 text-xs text-mayssa-brown resize-none focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
+              />
+              <p className="text-[10px] text-mayssa-brown/40">
+                Ce message s&apos;affiche en bannière caramel sur le site pour tous les visiteurs.
+              </p>
+            </div>
+
+            {/* Section A : Ouverture des précommandes */}
+            <div className="rounded-xl p-4 border border-mayssa-brown/10 bg-white space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-bold text-mayssa-brown">Ouverture des précommandes</p>
+                {settings.preorderOpenDate && (
+                  <button type="button"
+                    onClick={() => updateSettings({ preorderOpenDate: undefined, preorderOpenTime: undefined })}
+                    className="text-[10px] text-red-400 hover:text-red-600 font-bold cursor-pointer"
+                  >
+                    Effacer
+                  </button>
+                )}
+              </div>
+              <p className="text-[10px] text-mayssa-brown/50">
+                Date et heure à partir desquelles les clients peuvent précommander. Les dates de récupération ci-dessous ne sont visibles qu&apos;à partir de ce moment.
+              </p>
+              <div className="flex gap-2 flex-wrap items-center">
+                <input type="date"
+                  value={settings.preorderOpenDate ?? ''}
+                  onChange={e => updateSettings({ preorderOpenDate: e.target.value || undefined })}
+                  className="flex-1 min-w-32 rounded-xl border border-mayssa-brown/10 px-3 py-2 text-xs text-mayssa-brown focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
+                />
+                <input type="time"
+                  value={settings.preorderOpenTime ?? '00:00'}
+                  onChange={e => updateSettings({ preorderOpenTime: e.target.value || '00:00' })}
+                  className="w-24 rounded-xl border border-mayssa-brown/10 px-3 py-2 text-xs text-mayssa-brown focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
+                />
+              </div>
+              {settings.preorderOpenDate && (
+                <p className="text-[10px] text-mayssa-caramel font-semibold">
+                  Ouverture : {parseDateYyyyMmDd(settings.preorderOpenDate).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                  {settings.preorderOpenTime && settings.preorderOpenTime !== '00:00' ? ` à ${settings.preorderOpenTime}` : ' toute la journée'}
+                </p>
+              )}
+            </div>
+
+            {/* Section B : Dates de récupération */}
+            <div className="rounded-xl p-4 border border-mayssa-brown/10 bg-white space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-bold text-mayssa-brown">Dates de récupération</p>
+                <span className="text-[10px] text-mayssa-brown/40">
+                  {settings.pickupDates && settings.pickupDates.length > 0
+                    ? `${settings.pickupDates.length} date(s)`
+                    : 'Jours récurrents actifs'}
+                </span>
+              </div>
+              <p className="text-[10px] text-mayssa-brown/50">
+                Dates proposées aux clients pour récupérer/recevoir leur commande. Si vide, les jours récurrents (ci-dessous) sont utilisés.
+              </p>
+              <div className="flex gap-2 flex-wrap">
+                <input type="date"
+                  id="admin-pickup-date-input"
+                  className="flex-1 min-w-32 rounded-xl border border-mayssa-brown/10 px-3 py-2 text-xs text-mayssa-brown focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
+                />
+                <button type="button"
+                  onClick={() => {
+                    const dateEl = document.getElementById('admin-pickup-date-input') as HTMLInputElement | null
+                    const date = dateEl?.value
+                    if (!date) return
+                    const current = settings.pickupDates ?? []
+                    if (!current.includes(date)) {
+                      updateSettings({ pickupDates: [...current, date].sort() })
+                    }
+                    if (dateEl) dateEl.value = ''
+                  }}
+                  className="px-4 py-2 rounded-xl bg-mayssa-caramel text-white text-xs font-bold hover:bg-mayssa-brown transition-colors cursor-pointer"
+                >
+                  Ajouter
+                </button>
+              </div>
+              {settings.pickupDates && settings.pickupDates.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {settings.pickupDates.map(date => (
+                    <div key={date} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-mayssa-soft border border-mayssa-brown/10">
+                      <span className="text-xs font-semibold text-mayssa-brown capitalize">
+                        {parseDateYyyyMmDd(date).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', weekday: 'short', day: 'numeric', month: 'short' })}
+                      </span>
+                      <button type="button"
+                        onClick={() => updateSettings({ pickupDates: (settings.pickupDates ?? []).filter(d => d !== date) })}
+                        className="text-mayssa-brown/30 hover:text-red-400 transition-colors cursor-pointer"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                  <button type="button"
+                    onClick={() => updateSettings({ pickupDates: [] })}
+                    className="text-[10px] text-red-400 hover:text-red-600 font-bold cursor-pointer px-2 py-1.5"
+                  >
+                    Tout effacer
+                  </button>
+                </div>
+              ) : (
+                <p className="text-[10px] text-mayssa-brown/40 italic">
+                  Aucune date — les jours récurrents configurés ci-dessous sont utilisés.
+                </p>
+              )}
             </div>
 
             <p className="text-xs text-mayssa-brown/60">
@@ -2731,6 +3053,433 @@ function Dashboard({ user }: { user: User }) {
         {tab === 'carte' && (
           <AdminCommunityTab orders={orders} />
         )}
+
+        {/* ===== PRODUCTION ===== */}
+        {tab === 'production' && (() => {
+          // Toutes les dates uniques avec commandes actives, triées
+          const allDatesWithOrders = Array.from(
+            new Set(
+              Object.values(orders)
+                .filter(o => o.requestedDate && o.status !== 'refusee')
+                .map(o => o.requestedDate!)
+            )
+          ).sort()
+
+          // Si aucune sélection → aujourd'hui par défaut
+          const selectedDates = productionDates.size > 0 ? productionDates : new Set([todayRetraitStr])
+
+          // Clic simple = sélection unique de cette date
+          const selectDate = (d: string) => {
+            setProductionDates(new Set([d]))
+          }
+          // Clic sur "+" = ajouter/retirer de la multi-sélection
+          const toggleDate = (d: string) => {
+            setProductionDates(prev => {
+              const next = new Set(prev)
+              if (next.has(d)) { next.delete(d) } else { next.add(d) }
+              return next.size === 0 ? new Set([todayRetraitStr]) : next
+            })
+          }
+
+          // Agrégation multi-dates
+          const productionMap = new Map<string, { name: string; quantity: number; orders: number }>()
+          let totalOrders = 0
+          for (const [, order] of Object.entries(orders)) {
+            if (order.status === 'refusee' || order.status === 'livree' || order.status === 'validee' || order.status === 'pret') continue
+            if (!order.requestedDate || !selectedDates.has(order.requestedDate)) continue
+            totalOrders++
+            for (const item of order.items ?? []) {
+              const key = item.name || item.productId || 'Inconnu'
+              const existing = productionMap.get(key)
+              if (existing) { existing.quantity += item.quantity ?? 1; existing.orders++ }
+              else { productionMap.set(key, { name: key, quantity: item.quantity ?? 1, orders: 1 }) }
+            }
+          }
+          const productionList = Array.from(productionMap.values()).sort((a, b) => b.quantity - a.quantity)
+
+          const datesLabel = selectedDates.size === 1
+            ? (() => {
+                const d = [...selectedDates][0]
+                if (d === todayRetraitStr) return "Aujourd'hui"
+                if (d === tomorrowRetraitStr) return 'Demain'
+                return parseDateYyyyMmDd(d).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long' })
+              })()
+            : `${selectedDates.size} jours sélectionnés`
+
+          return (
+            <motion.section
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-4"
+            >
+              {/* Sélecteur multi-dates */}
+              <div className="bg-white rounded-2xl p-4 shadow-sm border border-mayssa-brown/5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">
+                    Dates de production
+                    <span className="normal-case font-normal text-mayssa-brown/40 ml-1">— clic = jour seul · + = combiner</span>
+                  </p>
+                  {selectedDates.size > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setProductionDates(new Set())}
+                      className="text-[10px] font-bold text-mayssa-caramel hover:text-mayssa-brown cursor-pointer"
+                    >
+                      Tout déselectionner
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {allDatesWithOrders.map((d) => {
+                    const isSelected = selectedDates.has(d)
+                    const isOnlySelected = isSelected && selectedDates.size === 1
+                    const isToday = d === todayRetraitStr
+                    const isTomorrow = d === tomorrowRetraitStr
+                    const isPast = d < todayRetraitStr
+                    const label = isToday ? "Aujourd'hui" : isTomorrow ? 'Demain' : parseDateYyyyMmDd(d).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', weekday: 'short', day: 'numeric', month: 'short' })
+                    const count = Object.values(orders).filter(o => o.requestedDate === d && o.status !== 'refusee' && o.status !== 'livree' && o.status !== 'validee' && o.status !== 'pret').length
+                    return (
+                      <div key={d} className="flex items-center rounded-xl overflow-hidden border-2 transition-all" style={{ borderColor: isSelected ? 'var(--color-mayssa-caramel, #C49A6C)' : 'transparent' }}>
+                        {/* Clic principal = sélection unique */}
+                        <button
+                          type="button"
+                          onClick={() => selectDate(d)}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-mayssa-caramel text-white'
+                              : isPast
+                              ? 'bg-mayssa-soft/50 text-mayssa-brown/50 hover:bg-mayssa-soft'
+                              : 'bg-mayssa-soft text-mayssa-brown hover:bg-mayssa-caramel/10'
+                          }`}
+                        >
+                          <span className="capitalize">{label}</span>
+                          {count > 0 && (
+                            <span className={`px-1 py-0.5 rounded text-[9px] font-display font-bold tabular-nums ${
+                              isSelected ? 'bg-white/25 text-white' : 'bg-mayssa-caramel/15 text-mayssa-caramel'
+                            }`}>
+                              {count}
+                            </span>
+                          )}
+                        </button>
+                        {/* Bouton + = ajouter à la sélection (ou retirer si déjà dedans et pas seul) */}
+                        {!isOnlySelected && (
+                          <button
+                            type="button"
+                            onClick={() => toggleDate(d)}
+                            title={isSelected ? 'Retirer' : 'Ajouter à la sélection'}
+                            className={`px-1.5 py-1.5 text-[10px] font-bold transition-all cursor-pointer border-l ${
+                              isSelected
+                                ? 'bg-mayssa-brown text-white border-white/20 hover:bg-red-500'
+                                : isPast
+                                ? 'bg-mayssa-soft/50 text-mayssa-brown/40 border-mayssa-brown/10 hover:bg-mayssa-caramel/20 hover:text-mayssa-caramel'
+                                : 'bg-mayssa-soft text-mayssa-brown/50 border-mayssa-brown/10 hover:bg-mayssa-caramel/20 hover:text-mayssa-caramel'
+                            }`}
+                          >
+                            {isSelected ? '−' : '+'}
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                  {allDatesWithOrders.length === 0 && (
+                    <p className="text-xs text-mayssa-brown/40 italic">Aucune commande enregistrée</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Liste agrégée */}
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-mayssa-brown/5 space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <h3 className="font-bold text-mayssa-brown text-base flex items-center gap-2">
+                      <FileText size={18} className="text-mayssa-caramel" />
+                      Liste de production — <span className="capitalize">{datesLabel}</span>
+                    </h3>
+                    <p className="text-[11px] text-mayssa-brown/50 mt-0.5">
+                      {totalOrders} commande{totalOrders !== 1 ? 's' : ''} concernée{totalOrders !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const lines = productionList.map(p => `${p.quantity}× ${p.name}`).join('\n')
+                        navigator.clipboard.writeText(`Liste de production — ${datesLabel}\n\n${lines}`)
+                        hapticFeedback('success')
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-mayssa-brown text-white text-xs font-bold hover:bg-mayssa-caramel transition-colors cursor-pointer"
+                    >
+                      <ClipboardList size={14} />
+                      Copier
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+                        const today = new Date().toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+                        const totalPieces = productionList.reduce((s, p) => s + p.quantity, 0)
+
+                        // En-tête
+                        doc.setFont('helvetica', 'bold')
+                        doc.setFontSize(20)
+                        doc.text('Maison Mayssa', 20, 20)
+                        doc.setFontSize(13)
+                        doc.setFont('helvetica', 'normal')
+                        doc.text(`Liste de production — ${datesLabel}`, 20, 30)
+                        doc.setFontSize(9)
+                        doc.setTextColor(120, 100, 80)
+                        doc.text(`Généré le ${today} · ${totalOrders} commande${totalOrders !== 1 ? 's' : ''} · ${totalPieces} pièce${totalPieces !== 1 ? 's' : ''}`, 20, 37)
+
+                        // Ligne séparatrice
+                        doc.setDrawColor(196, 154, 108)
+                        doc.setLineWidth(0.5)
+                        doc.line(20, 41, 190, 41)
+
+                        // Tableau
+                        let y = 50
+                        doc.setFontSize(10)
+                        doc.setTextColor(80, 60, 40)
+                        doc.setFont('helvetica', 'bold')
+                        doc.text('Produit', 20, y)
+                        doc.text('Cmds', 148, y, { align: 'right' })
+                        doc.text('Qté', 190, y, { align: 'right' })
+                        y += 5
+                        doc.setDrawColor(220, 200, 180)
+                        doc.setLineWidth(0.3)
+                        doc.line(20, y, 190, y)
+                        y += 6
+
+                        doc.setFont('helvetica', 'normal')
+                        for (const item of productionList) {
+                          if (y > 270) {
+                            doc.addPage()
+                            y = 20
+                          }
+                          doc.setFontSize(10)
+                          doc.setTextColor(60, 40, 20)
+                          doc.text(item.name, 20, y)
+                          doc.setTextColor(150, 120, 90)
+                          doc.text(String(item.orders), 148, y, { align: 'right' })
+                          doc.setFont('helvetica', 'bold')
+                          doc.setTextColor(196, 154, 108)
+                          doc.setFontSize(11)
+                          doc.text(String(item.quantity), 190, y, { align: 'right' })
+                          doc.setFont('helvetica', 'normal')
+                          doc.setFontSize(10)
+                          doc.setTextColor(60, 40, 20)
+                          y += 7
+                          doc.setDrawColor(240, 230, 220)
+                          doc.setLineWidth(0.2)
+                          doc.line(20, y - 1.5, 190, y - 1.5)
+                        }
+
+                        // Total
+                        y += 3
+                        doc.setDrawColor(196, 154, 108)
+                        doc.setLineWidth(0.5)
+                        doc.line(20, y, 190, y)
+                        y += 6
+                        doc.setFont('helvetica', 'bold')
+                        doc.setFontSize(11)
+                        doc.setTextColor(60, 40, 20)
+                        doc.text('TOTAL PIÈCES', 20, y)
+                        doc.setTextColor(196, 154, 108)
+                        doc.setFontSize(14)
+                        doc.text(String(totalPieces), 190, y, { align: 'right' })
+
+                        const filename = `production-${[...selectedDates].sort().join('_')}.pdf`
+                        doc.save(filename)
+                        hapticFeedback('success')
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-mayssa-caramel text-white text-xs font-bold hover:bg-mayssa-brown transition-colors cursor-pointer"
+                    >
+                      <Download size={14} />
+                      PDF
+                    </button>
+                  </div>
+                </div>
+
+                {productionList.length === 0 ? (
+                  <div className="py-12 text-center rounded-xl bg-mayssa-soft/20 border border-mayssa-brown/5">
+                    <Package size={40} className="mx-auto text-mayssa-brown/15 mb-3" />
+                    <p className="text-sm font-medium text-mayssa-brown/60">Aucune commande pour cette sélection</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {productionList.map((item) => (
+                      <div
+                        key={item.name}
+                        className="flex items-center justify-between p-3 rounded-xl bg-mayssa-soft/30 border border-mayssa-brown/5"
+                      >
+                        <span className="text-sm font-semibold text-mayssa-brown">{item.name}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-[10px] text-mayssa-brown/40">{item.orders} cmd</span>
+                          <span className="text-xl font-display font-bold text-mayssa-caramel w-10 text-right">{item.quantity}</span>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between pt-2 border-t border-mayssa-brown/10">
+                      <span className="text-xs font-bold text-mayssa-brown/60 uppercase tracking-wider">Total pièces</span>
+                      <span className="text-2xl font-display font-bold text-mayssa-brown">
+                        {productionList.reduce((s, p) => s + p.quantity, 0)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Détail par commande — groupé par date si multi-sélection */}
+              {totalOrders > 0 && (
+                <div className="bg-white rounded-2xl p-5 shadow-sm border border-mayssa-brown/5 space-y-4">
+                  <h4 className="font-bold text-mayssa-brown text-sm">Détail par commande</h4>
+                  {[...selectedDates].sort().map(d => {
+                    const dayOrders = Object.entries(orders)
+                      .filter(([, o]) => o.requestedDate === d && o.status !== 'refusee' && o.status !== 'livree' && o.status !== 'validee' && o.status !== 'pret')
+                      .sort(([, a], [, b]) => (a.requestedTime ?? '00:00').localeCompare(b.requestedTime ?? '00:00'))
+                    if (dayOrders.length === 0) return null
+                    const dayLabel = d === todayRetraitStr ? "Aujourd'hui" : d === tomorrowRetraitStr ? 'Demain' : parseDateYyyyMmDd(d).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long' })
+                    return (
+                      <div key={d} className="space-y-2">
+                        {selectedDates.size > 1 && (
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-caramel capitalize">{dayLabel}</p>
+                        )}
+                        {dayOrders.map(([id, order]) => (
+                          <div key={id} className="flex items-start gap-3 p-3 rounded-xl border border-mayssa-brown/10">
+                            <div className="flex-shrink-0 text-center min-w-[44px]">
+                              <p className="text-[10px] font-bold text-mayssa-caramel">{order.requestedTime ?? '—'}</p>
+                              <span className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                order.status === 'en_preparation' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
+                              }`}>
+                                {order.status === 'en_preparation' ? 'Prépa' : 'Att.'}
+                              </span>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-bold text-sm text-mayssa-brown">{order.customer?.firstName} {order.customer?.lastName}</p>
+                              <p className="text-[10px] text-mayssa-brown/50">{order.deliveryMode === 'livraison' ? '🚗 Livraison' : '📍 Retrait'}</p>
+                              <ul className="mt-1 space-y-0.5">
+                                {order.items?.map((item, i) => (
+                                  <li key={i} className="text-xs text-mayssa-brown">{item.quantity}× {formatOrderItemName(item)}</li>
+                                ))}
+                              </ul>
+                            </div>
+                            <span className="flex-shrink-0 font-bold text-sm text-mayssa-caramel">{(order.total ?? 0).toFixed(2).replace('.', ',')} €</span>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </motion.section>
+          )
+        })()}
+
+        {/* ===== PLANNING HEBDOMADAIRE ===== */}
+        {tab === 'planning' && (() => {
+          // Génère les 7 prochains jours (aujourd'hui inclus)
+          const days: { dateStr: string; label: string; dayOrders: [string, Order][] }[] = []
+          for (let i = 0; i < 7; i++) {
+            const d = new Date()
+            d.setDate(d.getDate() + i)
+            const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+            const dayName = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' })
+            const dayOrders = Object.entries(orders)
+              .filter(([, o]) => o.requestedDate === dateStr && o.status !== 'refusee')
+              .sort(([, a], [, b]) => (a.requestedTime ?? '00:00').localeCompare(b.requestedTime ?? '00:00'))
+            days.push({ dateStr, label: dayName, dayOrders })
+          }
+          const totalWeek = days.reduce((s, d) => s + d.dayOrders.length, 0)
+          const caWeek = days.reduce((s, d) => s + d.dayOrders.reduce((ss, [, o]) => ss + (o.total ?? 0), 0), 0)
+          return (
+            <motion.section
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-4"
+            >
+              {/* KPIs semaine */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">Commandes (7j)</span>
+                  <p className="text-xl font-display font-bold text-mayssa-brown mt-0.5">{totalWeek}</p>
+                </div>
+                <div className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">CA prévisionnel (7j)</span>
+                  <p className="text-xl font-display font-bold text-mayssa-caramel mt-0.5">{caWeek.toFixed(2).replace('.', ',')} €</p>
+                </div>
+              </div>
+
+              {/* Calendrier */}
+              <div className="space-y-3">
+                {days.map(({ dateStr, label, dayOrders }) => {
+                  const isToday = dateStr === todayRetraitStr
+                  const dayCA = dayOrders.reduce((s, [, o]) => s + (o.total ?? 0), 0)
+                  return (
+                    <div
+                      key={dateStr}
+                      className={`rounded-2xl border transition-all ${
+                        isToday
+                          ? 'border-mayssa-caramel/50 bg-mayssa-caramel/5 shadow-sm'
+                          : 'border-mayssa-brown/10 bg-white'
+                      }`}
+                    >
+                      {/* En-tête du jour */}
+                      <div className="flex items-center justify-between px-4 py-3 border-b border-mayssa-brown/5">
+                        <div className="flex items-center gap-2">
+                          {isToday && <span className="w-2 h-2 rounded-full bg-mayssa-caramel" />}
+                          <span className={`text-sm font-bold capitalize ${isToday ? 'text-mayssa-caramel' : 'text-mayssa-brown'}`}>
+                            {label}
+                          </span>
+                          {isToday && <span className="text-[9px] font-bold uppercase tracking-wider bg-mayssa-caramel text-white px-1.5 py-0.5 rounded">Aujourd'hui</span>}
+                        </div>
+                        <div className="flex items-center gap-3 text-[10px] text-mayssa-brown/50 font-bold">
+                          {dayOrders.length > 0 && (
+                            <>
+                              <span>{dayOrders.length} cmd</span>
+                              <span className="text-mayssa-caramel">{dayCA.toFixed(2).replace('.', ',')} €</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Créneaux du jour */}
+                      {dayOrders.length === 0 ? (
+                        <p className="px-4 py-3 text-xs text-mayssa-brown/30 italic">Aucune commande</p>
+                      ) : (
+                        <div className="divide-y divide-mayssa-brown/5">
+                          {dayOrders.map(([id, order]) => (
+                            <div key={id} className="flex items-center gap-3 px-4 py-2.5">
+                              <span className="text-[10px] font-bold text-mayssa-brown/40 w-10 flex-shrink-0">{order.requestedTime ?? '—'}</span>
+                              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                order.status === 'en_preparation' ? 'bg-blue-400' :
+                                order.status === 'pret' ? 'bg-emerald-400' :
+                                order.status === 'livree' || order.status === 'validee' ? 'bg-emerald-600' :
+                                'bg-amber-400'
+                              }`} />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-semibold text-mayssa-brown truncate">
+                                  {order.customer?.firstName} {order.customer?.lastName}
+                                </p>
+                                <p className="text-[10px] text-mayssa-brown/50 truncate">
+                                  {order.items?.map(i => `${i.quantity}× ${formatOrderItemName(i)}`).join(', ')}
+                                </p>
+                              </div>
+                              <div className="flex-shrink-0 text-right">
+                                <p className="text-xs font-bold text-mayssa-caramel">{(order.total ?? 0).toFixed(2).replace('.', ',')} €</p>
+                                <p className="text-[10px] text-mayssa-brown/40">{order.deliveryMode === 'livraison' ? '🚗' : '📍'}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </motion.section>
+          )
+        })()}
 
         {/* Edit order modal (toujours affiché si on édite, quel que soit l'onglet) */}
         {editingOrderId && orders[editingOrderId] && (

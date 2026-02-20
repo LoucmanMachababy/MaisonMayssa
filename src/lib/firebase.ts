@@ -146,11 +146,19 @@ export function listenProductOverrides(callback: (overrides: ProductOverrideMap)
 }
 
 export async function updateProductOverride(productId: string, override: Partial<ProductOverride>) {
-  await update(ref(db, `products/${productId}`), override)
+  // Firebase update() rejette les valeurs undefined — on les remplace par null (= suppression du champ)
+  const sanitized = Object.fromEntries(
+    Object.entries(override).map(([k, v]) => [k, v === undefined ? null : v])
+  )
+  await update(ref(db, `products/${productId}`), sanitized)
 }
 
 export async function setProductOverride(productId: string, override: ProductOverride) {
-  await set(ref(db, `products/${productId}`), override)
+  // Firebase set() rejette les valeurs undefined — on les filtre
+  const sanitized = Object.fromEntries(
+    Object.entries(override).filter(([, v]) => v !== undefined)
+  )
+  await set(ref(db, `products/${productId}`), sanitized)
 }
 
 export async function deleteProductOverride(productId: string) {
@@ -182,6 +190,16 @@ export type Settings = {
   retraitTimeSlots?: string[]
   /** Créneaux horaires proposés pour la livraison (ex. ["20:00","20:30",...]). Si absent = défaut (20h-02h30). */
   livraisonTimeSlots?: string[]
+  /** Message global affiché en bannière sur le site. Vide = pas de bannière. */
+  globalMessage?: string
+  /** Si true, le message global est affiché. Si false ou absent = pas de bannière. */
+  globalMessageEnabled?: boolean
+  /** Date d'ouverture des précommandes (YYYY-MM-DD). Si renseigné avec preorderOpenTime, les pickupDates ne sont visibles qu'à partir de cette date+heure. */
+  preorderOpenDate?: string
+  /** Heure d'ouverture des précommandes (HH:mm). Utilisé avec preorderOpenDate. */
+  preorderOpenTime?: string
+  /** Dates de récupération proposées aux clients (YYYY-MM-DD[]). Si renseigné, remplace availableWeekdays dans le sélecteur de date. */
+  pickupDates?: string[]
 }
 
 const DEFAULT_PREORDER_OPENINGS: PreorderOpening[] = [
@@ -229,6 +247,11 @@ function mergeSettings(val: unknown): Settings {
   const livraisonTimeSlots = Array.isArray(raw.livraisonTimeSlots) && (raw.livraisonTimeSlots as string[]).length > 0
     ? (raw.livraisonTimeSlots as string[]).filter((t): t is string => typeof t === 'string' && /^\d{1,2}:\d{2}$/.test(t))
     : undefined
+  const pickupDates = Array.isArray(raw.pickupDates) && (raw.pickupDates as string[]).length > 0
+    ? (raw.pickupDates as string[]).filter((d): d is string => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d))
+    : undefined
+  const preorderOpenDate = typeof raw.preorderOpenDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw.preorderOpenDate) ? raw.preorderOpenDate : undefined
+  const preorderOpenTime = typeof raw.preorderOpenTime === 'string' && /^\d{1,2}:\d{2}$/.test(raw.preorderOpenTime) ? raw.preorderOpenTime : undefined
   return {
     preorderDays,
     preorderOpenings,
@@ -241,6 +264,11 @@ function mergeSettings(val: unknown): Settings {
     ...(availableWeekdays && availableWeekdays.length > 0 && { availableWeekdays }),
     ...(retraitTimeSlots && retraitTimeSlots.length > 0 && { retraitTimeSlots }),
     ...(livraisonTimeSlots && livraisonTimeSlots.length > 0 && { livraisonTimeSlots }),
+    ...(pickupDates && pickupDates.length > 0 && { pickupDates }),
+    ...(preorderOpenDate && { preorderOpenDate }),
+    ...(preorderOpenTime && { preorderOpenTime }),
+    globalMessage: typeof raw.globalMessage === 'string' ? raw.globalMessage : undefined,
+    globalMessageEnabled: raw.globalMessageEnabled === true ? true : undefined,
   }
 }
 
@@ -330,6 +358,23 @@ export type UserOrderStats = {
 /** Vérifie si un productId correspond à un trompe l'oeil */
 export function isTrompeLoeilProductId(productId: string): boolean {
   return productId.startsWith('trompe-loeil-')
+}
+
+/**
+ * Retourne les paires productId/quantity à décrémenter pour un item du panier.
+ * Pour un bundle, retourne 1 entrée par produit composant (× quantity).
+ * Pour un produit simple, retourne une seule entrée.
+ */
+export function getStockDecrementItems(
+  productId: string,
+  quantity: number,
+  products: { id: string; bundleProductIds?: string[] }[]
+): { productId: string; quantity: number }[] {
+  const product = products.find((p) => p.id === productId)
+  if (product?.bundleProductIds && product.bundleProductIds.length > 0) {
+    return product.bundleProductIds.map((id) => ({ productId: id, quantity }))
+  }
+  return [{ productId, quantity }]
 }
 
 // --- Codes promo ---
@@ -537,6 +582,30 @@ export async function updateOrder(orderId: string, updates: OrderUpdate) {
 
 export async function deleteOrder(orderId: string) {
   await remove(ref(db, `orders/${orderId}`))
+}
+
+/**
+ * Cherche une commande récente (dans les dernières `withinHours` heures) pour un numéro de téléphone donné.
+ * Retourne la commande trouvée ou null.
+ */
+export async function getRecentOrderByPhone(
+  phone: string,
+  withinHours = 12
+): Promise<(Order & { id: string }) | null> {
+  const snapshot = await get(ordersRef)
+  if (!snapshot.exists()) return null
+  const since = Date.now() - withinHours * 60 * 60 * 1000
+  const orders = snapshot.val() as Record<string, Order>
+  for (const [id, order] of Object.entries(orders)) {
+    if (
+      order.customer?.phone === phone &&
+      order.createdAt >= since &&
+      order.status !== 'refusee'
+    ) {
+      return { ...order, id }
+    }
+  }
+  return null
 }
 
 // --- Avis clients (reviews) ---

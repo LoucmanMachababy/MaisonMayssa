@@ -57,11 +57,6 @@ export function ComplementarySuggestions({ products, onAdd, onDismiss }: Complem
                   <p className="text-xs font-semibold text-mayssa-brown truncate">{product.name}</p>
                   <div className="flex items-center gap-1">
                     <p className="text-[10px] text-mayssa-caramel font-bold">{product.price.toFixed(2).replace('.', ',')} €</p>
-                    {product.originalPrice && (
-                      <p className="text-[9px] text-mayssa-brown/50 font-bold line-through">
-                        {product.originalPrice.toFixed(2).replace('.', ',')} €
-                      </p>
-                    )}
                   </div>
                 </div>
                 <div className="flex-shrink-0 p-1.5 rounded-full bg-mayssa-caramel/10 group-hover:bg-mayssa-caramel/20 transition-colors">

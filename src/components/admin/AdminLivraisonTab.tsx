@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { jsPDF } from 'jspdf'
 import { Truck, MapPin, Phone, Calendar, Download, Filter, XCircle, MessageSquare, Package, Pencil, FileText, ArrowUpDown } from 'lucide-react'
 import { updateOrderStatus, type Order, type OrderStatus } from '../../lib/firebase'
-import { parseDateYyyyMmDd } from '../../lib/utils'
+import { parseDateYyyyMmDd, formatOrderItemName } from '../../lib/utils'
 
 const ORDER_STATUS_LABELS: Record<string, string> = {
   en_attente: 'En attente',
@@ -33,7 +33,7 @@ function exportRetraitsCSV(entries: [string, Order][]): void {
     const client = [o.customer?.firstName, o.customer?.lastName].filter(Boolean).join(' ')
     const phone = o.customer?.phone ?? ''
     const noteClient = (o.clientNote ?? '').replace(/"/g, '""')
-    const items = (o.items ?? []).map((i) => `${i.quantity}× ${i.name}`).join(' | ')
+    const items = (o.items ?? []).map((i) => `${i.quantity}× ${formatOrderItemName(i)}`).join(' | ')
     const total = (o.total ?? 0).toFixed(2).replace('.', ',')
     const status = ORDER_STATUS_LABELS[o.status] ?? o.status
     return [orderRef, dateStr, timeStr, client, phone, `"${noteClient}"`, `"${items.replace(/"/g, '""')}"`, total, status].join(SEP)
@@ -94,7 +94,7 @@ function exportRetraitsPDF(entries: [string, Order][], dateLabel: string): void 
     const heure = o.requestedTime ? ' à ' + o.requestedTime : ''
     doc.text('Créneau retrait: ' + timeStr + heure, margin + 3, lineY)
     lineY += 6
-    const itemsStr = (o.items ?? []).map(i => `${i.quantity}x ${i.name}`).join(', ')
+    const itemsStr = (o.items ?? []).map(i => `${i.quantity}x ${formatOrderItemName(i)}`).join(', ')
     const itemsLines = doc.splitTextToSize('Articles: ' + itemsStr, maxWidth - 6)
     doc.text(itemsLines, margin + 3, lineY)
     lineY += itemsLines.length * 5 + 2
@@ -130,7 +130,7 @@ function exportLivraisonsCSV(entries: [string, Order][]): void {
     const adresse = (o.customer?.address ?? '').replace(/"/g, '""')
     const distanceKm = o.distanceKm != null ? o.distanceKm.toFixed(1) : ''
     const noteClient = (o.clientNote ?? '').replace(/"/g, '""')
-    const items = (o.items ?? []).map((i) => `${i.quantity}× ${i.name}`).join(' | ')
+    const items = (o.items ?? []).map((i) => `${i.quantity}× ${formatOrderItemName(i)}`).join(' | ')
     const total = (o.total ?? 0).toFixed(2).replace('.', ',')
     const status = ORDER_STATUS_LABELS[o.status] ?? o.status
     return [orderRef, dateStr, timeStr, client, phone, `"${adresse}"`, distanceKm, `"${noteClient}"`, `"${items.replace(/"/g, '""')}"`, total, status].join(SEP)
@@ -200,7 +200,7 @@ function exportLivraisonsPDF(entries: [string, Order][], dateLabel: string): voi
     const heure = o.requestedTime ? ' a ' + o.requestedTime : ''
     doc.text('Creneau: ' + timeStr + heure, margin + 3, lineY)
     lineY += 6
-    const itemsStr = (o.items ?? []).map(i => `${i.quantity}x ${i.name}`).join(', ')
+    const itemsStr = (o.items ?? []).map(i => `${i.quantity}x ${formatOrderItemName(i)}`).join(', ')
     const itemsLines = doc.splitTextToSize('Articles: ' + itemsStr, maxWidth - 6)
     doc.text(itemsLines, margin + 3, lineY)
     lineY += itemsLines.length * 5 + 2
@@ -235,6 +235,7 @@ function getTodayYyyyMmDd(): string {
 export function AdminLivraisonTab({ orders, onEditOrder, mode }: AdminLivraisonTabProps) {
   const [dateFilter, setDateFilter] = useState(getTodayYyyyMmDd)
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all')
+  const [productFilter, setProductFilter] = useState<string>('')
   const [sortBy, setSortBy] = useState<'date' | 'distance' | 'client' | 'total'>('date')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
 
@@ -249,6 +250,10 @@ export function AdminLivraisonTab({ orders, onEditOrder, mode }: AdminLivraisonT
         if (!dateFilter) return true
         return o.requestedDate === dateFilter
       })
+      .filter(([, o]) => {
+        if (!productFilter) return true
+        return o.items?.some(i => i.productId === productFilter)
+      })
       .sort(([, a], [, b]) => {
         let cmp = 0
         if (sortBy === 'date') {
@@ -279,7 +284,7 @@ export function AdminLivraisonTab({ orders, onEditOrder, mode }: AdminLivraisonT
         return sortOrder === 'asc' ? cmp : -cmp
       })
     return entries
-  }, [orders, dateFilter, statusFilter, sortBy, sortOrder])
+  }, [orders, dateFilter, statusFilter, productFilter, sortBy, sortOrder])
 
   const pickupOrders = useMemo(() => {
     const entries = Object.entries(orders)
@@ -292,6 +297,10 @@ export function AdminLivraisonTab({ orders, onEditOrder, mode }: AdminLivraisonT
         if (!dateFilter) return true
         return o.requestedDate === dateFilter
       })
+      .filter(([, o]) => {
+        if (!productFilter) return true
+        return o.items?.some(i => i.productId === productFilter)
+      })
       .sort(([, a], [, b]) => {
         let cmp = 0
         if (sortBy === 'date') {
@@ -322,7 +331,7 @@ export function AdminLivraisonTab({ orders, onEditOrder, mode }: AdminLivraisonT
         return sortOrder === 'asc' ? cmp : -cmp
       })
     return entries
-  }, [orders, dateFilter, statusFilter, sortBy, sortOrder])
+  }, [orders, dateFilter, statusFilter, productFilter, sortBy, sortOrder])
 
   const displayOrders = mode === 'livraison' ? deliveryOrders : pickupOrders
 
@@ -335,12 +344,26 @@ export function AdminLivraisonTab({ orders, onEditOrder, mode }: AdminLivraisonT
     return Object.entries(byTime).sort(([a], [b]) => a.localeCompare(b))
   }, [displayOrders])
 
-  const hasFilters = !!dateFilter || !!statusFilter && statusFilter !== 'all'
+  const hasFilters = !!dateFilter || (!!statusFilter && statusFilter !== 'all') || !!productFilter
 
   const clearFilters = () => {
     setDateFilter('')
     setStatusFilter('all')
+    setProductFilter('')
   }
+
+  // Liste de tous les produits distincts présents dans les commandes affichées (toutes dates/statuts)
+  const allOrderedProducts = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const [, o] of Object.entries(orders)) {
+      for (const item of o.items ?? []) {
+        if (item.productId && !map.has(item.productId)) {
+          map.set(item.productId, formatOrderItemName(item))
+        }
+      }
+    }
+    return Array.from(map.entries()).sort(([, a], [, b]) => a.localeCompare(b))
+  }, [orders])
 
   return (
     <motion.section
@@ -437,6 +460,18 @@ export function AdminLivraisonTab({ orders, onEditOrder, mode }: AdminLivraisonT
             <option value="validee">Validée</option>
             <option value="refusee">Refusée</option>
           </select>
+          {allOrderedProducts.length > 0 && (
+            <select
+              value={productFilter}
+              onChange={(e) => setProductFilter(e.target.value)}
+              className="rounded-xl border border-mayssa-brown/10 px-3 py-2 text-xs font-bold text-mayssa-brown bg-white"
+            >
+              <option value="">Tous les produits</option>
+              {allOrderedProducts.map(([id, label]) => (
+                <option key={id} value={id}>{label}</option>
+              ))}
+            </select>
+          )}
           <select
             value={mode === 'retrait' && sortBy === 'distance' ? 'date' : sortBy}
             onChange={(e) => setSortBy(e.target.value as 'date' | 'distance' | 'client' | 'total')}
@@ -564,7 +599,7 @@ export function AdminLivraisonTab({ orders, onEditOrder, mode }: AdminLivraisonT
                 </p>
                 {order.items?.map((item, i) => (
                   <div key={i} className="flex items-center justify-between text-xs">
-                    <span className="text-mayssa-brown">{item.quantity}× {item.name}</span>
+                    <span className="text-mayssa-brown">{item.quantity}× {formatOrderItemName(item)}</span>
                     <span className="font-bold text-mayssa-brown">
                       {(item.price * item.quantity).toFixed(2).replace('.', ',')} €
                     </span>

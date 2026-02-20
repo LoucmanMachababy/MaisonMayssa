@@ -130,11 +130,6 @@ export function FavorisSection({ favorites, onRemove, onAddToCart, onClear }: Fa
                           {product.sizes ? 'À partir de ' : ''}
                           {product.price.toFixed(2).replace('.', ',')} €
                         </span>
-                        {product.originalPrice && (
-                          <span className="text-sm font-display font-bold text-mayssa-brown/50 line-through">
-                            {product.originalPrice.toFixed(2).replace('.', ',')} €
-                          </span>
-                        )}
                       </div>
                       <motion.button
                         type="button"

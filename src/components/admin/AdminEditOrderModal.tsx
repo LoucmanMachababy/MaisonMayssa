@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { X, Minus, Plus, Trash2, Truck, MapPin, Search, ChevronDown, ChevronUp, Printer } from 'lucide-react'
 import { updateOrder, updateStock, isTrompeLoeilProductId, releaseDeliverySlot, reserveDeliverySlot, type Order, type OrderItem, type DeliveryMode, type StockMap } from '../../lib/firebase'
+import { formatOrderItemName } from '../../lib/utils'
 import { printOrderSlip } from '../../lib/orderPrint'
 import type { ProductWithAvailability } from '../../hooks/useProducts'
 import type { ProductCategory } from '../../types'
@@ -38,6 +39,7 @@ export function AdminEditOrderModal({ orderId, order, stock, allProducts, onClos
   const [sizePickerFor, setSizePickerFor] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [manualTotal, setManualTotal] = useState<string>('')
 
   const itemsTotal = useMemo(
     () => items.reduce((s, i) => s + i.price * i.quantity, 0),
@@ -176,6 +178,10 @@ export function AdminEditOrderModal({ orderId, order, stock, allProducts, onClos
         reserveDeliverySlot(requestedDate, requestedTime).catch(console.error)
       }
 
+      const finalTotal = manualTotal.trim() && !isNaN(parseFloat(manualTotal))
+        ? parseFloat(manualTotal)
+        : total
+
       await updateOrder(orderId, {
         customer: {
           firstName: firstName.trim(),
@@ -184,7 +190,7 @@ export function AdminEditOrderModal({ orderId, order, stock, allProducts, onClos
           ...(deliveryMode === 'livraison' && address.trim() && { address: address.trim() }),
         },
         items,
-        total,
+        total: finalTotal,
         deliveryMode,
         ...(deliveryMode === 'livraison' ? (deliveryFee > 0 ? { deliveryFee } : { deliveryFee: undefined }) : { deliveryFee: undefined }),
         requestedDate: requestedDate || undefined,
@@ -376,7 +382,7 @@ export function AdminEditOrderModal({ orderId, order, stock, allProducts, onClos
               {items.map((item, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-mayssa-brown truncate">{item.name}</p>
+                    <p className="text-xs font-medium text-mayssa-brown truncate">{formatOrderItemName(item)}</p>
                     <p className="text-[10px] text-mayssa-brown/50">
                       {(item.price * item.quantity).toFixed(2).replace('.', ',')} €
                     </p>
@@ -499,6 +505,35 @@ export function AdminEditOrderModal({ orderId, order, stock, allProducts, onClos
             <p className="text-[10px] text-mayssa-brown/40 mt-1">
               Vous pouvez ajouter des produits même en rupture de stock.
             </p>
+          </div>
+
+          {/* Total personnalisé */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">
+              Total personnalisé (optionnel)
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={0}
+                step={0.01}
+                value={manualTotal}
+                onChange={e => setManualTotal(e.target.value)}
+                placeholder={`${total.toFixed(2)} € (calculé)`}
+                className="flex-1 rounded-xl border border-mayssa-brown/10 px-3 py-2 text-sm font-bold text-mayssa-brown bg-mayssa-soft/50 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+              {manualTotal && (
+                <button type="button" onClick={() => setManualTotal('')}
+                  className="text-[10px] text-mayssa-brown/50 hover:text-red-400 cursor-pointer whitespace-nowrap">
+                  Réinitialiser
+                </button>
+              )}
+            </div>
+            {manualTotal && !isNaN(parseFloat(manualTotal)) && (
+              <p className="text-[10px] text-amber-600">
+                Total modifié : {parseFloat(manualTotal).toFixed(2)} € (calculé : {total.toFixed(2)} €)
+              </p>
+            )}
           </div>
 
           {/* Note client */}
