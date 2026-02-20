@@ -1093,6 +1093,15 @@ function Dashboard({ user }: { user: User }) {
                     </button>
                     <button
                       type="button"
+                      onClick={() => setTab('ca')}
+                      className="bg-gradient-to-br from-mayssa-caramel/10 to-mayssa-soft rounded-xl p-4 shadow-sm border border-mayssa-caramel/20 text-left hover:ring-2 hover:ring-mayssa-caramel transition-all cursor-pointer"
+                    >
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">CA depuis le début</span>
+                      <p className="text-xl font-display font-bold text-mayssa-caramel mt-0.5">{caTotal.toFixed(2).replace('.', ',')} €</p>
+                      <p className="text-[10px] text-mayssa-brown/50 mt-1">Mois : {caMois.toFixed(2).replace('.', ',')} €</p>
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setTab('livraison')}
                       className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5 text-left hover:ring-2 hover:ring-mayssa-caramel transition-all cursor-pointer"
                     >
