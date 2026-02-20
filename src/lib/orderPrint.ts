@@ -1,3 +1,4 @@
+import { jsPDF } from 'jspdf'
 import type { Order } from './firebase'
 
 function formatDateYyyyMmDd(yyyyMmDd: string): string {
@@ -123,4 +124,177 @@ function escapeHtml(s: string): string {
   const el = document.createElement('div')
   el.textContent = s
   return el.innerHTML
+}
+
+/**
+ * Génère et télécharge un PDF pour une seule commande.
+ * Fonctionne sur mobile (pas de popup bloquée).
+ */
+export function exportSingleOrderPDF(order: Order, orderId: string): void {
+  const doc = new jsPDF({ format: 'a4' })
+  const margin = 15
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const maxWidth = pageWidth - margin * 2
+  let y = 20
+
+  const c = order.customer ?? { firstName: '', lastName: '', phone: '' }
+  const orderRef = order.orderNumber != null ? `#${order.orderNumber}` : `#${orderId.slice(-8)}`
+  const createdAt = order.createdAt
+    ? new Date(order.createdAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
+    : ''
+  const requested =
+    order.requestedDate && order.requestedTime
+      ? `${order.requestedDate.split('-').reverse().join('/')} à ${order.requestedTime}`
+      : order.requestedDate
+        ? order.requestedDate.split('-').reverse().join('/')
+        : '—'
+  const mode = order.deliveryMode === 'livraison' ? 'Livraison' : 'Retrait'
+
+  // En-tête
+  doc.setFontSize(18)
+  doc.setFont('helvetica', 'bold')
+  doc.text('Bon de commande', margin, y)
+  y += 7
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(140, 90, 60)
+  doc.text('Maison Mayssa – Pâtisserie artisanale – Annecy', margin, y)
+  doc.setTextColor(0, 0, 0)
+  y += 10
+
+  // Ligne séparatrice
+  doc.setDrawColor(91, 58, 41)
+  doc.setLineWidth(0.5)
+  doc.line(margin, y, pageWidth - margin, y)
+  y += 8
+
+  // Infos commande
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'bold')
+  doc.text(`Commande ${orderRef}`, margin, y)
+  if (createdAt) {
+    doc.setFont('helvetica', 'normal')
+    doc.text(createdAt, pageWidth - margin - 40, y)
+  }
+  y += 7
+
+  // Client
+  const client = [c.firstName, c.lastName].filter(Boolean).join(' ') || 'Client'
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(12)
+  doc.text(client, margin, y)
+  y += 6
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  if (c.phone) { doc.text(`Tél. ${c.phone}`, margin, y); y += 5 }
+  if (c.address) {
+    const lines = doc.splitTextToSize(`Adresse : ${c.address}`, maxWidth)
+    doc.text(lines, margin, y)
+    y += lines.length * 5
+  }
+  if (c.deliveryInstructions) {
+    const lines = doc.splitTextToSize(`Instructions : ${c.deliveryInstructions}`, maxWidth)
+    doc.text(lines, margin, y)
+    y += lines.length * 5
+  }
+  y += 4
+
+  // Mode + date
+  doc.setFont('helvetica', 'bold')
+  doc.text(`Mode : `, margin, y)
+  doc.setFont('helvetica', 'normal')
+  doc.text(mode, margin + 18, y)
+  y += 5
+  doc.setFont('helvetica', 'bold')
+  doc.text(`Date souhaitée : `, margin, y)
+  doc.setFont('helvetica', 'normal')
+  doc.text(requested, margin + 37, y)
+  y += 5
+  if (order.clientNote) {
+    doc.setFont('helvetica', 'bold')
+    doc.text('Note client : ', margin, y)
+    doc.setFont('helvetica', 'normal')
+    const noteLines = doc.splitTextToSize(order.clientNote, maxWidth - 30)
+    doc.text(noteLines, margin + 27, y)
+    y += noteLines.length * 5
+  }
+  if (order.adminNote) {
+    doc.setFont('helvetica', 'bold')
+    doc.text('Note admin : ', margin, y)
+    doc.setFont('helvetica', 'normal')
+    const noteLines = doc.splitTextToSize(order.adminNote, maxWidth - 27)
+    doc.text(noteLines, margin + 25, y)
+    y += noteLines.length * 5
+  }
+  y += 6
+
+  // Tableau des articles
+  doc.setLineWidth(0.3)
+  doc.setDrawColor(200, 180, 160)
+  // En-têtes colonnes
+  doc.setFillColor(254, 245, 236)
+  doc.rect(margin, y, maxWidth, 7, 'F')
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(9)
+  doc.text('Qté', margin + 2, y + 5)
+  doc.text('Article', margin + 14, y + 5)
+  doc.text('Montant', pageWidth - margin - 20, y + 5)
+  y += 7
+
+  // Lignes articles
+  doc.setFont('helvetica', 'normal')
+  for (const item of order.items ?? []) {
+    const amount = (item.price * item.quantity).toFixed(2).replace('.', ',') + ' €'
+    const nameLines = doc.splitTextToSize(item.name + (item.sizeLabel ? ` (${item.sizeLabel})` : ''), maxWidth - 40)
+    doc.rect(margin, y, maxWidth, nameLines.length * 5 + 2)
+    doc.text(String(item.quantity), margin + 2, y + 5)
+    doc.text(nameLines, margin + 14, y + 5)
+    doc.text(amount, pageWidth - margin - 2, y + 5, { align: 'right' })
+    y += nameLines.length * 5 + 2
+  }
+
+  // Lignes totaux
+  const deliveryFee = order.deliveryFee ?? 0
+  const discount = (order.discountAmount ?? 0) + (order.referralDiscountAmount ?? 0)
+  const donation = order.donationAmount ?? 0
+
+  if (deliveryFee > 0) {
+    doc.rect(margin, y, maxWidth, 6)
+    doc.text('Frais de livraison', margin + 14, y + 4.5)
+    doc.text(`+${deliveryFee.toFixed(2).replace('.', ',')} €`, pageWidth - margin - 2, y + 4.5, { align: 'right' })
+    y += 6
+  }
+  if (discount > 0) {
+    doc.rect(margin, y, maxWidth, 6)
+    const label = order.promoCode ? `Réduction · ${order.promoCode}` : 'Réduction'
+    doc.text(label, margin + 14, y + 4.5)
+    doc.setTextColor(22, 101, 52)
+    doc.text(`-${discount.toFixed(2).replace('.', ',')} €`, pageWidth - margin - 2, y + 4.5, { align: 'right' })
+    doc.setTextColor(0, 0, 0)
+    y += 6
+  }
+  if (donation > 0) {
+    doc.rect(margin, y, maxWidth, 6)
+    doc.text('Don projet', margin + 14, y + 4.5)
+    doc.text(`+${donation.toFixed(2).replace('.', ',')} €`, pageWidth - margin - 2, y + 4.5, { align: 'right' })
+    y += 6
+  }
+
+  // Total
+  doc.setFillColor(254, 245, 236)
+  doc.rect(margin, y, maxWidth, 8, 'F')
+  doc.rect(margin, y, maxWidth, 8)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
+  doc.text('Total', margin + 14, y + 5.5)
+  doc.text(`${(order.total ?? 0).toFixed(2).replace('.', ',')} €`, pageWidth - margin - 2, y + 5.5, { align: 'right' })
+  y += 16
+
+  // Pied de page
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+  doc.setTextColor(140, 140, 140)
+  doc.text('Maison Mayssa – Pâtisserie artisanale – Annecy  ·  06 19 87 10 05', margin, y)
+
+  doc.save(`commande-${order.orderNumber ?? orderId.slice(-8)}.pdf`)
 }

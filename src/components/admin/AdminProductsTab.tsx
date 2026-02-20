@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { ChevronDown, ChevronUp, RotateCcw, Plus, Trash2, Tag } from 'lucide-react'
 import { PRODUCTS } from '../../constants'
-import { updateProductOverride, setProductOverride, deleteProductOverride } from '../../lib/firebase'
+import { updateProductOverride, setProductOverride, deleteProductOverride, uploadProductImage } from '../../lib/firebase'
 import type { ProductOverrideMap, ProductOverride, ProductCategory, ProductBadge, ProductSize } from '../../types'
 import type { ProductWithAvailability } from '../../hooks/useProducts'
 
@@ -453,25 +453,50 @@ function ProductEditForm({ product, hasOverride, isCustom, onReset, onDelete }: 
 // --- Add Product Form ---
 function AddProductForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [name, setName] = useState('')
+  const [categoryMode, setCategoryMode] = useState<'existing' | 'new'>('existing')
   const [category, setCategory] = useState<ProductCategory>('Brownies')
+  const [customCategory, setCustomCategory] = useState('')
   const [price, setPrice] = useState('')
   const [description, setDescription] = useState('')
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string>('')
   const [saving, setSaving] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+
+  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImageFile(file)
+    setImagePreview(URL.createObjectURL(file))
+    setUploadError('')
+  }
+
+  const finalCategory = (categoryMode === 'new' ? customCategory.trim() : category) as ProductCategory
 
   const handleSubmit = async () => {
-    if (!name.trim() || !price) return
+    if (!name.trim() || !price || !finalCategory) return
     setSaving(true)
-    const productId = `custom-${Date.now()}`
-    await setProductOverride(productId, {
-      name: name.trim(),
-      category,
-      price: parseFloat(price),
-      description: description.trim() || undefined,
-      isCustom: true,
-      available: true,
-    })
-    setSaving(false)
-    onSaved()
+    setUploadError('')
+    try {
+      let imageUrl: string | undefined
+      if (imageFile) {
+        imageUrl = await uploadProductImage(imageFile)
+      }
+      const productId = `custom-${Date.now()}`
+      await setProductOverride(productId, {
+        name: name.trim(),
+        category: finalCategory,
+        price: parseFloat(price),
+        description: description.trim() || undefined,
+        isCustom: true,
+        available: true,
+        ...(imageUrl && { image: imageUrl }),
+      })
+      onSaved()
+    } catch {
+      setUploadError("Erreur lors de l'upload de l'image. Réessayez.")
+      setSaving(false)
+    }
   }
 
   return (
@@ -483,6 +508,38 @@ function AddProductForm({ onClose, onSaved }: { onClose: () => void; onSaved: ()
         </button>
       </div>
 
+      {/* Image */}
+      <div>
+        <label className="text-[10px] font-bold text-mayssa-brown/60 block mb-1">Photo du produit</label>
+        <div className="flex items-center gap-3">
+          {imagePreview ? (
+            <img src={imagePreview} alt="Aperçu" className="w-16 h-16 object-cover rounded-xl border border-mayssa-brown/10 shrink-0" />
+          ) : (
+            <div className="w-16 h-16 rounded-xl border-2 border-dashed border-mayssa-brown/20 flex items-center justify-center shrink-0">
+              <span className="text-[9px] text-mayssa-brown/30 text-center leading-tight">Pas<br/>d'image</span>
+            </div>
+          )}
+          <label className="flex-1 cursor-pointer">
+            <div className="rounded-lg border border-mayssa-brown/20 bg-mayssa-soft/30 px-3 py-2 text-xs text-mayssa-brown/60 hover:bg-mayssa-soft/60 transition-colors text-center">
+              {imageFile ? imageFile.name : 'Choisir une photo…'}
+            </div>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImageChange}
+              className="hidden"
+            />
+          </label>
+          {imageFile && (
+            <button onClick={() => { setImageFile(null); setImagePreview('') }} className="text-[10px] text-red-400 hover:text-red-600 cursor-pointer shrink-0">
+              Retirer
+            </button>
+          )}
+        </div>
+        {uploadError && <p className="text-[10px] text-red-500 mt-1">{uploadError}</p>}
+      </div>
+
+      {/* Nom */}
       <div>
         <label className="text-[10px] font-bold text-mayssa-brown/60 block mb-1">Nom *</label>
         <input
@@ -494,18 +551,37 @@ function AddProductForm({ onClose, onSaved }: { onClose: () => void; onSaved: ()
         />
       </div>
 
+      {/* Catégorie + Prix */}
       <div className="flex gap-3">
         <div className="flex-1">
           <label className="text-[10px] font-bold text-mayssa-brown/60 block mb-1">Catégorie *</label>
           <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value as ProductCategory)}
+            value={categoryMode === 'new' ? '__new__' : category}
+            onChange={(e) => {
+              if (e.target.value === '__new__') {
+                setCategoryMode('new')
+              } else {
+                setCategoryMode('existing')
+                setCategory(e.target.value as ProductCategory)
+              }
+            }}
             className="w-full rounded-lg bg-mayssa-soft/30 px-3 py-2 text-sm text-mayssa-brown border border-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
           >
             {ALL_CATEGORIES.map(cat => (
               <option key={cat} value={cat}>{cat}</option>
             ))}
+            <option value="__new__">+ Nouvelle catégorie…</option>
           </select>
+          {categoryMode === 'new' && (
+            <input
+              type="text"
+              value={customCategory}
+              onChange={(e) => setCustomCategory(e.target.value)}
+              placeholder="Nom de la catégorie"
+              className="w-full mt-1.5 rounded-lg bg-mayssa-soft/30 px-3 py-2 text-sm text-mayssa-brown border border-mayssa-caramel/40 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
+              autoFocus
+            />
+          )}
         </div>
         <div className="w-28">
           <label className="text-[10px] font-bold text-mayssa-brown/60 block mb-1">Prix (€) *</label>
@@ -521,6 +597,7 @@ function AddProductForm({ onClose, onSaved }: { onClose: () => void; onSaved: ()
         </div>
       </div>
 
+      {/* Description */}
       <div>
         <label className="text-[10px] font-bold text-mayssa-brown/60 block mb-1">Description</label>
         <textarea
@@ -534,10 +611,10 @@ function AddProductForm({ onClose, onSaved }: { onClose: () => void; onSaved: ()
 
       <button
         onClick={handleSubmit}
-        disabled={saving || !name.trim() || !price}
+        disabled={saving || !name.trim() || !price || (categoryMode === 'new' && !customCategory.trim())}
         className="w-full py-2.5 rounded-xl bg-mayssa-brown text-white text-xs font-bold hover:bg-mayssa-caramel transition-colors disabled:opacity-50 cursor-pointer"
       >
-        {saving ? 'Création...' : 'Créer le produit'}
+        {saving ? (imageFile ? 'Upload image…' : 'Création...') : 'Créer le produit'}
       </button>
     </div>
   )

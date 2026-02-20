@@ -1091,3 +1091,15 @@ export function listenActiveSessions(callback: (sessions: Record<string, ActiveS
 }
 
 export { db, auth, app }
+
+// --- Firebase Storage : upload d'images produits ---
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
+const storage = getStorage(app)
+
+export async function uploadProductImage(file: File): Promise<string> {
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+  const path = `products/${Date.now()}-${safeName}`
+  const r = storageRef(storage, path)
+  await uploadBytes(r, file)
+  return getDownloadURL(r)
+}
