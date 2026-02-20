@@ -1533,6 +1533,15 @@ function Dashboard({ user }: { user: User }) {
                         <span className="font-bold text-mayssa-brown">+{(order.deliveryFee ?? 0).toFixed(2).replace('.', ',')} €</span>
                       </div>
                     )}
+                    {(order.discountAmount ?? 0) > 0 && (
+                      <div className="flex items-center justify-between text-xs pt-1 border-t border-mayssa-brown/10">
+                        <span className="text-emerald-700 flex items-center gap-1">
+                          <Tag size={11} />
+                          Réduction{order.promoCode ? ` · ${order.promoCode}` : ''}
+                        </span>
+                        <span className="font-bold text-emerald-700">-{(order.discountAmount ?? 0).toFixed(2).replace('.', ',')} €</span>
+                      </div>
+                    )}
                     <div className="border-t border-mayssa-brown/10 pt-1 mt-1 flex justify-between">
                       <span className="text-xs font-bold text-mayssa-brown">Total</span>
                       <span className="text-sm font-bold text-mayssa-caramel">
@@ -2055,6 +2064,15 @@ function Dashboard({ user }: { user: User }) {
                           <div className="flex items-center justify-between text-xs pt-1 border-t border-mayssa-brown/10">
                             <span className="text-mayssa-brown/70">Frais de livraison</span>
                             <span className="font-bold text-mayssa-brown">+{(order.deliveryFee ?? 0).toFixed(2).replace('.', ',')} €</span>
+                          </div>
+                        )}
+                        {(order.discountAmount ?? 0) > 0 && (
+                          <div className="flex items-center justify-between text-xs pt-1 border-t border-mayssa-brown/10">
+                            <span className="text-emerald-700 flex items-center gap-1">
+                              <Tag size={11} />
+                              Réduction{order.promoCode ? ` · ${order.promoCode}` : ''}
+                            </span>
+                            <span className="font-bold text-emerald-700">-{(order.discountAmount ?? 0).toFixed(2).replace('.', ',')} €</span>
                           </div>
                         )}
                         <div className="border-t border-mayssa-brown/10 pt-1 mt-1 flex justify-between">
