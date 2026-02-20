@@ -756,18 +756,19 @@ function Dashboard({ user }: { user: User }) {
 
   // (Auto-transition supprimée : c'est désormais le bouton "Mettre en prépa" dans "À valider" qui lance la préparation)
 
-  // Stats CA : uniquement les commandes "validées" (pas en préparation ni prête)
+  // Stats CA : commandes validées ou livrées
   const validatedOrders = Object.values(orders).filter((o) => o.status === 'validee')
-  const caTotal = validatedOrders.reduce((s, o) => s + (o.total ?? 0), 0)
+  const caOrders = Object.values(orders).filter((o) => o.status === 'validee' || o.status === 'livree')
+  const caTotal = caOrders.reduce((s, o) => s + (o.total ?? 0), 0)
   const now = new Date()
   const startOfWeek = new Date(now)
   startOfWeek.setDate(now.getDate() - now.getDay())
   startOfWeek.setHours(0, 0, 0, 0)
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
-  const caSemaine = validatedOrders
+  const caSemaine = caOrders
     .filter((o) => o.createdAt && o.createdAt >= startOfWeek.getTime())
     .reduce((s, o) => s + (o.total ?? 0), 0)
-  const caMois = validatedOrders
+  const caMois = caOrders
     .filter((o) => o.createdAt && o.createdAt >= startOfMonth)
     .reduce((s, o) => s + (o.total ?? 0), 0)
 
@@ -782,7 +783,7 @@ function Dashboard({ user }: { user: User }) {
         d.setHours(0, 0, 0, 0)
         const end = new Date(d)
         end.setHours(23, 59, 59, 999)
-        const total = validatedOrders
+        const total = caOrders
           .filter((o) => o.createdAt && o.createdAt >= d.getTime() && o.createdAt <= end.getTime())
           .reduce((s, o) => s + (o.total ?? 0), 0)
         data.push({
@@ -800,7 +801,7 @@ function Dashboard({ user }: { user: User }) {
         const end = new Date(d)
         end.setDate(end.getDate() + 6)
         end.setHours(23, 59, 59, 999)
-        const total = validatedOrders
+        const total = caOrders
           .filter((o) => o.createdAt && o.createdAt >= d.getTime() && o.createdAt <= end.getTime())
           .reduce((s, o) => s + (o.total ?? 0), 0)
         data.push({
@@ -813,7 +814,7 @@ function Dashboard({ user }: { user: User }) {
       for (let i = 5; i >= 0; i--) {
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
         const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999)
-        const total = validatedOrders
+        const total = caOrders
           .filter((o) => o.createdAt && o.createdAt >= d.getTime() && o.createdAt <= end.getTime())
           .reduce((s, o) => s + (o.total ?? 0), 0)
         data.push({
@@ -824,12 +825,12 @@ function Dashboard({ user }: { user: User }) {
       }
     }
     return data
-  }, [validatedOrders, caPeriod])
+  }, [caOrders, caPeriod])
 
-  // Produits les plus vendus (commandes validées)
+  // Produits les plus vendus (commandes validées + livrées)
   const topProducts = useMemo(() => {
     const counts: Record<string, { name: string; qty: number; ca: number }> = {}
-    for (const order of validatedOrders) {
+    for (const order of caOrders) {
       for (const item of order.items ?? []) {
         const key = item.name || item.productId || 'Inconnu'
         if (!counts[key]) counts[key] = { name: key.length > 25 ? key.slice(0, 22) + '…' : key, qty: 0, ca: 0 }
@@ -840,7 +841,7 @@ function Dashboard({ user }: { user: User }) {
     return Object.values(counts)
       .sort((a, b) => b.qty - a.qty)
       .slice(0, 10)
-  }, [validatedOrders])
+  }, [caOrders])
 
   // Commandes cette semaine (toutes commandes, pour activité)
   const commandesCetteSemaine = useMemo(() => {
@@ -2189,7 +2190,7 @@ function Dashboard({ user }: { user: User }) {
             {/* KPIs */}
             <div className="grid grid-cols-2 gap-4">
               <div className="rounded-xl bg-mayssa-caramel/10 border border-mayssa-caramel/20 p-4">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">CA total (validé)</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">CA total (validé + livré)</p>
                 <p className="text-xl font-display font-bold text-mayssa-caramel">{caTotal.toFixed(2).replace('.', ',')} €</p>
               </div>
               <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4">
@@ -2201,27 +2202,27 @@ function Dashboard({ user }: { user: User }) {
                 <p className="text-xl font-display font-bold text-blue-700">{caSemaine.toFixed(2).replace('.', ',')} €</p>
               </div>
               <div className="rounded-xl bg-mayssa-soft/80 border border-mayssa-brown/10 p-4 shadow-sm">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">Nb commandes validées</p>
-                <p className="text-xl font-display font-bold text-mayssa-brown">{validatedOrders.length}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">Nb commandes (validé + livré)</p>
+                <p className="text-xl font-display font-bold text-mayssa-brown">{caOrders.length}</p>
               </div>
             </div>
 
             {/* CA moyen */}
             <div className="rounded-xl bg-mayssa-soft/50 p-4 border border-mayssa-brown/5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">Panier moyen (validé)</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">Panier moyen (validé + livré)</p>
               <p className="text-lg font-display font-bold text-mayssa-brown">
-                {validatedOrders.length > 0
-                  ? (caTotal / validatedOrders.length).toFixed(2).replace('.', ',') + ' €'
+                {caOrders.length > 0
+                  ? (caTotal / caOrders.length).toFixed(2).replace('.', ',') + ' €'
                   : '—'}
               </p>
             </div>
 
             {/* Par source */}
             <div className="space-y-2">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">CA par source (validé)</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">CA par source (validé + livré)</p>
               <div className="space-y-2">
                 {(['site', 'whatsapp', 'instagram', 'snap'] as const).map((src) => {
-                  const ordersSrc = validatedOrders.filter((o) => (o.source ?? 'site') === src)
+                  const ordersSrc = caOrders.filter((o) => (o.source ?? 'site') === src)
                   const totalSrc = ordersSrc.reduce((s, o) => s + (o.total ?? 0), 0)
                   const label = src === 'snap' ? 'Snap' : src === 'instagram' ? 'Insta' : src === 'whatsapp' ? 'WhatsApp' : 'Site'
                   return (
