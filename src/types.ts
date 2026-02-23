@@ -1,3 +1,7 @@
+// Types réexportés depuis firebase.ts (source de vérité unique)
+export type { LoyaltyTier, RewardType } from './lib/firebase'
+import type { LoyaltyTier } from './lib/firebase'
+
 export type Channel = 'whatsapp' | 'instagram' | 'snap'
 
 export type ProductCategory =
@@ -88,11 +92,6 @@ export type ProductOverride = {
 }
 
 export type ProductOverrideMap = Record<string, ProductOverride>
-
-// --- Types Fidélité ---
-export type LoyaltyTier = 'Douceur' | 'Gourmand' | 'Prestige'
-
-export type RewardType = 'surprise_maison_mayssa' | 'remise_5e' | 'mini_box' | 'box_fidelite'
 
 export type AuthUser = {
     uid: string

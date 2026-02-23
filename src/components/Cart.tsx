@@ -8,6 +8,7 @@ import { ReservationTimer } from './ReservationTimer'
 import { useAuth } from '../hooks/useAuth'
 import { REWARD_COSTS, REWARD_LABELS } from '../lib/rewards'
 import { useEffect, useMemo, useState } from 'react'
+import type { DeliverySlotsMap } from '../lib/firebase'
 import { AddressAutocomplete } from './AddressAutocomplete'
 import {
     ANNECY_GARE,
@@ -22,8 +23,6 @@ import {
     validateCustomer,
     computeDeliveryFee,
 } from '../lib/delivery'
-
-export type DeliverySlotsMap = Record<string, Record<string, number>>
 
 interface CartProps {
     items: CartItem[]

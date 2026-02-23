@@ -11,7 +11,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useFocusTrap } from '../../hooks/useAccessibility'
 import { REWARD_COSTS, REWARD_LABELS } from '../../lib/rewards'
 import type { CartItem, CustomerInfo } from '../../types'
-import type { DeliverySlotsMap } from '../Cart'
+import type { DeliverySlotsMap } from '../../lib/firebase'
 import {
   ANNECY_GARE,
   DELIVERY_RADIUS_KM,

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { isPreorderOpenNow, type StockMap, type Settings, type PreorderOpening } from '../lib/preorder'
+import { isPreorderOpenNow, type StockMap, type Settings, type PreorderOpening } from '../lib/firebase'
 
 export function useStock() {
   const [stock, setStock] = useState<StockMap>({})

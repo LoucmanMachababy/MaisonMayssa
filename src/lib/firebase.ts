@@ -735,6 +735,8 @@ export async function resetPassword(email: string) {
 }
 
 // --- Types Profils Clients & Fidélité ---
+export type LoyaltyTier = 'Douceur' | 'Gourmand' | 'Prestige'
+
 export type LoyaltyHistoryEntry = {
   reason: 'creation_compte' | 'instagram_follow' | 'tiktok_follow' | 'order_points' | 'review_bonus' | 'ramadan_bonus' | 'anniversary_bonus' | 'birthday_bonus' | 'admin_ajout' | 'admin_retrait'
   points: number
@@ -747,7 +749,7 @@ export type LoyaltyHistoryEntry = {
 export type UserLoyalty = {
   points: number // Solde actuel
   lifetimePoints: number // Points cumulés à vie (pour les tiers)
-  tier: 'Douceur' | 'Gourmand' | 'Prestige'
+  tier: LoyaltyTier
   history: LoyaltyHistoryEntry[]
   instagramClaimedAt?: number
   tiktokClaimedAt?: number
