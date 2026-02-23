@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { ChevronDown, ChevronUp, RotateCcw, Plus, Trash2, Tag } from 'lucide-react'
+import { ChevronDown, ChevronUp, RotateCcw, Plus, Trash2, Tag, Pin, ImagePlus } from 'lucide-react'
 import { PRODUCTS } from '../../constants'
 import { updateProductOverride, setProductOverride, deleteProductOverride, uploadProductImage } from '../../lib/firebase'
 import type { ProductOverrideMap, ProductOverride, ProductCategory, ProductBadge, ProductSize } from '../../types'
@@ -265,6 +265,10 @@ function ProductEditForm({ product, hasOverride, isCustom, onReset, onDelete }: 
   const [sizes, setSizes] = useState<ProductSize[]>(product.sizes || [])
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  // Image (produits custom uniquement)
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string>(product.image || '')
+  const [imageUploadError, setImageUploadError] = useState('')
 
   const toggleBadge = (badge: ProductBadge) => {
     setBadges(prev => prev.includes(badge) ? prev.filter(b => b !== badge) : [...prev, badge])
@@ -280,11 +284,23 @@ function ProductEditForm({ product, hasOverride, isCustom, onReset, onDelete }: 
 
   const handleSave = async () => {
     setSaving(true)
+    setImageUploadError('')
     const priceNum = parseFloat(price)
     const origPriceNum = originalPrice ? parseFloat(originalPrice) : undefined
 
     if (isCustom) {
-      // For custom products, set the full override
+      // Upload nouvelle image si sélectionnée
+      let finalImageUrl = product.image
+      if (imageFile) {
+        try {
+          finalImageUrl = await uploadProductImage(imageFile)
+        } catch {
+          setImageUploadError("Erreur upload image. Réessayez.")
+          setSaving(false)
+          return
+        }
+      }
+      // For custom products, set the full override — on préserve image et pinned existants
       await setProductOverride(product.id, {
         name,
         price: priceNum,
@@ -295,6 +311,8 @@ function ProductEditForm({ product, hasOverride, isCustom, onReset, onDelete }: 
         category: product.category,
         isCustom: true,
         available: product.available,
+        ...(finalImageUrl && { image: finalImageUrl }),
+        pinned: (product as ProductWithAvailability).pinned ?? false,
       })
     } else {
       // For static products, always save price/originalPrice to clear any stale override values
@@ -413,6 +431,79 @@ function ProductEditForm({ product, hasOverride, isCustom, onReset, onDelete }: 
           </div>
         </div>
       )}
+
+      {/* Image — uniquement pour les produits custom */}
+      {isCustom && (
+        <div>
+          <label className="text-[10px] font-bold text-mayssa-brown/60 block mb-1">Photo</label>
+          <div className="flex items-center gap-3">
+            {imagePreview ? (
+              <img src={imagePreview} alt="Aperçu" className="w-14 h-14 object-cover rounded-xl border border-mayssa-brown/10 shrink-0" />
+            ) : (
+              <div className="w-14 h-14 rounded-xl border-2 border-dashed border-mayssa-brown/20 flex items-center justify-center shrink-0">
+                <ImagePlus size={18} className="text-mayssa-brown/30" />
+              </div>
+            )}
+            <label className="flex-1 cursor-pointer">
+              <span className="block text-[10px] text-mayssa-brown/50 mb-1">{imagePreview ? 'Changer la photo' : 'Ajouter une photo'}</span>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (!f) return
+                  setImageFile(f)
+                  setImagePreview(URL.createObjectURL(f))
+                  setImageUploadError('')
+                }}
+              />
+              <span className="inline-block px-3 py-1.5 rounded-lg bg-mayssa-soft/60 text-[10px] font-bold text-mayssa-brown/60 hover:bg-mayssa-soft transition-colors">
+                Choisir un fichier
+              </span>
+            </label>
+          </div>
+          {imageUploadError && <p className="text-[10px] text-red-500 mt-1">{imageUploadError}</p>}
+        </div>
+      )}
+
+      {/* Pin en haut de liste */}
+      <div className="flex items-center justify-between pt-1 border-t border-mayssa-brown/5">
+        <div className="flex items-center gap-1.5">
+          <Pin size={12} className={`${(product as ProductWithAvailability).pinned ? 'text-mayssa-caramel' : 'text-mayssa-brown/30'}`} />
+          <span className="text-[10px] font-bold text-mayssa-brown/60">Épingler en haut de la liste</span>
+        </div>
+        <button
+          type="button"
+          onClick={async () => {
+            const newPinned = !((product as ProductWithAvailability).pinned)
+            if (isCustom) {
+              await setProductOverride(product.id, {
+                name: product.name,
+                price: product.price,
+                originalPrice: product.originalPrice,
+                description: product.description || undefined,
+                badges: (product.badges ?? []).length > 0 ? product.badges : undefined,
+                sizes: (product.sizes ?? []).length > 0 ? product.sizes : undefined,
+                category: product.category,
+                isCustom: true,
+                available: product.available,
+                ...(product.image && { image: product.image }),
+                pinned: newPinned,
+              })
+            } else {
+              await updateProductOverride(product.id, { pinned: newPinned })
+            }
+          }}
+          className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 cursor-pointer ${
+            (product as ProductWithAvailability).pinned ? 'bg-mayssa-caramel' : 'bg-mayssa-brown/20'
+          }`}
+        >
+          <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+            (product as ProductWithAvailability).pinned ? 'left-5.5 translate-x-0' : 'left-0.5'
+          }`} />
+        </button>
+      </div>
 
       {/* Actions */}
       <div className="flex items-center gap-2 pt-1">

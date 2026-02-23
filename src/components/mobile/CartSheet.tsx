@@ -54,6 +54,8 @@ interface CartSheetProps {
   retraitTimeSlots?: string[]
   livraisonTimeSlots?: string[]
   ordersOpen?: boolean
+  /** Si true, l'admin a manuellement forcé l'ouverture — bypasse la coupure 17h. */
+  ordersExplicit?: boolean
   promoCodeInput?: string
   setPromoCodeInput?: (v: string) => void
   appliedPromo?: { code: string; discount: number } | null
@@ -94,6 +96,7 @@ export function CartSheet({
   retraitTimeSlots,
   livraisonTimeSlots,
   ordersOpen = true,
+  ordersExplicit = false,
   promoCodeInput = '',
   setPromoCodeInput,
   appliedPromo = null,
@@ -232,7 +235,7 @@ export function CartSheet({
     isCustomerValid &&
     ordersOpen !== false &&
     !trompeLoeilBeforeMinDate &&
-    (!hasNonTrompeLoeil || !orderCutoffPassed)
+    (!hasNonTrompeLoeil || !orderCutoffPassed || ordersExplicit)
 
   const handleDragEnd = (_: any, info: { velocity: { y: number }; offset: { y: number } }) => {
     if (info.velocity.y > 500 || info.offset.y > 200) {
@@ -798,7 +801,7 @@ export function CartSheet({
               )}
               {orderCutoffPassed && hasNonTrompeLoeil && (
                 <p className="text-[10px] text-amber-700 text-center bg-amber-50 rounded-lg px-2 py-1.5 border border-amber-200">
-                  Commandes (pâtisseries, cookies…) jusqu&apos;à 23h. Trompe-l&apos;œil toujours dispo.
+                  Commandes (pâtisseries, cookies…) jusqu&apos;à 17h. Trompe-l&apos;œil toujours dispo.
                 </p>
               )}
               {trompeLoeilBeforeMinDate && (
@@ -866,7 +869,7 @@ export function CartSheet({
                       : trompeLoeilBeforeMinDate
                         ? `À partir du ${formatDateLabel(minDate)}`
                         : orderCutoffPassed && hasNonTrompeLoeil
-                          ? "Jusqu'à 23h"
+                          ? "Jusqu'à 17h"
                           : 'Complète tes infos'
                   : 'Panier vide'}
               </motion.button>

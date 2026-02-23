@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { PRODUCTS } from '../constants'
 import type { Product, ProductOverrideMap } from '../types'
 
-export type ProductWithAvailability = Product & { available: boolean }
+export type ProductWithAvailability = Product & { available: boolean; pinned?: boolean }
 
 export function useProducts() {
   const [overrides, setOverrides] = useState<ProductOverrideMap>({})
@@ -29,7 +29,7 @@ export function useProducts() {
       const override = overrides[p.id]
       if (!override) return { ...p, available: true }
       const { isCustom: _, ...overrideFields } = override
-      return { ...p, ...overrideFields, available: override.available !== false } as ProductWithAvailability
+      return { ...p, ...overrideFields, available: override.available !== false, pinned: override.pinned ?? false } as ProductWithAvailability
     })
 
     // 2. Add custom products (created by admin, not in constants.ts)
@@ -47,6 +47,7 @@ export function useProducts() {
           sizes: override.sizes,
           originalPrice: override.originalPrice,
           available: override.available !== false,
+          pinned: override.pinned ?? false,
         })
       }
     }

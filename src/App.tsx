@@ -189,6 +189,8 @@ function AppContent() {
   const isAuthenticatedRef = useRef(isAuthenticated)
   const [deliverySlots, setDeliverySlots] = useState<Record<string, Record<string, number>>>({})
   const [ordersOpen, setOrdersOpen] = useState(true)
+  /** true quand l'admin a manuellement forcé l'ouverture — bypasse la coupure 17h */
+  const [ordersExplicit, setOrdersExplicit] = useState(false)
   const [globalMessage, setGlobalMessage] = useState('')
   const [globalMessageEnabled, setGlobalMessageEnabled] = useState(false)
   const [deliverySchedule, setDeliverySchedule] = useState<{
@@ -218,6 +220,7 @@ function AppContent() {
       const minRetrait = (s.firstAvailableDateRetrait && s.firstAvailableDateRetrait.trim()) ? s.firstAvailableDateRetrait.trim() : fallback
       const minLivraison = (s.firstAvailableDateLivraison && s.firstAvailableDateLivraison.trim()) ? s.firstAvailableDateLivraison.trim() : fallback
       setOrdersOpen(s.ordersOpen !== false)
+      setOrdersExplicit(s.ordersOpen === true)
       setGlobalMessage(s.globalMessage ?? '')
       setGlobalMessageEnabled(s.globalMessageEnabled === true)
       setDeliverySchedule({
@@ -690,11 +693,21 @@ function AppContent() {
   }, [activeCategory, searchQuery, availableProducts])
 
   const orderedProducts = useMemo(() => {
-    const idx = filteredProducts.findIndex((p) => p.id === 'trompe-loeil-fraise')
-    if (idx <= 0) return filteredProducts
     const arr = [...filteredProducts]
-    const [fraise] = arr.splice(idx, 1)
-    return [fraise, ...arr]
+    // 1. Produits épinglés par l'admin en premier
+    arr.sort((a, b) => {
+      const aPinned = (a as { pinned?: boolean }).pinned ? 1 : 0
+      const bPinned = (b as { pinned?: boolean }).pinned ? 1 : 0
+      return bPinned - aPinned
+    })
+    // 2. trompe-loeil-fraise en second si pas déjà épinglé
+    const fraiseIdx = arr.findIndex((p) => p.id === 'trompe-loeil-fraise')
+    if (fraiseIdx > 0 && !(arr[fraiseIdx] as { pinned?: boolean }).pinned) {
+      const pinnedCount = arr.filter((p) => (p as { pinned?: boolean }).pinned).length
+      const [fraise] = arr.splice(fraiseIdx, 1)
+      arr.splice(pinnedCount, 0, fraise)
+    }
+    return arr
   }, [filteredProducts])
 
   const handleAddToCart = (product: Product) => {
@@ -1139,8 +1152,8 @@ function AppContent() {
       showToast(`Les précommandes trompe l'œil sont possibles à partir du ${formatDateLabel(minDateForMode)}.`, 'error', 5000)
       return
     }
-    if (hasNonTrompeLoeil && !isBeforeOrderCutoff()) {
-      showToast('Commandes (pâtisseries, cookies…) possibles jusqu\'à 23h. Les précommandes trompe-l\'œil restent disponibles.', 'error', 5000)
+    if (hasNonTrompeLoeil && !isBeforeOrderCutoff() && !ordersExplicit) {
+      showToast('Commandes (pâtisseries, cookies…) possibles jusqu\'à 17h. Les précommandes trompe-l\'œil restent disponibles.', 'error', 5000)
       return
     }
 
@@ -1282,8 +1295,8 @@ function AppContent() {
       showToast(`Les précommandes trompe l'œil sont possibles à partir du ${formatDateLabel(minDateForMode)}.`, 'error', 5000)
       return
     }
-    if (hasNonTrompeLoeil && !isBeforeOrderCutoff()) {
-      showToast('Commandes (pâtisseries, cookies…) possibles jusqu\'à 23h.', 'error', 5000)
+    if (hasNonTrompeLoeil && !isBeforeOrderCutoff() && !ordersExplicit) {
+      showToast('Commandes (pâtisseries, cookies…) possibles jusqu\'à 17h.', 'error', 5000)
       return
     }
 
@@ -1351,8 +1364,8 @@ function AppContent() {
       showToast(`Les précommandes trompe l'œil sont possibles à partir du ${formatDateLabel(minDateForMode)}.`, 'error', 5000)
       return
     }
-    if (hasNonTrompeLoeil && !isBeforeOrderCutoff()) {
-      showToast('Commandes (pâtisseries, cookies…) possibles jusqu\'à 23h.', 'error', 5000)
+    if (hasNonTrompeLoeil && !isBeforeOrderCutoff() && !ordersExplicit) {
+      showToast('Commandes (pâtisseries, cookies…) possibles jusqu\'à 17h.', 'error', 5000)
       return
     }
 
@@ -1686,6 +1699,7 @@ function AppContent() {
               retraitTimeSlots={deliverySchedule.retraitTimeSlots}
               livraisonTimeSlots={deliverySchedule.livraisonTimeSlots}
               ordersOpen={ordersOpen}
+              ordersExplicit={ordersExplicit}
               promoCodeInput={promoCodeInput}
               setPromoCodeInput={setPromoCodeInput}
               appliedPromo={appliedPromo}
@@ -1960,6 +1974,7 @@ function AppContent() {
         retraitTimeSlots={deliverySchedule.retraitTimeSlots}
         livraisonTimeSlots={deliverySchedule.livraisonTimeSlots}
         ordersOpen={ordersOpen}
+        ordersExplicit={ordersExplicit}
         promoCodeInput={promoCodeInput}
         setPromoCodeInput={setPromoCodeInput}
         appliedPromo={appliedPromo}

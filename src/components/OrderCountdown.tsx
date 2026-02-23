@@ -8,8 +8,8 @@ interface OrderCountdownProps {
 }
 
 /**
- * Affiche « Plus que X h pour commander pour [mercredi/samedi] » selon l’heure de coupure (23h Paris).
- * Ne s’affiche pas après 23h. Se met à jour chaque minute.
+ * Affiche « Plus que X h pour commander pour [mercredi/samedi] » selon l’heure de coupure (17h Paris).
+ * Ne s’affiche pas après 17h. Se met à jour chaque minute.
  */
 export function OrderCountdown({ firstPickupDateYyyyMmDd, className = '' }: OrderCountdownProps) {
   const [tick, setTick] = useState(0)

@@ -89,6 +89,17 @@ function getFunctionsInstance() {
   return _functionsInstance
 }
 
+/**
+ * Envoie un email "avis Google" à tous les clients ayant une commande validée/livrée.
+ * Retourne le nombre d'emails envoyés.
+ */
+export async function sendBulkGoogleReviewEmails(): Promise<{ sent: number }> {
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable<Record<string, never>, { sent: number }>(functions, 'sendBulkGoogleReviewEmails')
+  const res = await fn({})
+  return res.data
+}
+
 /** Soumettre la réponse au mystère (Fraise). Retourne { success, winner?, alreadyRevealed?, error? } */
 export async function submitMysteryGuess(guess: string): Promise<{
   success: boolean

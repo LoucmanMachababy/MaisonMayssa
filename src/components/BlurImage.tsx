@@ -64,6 +64,8 @@ export function BlurImage({
   // Génère les sources d'images optimisées (WebP uniquement si l'original n'est pas déjà .png/.jpg pour éviter 404)
   const optimizedSources = useMemo(() => {
     if (!src) return { webp: '', original: src }
+    // Pour les URLs externes (Firebase Storage, etc.), pas de conversion WebP — l'URL ne peut pas être modifiée
+    if (src.startsWith('http')) return { webp: '', original: src }
     const ext = (src.match(/\.[^/.]+$/) || [])[0]?.toLowerCase()
     const baseSrc = src.replace(/\.[^/.]+$/, '')
     const useWebp = ext !== '.webp' && ext !== '.png' && ext !== '.jpg' && ext !== '.jpeg'

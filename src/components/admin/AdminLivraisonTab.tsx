@@ -536,19 +536,46 @@ export function AdminLivraisonTab({ orders, onEditOrder, mode }: AdminLivraisonT
                     </a>
                   )}
                 </div>
-                <div className="text-right flex-shrink-0">
-                  <select
-                    value={order.status}
-                    onChange={(e) => updateOrderStatus(id, e.target.value as OrderStatus)}
-                    className="rounded-lg border border-mayssa-brown/10 px-2 py-1.5 text-[10px] font-bold text-mayssa-brown bg-white cursor-pointer"
-                  >
-                    <option value="en_attente">En attente</option>
-                    <option value="en_preparation">En préparation</option>
-                    <option value="pret">Prête</option>
-                    <option value="livree">Livrée</option>
-                    <option value="validee">Validée</option>
-                    <option value="refusee">Refusée</option>
-                  </select>
+                {/* Puce statut — ‹ reculer | label | › avancer */}
+                <div className="flex-shrink-0">
+                  {(() => {
+                    const FLOW: string[] = mode === 'livraison'
+                      ? ['en_attente', 'en_preparation', 'pret', 'livree']
+                      : ['en_attente', 'en_preparation', 'pret', 'validee']
+                    const CFG: Record<string, { short: string; bg: string; text: string; dot: string }> = {
+                      en_attente:    { short: 'Attente', bg: 'bg-amber-100',   text: 'text-amber-700',   dot: 'bg-amber-400' },
+                      en_preparation:{ short: 'Prépa',   bg: 'bg-blue-100',    text: 'text-blue-700',    dot: 'bg-blue-500' },
+                      pret:          { short: 'Prête',   bg: 'bg-emerald-100', text: 'text-emerald-700', dot: 'bg-emerald-500' },
+                      livree:        { short: 'Livrée',  bg: 'bg-gray-100',    text: 'text-gray-500',    dot: 'bg-gray-400' },
+                      validee:       { short: 'Validée', bg: 'bg-purple-100',  text: 'text-purple-700',  dot: 'bg-purple-500' },
+                      refusee:       { short: 'Refusée', bg: 'bg-red-100',     text: 'text-red-600',     dot: 'bg-red-400' },
+                    }
+                    const s = order.status ?? 'en_attente'
+                    const cfg = CFG[s] ?? CFG.en_attente
+                    const idx = FLOW.indexOf(s)
+                    const prev = idx > 0 ? FLOW[idx - 1] : null
+                    const next = idx >= 0 && idx < FLOW.length - 1 ? FLOW[idx + 1] : null
+                    return (
+                      <div className={`flex items-center rounded-lg overflow-hidden text-[10px] font-bold select-none ${cfg.bg} ${cfg.text}`}>
+                        <button
+                          type="button"
+                          onClick={() => { if (prev) updateOrderStatus(id, prev as OrderStatus) }}
+                          className={`px-1.5 py-1.5 border-r border-current/20 transition-opacity ${prev ? 'cursor-pointer hover:opacity-60 active:scale-95' : 'opacity-20 cursor-default'}`}
+                          title={prev ? `← ${CFG[prev]?.short}` : undefined}
+                        >‹</button>
+                        <span className="flex items-center gap-1 px-2 py-1.5">
+                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${cfg.dot}`} />
+                          {cfg.short}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => { if (next) updateOrderStatus(id, next as OrderStatus) }}
+                          className={`px-1.5 py-1.5 border-l border-current/20 transition-opacity ${next ? 'cursor-pointer hover:opacity-60 active:scale-95' : 'opacity-20 cursor-default'}`}
+                          title={next ? `→ ${CFG[next]?.short}` : undefined}
+                        >›</button>
+                      </div>
+                    )
+                  })()}
                 </div>
               </div>
 

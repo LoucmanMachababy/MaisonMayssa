@@ -53,7 +53,7 @@ Optionnelles : `VITE_SENTRY_DSN` (monitoring erreurs Sentry).
 - [ ] **Ouverture** : clic sur l’icône panier (desktop) ou barre panier (mobile) ouvre le panier.
 - [ ] **Contenu** : liste des articles, quantités (+ / −), suppression possible, sous-total et total corrects.
 - [ ] **Message précommande** : si le panier contient des produits classiques et qu’on est avant le 18/02/2026, le message "Précommandes — récupération à partir du mercredi 18 février 2026" s’affiche.
-- [ ] **Après 23h** : si le panier contient des pâtisseries/cookies (hors trompe l’œil), message "Commandes possibles jusqu'à 23h" et bouton d’envoi désactivé pour ces produits (trompe l’œil reste envoyable).
+- [ ] **Après 17h** : si le panier contient des pâtisseries/cookies (hors trompe l’œil), message "Commandes possibles jusqu'à 17h" et bouton d’envoi désactivé pour ces produits (trompe l’œil reste envoyable).
 - [ ] **Timer de réservation** : pour les trompe l’œil en préco., le timer "En attente de précommande" ou "Précommande confirmée" s’affiche correctement.
 
 ### 4. Formulaire client & livraison
@@ -99,14 +99,14 @@ Optionnelles : `VITE_SENTRY_DSN` (monitoring erreurs Sentry).
 
 - [ ] **Responsive** : tout le site est utilisable sur mobile (pas de débordement, boutons accessibles).
 - [ ] **Bottom nav** : Accueil, Panier, Favoris (ou équivalent) si présent.
-- [ ] **Cart sheet** : panier en tiroir depuis le bas ; mêmes infos que desktop (préco. 18/02, 23h, etc.).
+- [ ] **Cart sheet** : panier en tiroir depuis le bas ; mêmes infos que desktop (préco. 18/02, 17h, etc.).
 - [ ] **Fiches produit mobiles** : swipe pour favoris / ajout panier si implémenté.
 - [ ] **Recherche vocale** : si disponible, vérifier qu’elle déclenche bien la recherche.
 
 ### 10. Divers
 
 - [ ] **Lien partagé produit** : ouvrir une URL avec `?produit=id` ou `#produit=id` → le produit s’ouvre ou s’ajoute au panier selon la logique actuelle.
-- [ ] **Toasts** : les notifications (ajout au panier, erreur 23h, etc.) s’affichent et disparaissent.
+- [ ] **Toasts** : les notifications (ajout au panier, erreur 17h, etc.) s’affichent et disparaissent.
 - [ ] **Hors ligne** : en coupant le réseau, l’indicateur "Hors ligne" ou équivalent apparaît (PWA).
 - [ ] **Accessibilité** : raccourcis "Passer au contenu" (skip links) si présents ; navigation au clavier possible sur les boutons principaux.
 

@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 
 import { Instagram, Clock, Truck, MapPin, MessageCircle, Calendar } from 'lucide-react'
-import { cn, isOpen, getNextPickupDateLabel } from '../lib/utils'
+import { cn, isOpen } from '../lib/utils'
 import { PHONE_E164, FIRST_PICKUP_DATE_CLASSIC } from '../constants'
 import { OrderCountdown } from './OrderCountdown'
 import { hapticFeedback } from '../lib/haptics'
@@ -82,15 +82,12 @@ export function Header() {
                                 <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                                     <span className="inline-flex items-center gap-1.5 rounded-full bg-mayssa-caramel/15 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-mayssa-brown/90 border border-mayssa-caramel/30">
                                         <Calendar size={12} className="sm:w-3.5 sm:h-3.5 text-mayssa-caramel" />
-                                        Récup trompe l&apos;œil : {getNextPickupDateLabel(FIRST_PICKUP_DATE_CLASSIC)}
+                                        Trompes l&apos;œil : 3 jours de préparation
                                     </span>
                                     <span className="inline-flex items-center rounded-full bg-mayssa-caramel/15 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-mayssa-brown/90 border border-mayssa-caramel/30">
                                         <OrderCountdown firstPickupDateYyyyMmDd={FIRST_PICKUP_DATE_CLASSIC} />
                                     </span>
                                 </div>
-                                <p className="text-[11px] sm:text-xs text-mayssa-brown/80 font-medium">
-                                    Trompes l&apos;œil uniquement : commande mercredi → récup samedi · commande samedi → récup mercredi (date pouvant varier de 1 à 2 jours)
-                                </p>
                             </div>
                         </motion.div>
                     </div>

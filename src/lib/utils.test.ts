@@ -46,14 +46,14 @@ describe('isBeforeOrderCutoff', () => {
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => vi.useRealTimers())
 
-  it('retourne true avant 23h (Paris)', () => {
-    // 22h à Paris = 21h UTC en hiver
-    vi.setSystemTime(new Date('2025-02-13T21:00:00Z'))
+  it('retourne true avant 17h (Paris)', () => {
+    // 16h à Paris = 15h UTC en hiver
+    vi.setSystemTime(new Date('2025-02-13T15:00:00Z'))
     expect(isBeforeOrderCutoff()).toBe(true)
   })
 
-  it('retourne false à 23h ou après (Paris)', () => {
-    vi.setSystemTime(new Date('2025-02-13T22:00:00Z')) // 23h Paris
+  it('retourne false à 17h ou après (Paris)', () => {
+    vi.setSystemTime(new Date('2025-02-13T16:00:00Z')) // 17h Paris
     expect(isBeforeOrderCutoff()).toBe(false)
   })
 })

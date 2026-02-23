@@ -36,31 +36,42 @@ function getParisDateParts(): { hour: number; minute: number; year: string; mont
   }
 }
 
-/** Commandes pâtisseries/cookies possibles jusqu'à 23h (heure de Paris, jour J uniquement). Après 23h → false. */
+/** Heure limite de commande (heure de Paris, jour J uniquement). */
+const ORDER_CUTOFF_HOUR = 17
+
+/** Commandes pâtisseries/cookies possibles jusqu'à 17h (heure de Paris, jour J uniquement). Après 17h → false. */
 export function isBeforeOrderCutoff(): boolean {
   const { hour } = getParisDateParts()
-  return hour < 23
+  return hour < ORDER_CUTOFF_HOUR
 }
 
-/** Coupure à 23h Paris. Retourne le nombre de minutes restantes jusqu'à 23h00 (0 si après coupure). */
+/** Coupure à 17h Paris. Retourne le nombre de minutes restantes jusqu'à 17h00 (0 si après coupure). */
 export function getMinutesUntilOrderCutoff(): number {
   const { hour, minute } = getParisDateParts()
   const nowMinutes = hour * 60 + minute
-  const cutoffMinutes = 23 * 60
+  const cutoffMinutes = ORDER_CUTOFF_HOUR * 60
   if (nowMinutes >= cutoffMinutes) return 0
   return cutoffMinutes - nowMinutes
 }
 
 /**
- * Compte à rebours pour la commande : heures restantes jusqu'à 23h et prochaine date de retrait.
- * Retourne null après 23h (pas de message à afficher).
+ * Compte à rebours pour la commande : heures restantes jusqu'à 17h.
+ * Retourne null après 17h (pas de message à afficher).
  */
 export function getOrderCountdown(firstPickupDateYyyyMmDd: string): { hoursLeft: number; minutesLeft: number; nextPickupLabel: string } | null {
   const minutesUntil = getMinutesUntilOrderCutoff()
   if (minutesUntil <= 0) return null
-  const nextPickupLabel = getNextPickupDateLabel(firstPickupDateYyyyMmDd)
   const hoursLeft = Math.floor(minutesUntil / 60)
   const minutesLeft = minutesUntil % 60
+  const today = getTodayYyyyMmDd()
+  const nextPickupLabel = firstPickupDateYyyyMmDd > today
+    ? parseDateYyyyMmDd(firstPickupDateYyyyMmDd).toLocaleDateString('fr-FR', {
+        timeZone: 'Europe/Paris',
+        weekday: 'long',
+        day: 'numeric',
+        month: 'short',
+      })
+    : 'prochainement'
   return { hoursLeft, minutesLeft, nextPickupLabel }
 }
 
@@ -106,41 +117,6 @@ export function getTodayYyyyMmDd(): string {
   const m = parts.find(p => p.type === 'month')?.value ?? ''
   const d = parts.find(p => p.type === 'day')?.value ?? ''
   return `${y}-${m}-${d}`
-}
-
-/**
- * Prochaine date de retrait : prochain mercredi ou samedi (rythme trompe l'œil), en Europe/Paris.
- * Si cette date est avant firstPickupDateYyyyMmDd, on retourne firstPickupDateYyyyMmDd.
- * Format court : "mercredi 19 fév."
- */
-export function getNextPickupDateLabel(firstPickupDateYyyyMmDd: string): string {
-  const today = getTodayYyyyMmDd()
-  const base = parseDateYyyyMmDd(today)
-  const day = base.getDay() // 0 = dim, 3 = mer, 6 = sam
-
-  let daysToAdd: number
-  if (day === 6) daysToAdd = 4 // samedi → mercredi
-  else if (day === 3) daysToAdd = 3 // mercredi → samedi
-  else if (day < 3) daysToAdd = 3 - day // dim, lun, mar → prochain mercredi
-  else daysToAdd = 6 - day // jeu (2→sam), ven (1→sam)
-
-  const next = new Date(base)
-  next.setDate(next.getDate() + daysToAdd)
-  const rtf = new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' })
-  const parts = rtf.formatToParts(next)
-  const y = parts.find(p => p.type === 'year')?.value ?? ''
-  const m = parts.find(p => p.type === 'month')?.value ?? ''
-  const d = parts.find(p => p.type === 'day')?.value ?? ''
-  const nextYyyyMmDd = `${y}-${m}-${d}`
-
-  const dateToShow = nextYyyyMmDd < firstPickupDateYyyyMmDd ? firstPickupDateYyyyMmDd : nextYyyyMmDd
-  const parsed = parseDateYyyyMmDd(dateToShow)
-  return parsed.toLocaleDateString('fr-FR', {
-    timeZone: 'Europe/Paris',
-    weekday: 'long',
-    day: 'numeric',
-    month: 'short',
-  })
 }
 
 // --- Anniversaire (pure functions, pas de dépendance Firebase) ---

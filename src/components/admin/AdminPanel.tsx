@@ -1,23 +1,24 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { jsPDF } from 'jspdf'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { LogOut, Package, Plus, Minus, Calendar, Clock, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp, Pencil, Search, Download, Bell, MessageSquare, MessageCircle, Filter, XCircle, Star, Tag, FileText, LayoutDashboard, Copy } from 'lucide-react'
+import { LogOut, Package, Plus, Minus, Calendar, Clock, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp, Pencil, Search, Download, Bell, MessageSquare, MessageCircle, Filter, XCircle, Star, Tag, FileText, LayoutDashboard, Copy, Eye, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { OrderStatus } from '../../lib/firebase'
 import {
   adminLogin, adminLogout, onAuthChange,
   listenStock, updateStock, listenSettings, updateSettings,
-  listenOrders, updateOrderStatus, deleteOrder,
+  listenOrders, updateOrderStatus, deleteOrder, updateOrder,
   listenAllUsers, claimBirthdayGift, listenProductOverrides, deleteUserProfile,
   adminAddPoints, adminRemovePoints,
   listenReviews,
   listenPromoCodes,
   listenNotifyWhenAvailable,
   isPreorderOpenNow, isTrompeLoeilProductId, getStockDecrementItems,
-  releaseDeliverySlot,
+  releaseDeliverySlot, reserveDeliverySlot,
   type StockMap, type Settings, type Order, type OrderSource, type UserProfile, type PreorderOpening, type Review, type PromoCodeRecord, type Poll, type NotifyWhenAvailableEntry,
   listenPolls
 } from '../../lib/firebase'
+import type { OrderItem } from '../../lib/firebase'
 import type { ProductOverrideMap } from '../../types'
 import { parseDateYyyyMmDd, formatOrderItemName } from '../../lib/utils'
 import { hapticFeedback } from '../../lib/haptics'
@@ -25,6 +26,7 @@ import { exportSingleOrderPDF } from '../../lib/orderPrint'
 import type { User } from 'firebase/auth'
 import { useProducts } from '../../hooks/useProducts'
 import { AdminProductsTab } from './AdminProductsTab'
+import { AdminPlanningTab } from './AdminPlanningTab'
 import { AdminStockTab } from './AdminStockTab'
 import { AdminLivraisonTab } from './AdminLivraisonTab'
 import { AdminPromosTab } from './AdminPromosTab'
@@ -47,6 +49,38 @@ function phoneToWhatsApp(phone: string): string {
   if (digits.startsWith('0') && digits.length >= 10) return '33' + digits.slice(1)
   if (digits.length >= 9) return '33' + digits
   return digits
+}
+
+const GOOGLE_REVIEW_LINK = 'https://share.google/PsKmSr5Vx1VXqaNWx'
+
+/** Message WhatsApp "commande prête" pré-rempli */
+function buildReadyMessage(order: Order): string {
+  const prenom = order.customer?.firstName ?? 'vous'
+  const isDelivery = order.deliveryMode === 'livraison'
+  if (isDelivery) {
+    return (
+      `Bonjour ${prenom},\n\n` +
+      `Votre commande Maison Mayssa est prête et en cours de livraison ! 🛵\n\n` +
+      `Merci de vous assurer d'être disponible pour la réception 😊`
+    )
+  }
+  return (
+    `Bonjour ${prenom},\n\n` +
+    `Vous avez commandé des trompe-l'œil pour aujourd'hui chez Maison Mayssa. Votre commande sera prête à être récupérée à partir de 18h.\n\n` +
+    `Merci de me préciser l'heure qui vous conviendrait pour le retrait 😊`
+  )
+}
+
+/** Message WhatsApp "demande d'avis Google" pré-rempli */
+function buildReviewMessage(order: Order): string {
+  const prenom = order.customer?.firstName ?? 'vous'
+  return (
+    `Bonjour ${prenom},\n\n` +
+    `Merci pour votre commande chez Maison Mayssa ! J'espère que vous vous êtes régalé(e) 😍🎂\n\n` +
+    `Si vous avez un moment, un petit avis Google nous aiderait énormément :\n` +
+    `👉 ${GOOGLE_REVIEW_LINK}\n\n` +
+    `Merci pour votre confiance 🙏`
+  )
 }
 
 const ORDER_STATUS_LABELS: Record<string, string> = {
@@ -363,7 +397,11 @@ function Dashboard({ user }: { user: User }) {
   const [settings, setSettings] = useState<Settings>({ preorderDays: [3, 6], preorderMessage: '' })
   const [orders, setOrders] = useState<Record<string, Order>>({})
   const [reviews, setReviews] = useState<Record<string, Review>>({})
-  const [tab, setTab] = useState<'resume' | 'commandes' | 'historique' | 'livraison' | 'retrait' | 'ca' | 'avis' | 'stock' | 'jours' | 'creneaux' | 'anniversaires' | 'inscrits' | 'produits' | 'promos' | 'sondage' | 'rappels' | 'abonnes' | 'alertes' | 'carte' | 'sessions' | 'production' | 'planning'>('resume')
+  const [tab, setTab] = useState<'resume' | 'commandes' | 'historique' | 'planning_detail' | 'livraison' | 'retrait' | 'ca' | 'avis' | 'stock' | 'jours' | 'creneaux' | 'anniversaires' | 'inscrits' | 'produits' | 'promos' | 'sondage' | 'rappels' | 'abonnes' | 'alertes' | 'carte' | 'sessions' | 'production' | 'planning' | 'livret' | 'catalogue' | 'clients' | 'reglages'>('resume')
+  const [livraisonMode, setLivraisonMode] = useState<'livraison' | 'retrait'>('livraison')
+  const [catalogueSection, setCatalogueSection] = useState<'stock' | 'produits' | 'promos'>('stock')
+  const [clientsSection, setClientsSection] = useState<'inscrits' | 'avis' | 'anniversaires' | 'alertes' | 'abonnes'>('inscrits')
+  const [reglagesSection, setReglagesSection] = useState<'jours' | 'creneaux' | 'rappels'>('jours')
   const [caPeriod, setCaPeriod] = useState<'jour' | 'semaine' | 'mois'>('semaine')
   const [allUsers, setAllUsers] = useState<Record<string, UserProfile>>({})
   const [productOverrides, setProductOverrides] = useState<ProductOverrideMap>({})
@@ -396,8 +434,24 @@ function Dashboard({ user }: { user: User }) {
   const [trompeLoeilFilter, setTrompeLoeilFilter] = useState<string | null>(null)
   /** Filtre produit actif en vue "À valider" (productId, '' = tous) */
   const [pendingProductFilter, setPendingProductFilter] = useState<string>('')
+  /** Planning : dates pour lesquelles le bloc "À produire" est replié (cliquer pour afficher/masquer) */
+  const [planningProductionOpen, setPlanningProductionOpen] = useState<Set<string>>(new Set())
+  /** Planning : production cumulée visible */
+  const [planningCumulOpen, setPlanningCumulOpen] = useState(false)
+  /** Planning : bitmask des jours sélectionnés pour la prod cumulée (bit i = jour i du planning). Défaut 0b011 = auj+demain. */
+  const [planningCumulDays, setPlanningCumulDays] = useState(0b0000011)
+  /** Planning : jours repliés en mode "rideau" (dateStr) */
+  const [planningDaysCollapsed, setPlanningDaysCollapsed] = useState<Set<string>>(new Set())
+  /** Planning : recherche par prénom */
+  const [planningSearchQuery, setPlanningSearchQuery] = useState('')
+  /** Décalage en jours pour la fenêtre de planning (0 = aujourd'hui, -10 = 10 jours en arrière) */
+  const [planningDayOffset, setPlanningDayOffset] = useState(0)
   /** Dates sélectionnées pour l'onglet Production (Set vide = aujourd'hui par défaut) */
   const [productionDates, setProductionDates] = useState<Set<string>>(new Set([]))
+  /** Recherche globale (nom, téléphone, n° commande) */
+  const [globalSearch, setGlobalSearch] = useState('')
+  /** Mode de l'onglet Planning/Historique : calendrier à venir | liste historique */
+  const [historiqueMode, setHistoriqueMode] = useState<'calendrier' | 'liste'>('calendrier')
 
   const setDatePreset = (preset: 'today' | '7d' | '30d' | 'month') => {
     const now = new Date()
@@ -496,6 +550,21 @@ function Dashboard({ user }: { user: User }) {
       .sort((a, b) => a.daysUntil - b.daysUntil)
   }, [allUsers])
 
+  /** Résultats de la recherche globale (nom, téléphone, n° commande) */
+  const globalSearchResults = useMemo((): [string, Order][] => {
+    const q = globalSearch.trim().toLowerCase()
+    if (q.length < 2) return []
+    return Object.entries(orders)
+      .filter(([, o]) => {
+        const fullName = `${o.customer?.firstName ?? ''} ${o.customer?.lastName ?? ''}`.toLowerCase()
+        const phone = (o.customer?.phone ?? '').replace(/[\s\-().+]/g, '')
+        const orderNum = o.orderNumber != null ? String(o.orderNumber) : ''
+        return fullName.includes(q) || phone.includes(q) || orderNum.includes(q)
+      })
+      .sort(([, a], [, b]) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
+      .slice(0, 8)
+  }, [orders, globalSearch])
+
   const openings = settings.preorderOpenings && settings.preorderOpenings.length > 0
     ? settings.preorderOpenings
     : (settings.preorderDays || [3, 6]).map((d: number) => ({ day: d, fromTime: '00:00' as string }))
@@ -592,6 +661,19 @@ function Dashboard({ user }: { user: User }) {
       releaseDeliverySlot(o.requestedDate, o.requestedTime).catch(console.error)
     }
     await deleteOrder(orderId)
+  }
+
+  const handlePlanningDateTimeChange = async (orderId: string, order: Order, newDate: string, newTime: string) => {
+    const requestedDate = newDate || order.requestedDate || ''
+    const requestedTime = newTime || order.requestedTime || ''
+    if (!requestedDate || !requestedTime) return
+    if (order.deliveryMode === 'livraison' && order.requestedDate && order.requestedTime) {
+      releaseDeliverySlot(order.requestedDate, order.requestedTime).catch(console.error)
+    }
+    await updateOrder(orderId, { requestedDate, requestedTime })
+    if (order.deliveryMode === 'livraison' && requestedDate && requestedTime) {
+      reserveDeliverySlot(requestedDate, requestedTime).catch(console.error)
+    }
   }
 
   const handleLogout = async () => {
@@ -1042,8 +1124,67 @@ function Dashboard({ user }: { user: User }) {
         </div>
       </header>
 
+      {/* Recherche globale */}
+      <div className="max-w-2xl mx-auto px-4 pt-3 relative z-30">
+        <div className="relative">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-mayssa-brown/40 pointer-events-none" />
+          <input
+            type="search"
+            value={globalSearch}
+            onChange={(e) => setGlobalSearch(e.target.value)}
+            placeholder="Rechercher client, téléphone, n° commande…"
+            className="w-full rounded-2xl border border-mayssa-brown/10 pl-9 pr-9 py-2.5 text-sm text-mayssa-brown placeholder:text-mayssa-brown/35 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-mayssa-caramel/30 focus:border-mayssa-caramel"
+          />
+          {globalSearch && (
+            <button
+              type="button"
+              onClick={() => setGlobalSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-mayssa-brown/40 hover:text-mayssa-brown cursor-pointer"
+            >
+              <X size={15} />
+            </button>
+          )}
+        </div>
+        {globalSearch.trim().length >= 2 && (
+          <div className="absolute left-4 right-4 top-full mt-1 bg-white rounded-2xl shadow-xl border border-mayssa-brown/10 overflow-hidden max-h-72 overflow-y-auto">
+            {globalSearchResults.length === 0 ? (
+              <p className="px-4 py-4 text-sm text-mayssa-brown/50 text-center">Aucun résultat pour « {globalSearch} »</p>
+            ) : (
+              globalSearchResults.map(([id, order]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => { setEditingOrderId(id); setGlobalSearch('') }}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-mayssa-soft/60 transition-colors text-left border-b border-mayssa-brown/5 last:border-b-0 cursor-pointer"
+                >
+                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                    order.status === 'en_preparation' ? 'bg-blue-400' :
+                    order.status === 'pret' ? 'bg-emerald-400' :
+                    order.status === 'livree' || order.status === 'validee' ? 'bg-gray-400' :
+                    order.status === 'refusee' ? 'bg-red-400' : 'bg-amber-400'
+                  }`} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-mayssa-brown truncate">
+                      {order.customer?.firstName} {order.customer?.lastName}
+                    </p>
+                    <p className="text-[11px] text-mayssa-brown/50 truncate">
+                      {order.customer?.phone && `${order.customer.phone} · `}#{order.orderNumber ?? id.slice(-6)}
+                      {order.requestedDate && ` · ${parseDateYyyyMmDd(order.requestedDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`}
+                    </p>
+                  </div>
+                  <div className="flex-shrink-0 text-right">
+                    <p className="text-xs font-bold text-mayssa-caramel">{(order.total ?? 0).toFixed(2).replace('.', ',')} €</p>
+                    <p className="text-[10px] text-mayssa-brown/40">{ORDER_STATUS_LABELS[order.status] ?? order.status}</p>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Tabs groupés */}
-      <div className="max-w-2xl mx-auto px-4 pt-4">
+      <div className="max-w-2xl mx-auto px-4 pt-3">
         <div className="flex flex-wrap gap-x-4 gap-y-2 bg-white/80 backdrop-blur rounded-2xl p-2 shadow-md border border-mayssa-brown/5 overflow-x-auto">
           {[
             { label: null, tabs: [{ id: 'resume', icon: LayoutDashboard, label: 'Résumé' }] },
@@ -1051,38 +1192,33 @@ function Dashboard({ user }: { user: User }) {
               label: 'Commandes',
               tabs: [
                 { id: 'commandes', icon: ClipboardList, label: 'À valider', badge: pendingCount },
-                { id: 'historique', icon: History, label: 'Historique' },
-                { id: 'production', icon: FileText, label: 'Production' },
-                { id: 'planning', icon: LayoutDashboard, label: 'Planning' },
-                { id: 'livraison', icon: Truck, label: 'Livraison', badge: Object.values(orders).filter(o => o.deliveryMode === 'livraison' && o.status !== 'refusee').length },
-                { id: 'retrait', icon: MapPin, label: 'Retrait', badge: Object.values(orders).filter(o => o.deliveryMode === 'retrait' && o.status !== 'refusee').length },
+                { id: 'historique', icon: LayoutDashboard, label: 'Planning' },
+                { id: 'planning_detail', icon: Calendar, label: 'Vue journalière' },
+                {
+                  id: 'livret',
+                  icon: Truck,
+                  label: 'Commandes',
+                  badge: Object.values(orders).filter(o => o.status === 'en_preparation').length,
+                },
               ],
             },
             {
               label: 'Vente',
               tabs: [
                 { id: 'ca', icon: TrendingUp, label: 'CA' },
-                { id: 'stock', icon: Package, label: 'Stock' },
-                { id: 'produits', icon: ShoppingBag, label: 'Produits' },
-                { id: 'promos', icon: Tag, label: 'Codes promo' },
+                { id: 'catalogue', icon: Package, label: 'Catalogue' },
               ],
             },
             {
-              label: 'Communauté',
+              label: null,
               tabs: [
-                { id: 'avis', icon: Star, label: 'Avis', badge: Object.keys(reviews).length },
-                { id: 'inscrits', icon: Users, label: 'Inscrits', badge: Object.keys(allUsers).length },
-                { id: 'anniversaires', icon: Cake, label: 'Anniv.', badge: upcomingBirthdays.filter(b => !b.claimed).length },
-                { id: 'alertes', icon: Bell, label: 'Alertes', badge: Object.keys(notifyWhenAvailableEntries).length },
-                { id: 'abonnes', icon: Package, label: 'Abonnés' },
-              ],
-            },
-            {
-              label: 'Réglages',
-              tabs: [
-                { id: 'jours', icon: Calendar, label: 'Jours' },
-                { id: 'creneaux', icon: Clock, label: 'Créneaux' },
-                { id: 'rappels', icon: Bell, label: 'Rappels' },
+                {
+                  id: 'clients',
+                  icon: Users,
+                  label: 'Clients',
+                  badge: upcomingBirthdays.filter(b => !b.claimed).length + Object.keys(notifyWhenAvailableEntries).length,
+                },
+                { id: 'reglages', icon: Calendar, label: 'Réglages' },
               ],
             },
           ].map((group, gi) => (
@@ -1218,16 +1354,16 @@ function Dashboard({ user }: { user: User }) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setTab('livraison')}
+                      onClick={() => setTab('livret')}
                       className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5 text-left hover:ring-2 hover:ring-mayssa-caramel transition-all cursor-pointer"
                     >
                       <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">Aujourd'hui</span>
                       <p className="text-xl font-display font-bold text-mayssa-brown mt-0.5">{livraisonsAujourdhui} livr. · {retraitsAujourdhui} retr.</p>
-                      <p className="text-[10px] text-mayssa-caramel mt-1">Voir Livraison →</p>
+                      <p className="text-[10px] text-mayssa-caramel mt-1">Voir Livraisons →</p>
                     </button>
                     <button
                       type="button"
-                      onClick={() => setTab('anniversaires')}
+                      onClick={() => { setTab('clients'); setClientsSection('anniversaires') }}
                       className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5 text-left hover:ring-2 hover:ring-mayssa-caramel transition-all cursor-pointer"
                     >
                       <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">Anniversaires</span>
@@ -1809,8 +1945,29 @@ function Dashboard({ user }: { user: User }) {
           </motion.section>
         )}
 
-        {/* ===== HISTORIQUE DES COMMANDES ===== */}
+        {/* ===== TOGGLE PLANNING / HISTORIQUE ===== */}
         {tab === 'historique' && (
+          <div className="flex gap-1.5 bg-white rounded-2xl p-1.5 shadow-sm border border-mayssa-brown/5">
+            {([
+              { id: 'calendrier' as const, icon: LayoutDashboard, label: '📅 Planning' },
+              { id: 'liste' as const, icon: History, label: '📋 Historique' },
+            ] as const).map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => setHistoriqueMode(m.id)}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  historiqueMode === m.id ? 'bg-mayssa-brown text-white shadow-md' : 'text-mayssa-brown/60 hover:bg-mayssa-soft/80'
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* ===== HISTORIQUE DES COMMANDES (mode liste) ===== */}
+        {tab === 'historique' && historiqueMode === 'liste' && (
           <motion.section
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -2381,7 +2538,47 @@ function Dashboard({ user }: { user: User }) {
           </motion.section>
         )}
 
-        {/* ===== LIVRAISON ===== */}
+        {/* ===== VUE JOURNALIÈRE (planning détaillé) ===== */}
+        {tab === 'planning_detail' && (
+          <AdminPlanningTab
+            orders={orders}
+            onEditOrder={(id) => setEditingOrderId(id)}
+          />
+        )}
+
+        {/* ===== LIVRET (Livraison + Retrait fusionnés) ===== */}
+        {tab === 'livret' && (() => {
+          const delivInPrep = Object.values(orders).filter(o => o.deliveryMode === 'livraison' && o.status === 'en_preparation').length
+          const retrInPrep = Object.values(orders).filter(o => o.deliveryMode === 'retrait' && o.status === 'en_preparation').length
+          return (
+            <div className="space-y-4">
+              <div className="flex gap-1.5 bg-white rounded-2xl p-1.5 shadow-sm border border-mayssa-brown/5">
+                {([
+                  { id: 'livraison' as const, icon: Truck, label: 'Livraison', badge: delivInPrep },
+                  { id: 'retrait' as const, icon: MapPin, label: 'Retrait', badge: retrInPrep },
+                ] as const).map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setLivraisonMode(s.id)}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      livraisonMode === s.id ? 'bg-mayssa-brown text-white shadow-md' : 'text-mayssa-brown/60 hover:bg-mayssa-soft/80'
+                    }`}
+                  >
+                    <s.icon size={14} />
+                    {s.label}
+                    {s.badge > 0 && (
+                      <span className="bg-blue-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">{s.badge}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+              <AdminLivraisonTab orders={orders} onEditOrder={(id) => setEditingOrderId(id)} mode={livraisonMode} />
+            </div>
+          )
+        })()}
+
+        {/* ===== LIVRAISON / RETRAIT (onglets individuels conservés) ===== */}
         {tab === 'livraison' && (
           <AdminLivraisonTab orders={orders} onEditOrder={(id) => setEditingOrderId(id)} mode="livraison" />
         )}
@@ -2609,8 +2806,36 @@ function Dashboard({ user }: { user: User }) {
           </motion.section>
         )}
 
+        {/* ===== CLIENTS (Inscrits + Avis + Anniv + Alertes + Abonnés fusionnés) ===== */}
+        {tab === 'clients' && (
+          <div className="flex flex-wrap gap-1.5 bg-white rounded-2xl p-1.5 shadow-sm border border-mayssa-brown/5">
+            {([
+              { id: 'inscrits' as const, icon: Users, label: 'Inscrits', badge: Object.keys(allUsers).length },
+              { id: 'avis' as const, icon: Star, label: 'Avis', badge: Object.keys(reviews).length },
+              { id: 'anniversaires' as const, icon: Cake, label: 'Anniv.', badge: upcomingBirthdays.filter(b => !b.claimed).length },
+              { id: 'alertes' as const, icon: Bell, label: 'Alertes', badge: Object.keys(notifyWhenAvailableEntries).length },
+              { id: 'abonnes' as const, icon: Gift, label: 'Abonnés', badge: 0 },
+            ] as const).map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setClientsSection(s.id)}
+                className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  clientsSection === s.id ? 'bg-mayssa-brown text-white shadow-md' : 'text-mayssa-brown/60 hover:bg-mayssa-soft/80'
+                }`}
+              >
+                <s.icon size={13} />
+                {s.label}
+                {s.badge > 0 && (
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${clientsSection === s.id ? 'bg-white/25 text-white' : 'bg-red-500 text-white'}`}>{s.badge}</span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* ===== AVIS ===== */}
-        {tab === 'avis' && (
+        {(tab === 'avis' || (tab === 'clients' && clientsSection === 'avis')) && (
           <motion.section
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -2656,6 +2881,38 @@ function Dashboard({ user }: { user: User }) {
           </motion.section>
         )}
 
+        {/* ===== CATALOGUE (Stock + Produits + Promos fusionnés) ===== */}
+        {tab === 'catalogue' && (
+          <div className="space-y-4">
+            <div className="flex gap-1.5 bg-white rounded-2xl p-1.5 shadow-sm border border-mayssa-brown/5">
+              {([
+                { id: 'stock' as const, icon: Package, label: 'Stock' },
+                { id: 'produits' as const, icon: ShoppingBag, label: 'Produits' },
+                { id: 'promos' as const, icon: Tag, label: 'Promos' },
+              ] as const).map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setCatalogueSection(s.id)}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    catalogueSection === s.id ? 'bg-mayssa-brown text-white shadow-md' : 'text-mayssa-brown/60 hover:bg-mayssa-soft/80'
+                  }`}
+                >
+                  <s.icon size={14} />
+                  {s.label}
+                </button>
+              ))}
+            </div>
+            {catalogueSection === 'stock' && <AdminStockTab allProducts={allProducts} stock={stock} />}
+            {catalogueSection === 'produits' && (
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
+                <AdminProductsTab allProducts={allProducts} overrides={productOverrides} />
+              </motion.div>
+            )}
+            {catalogueSection === 'promos' && <AdminPromosTab promoCodes={promoCodes} />}
+          </div>
+        )}
+
         {/* ===== STOCK ===== */}
         {tab === 'stock' && (
           <motion.div
@@ -2667,8 +2924,31 @@ function Dashboard({ user }: { user: User }) {
           </motion.div>
         )}
 
+        {/* ===== RÉGLAGES (Jours + Créneaux + Rappels fusionnés) ===== */}
+        {tab === 'reglages' && (
+          <div className="flex gap-1.5 bg-white rounded-2xl p-1.5 shadow-sm border border-mayssa-brown/5">
+            {([
+              { id: 'jours' as const, icon: Calendar, label: 'Jours & ouverture' },
+              { id: 'creneaux' as const, icon: Clock, label: 'Créneaux' },
+              { id: 'rappels' as const, icon: Bell, label: 'Rappels' },
+            ] as const).map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setReglagesSection(s.id)}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  reglagesSection === s.id ? 'bg-mayssa-brown text-white shadow-md' : 'text-mayssa-brown/60 hover:bg-mayssa-soft/80'
+                }`}
+              >
+                <s.icon size={14} />
+                {s.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* ===== JOURS (horaires précommandes trompe-l'œil) ===== */}
-        {tab === 'jours' && (
+        {(tab === 'jours' || (tab === 'reglages' && reglagesSection === 'jours')) && (
           <motion.section
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -2925,12 +3205,12 @@ function Dashboard({ user }: { user: User }) {
         )}
 
         {/* ===== CRÉNEAUX RÉCEPTION / LIVRAISON ===== */}
-        {tab === 'creneaux' && (
+        {(tab === 'creneaux' || (tab === 'reglages' && reglagesSection === 'creneaux')) && (
           <AdminCreneauxTab settings={settings} />
         )}
 
         {/* ===== ANNIVERSAIRES ===== */}
-        {tab === 'anniversaires' && (
+        {(tab === 'anniversaires' || (tab === 'clients' && clientsSection === 'anniversaires')) && (
           <motion.section
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -3000,7 +3280,7 @@ function Dashboard({ user }: { user: User }) {
         )}
 
         {/* ===== INSCRITS ===== */}
-        {tab === 'inscrits' && (
+        {(tab === 'inscrits' || (tab === 'clients' && clientsSection === 'inscrits')) && (
           <motion.section
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -3107,7 +3387,7 @@ function Dashboard({ user }: { user: User }) {
         )}
 
         {/* ===== PRODUITS ===== */}
-        {tab === 'produits' && (
+        {(tab === 'produits') && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -3126,15 +3406,15 @@ function Dashboard({ user }: { user: User }) {
           <AdminPollsTab polls={polls} />
         )}
 
-        {tab === 'rappels' && (
-          <AdminRappelsTab allUsers={allUsers} />
+        {(tab === 'rappels' || (tab === 'reglages' && reglagesSection === 'rappels')) && (
+          <AdminRappelsTab allUsers={allUsers} orders={orders} />
         )}
 
-        {tab === 'abonnes' && (
+        {(tab === 'abonnes' || (tab === 'clients' && clientsSection === 'abonnes')) && (
           <AdminSubscribersTab orders={orders} />
         )}
 
-        {tab === 'alertes' && (
+        {(tab === 'alertes' || (tab === 'clients' && clientsSection === 'alertes')) && (
           <motion.section
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -3520,21 +3800,90 @@ function Dashboard({ user }: { user: User }) {
         })()}
 
         {/* ===== PLANNING HEBDOMADAIRE ===== */}
-        {tab === 'planning' && (() => {
-          // Génère les 7 prochains jours (aujourd'hui inclus)
+        {(tab === 'planning' || (tab === 'historique' && historiqueMode === 'calendrier')) && (() => {
+          /** Statuts considérés comme "déjà faits" : pas comptés dans "reste à faire" */
+          const DONE_STATUSES = ['validee', 'livree', 'pret'] as const
+
+          /** Box Trompe l'œil = 1 de chaque saveur ; on décompose en trompes l'œil individuels pour le calcul */
+          const BOX_TROMPE_LOEIL_LABELS = [
+            "Trompe l'oeil Mangue",
+            "Trompe l'oeil Citron",
+            "Trompe l'oeil Pistache",
+            "Trompe l'oeil Passion",
+            "Trompe l'oeil Framboise",
+            "Trompe l'oeil Cacahuète",
+            "Trompe l'oeil Fraise",
+          ]
+
+          /** Agrège les lignes de commandes en liste "à produire" : libellé détaillé → quantité (optionnel filtre par statut). La box trompe l'œil est décomposée en 7 trompes l'œil. */
+          const getProductionList = (dayOrders: [string, Order][], filterStatus?: (s: string) => boolean): { label: string; quantity: number; sortKey: string }[] => {
+            const quantityByLabel = new Map<string, number>()
+            const sortKeyForLabel = (item: OrderItem): string => {
+              const id = (item.productId ?? '').toLowerCase()
+              if (id.includes('trompe-loeil') || id === 'box-trompe-loeil') return '0-trompe'
+              if (id.includes('box') || id.includes('mini-box')) return '1-box'
+              if (id.startsWith('brownie-')) return '2-brownie'
+              if (id.startsWith('cookie-')) return '3-cookie'
+              if (id.startsWith('layer-')) return '4-layer'
+              if (id.includes('tiramisu')) return '5-tiramisu'
+              return '6-other'
+            }
+            const labelToSortKey = new Map<string, string>()
+            const ordersToUse = filterStatus ? dayOrders.filter(([, o]) => filterStatus(o.status ?? '')) : dayOrders
+            for (const [, order] of ordersToUse) {
+              for (const item of order.items ?? []) {
+                const productId = (item.productId ?? '').toLowerCase()
+                if (productId === 'box-trompe-loeil') {
+                  for (const trompeLabel of BOX_TROMPE_LOEIL_LABELS) {
+                    quantityByLabel.set(trompeLabel, (quantityByLabel.get(trompeLabel) ?? 0) + item.quantity)
+                    if (!labelToSortKey.has(trompeLabel)) labelToSortKey.set(trompeLabel, '0-trompe')
+                  }
+                  continue
+                }
+                const baseName = formatOrderItemName(item)
+                const detail = item.sizeLabel ? ` — ${item.sizeLabel}` : ''
+                const label = baseName + detail
+                quantityByLabel.set(label, (quantityByLabel.get(label) ?? 0) + item.quantity)
+                if (!labelToSortKey.has(label)) labelToSortKey.set(label, sortKeyForLabel(item))
+              }
+            }
+            return Array.from(quantityByLabel.entries())
+              .map(([label, quantity]) => ({ label, quantity, sortKey: labelToSortKey.get(label) ?? '6-other' }))
+              .sort((a, b) => a.sortKey.localeCompare(b.sortKey) || a.label.localeCompare(b.label))
+          }
+
+          /** Fusionne total (toutes cmd) et restant (uniquement cmd pas encore validée/livrée/prête) */
+          const getProductionWithRestant = (dayOrders: [string, Order][]): { label: string; total: number; restant: number; sortKey: string }[] => {
+            const totalList = getProductionList(dayOrders)
+            const restantList = getProductionList(dayOrders, (status) => !DONE_STATUSES.includes(status as typeof DONE_STATUSES[number]))
+            const restantByLabel = new Map(restantList.map((r) => [r.label, r.quantity]))
+            return totalList.map((t) => ({
+              ...t,
+              total: t.quantity,
+              restant: restantByLabel.get(t.label) ?? 0,
+            }))
+          }
+
+          const planningSearchLower = planningSearchQuery.trim().toLowerCase()
+          const matchesPlanningSearch = (o: Order) =>
+            !planningSearchLower || (o.customer?.firstName ?? '').toLowerCase().includes(planningSearchLower)
+
+          // Génère 10 jours à partir du décalage sélectionné
           const days: { dateStr: string; label: string; dayOrders: [string, Order][] }[] = []
-          for (let i = 0; i < 7; i++) {
+          for (let i = 0; i < 10; i++) {
             const d = new Date()
-            d.setDate(d.getDate() + i)
+            d.setDate(d.getDate() + planningDayOffset + i)
             const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
             const dayName = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' })
             const dayOrders = Object.entries(orders)
-              .filter(([, o]) => o.requestedDate === dateStr && o.status !== 'refusee')
+              .filter(([, o]) => o.requestedDate === dateStr && o.status !== 'refusee' && matchesPlanningSearch(o))
               .sort(([, a], [, b]) => (a.requestedTime ?? '00:00').localeCompare(b.requestedTime ?? '00:00'))
             days.push({ dateStr, label: dayName, dayOrders })
           }
           const totalWeek = days.reduce((s, d) => s + d.dayOrders.length, 0)
           const caWeek = days.reduce((s, d) => s + d.dayOrders.reduce((ss, [, o]) => ss + (o.total ?? 0), 0), 0)
+          const isPast = planningDayOffset < 0
+          const windowContainsToday = planningDayOffset <= 0 && planningDayOffset + 10 > 0
           return (
             <motion.section
               initial={{ opacity: 0, y: 8 }}
@@ -3542,23 +3891,271 @@ function Dashboard({ user }: { user: User }) {
               transition={{ duration: 0.2 }}
               className="space-y-4"
             >
-              {/* KPIs semaine */}
+              {/* Navigation temporelle */}
+              <div className="flex items-center gap-2 bg-white rounded-2xl p-2 shadow-sm border border-mayssa-brown/5">
+                <button
+                  type="button"
+                  onClick={() => { setPlanningDayOffset((o) => o - 10); setPlanningDaysCollapsed(new Set()); setPlanningProductionOpen(new Set()) }}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-mayssa-brown/70 hover:bg-mayssa-soft hover:text-mayssa-brown transition-colors cursor-pointer flex-shrink-0"
+                  title="Reculer de 10 jours"
+                >
+                  <ChevronLeft size={15} />
+                  <span className="hidden sm:inline">10 jours avant</span>
+                </button>
+                <div className="flex-1 flex items-center justify-center gap-2 min-w-0">
+                  {!windowContainsToday && (
+                    <button
+                      type="button"
+                      onClick={() => { setPlanningDayOffset(0); setPlanningDaysCollapsed(new Set()); setPlanningProductionOpen(new Set()) }}
+                      className="text-[10px] font-bold text-mayssa-caramel hover:text-mayssa-brown uppercase tracking-wider transition-colors cursor-pointer px-2 py-1 rounded-lg bg-mayssa-caramel/10 hover:bg-mayssa-caramel/20"
+                    >
+                      ↩ Aujourd'hui
+                    </button>
+                  )}
+                  <span className="text-[11px] font-bold text-mayssa-brown/60 truncate">
+                    {isPast && !windowContainsToday ? '📂 Passé · ' : ''}
+                    {days[0] && new Date(days[0].dateStr + 'T00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                    {' → '}
+                    {days[9] && new Date(days[9].dateStr + 'T00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: '2-digit' })}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setPlanningDayOffset((o) => o + 10); setPlanningDaysCollapsed(new Set()); setPlanningProductionOpen(new Set()) }}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-mayssa-brown/70 hover:bg-mayssa-soft hover:text-mayssa-brown transition-colors cursor-pointer flex-shrink-0"
+                  title="Avancer de 10 jours"
+                >
+                  <span className="hidden sm:inline">10 jours après</span>
+                  <ChevronRight size={15} />
+                </button>
+              </div>
+
+              {/* Barre de recherche par prénom */}
+              <div className="flex items-center gap-2">
+                <Search size={18} className="text-mayssa-brown/40 flex-shrink-0" />
+                <input
+                  type="search"
+                  value={planningSearchQuery}
+                  onChange={(e) => setPlanningSearchQuery(e.target.value)}
+                  placeholder="Rechercher par prénom..."
+                  className="flex-1 rounded-xl border border-mayssa-brown/15 px-4 py-2.5 text-sm text-mayssa-brown placeholder:text-mayssa-brown/40 bg-white focus:outline-none focus:ring-2 focus:ring-mayssa-caramel/30 focus:border-mayssa-caramel"
+                  aria-label="Rechercher par prénom"
+                />
+                {planningSearchQuery.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => setPlanningSearchQuery('')}
+                    className="p-2 rounded-lg text-mayssa-brown/50 hover:text-mayssa-brown hover:bg-mayssa-brown/10"
+                    aria-label="Effacer la recherche"
+                  >
+                    <X size={18} />
+                  </button>
+                )}
+              </div>
+
+              {/* KPIs période */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">Commandes (7j)</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">
+                    Commandes ({isPast && !windowContainsToday ? 'passées' : '10j'})
+                  </span>
                   <p className="text-xl font-display font-bold text-mayssa-brown mt-0.5">{totalWeek}</p>
                 </div>
                 <div className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">CA prévisionnel (7j)</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">
+                    {isPast && !windowContainsToday ? 'CA réalisé' : 'CA prévisionnel'} (10j)
+                  </span>
                   <p className="text-xl font-display font-bold text-mayssa-caramel mt-0.5">{caWeek.toFixed(2).replace('.', ',')} €</p>
                 </div>
               </div>
+
+              {/* Production cumulée */}
+              {(() => {
+                // Jours sélectionnés pour la prod cumulée (Set de dateStr)
+                // planningCumulDays est réutilisé comme Set<string> via cast — on initialise au premier render
+                // Pour éviter de changer le type du state, on stocke la sélection dans planningCumulDays (Set<string>)
+                // MAIS ici on utilise un state local via le Set<string> déjà prévu : planningCumulDays (nb) sert de fallback
+                // → on utilise planningCumulDays (number) UNIQUEMENT pour savoir si on a déjà des jours sélectionnés
+                // En réalité on va utiliser un Set dans planningCumulDays recast, mais le state est number.
+                // Solution propre : on utilise planningCumulDays comme index bitmask → NON.
+                // On réutilise simplement `planningCumulDays` pour stocker le nb de jours consécutifs depuis aujourd'hui
+                // ET on introduit un Set séparé via un state déjà existant.
+                // Ici : selectedCumulDates = Set des dateStr cochés. On le gérera avec planningCumulDays comme nb par défaut.
+                // Pour la sélection libre, on utilise un Set passé via le state dédié.
+
+                // Calcul du label court pour un dateStr
+                const shortLabel = (ds: string, idx: number) => {
+                  if (idx === 0) return "Auj."
+                  if (idx === 1) return 'Dem.'
+                  return parseDateYyyyMmDd(ds).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', weekday: 'short', day: 'numeric' })
+                }
+
+                // selectedCumulDates : Set des jours cochés. Par défaut aujourd'hui + demain (indices 0 et 1).
+                // On stocke via planningCumulDays (number) = nb de premiers jours sélectionnés consécutifs au départ,
+                // mais pour la sélection libre on a besoin d'un vrai Set.
+                // → On réutilise `planningCumulDays` comme taille de la fenêtre INITIALE (défaut=2),
+                //   et on crée ici un Set dérivé qui peut être modifié via setPlanningCumulDays (juste le nb).
+                // Pour la sélection LIBRE, on ajoute un state dédié : planningCumulSelected.
+                // Ce state est déjà défini ci-dessus comme `planningCumulDays` (number).
+                // → On va simplement utiliser un état Set<string> stocké dans le state `planningCumulDays` REINTERPRÉTÉ.
+                // Plutôt que de complexifier, voici l'approche finale :
+                // `planningCumulDays` (number) = utilisé pour initialiser la sélection (2 premiers jours par défaut)
+                // La sélection libre est stockée dans un Set local via useState — mais on ne peut pas ajouter de useState ici.
+                // Solution : on utilise un ref ou on se base sur un Set stocké dans un state existant.
+                // → On utilise `planningCumulDays` comme index bitmask sur 7 bits (bit i = jour i sélectionné).
+                // Défaut 2 → bits 0 et 1 = 0b0000011 = 3. On reinterprète planningCumulDays comme bitmask.
+
+                const bitmask = planningCumulDays  // chaque bit i = jour i sélectionné
+                const toggleCumulDay = (i: number) => {
+                  const newMask = bitmask ^ (1 << i)
+                  // Au moins 1 jour sélectionné
+                  setPlanningCumulDays(newMask === 0 ? (1 << i) : newMask)
+                  setPlanningCumulOpen(true)
+                }
+                const isDaySelected = (i: number) => Boolean(bitmask & (1 << i))
+
+                const cumulOrders = days.filter((_, i) => isDaySelected(i)).flatMap((d) => d.dayOrders)
+                const cumulList = getProductionWithRestant(cumulOrders)
+                const selectedLabels = days.filter((_, i) => isDaySelected(i)).map((d) => {
+                  const origIdx = days.indexOf(d)
+                  return shortLabel(d.dateStr, origIdx)
+                })
+
+                return (
+                  <div className="bg-white rounded-2xl border border-mayssa-brown/10 shadow-sm overflow-hidden">
+                    {/* En-tête */}
+                    <div className="flex items-center w-full bg-mayssa-soft/60 border-b border-mayssa-brown/5">
+                      <button
+                        type="button"
+                        onClick={() => setPlanningCumulOpen((v) => !v)}
+                        className="flex-1 flex items-center gap-2 px-4 py-3 hover:bg-mayssa-soft transition-colors text-left min-w-0"
+                      >
+                        <ClipboardList size={15} className="text-mayssa-caramel flex-shrink-0" />
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-mayssa-brown/70 flex-shrink-0">
+                          Prod. cumulée
+                        </span>
+                        <span className="text-[10px] text-mayssa-brown/40 truncate">
+                          {selectedLabels.join(' + ')} · {cumulList.length} ligne{cumulList.length !== 1 ? 's' : ''}
+                        </span>
+                        {planningCumulOpen ? <ChevronUp size={15} className="text-mayssa-brown/50 flex-shrink-0 ml-auto" /> : <ChevronDown size={15} className="text-mayssa-brown/50 flex-shrink-0 ml-auto" />}
+                      </button>
+                      {/* Bouton PDF */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (cumulList.length === 0) return
+                          const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+                          const pageW = doc.internal.pageSize.getWidth()
+                          doc.setFont('helvetica', 'bold')
+                          doc.setFontSize(16)
+                          doc.text('Production cumulée — Maison Mayssa', pageW / 2, 18, { align: 'center' })
+                          doc.setFont('helvetica', 'normal')
+                          doc.setFontSize(10)
+                          doc.text(`Jours : ${selectedLabels.join(' + ')}`, pageW / 2, 26, { align: 'center' })
+                          doc.setDrawColor(200, 180, 160)
+                          doc.line(14, 30, pageW - 14, 30)
+                          let y = 38
+                          doc.setFont('helvetica', 'bold')
+                          doc.setFontSize(10)
+                          doc.text('Qté', 14, y)
+                          doc.text('Article', 28, y)
+                          doc.text('Reste', pageW - 30, y)
+                          y += 4
+                          doc.line(14, y, pageW - 14, y)
+                          y += 5
+                          doc.setFont('helvetica', 'normal')
+                          doc.setFontSize(10)
+                          for (const { label: itemLabel, total, restant } of cumulList) {
+                            if (y > 275) { doc.addPage(); y = 20 }
+                            doc.setTextColor(restant === 0 ? 80 : 0, restant === 0 ? 150 : 0, 0)
+                            doc.text(`${total}×`, 14, y)
+                            doc.setTextColor(0, 0, 0)
+                            doc.text(itemLabel.length > 55 ? itemLabel.slice(0, 54) + '…' : itemLabel, 28, y)
+                            doc.setTextColor(restant === 0 ? 34 : 180, restant === 0 ? 130 : 100, 0)
+                            doc.text(restant === 0 ? '✓ fait' : `${restant} à faire`, pageW - 30, y)
+                            doc.setTextColor(0, 0, 0)
+                            y += 7
+                          }
+                          doc.save(`production-${selectedLabels.join('-').replace(/[^a-z0-9-]/gi, '')}.pdf`)
+                        }}
+                        className="px-3 py-3 text-mayssa-brown/50 hover:text-mayssa-caramel hover:bg-mayssa-soft transition-colors flex-shrink-0"
+                        title="Télécharger en PDF"
+                      >
+                        <Download size={15} />
+                      </button>
+                    </div>
+
+                    {/* Sélecteur de jours (toujours visible) */}
+                    <div className="flex flex-wrap gap-1.5 px-4 py-2.5 border-b border-mayssa-brown/5 bg-white" onClick={(e) => e.stopPropagation()}>
+                      {days.map((d, i) => {
+                        const selected = isDaySelected(i)
+                        const hasOrders = d.dayOrders.length > 0
+                        return (
+                          <button
+                            key={d.dateStr}
+                            type="button"
+                            onClick={() => toggleCumulDay(i)}
+                            className={`flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-colors ${
+                              selected
+                                ? 'bg-mayssa-caramel text-white border-mayssa-caramel'
+                                : hasOrders
+                                  ? 'bg-white text-mayssa-brown/70 border-mayssa-brown/20 hover:border-mayssa-caramel/50'
+                                  : 'bg-white text-mayssa-brown/30 border-mayssa-brown/10 hover:border-mayssa-brown/20'
+                            }`}
+                          >
+                            {shortLabel(d.dateStr, i)}
+                            {hasOrders && (
+                              <span className={`text-[9px] font-bold ${selected ? 'text-white/80' : 'text-mayssa-caramel'}`}>
+                                {d.dayOrders.length}
+                              </span>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    {/* Liste de production */}
+                    {planningCumulOpen && (
+                      <div className="px-4 py-3">
+                        {cumulList.length === 0 ? (
+                          <p className="text-xs text-mayssa-brown/30 italic">Aucune commande sur les jours sélectionnés.</p>
+                        ) : (
+                          <ul className="space-y-1.5">
+                            {cumulList.map(({ label, total, restant }) => (
+                              <li key={label} className="flex items-center justify-between gap-2 text-xs text-mayssa-brown">
+                                <div className="flex items-baseline gap-2 min-w-0">
+                                  <span className="font-bold text-mayssa-caramel w-6 flex-shrink-0 text-right">{total}×</span>
+                                  <span className="truncate">{label}</span>
+                                </div>
+                                <span className={`flex-shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded ${restant === 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                  {restant === 0 ? '✓ fait' : `${restant} à faire`}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
 
               {/* Calendrier */}
               <div className="space-y-3">
                 {days.map(({ dateStr, label, dayOrders }) => {
                   const isToday = dateStr === todayRetraitStr
                   const dayCA = dayOrders.reduce((s, [, o]) => s + (o.total ?? 0), 0)
+                  const isDayCollapsed = planningDaysCollapsed.has(dateStr)
+                  const toggleDayCollapse = () => {
+                    hapticFeedback('light')
+                    setPlanningDaysCollapsed((prev) => {
+                      const next = new Set(prev)
+                      if (next.has(dateStr)) next.delete(dateStr)
+                      else next.add(dateStr)
+                      return next
+                    })
+                  }
                   return (
                     <div
                       key={dateStr}
@@ -3568,8 +4165,12 @@ function Dashboard({ user }: { user: User }) {
                           : 'border-mayssa-brown/10 bg-white'
                       }`}
                     >
-                      {/* En-tête du jour */}
-                      <div className="flex items-center justify-between px-4 py-3 border-b border-mayssa-brown/5">
+                      {/* En-tête du jour — cliquable pour replier */}
+                      <button
+                        type="button"
+                        onClick={toggleDayCollapse}
+                        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-mayssa-brown/[0.03] transition-colors rounded-t-2xl"
+                      >
                         <div className="flex items-center gap-2">
                           {isToday && <span className="w-2 h-2 rounded-full bg-mayssa-caramel" />}
                           <span className={`text-sm font-bold capitalize ${isToday ? 'text-mayssa-caramel' : 'text-mayssa-brown'}`}>
@@ -3584,39 +4185,270 @@ function Dashboard({ user }: { user: User }) {
                               <span className="text-mayssa-caramel">{dayCA.toFixed(2).replace('.', ',')} €</span>
                             </>
                           )}
+                          {isDayCollapsed
+                            ? <ChevronDown size={14} className="text-mayssa-brown/30" />
+                            : <ChevronUp size={14} className="text-mayssa-brown/20" />
+                          }
                         </div>
-                      </div>
+                      </button>
+
+                      {/* Contenu du jour — rideau */}
+                      <AnimatePresence initial={false}>
+                        {!isDayCollapsed && (
+                          <motion.div
+                            key="day-content"
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+                            className="overflow-hidden"
+                          >
+
+                      {/* À produire ce jour : total + reste à faire (ouvrir / masquer) */}
+                      {dayOrders.length > 0 && (() => {
+                        const productionList = getProductionWithRestant(dayOrders)
+                        const isProductionOpen = planningProductionOpen.has(dateStr)
+                        const toggleProduction = () => {
+                          setPlanningProductionOpen((prev) => {
+                            const next = new Set(prev)
+                            if (next.has(dateStr)) next.delete(dateStr)
+                            else next.add(dateStr)
+                            return next
+                          })
+                        }
+                        return (
+                          <div className="border-b border-mayssa-brown/5">
+                            <button
+                              type="button"
+                              onClick={toggleProduction}
+                              className="w-full flex items-center justify-between gap-2 px-4 py-3 bg-mayssa-soft/80 text-left hover:bg-mayssa-soft transition-colors"
+                              aria-expanded={isProductionOpen}
+                              aria-label={isProductionOpen ? 'Masquer la production du jour' : 'Afficher la production du jour'}
+                            >
+                              <div className="flex items-center gap-2">
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">À produire ce jour</p>
+                                <span className="text-[9px] text-mayssa-brown/40">({productionList.length} lignes)</span>
+                              </div>
+                              {isProductionOpen ? <ChevronUp size={16} className="text-mayssa-brown/50" /> : <ChevronDown size={16} className="text-mayssa-brown/50" />}
+                            </button>
+                            {isProductionOpen && (
+                              <div className="px-4 pb-3 pt-0 bg-mayssa-soft/80">
+                                <p className="text-[9px] text-mayssa-brown/40 mb-2">(total × reste à faire)</p>
+                                <ul className="space-y-1 text-xs text-mayssa-brown">
+                                  {productionList.map(({ label, total, restant }) => (
+                                    <li key={label} className="flex items-baseline gap-2 justify-between">
+                                      <div className="flex items-baseline gap-2 min-w-0">
+                                        <span className="font-bold text-mayssa-caramel w-6 flex-shrink-0">{total}×</span>
+                                        <span className="truncate">{label}</span>
+                                      </div>
+                                      <span className={`flex-shrink-0 text-[10px] font-semibold ${restant === 0 ? 'text-emerald-600' : 'text-amber-600'}`} title="Reste à faire (hors validée / livrée / prête)">
+                                        {restant === 0 ? '✓ fait' : `${restant} à faire`}
+                                      </span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })()}
 
                       {/* Créneaux du jour */}
                       {dayOrders.length === 0 ? (
                         <p className="px-4 py-3 text-xs text-mayssa-brown/30 italic">Aucune commande</p>
                       ) : (
                         <div className="divide-y divide-mayssa-brown/5">
-                          {dayOrders.map(([id, order]) => (
-                            <div key={id} className="flex items-center gap-3 px-4 py-2.5">
-                              <span className="text-[10px] font-bold text-mayssa-brown/40 w-10 flex-shrink-0">{order.requestedTime ?? '—'}</span>
-                              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                                order.status === 'en_preparation' ? 'bg-blue-400' :
-                                order.status === 'pret' ? 'bg-emerald-400' :
-                                order.status === 'livree' || order.status === 'validee' ? 'bg-emerald-600' :
-                                'bg-amber-400'
-                              }`} />
-                              <div className="min-w-0 flex-1">
-                                <p className="text-xs font-semibold text-mayssa-brown truncate">
-                                  {order.customer?.firstName} {order.customer?.lastName}
-                                </p>
-                                <p className="text-[10px] text-mayssa-brown/50 truncate">
-                                  {order.items?.map(i => `${i.quantity}× ${formatOrderItemName(i)}`).join(', ')}
-                                </p>
+                          {dayOrders.map(([id, order]) => {
+                            const SRC: Record<string, { label: string; bg: string; text: string; border: string }> = {
+                              whatsapp:  { label: 'WA',    bg: 'bg-green-100',  text: 'text-green-700',  border: 'border-l-green-400' },
+                              snap:      { label: 'Snap',  bg: 'bg-yellow-100', text: 'text-yellow-700', border: 'border-l-yellow-400' },
+                              instagram: { label: 'Insta', bg: 'bg-pink-100',   text: 'text-pink-700',   border: 'border-l-pink-500' },
+                              site:      { label: 'Site',  bg: 'bg-slate-100',  text: 'text-slate-500',  border: 'border-l-slate-300' },
+                            }
+                            const src = SRC[order.source ?? 'site'] ?? SRC.site
+                            return (
+                            <div
+                              key={id}
+                              className={`border-l-[3px] ${src.border}`}
+                            >
+                              {/* ── Nom + résumé commande — mobile uniquement ── */}
+                              <button
+                                type="button"
+                                onClick={() => setEditingOrderId(id)}
+                                className="sm:hidden w-full flex items-start justify-between gap-2 px-4 pt-2.5 pb-1 text-left active:bg-mayssa-brown/5 transition-colors"
+                              >
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold text-mayssa-brown truncate">
+                                    {order.customer?.firstName} {order.customer?.lastName}
+                                  </p>
+                                  <p className="text-[10px] text-mayssa-brown/50 truncate">
+                                    {order.items?.map(i => `${i.quantity}× ${formatOrderItemName(i)}`).join(', ')}
+                                  </p>
+                                </div>
+                                <div className="flex-shrink-0 text-right ml-2">
+                                  <p className="text-xs font-bold text-mayssa-caramel">{(order.total ?? 0).toFixed(2).replace('.', ',')} €</p>
+                                  <div className="flex items-center justify-end gap-1 mt-0.5">
+                                    <span className={`text-[9px] font-bold px-1 py-0.5 rounded ${src.bg} ${src.text}`}>{src.label}</span>
+                                    <span className="text-[10px] text-mayssa-brown/40">{order.deliveryMode === 'livraison' ? '🚗' : '📍'}</span>
+                                  </div>
+                                </div>
+                              </button>
+
+                              {/* ── Ligne date/statut/actions ── */}
+                              <div className="flex items-center gap-2 px-4 pb-2.5 sm:py-2.5">
+                              <div
+                                className="flex flex-col gap-0.5 flex-shrink-0 w-[90px] sm:w-[100px]"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <input
+                                  type="date"
+                                  value={order.requestedDate ?? ''}
+                                  onChange={(e) => handlePlanningDateTimeChange(id, order, e.target.value, order.requestedTime ?? '')}
+                                  className="w-full rounded border border-mayssa-brown/15 px-1.5 py-1 text-[10px] font-medium text-mayssa-brown bg-white cursor-pointer"
+                                  title="Date souhaitée"
+                                  aria-label="Date"
+                                />
+                                <input
+                                  type="time"
+                                  value={order.requestedTime ?? ''}
+                                  onChange={(e) => handlePlanningDateTimeChange(id, order, order.requestedDate ?? '', e.target.value)}
+                                  className="w-full rounded border border-mayssa-brown/15 px-1.5 py-1 text-[10px] font-medium text-mayssa-brown bg-white cursor-pointer"
+                                  title="Heure souhaitée"
+                                  aria-label="Heure"
+                                />
                               </div>
-                              <div className="flex-shrink-0 text-right">
-                                <p className="text-xs font-bold text-mayssa-caramel">{(order.total ?? 0).toFixed(2).replace('.', ',')} €</p>
-                                <p className="text-[10px] text-mayssa-brown/40">{order.deliveryMode === 'livraison' ? '🚗' : '📍'}</p>
+                              {/* Info commande — desktop uniquement */}
+                              <button
+                                type="button"
+                                onClick={() => setEditingOrderId(id)}
+                                className="hidden sm:flex min-w-0 flex-1 items-center gap-3 text-left hover:bg-mayssa-brown/5 active:bg-mayssa-brown/10 transition-colors cursor-pointer rounded-lg -m-1 p-1"
+                                aria-label={`Voir la commande de ${order.customer?.firstName} ${order.customer?.lastName}`}
+                              >
+                                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                  order.status === 'en_preparation' ? 'bg-blue-400' :
+                                  order.status === 'pret' ? 'bg-emerald-400' :
+                                  order.status === 'livree' || order.status === 'validee' ? 'bg-emerald-600' :
+                                  'bg-amber-400'
+                                }`} />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-semibold text-mayssa-brown truncate">
+                                    {order.customer?.firstName} {order.customer?.lastName}
+                                  </p>
+                                  <p className="text-[10px] text-mayssa-brown/50 truncate">
+                                    {order.items?.map(i => `${i.quantity}× ${formatOrderItemName(i)}`).join(', ')}
+                                  </p>
+                                </div>
+                                <div className="flex-shrink-0 text-right">
+                                  <p className="text-xs font-bold text-mayssa-caramel">{(order.total ?? 0).toFixed(2).replace('.', ',')} €</p>
+                                  <div className="flex items-center justify-end gap-1 mt-0.5">
+                                    <span className={`text-[9px] font-bold px-1 py-0.5 rounded ${src.bg} ${src.text}`}>{src.label}</span>
+                                    <span className="text-[10px] text-mayssa-brown/40">{order.deliveryMode === 'livraison' ? '🚗' : '📍'}</span>
+                                  </div>
+                                </div>
+                              </button>
+                              <div className="flex items-center gap-2 flex-shrink-0 ml-auto sm:ml-0">
+                                {/* Puce statut — ‹ reculer | label | › avancer */}
+                                {(() => {
+                                  const FLOW: string[] = order.deliveryMode === 'livraison'
+                                    ? ['en_attente', 'en_preparation', 'pret', 'livree']
+                                    : ['en_attente', 'en_preparation', 'pret', 'validee']
+                                  const CFG: Record<string, { short: string; bg: string; text: string; dot: string }> = {
+                                    en_attente:    { short: 'Attente', bg: 'bg-amber-100',   text: 'text-amber-700',   dot: 'bg-amber-400' },
+                                    en_preparation:{ short: 'Prépa',   bg: 'bg-blue-100',    text: 'text-blue-700',    dot: 'bg-blue-500' },
+                                    pret:          { short: 'Prête',   bg: 'bg-emerald-100', text: 'text-emerald-700', dot: 'bg-emerald-500' },
+                                    livree:        { short: 'Livrée',  bg: 'bg-gray-100',    text: 'text-gray-500',    dot: 'bg-gray-400' },
+                                    validee:       { short: 'Validée', bg: 'bg-purple-100',  text: 'text-purple-700',  dot: 'bg-purple-500' },
+                                    refusee:       { short: 'Refusée', bg: 'bg-red-100',     text: 'text-red-600',     dot: 'bg-red-400' },
+                                  }
+                                  const s = order.status ?? 'en_attente'
+                                  const cfg = CFG[s] ?? CFG.en_attente
+                                  const idx = FLOW.indexOf(s)
+                                  const prev = idx > 0 ? FLOW[idx - 1] : null
+                                  const next = idx >= 0 && idx < FLOW.length - 1 ? FLOW[idx + 1] : null
+                                  return (
+                                    <div className={`flex items-center rounded-lg overflow-hidden text-[10px] font-bold select-none ${cfg.bg} ${cfg.text}`}>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); if (prev) { hapticFeedback('light'); updateOrderStatus(id, prev as OrderStatus) } }}
+                                        className={`px-1.5 py-1 border-r border-current/20 transition-opacity ${prev ? 'cursor-pointer hover:opacity-60 active:scale-95' : 'opacity-20 cursor-default'}`}
+                                        title={prev ? `← ${CFG[prev]?.short}` : undefined}
+                                      >‹</button>
+                                      <span className="flex items-center gap-1 px-2 py-1">
+                                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${cfg.dot}`} />
+                                        {cfg.short}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); if (next) { hapticFeedback('light'); updateOrderStatus(id, next as OrderStatus) } }}
+                                        className={`px-1.5 py-1 border-l border-current/20 transition-opacity ${next ? 'cursor-pointer hover:opacity-60 active:scale-95' : 'opacity-20 cursor-default'}`}
+                                        title={next ? `→ ${CFG[next]?.short}` : undefined}
+                                      >›</button>
+                                    </div>
+                                  )
+                                })()}
+                                {order.customer?.phone && (() => {
+                                  const phone = phoneToWhatsApp(order.customer.phone)
+                                  const isDone = order.status === 'validee' || order.status === 'livree'
+                                  return (
+                                    <>
+                                      {/* Bouton WhatsApp — message "commande prête" pré-rempli */}
+                                      <a
+                                        href={`https://wa.me/${phone}?text=${encodeURIComponent(buildReadyMessage(order))}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="p-2 rounded-lg text-emerald-600 hover:text-white hover:bg-emerald-500 transition-colors"
+                                        title={`Message prêt → ${order.customer.firstName}`}
+                                        aria-label="Envoyer message commande prête"
+                                      >
+                                        <MessageCircle size={16} />
+                                      </a>
+                                      {/* Bouton avis Google — affiché uniquement quand validée ou livrée */}
+                                      {isDone && (
+                                        <a
+                                          href={`https://wa.me/${phone}?text=${encodeURIComponent(buildReviewMessage(order))}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="p-2 rounded-lg text-amber-500 hover:text-white hover:bg-amber-400 transition-colors"
+                                          title={`Demander un avis Google à ${order.customer.firstName}`}
+                                          aria-label="Demander un avis Google"
+                                        >
+                                          <Star size={16} />
+                                        </a>
+                                      )}
+                                    </>
+                                  )
+                                })()}
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); hapticFeedback('light'); setEditingOrderId(id) }}
+                                  className="p-2 rounded-lg text-mayssa-brown/60 hover:text-mayssa-brown hover:bg-mayssa-brown/10 transition-colors"
+                                  title="Voir la commande"
+                                  aria-label="Voir la commande"
+                                >
+                                  <Eye size={16} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); hapticFeedback('light'); exportSingleOrderPDF(order, id) }}
+                                  className="p-2 rounded-lg text-mayssa-brown/60 hover:text-mayssa-brown hover:bg-mayssa-brown/10 transition-colors"
+                                  title="Télécharger le bon de commande (PDF)"
+                                  aria-label="Télécharger le bon de commande"
+                                >
+                                  <Download size={16} />
+                                </button>
                               </div>
-                            </div>
-                          ))}
+                              </div>{/* fin flex items-center gap-2 px-4 */}
+                            </div>{/* fin border-l */}
+                          )
+                          })}
                         </div>
                       )}
+
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   )
                 })}

@@ -49,6 +49,8 @@ interface CartProps {
     maxDate?: string
     /** Si false, les clients ne peuvent pas envoyer de commande. */
     ordersOpen?: boolean
+    /** Si true, l'admin a manuellement forcé l'ouverture — bypasse la coupure 17h. */
+    ordersExplicit?: boolean
     /** Jours de la semaine autorisés (0=dim…6=sam). Si défini, le client ne peut choisir que ces jours. */
     availableWeekdays?: number[]
     /** Dates de récupération proposées aux clients (YYYY-MM-DD). Si renseigné, remplace availableWeekdays. */
@@ -100,6 +102,7 @@ export function Cart({
     retraitTimeSlots,
     livraisonTimeSlots,
     ordersOpen = true,
+    ordersExplicit = false,
     promoCodeInput = '',
     setPromoCodeInput,
     appliedPromo = null,
@@ -221,7 +224,7 @@ export function Cart({
       isCustomerValid &&
       ordersOpen !== false &&
       !trompeLoeilBeforeMinDate &&
-      (!hasNonTrompeLoeil || !orderCutoffPassed)
+      (!hasNonTrompeLoeil || !orderCutoffPassed || ordersExplicit)
 
     return (
         <div className="flex flex-col min-w-0 w-full overflow-hidden section-shell bg-white/95 !p-4 sm:!p-8 md:!p-10 premium-shadow">
@@ -826,7 +829,7 @@ export function Cart({
                                 )}
                                 {orderCutoffPassed && hasNonTrompeLoeil && (
                                     <p className="text-xs text-amber-700 text-center bg-amber-50 rounded-xl px-3 py-2 border border-amber-200">
-                                        Commandes (pâtisseries, cookies…) possibles jusqu&apos;à 23h. Les précommandes trompe-l&apos;œil restent disponibles.
+                                        Commandes (pâtisseries, cookies…) possibles jusqu&apos;à 17h. Les précommandes trompe-l&apos;œil restent disponibles.
                                     </p>
                                 )}
                                 {trompeLoeilBeforeMinDate && (
@@ -843,7 +846,7 @@ export function Cart({
                                     className="w-full flex items-center justify-center gap-3 rounded-[2rem] bg-[#25D366] text-white py-5 text-base font-bold shadow-2xl transition-all hover:bg-[#20bd5a] hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:grayscale disabled:hover:scale-100 cursor-pointer"
                                 >
                                     <MessageCircle size={24} />
-                                    <span>{hasItems ? (canSend ? 'Envoyer sur WhatsApp' : ordersOpen === false ? 'Commandes fermées' : trompeLoeilBeforeMinDate ? `À partir du ${formatDateLabel(minDate)}` : orderCutoffPassed && hasNonTrompeLoeil ? 'Commandes jusqu\'à 23h' : 'Vérifiez le formulaire') : 'Votre panier est vide'}</span>
+                                    <span>{hasItems ? (canSend ? 'Envoyer sur WhatsApp' : ordersOpen === false ? 'Commandes fermées' : trompeLoeilBeforeMinDate ? `À partir du ${formatDateLabel(minDate)}` : orderCutoffPassed && hasNonTrompeLoeil ? 'Commandes jusqu\'à 17h' : 'Vérifiez le formulaire') : 'Votre panier est vide'}</span>
                                 </button>
 
                                 <div className="grid grid-cols-2 gap-3">

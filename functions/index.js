@@ -8,7 +8,7 @@
  */
 
 import { onValueCreated, onValueUpdated } from 'firebase-functions/v2/database'
-import { onCall, HttpsError } from 'firebase-functions/v2/https'
+import { onCall } from 'firebase-functions/v2/https'
 import { defineString } from 'firebase-functions/params'
 import admin from 'firebase-admin'
 
@@ -169,6 +169,66 @@ export const submitMysteryGuess = onCall(
     const uid = request.auth?.uid || null
     await ref.set({ revealed: true, winnerUid: uid })
     return { success: true, winner: !!uid }
+  }
+)
+
+const GOOGLE_REVIEW_LINK = 'https://share.google/PsKmSr5Vx1VXqaNWx'
+
+/** Email client : demande d'avis Google (envoi en masse) */
+function buildGoogleReviewEmailHtml(customerName) {
+  const prenom = customerName ? escapeHtml(customerName) : 'vous'
+  return `
+<!DOCTYPE html>
+<html><body style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:16px;background:#fffdf9;">
+  <div style="text-align:center;padding:24px 0 16px;">
+    <h1 style="color:#5b3a29;font-size:22px;margin:0;">🎂 Maison Mayssa</h1>
+    <p style="color:#b8860b;margin:4px 0 0;font-size:13px;">Pâtisserie artisanale</p>
+  </div>
+  <div style="background:white;border-radius:16px;padding:24px;border:1px solid #f0e6d3;">
+    <h2 style="color:#5b3a29;margin-top:0;">Bonjour ${prenom} 😍</h2>
+    <p style="color:#444;line-height:1.6;">Merci pour votre commande chez Maison Mayssa ! J'espère que vous vous êtes régalé(e) 🎂</p>
+    <p style="color:#444;line-height:1.6;">Si vous avez un moment, un petit avis Google nous aiderait énormément à nous faire connaître :</p>
+    <div style="text-align:center;margin:28px 0;">
+      <a href="${GOOGLE_REVIEW_LINK}" style="display:inline-block;background:#b8860b;color:white;padding:14px 32px;text-decoration:none;border-radius:12px;font-weight:bold;font-size:16px;">⭐ Laisser un avis Google</a>
+    </div>
+    <p style="color:#444;line-height:1.6;">Ça prend juste 1 minute et ça compte énormément pour nous. Merci infiniment ! 🙏</p>
+  </div>
+  <p style="text-align:center;color:#aaa;font-size:12px;margin-top:16px;">Avec amour,<br/>Maison Mayssa</p>
+</body></html>`
+}
+
+/**
+ * Callable admin : envoie un email "avis Google" à tous les clients
+ * ayant au moins une commande validée ou livrée (dédupliqué par email).
+ * Retourne { sent: number } — le nombre d'emails envoyés.
+ */
+export const sendBulkGoogleReviewEmails = onCall(
+  { region: 'europe-west1' },
+  async () => {
+    const ordersSnap = await db.ref('orders').once('value')
+    const orders = ordersSnap.val() || {}
+
+    const emailsSent = new Set()
+    const promises = []
+
+    for (const order of Object.values(orders)) {
+      if (!['validee', 'livree'].includes(order.status)) continue
+      const email = order.customer?.email?.trim()
+      if (!email || emailsSent.has(email.toLowerCase())) continue
+      emailsSent.add(email.toLowerCase())
+
+      const customerName = order.customer?.firstName || ''
+      promises.push(
+        sendEmail({
+          to: email,
+          subject: 'Votre avis nous aide beaucoup ⭐ – Maison Mayssa',
+          html: buildGoogleReviewEmailHtml(customerName),
+        }).catch((err) => console.error(`[sendBulkGoogleReviewEmails] ${email}:`, err))
+      )
+    }
+
+    await Promise.all(promises)
+    return { sent: emailsSent.size }
   }
 )
 

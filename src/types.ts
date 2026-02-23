@@ -89,6 +89,8 @@ export type ProductOverride = {
     category?: ProductCategory
     /** true = produit créé par l'admin (pas dans constants.ts) */
     isCustom?: boolean
+    /** true = produit épinglé en haut de la liste */
+    pinned?: boolean
 }
 
 export type ProductOverrideMap = Record<string, ProductOverride>
