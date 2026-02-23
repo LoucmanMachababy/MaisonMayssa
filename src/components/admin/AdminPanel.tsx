@@ -741,10 +741,14 @@ function Dashboard({ user }: { user: User }) {
     }
     if (historiqueVue === 'a_traiter' && trompeLoeilFilter) {
       result = result.filter(([, o]) =>
-        o.items?.some((item) =>
-          isTrompeLoeilProductId(item.productId ?? '') &&
-          (item.name || item.productId) === trompeLoeilFilter
-        )
+        o.items?.some((item) => {
+          const pairs = getStockDecrementItems(item.productId ?? '', item.quantity ?? 1, PRODUCTS)
+          return pairs.some((pair) => {
+            if (!isTrompeLoeilProductId(pair.productId)) return false
+            const component = PRODUCTS.find(p => p.id === pair.productId)
+            return (component?.name ?? pair.productId) === trompeLoeilFilter
+          })
+        })
       )
     }
     return result
