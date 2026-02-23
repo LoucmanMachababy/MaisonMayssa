@@ -534,13 +534,13 @@ function Dashboard({ user }: { user: User }) {
     if (order.deliveryMode === 'livraison' && order.requestedDate && order.requestedTime) {
       releaseDeliverySlot(order.requestedDate, order.requestedTime).catch(console.error)
     }
-    // Remettre le stock UNIQUEMENT pour les trompe-l'œil (seuls produits dont le stock est décrémenté à la commande)
-    // sauf si la commande a été créée hors-site avec excludeTrompeLoeilStock=true (stock jamais décrémenté)
-    if (order.excludeTrompeLoeilStock === true) return
+    // Restaurer le stock de tous les produits décrémentés à la commande.
+    // Pour les trompe-l'œil : skip si excludeTrompeLoeilStock=true (hors-site sans déduction)
     for (const item of order.items) {
       const pairs = getStockDecrementItems(item.productId ?? '', item.quantity ?? 1, PRODUCTS)
       for (const pair of pairs) {
-        if (!isTrompeLoeilProductId(pair.productId)) continue
+        const isTrompe = isTrompeLoeilProductId(pair.productId)
+        if (isTrompe && order.excludeTrompeLoeilStock === true) continue
         if (pair.productId in stock) {
           const currentQty = stock[pair.productId] ?? 0
           await updateStock(pair.productId, currentQty + pair.quantity)

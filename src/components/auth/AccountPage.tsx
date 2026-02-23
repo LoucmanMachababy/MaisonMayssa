@@ -573,7 +573,7 @@ export function AccountPage({ onClose }: AccountPageProps) {
           {/* Réveil ouverture des commandes */}
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-mayssa-brown/5">
             <h3 className="font-bold text-mayssa-brown mb-2">Réveil ouverture des commandes</h3>
-            <p className="text-xs text-mayssa-brown/60 mb-3">Recevoir un rappel (mercredi &amp; samedi) pour ne pas rater l&apos;ouverture des précommandes.</p>
+            <p className="text-xs text-mayssa-brown/60 mb-3">Recevoir un rappel à l&apos;ouverture des précommandes pour ne pas rater les commandes.</p>
             <button
               type="button"
               onClick={async () => {

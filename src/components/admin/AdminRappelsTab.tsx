@@ -90,7 +90,7 @@ export function AdminRappelsTab({ allUsers }: AdminRappelsTabProps) {
           Réveil ouverture des commandes ({notifyOpening.length})
         </h3>
         <p className="text-xs text-mayssa-brown/60 mb-3">
-          Ces clients souhaitent recevoir un rappel (mercredi &amp; samedi) à l&apos;ouverture des précommandes.
+          Ces clients souhaitent recevoir un rappel à l&apos;ouverture des précommandes.
         </p>
         {notifyOpening.length === 0 ? (
           <p className="text-sm text-mayssa-brown/50">Aucun.</p>
