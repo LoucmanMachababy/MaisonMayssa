@@ -1106,6 +1106,20 @@ function AppContent() {
       if (customer.wantsDelivery && customer.date && customer.time) {
         reserveDeliverySlot(customer.date, customer.time).catch(console.error)
       }
+      // Décrémenter le stock à l'envoi :
+      // - Produits classiques (brownies, cookies...) : toujours ici
+      // - Trompe-l'œil : seulement si la réservation n'a pas déjà décrémenté (non-auth)
+      const { decrementStockBatch, getStockDecrementItems: getDecrItems } = await import('./lib/firebase')
+      const itemsToDecrement = cart.flatMap((item) => {
+        const isTrompe = item.product.category === "Trompe l'oeil"
+        // Trompe-l'œil déjà décrémenté via réservation (auth) → skip
+        if (isTrompe && item.reservationConfirmed) return []
+        if (isTrompe && isAuthenticated && item.reservationExpiresAt) return []
+        return getDecrItems(getOriginalProductId(item.product.id), item.quantity, PRODUCTS)
+      })
+      if (itemsToDecrement.length > 0) {
+        decrementStockBatch(itemsToDecrement).catch(console.error)
+      }
       return result
     } catch (err) {
       console.error('[Firebase] Erreur sauvegarde commande:', err)
