@@ -939,6 +939,73 @@ function Dashboard({ user }: { user: User }) {
     return data
   }, [orders])
 
+  // CA par catégorie de produit
+  const caByCategory = useMemo(() => {
+    const map: Record<string, { ca: number; qty: number }> = {}
+    for (const order of caOrders) {
+      for (const item of order.items ?? []) {
+        const id = item.productId ?? ''
+        const cat = id.startsWith('brownie-') ? 'Brownies'
+          : id.startsWith('cookie-') ? 'Cookies'
+          : id.startsWith('layer-') ? 'Layer Cups'
+          : id.startsWith('trompe-loeil-') || id === 'box-trompe-loeil' ? "Trompe l'œil"
+          : id.startsWith('tiramisu-') ? 'Tiramisus'
+          : id.includes('box') || id.includes('mini') ? 'Boxes'
+          : 'Autres'
+        if (!map[cat]) map[cat] = { ca: 0, qty: 0 }
+        map[cat].ca += item.price * item.quantity
+        map[cat].qty += item.quantity
+      }
+    }
+    return Object.entries(map)
+      .map(([name, { ca, qty }]) => ({ name, ca: Math.round(ca * 100) / 100, qty }))
+      .sort((a, b) => b.ca - a.ca)
+  }, [caOrders])
+
+  // Taux de conversion et stats livraison/retrait
+  const conversionStats = useMemo(() => {
+    const all = Object.values(orders)
+    const total = all.length
+    const validees = all.filter(o => o.status === 'validee' || o.status === 'livree').length
+    const refusees = all.filter(o => o.status === 'refusee').length
+    const livraison = caOrders.filter(o => o.deliveryMode === 'livraison')
+    const retrait = caOrders.filter(o => o.deliveryMode === 'retrait')
+    const caLivraison = livraison.reduce((s, o) => s + (o.total ?? 0), 0)
+    const caRetrait = retrait.reduce((s, o) => s + (o.total ?? 0), 0)
+    return {
+      tauxValidation: total > 0 ? Math.round((validees / total) * 100) : 0,
+      tauxRefus: total > 0 ? Math.round((refusees / total) * 100) : 0,
+      nbLivraison: livraison.length, caLivraison,
+      nbRetrait: retrait.length, caRetrait,
+    }
+  }, [orders, caOrders])
+
+  // Croissance mois vs mois précédent
+  const croissanceMois = useMemo(() => {
+    const n = new Date()
+    const debutMoisPrec = new Date(n.getFullYear(), n.getMonth() - 1, 1).getTime()
+    const finMoisPrec = new Date(n.getFullYear(), n.getMonth(), 0, 23, 59, 59, 999).getTime()
+    const caMoisPrec = caOrders
+      .filter(o => o.createdAt && o.createdAt >= debutMoisPrec && o.createdAt <= finMoisPrec)
+      .reduce((s, o) => s + (o.total ?? 0), 0)
+    if (caMoisPrec === 0) return null
+    return Math.round(((caMois - caMoisPrec) / caMoisPrec) * 100)
+  }, [caOrders, caMois])
+
+  // Meilleure journée de tous les temps
+  const meilleurJour = useMemo(() => {
+    const byDay: Record<string, number> = {}
+    for (const o of caOrders) {
+      if (!o.createdAt) continue
+      const key = new Date(o.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+      byDay[key] = (byDay[key] ?? 0) + (o.total ?? 0)
+    }
+    const entries = Object.entries(byDay)
+    if (entries.length === 0) return null
+    const best = entries.reduce((a, b) => b[1] > a[1] ? b : a)
+    return { label: best[0], ca: Math.round(best[1] * 100) / 100 }
+  }, [caOrders])
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header premium */}
@@ -2438,6 +2505,79 @@ function Dashboard({ user }: { user: User }) {
                 </ResponsiveContainer>
               </div>
             </div>
+
+            {/* Croissance + meilleur jour */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-mayssa-soft/50 border border-mayssa-brown/5 p-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60 mb-1">Croissance vs mois préc.</p>
+                {croissanceMois === null ? (
+                  <p className="text-lg font-display font-bold text-mayssa-brown/30">—</p>
+                ) : (
+                  <p className={`text-xl font-display font-bold ${croissanceMois >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                    {croissanceMois >= 0 ? '+' : ''}{croissanceMois}%
+                  </p>
+                )}
+              </div>
+              <div className="rounded-xl bg-mayssa-soft/50 border border-mayssa-brown/5 p-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60 mb-1">Meilleure journée</p>
+                {meilleurJour ? (
+                  <>
+                    <p className="text-lg font-display font-bold text-mayssa-caramel">{meilleurJour.ca.toFixed(2).replace('.', ',')} €</p>
+                    <p className="text-[10px] text-mayssa-brown/50 mt-0.5">{meilleurJour.label}</p>
+                  </>
+                ) : (
+                  <p className="text-lg font-display font-bold text-mayssa-brown/30">—</p>
+                )}
+              </div>
+            </div>
+
+            {/* Taux conversion + livraison vs retrait */}
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">Conversion & modes de retrait</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-3">
+                  <p className="text-[10px] text-emerald-700 font-bold mb-0.5">Taux validation</p>
+                  <p className="text-xl font-display font-bold text-emerald-700">{conversionStats.tauxValidation}%</p>
+                </div>
+                <div className="rounded-xl bg-red-50 border border-red-100 p-3">
+                  <p className="text-[10px] text-red-600 font-bold mb-0.5">Taux refus</p>
+                  <p className="text-xl font-display font-bold text-red-500">{conversionStats.tauxRefus}%</p>
+                </div>
+                <div className="rounded-xl bg-mayssa-soft/50 border border-mayssa-brown/5 p-3">
+                  <p className="text-[10px] text-mayssa-brown/60 font-bold mb-0.5">🚗 Livraison ({conversionStats.nbLivraison})</p>
+                  <p className="text-sm font-bold text-mayssa-brown">{conversionStats.caLivraison.toFixed(2).replace('.', ',')} €</p>
+                </div>
+                <div className="rounded-xl bg-mayssa-soft/50 border border-mayssa-brown/5 p-3">
+                  <p className="text-[10px] text-mayssa-brown/60 font-bold mb-0.5">📍 Retrait ({conversionStats.nbRetrait})</p>
+                  <p className="text-sm font-bold text-mayssa-brown">{conversionStats.caRetrait.toFixed(2).replace('.', ',')} €</p>
+                </div>
+              </div>
+            </div>
+
+            {/* CA par catégorie */}
+            {caByCategory.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">CA par catégorie</p>
+                <div className="space-y-1.5">
+                  {caByCategory.map(({ name, ca, qty }) => {
+                    const pct = caTotal > 0 ? (ca / caTotal) * 100 : 0
+                    return (
+                      <div key={name}>
+                        <div className="flex items-center justify-between text-xs mb-0.5">
+                          <span className="font-medium text-mayssa-brown">{name}</span>
+                          <span className="font-bold text-mayssa-caramel">{ca.toFixed(2).replace('.', ',')} €
+                            <span className="text-mayssa-brown/40 font-normal ml-1">· {qty} pcs</span>
+                          </span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-mayssa-soft/60 overflow-hidden">
+                          <div className="h-full rounded-full bg-mayssa-caramel" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Produits les plus vendus */}
             <div className="space-y-3">
