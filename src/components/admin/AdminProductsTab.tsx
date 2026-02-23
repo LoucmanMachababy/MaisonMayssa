@@ -297,18 +297,17 @@ function ProductEditForm({ product, hasOverride, isCustom, onReset, onDelete }: 
         available: product.available,
       })
     } else {
-      // For static products, only save the diff
-      const override: Partial<ProductOverride> = {}
+      // For static products, always save price/originalPrice to clear any stale override values
+      const override: Partial<ProductOverride> = {
+        price: priceNum,
+        originalPrice: origPriceNum,
+      }
       if (name !== staticProduct?.name) override.name = name
-      if (priceNum !== staticProduct?.price) override.price = priceNum
-      if (origPriceNum !== staticProduct?.originalPrice) override.originalPrice = origPriceNum
       if (description !== (staticProduct?.description || '')) override.description = description || undefined
       if (JSON.stringify(badges) !== JSON.stringify(staticProduct?.badges || [])) override.badges = badges
       if (JSON.stringify(sizes) !== JSON.stringify(staticProduct?.sizes || [])) override.sizes = sizes
 
-      if (Object.keys(override).length > 0) {
-        await updateProductOverride(product.id, override)
-      }
+      await updateProductOverride(product.id, override)
     }
 
     setSaving(false)
