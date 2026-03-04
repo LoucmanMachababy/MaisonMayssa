@@ -58,6 +58,7 @@ const SizeSelectorModal = lazy(() => import('./components/SizeSelectorModal').th
 const TiramisuCustomizationModal = lazy(() => import('./components/TiramisuCustomizationModal').then(m => ({ default: m.TiramisuCustomizationModal })))
 const BoxCustomizationModal = lazy(() => import('./components/BoxCustomizationModal').then(m => ({ default: m.BoxCustomizationModal })))
 const BoxFlavorsModal = lazy(() => import('./components/BoxFlavorsModal').then(m => ({ default: m.BoxFlavorsModal })))
+const BoxFruiteeModal = lazy(() => import('./components/BoxFruiteeModal').then(m => ({ default: m.BoxFruiteeModal })))
 const FavorisSection = lazy(() => import('./components/FavorisSection').then(m => ({ default: m.FavorisSection })))
 const ComplementarySuggestions = lazy(() => import('./components/ComplementarySuggestions').then(m => ({ default: m.ComplementarySuggestions })))
 const OccasionsSection = lazy(() => import('./components/OccasionsSection').then(m => ({ default: m.OccasionsSection })))
@@ -101,6 +102,39 @@ import {
   Heart
 } from 'lucide-react'
 import { PAYPAL_ME_USER, REFERRAL_DISCOUNT_EUR } from './constants'
+
+// ─── Anti-double-commande ─────────────────────────────────────────────────────
+
+const MM_PENDING_ORDER_KEY = 'mm_pending_order'
+const PENDING_ORDER_BLOCK_MS = 48 * 60 * 60 * 1000 // 48 h
+
+type PendingOrderEntry = { phone: string; placedAt: number; orderNumber?: number }
+
+function normalizePhone(phone: string): string {
+  return phone.replace(/\D/g, '')
+}
+
+function markOrderPlaced(phone: string, orderNumber?: number): void {
+  const entry: PendingOrderEntry = { phone: normalizePhone(phone), placedAt: Date.now(), orderNumber }
+  try { localStorage.setItem(MM_PENDING_ORDER_KEY, JSON.stringify(entry)) } catch { /* ignore */ }
+}
+
+function getPendingOrder(phone: string): PendingOrderEntry | null {
+  try {
+    const raw = localStorage.getItem(MM_PENDING_ORDER_KEY)
+    if (!raw) return null
+    const entry = JSON.parse(raw) as PendingOrderEntry
+    if (Date.now() - entry.placedAt > PENDING_ORDER_BLOCK_MS) {
+      localStorage.removeItem(MM_PENDING_ORDER_KEY)
+      return null
+    }
+    const normalized = normalizePhone(phone)
+    if (!normalized || !entry.phone || entry.phone !== normalized) return null
+    return entry
+  } catch { return null }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 /** Stock effectif d'un produit : pour un bundle, retourne le minimum des stocks de ses composants. */
 function getBundleEffectiveStock(product: { id: string; bundleProductIds?: string[] }, getStockFn: (id: string) => number | null): number | null {
@@ -555,6 +589,7 @@ function AppContent() {
   const [selectedProductForTiramisu, setSelectedProductForTiramisu] = useState<Product | null>(null)
   const [selectedProductForBox, setSelectedProductForBox] = useState<Product | null>(null)
   const [selectedProductForBoxFlavors, setSelectedProductForBoxFlavors] = useState<Product | null>(null)
+  const [selectedProductForBoxFruitee, setSelectedProductForBoxFruitee] = useState<Product | null>(null)
   const [selectedProductForTrompeLoeil, setSelectedProductForTrompeLoeil] = useState<Product | null>(null)
   const [toasts, setToasts] = useState<Toast[]>([])
   const [isInstagramModalOpen, setIsInstagramModalOpen] = useState(false)
@@ -760,6 +795,12 @@ function AppContent() {
       return
     }
 
+    // Box Fruitée 4 pièces : choix des parfums trompe-l'œil fruités
+    if (product.id === 'box-fruitee') {
+      setSelectedProductForBoxFruitee(product)
+      return
+    }
+
     // If product has sizes (like Layer Cups), open size selector modal
     if (product.sizes && product.sizes.length > 0) {
       setSelectedProductForSize(product)
@@ -899,6 +940,19 @@ function AppContent() {
     setSelectedProductForBoxFlavors(null)
   }
 
+  const handleBoxFruiteeSelect = (product: Product, flavorDescription: string) => {
+    const cartProduct: Product = {
+      ...product,
+      id: `${product.id}-${Date.now()}`,
+      description: flavorDescription,
+    }
+    setCart((current) => {
+      pendingAddToastRef.current = { message: `${product.name} ajouté au panier` }
+      return [...current, { product: cartProduct, quantity: 1 }]
+    })
+    setSelectedProductForBoxFruitee(null)
+  }
+
   const RESERVATION_DURATION_MS = 10 * 60 * 1000 // 10 minutes
 
   const handleTrompeLOeilConfirm = async (product: Product, quantity: number) => {
@@ -1013,6 +1067,29 @@ function AppContent() {
     requestedTime?: string
     whatsappMessage: string
   } | null>(null)
+
+  // Détecte si ce numéro a déjà passé une commande dans les 48 dernières heures
+  const [pendingOrderOverride, setPendingOrderOverride] = useState(false)
+
+  const pendingOrderInfo = useMemo(() => {
+    if (pendingOrderOverride) return null
+    return getPendingOrder(customer.phone)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customer.phone, orderConfirmation, pendingOrderOverride])
+
+  // Vérifie si l'admin a manuellement levé le blocage côté Firebase
+  useEffect(() => {
+    if (!pendingOrderInfo) return
+    import('./lib/firebase').then(({ getOrderRelease }) => {
+      getOrderRelease(customer.phone).then((releasedAt) => {
+        if (releasedAt && releasedAt > pendingOrderInfo.placedAt) {
+          try { localStorage.removeItem(MM_PENDING_ORDER_KEY) } catch { /* ignore */ }
+          setPendingOrderOverride(true)
+        }
+      }).catch(() => {})
+    }).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customer.phone, pendingOrderInfo?.placedAt])
 
   const handleApplyPromo = async () => {
     const code = promoCodeInput.trim()
@@ -1145,6 +1222,10 @@ function AppContent() {
       showToast('Les commandes sont fermées pour le moment.', 'error', 5000)
       return
     }
+    if (getPendingOrder(customer.phone)) {
+      showToast('Vous avez déjà passé une commande. Nous vous recontactons rapidement !', 'error', 6000)
+      return
+    }
     const hasNonTrompeLoeil = cart.some((item) => item.product.category !== "Trompe l'oeil")
     const hasTrompeLoeil = cart.some((item) => item.product.category === "Trompe l'oeil")
     const minDateForMode = customer.wantsDelivery ? deliverySchedule.minDateLivraison : deliverySchedule.minDateRetrait
@@ -1186,6 +1267,7 @@ function AppContent() {
       return
     }
     const { orderId, orderNumber } = orderResult
+    markOrderPlaced(customer.phone, orderNumber)
 
     // --- Analytics ---
     try {
@@ -1288,6 +1370,10 @@ function AppContent() {
       showToast('Les commandes sont fermées pour le moment.', 'error', 5000)
       return
     }
+    if (getPendingOrder(customer.phone)) {
+      showToast('Vous avez déjà passé une commande. Nous vous recontactons rapidement !', 'error', 6000)
+      return
+    }
     const hasNonTrompeLoeil = cart.some((item) => item.product.category !== "Trompe l'oeil")
     const hasTrompeLoeil = cart.some((item) => item.product.category === "Trompe l'oeil")
     const minDateForMode = customer.wantsDelivery ? deliverySchedule.minDateLivraison : deliverySchedule.minDateRetrait
@@ -1321,7 +1407,8 @@ function AppContent() {
     })
     if (!message) return
 
-    await saveOrderToFirebase('instagram')
+    const instagramResult = await saveOrderToFirebase('instagram')
+    if (instagramResult) markOrderPlaced(customer.phone, instagramResult.orderNumber)
 
     // Instagram DM a une limite de ~1000 caractères par message
     const INSTAGRAM_LIMIT = 1000
@@ -1357,6 +1444,10 @@ function AppContent() {
       showToast('Les commandes sont fermées pour le moment.', 'error', 5000)
       return
     }
+    if (getPendingOrder(customer.phone)) {
+      showToast('Vous avez déjà passé une commande. Nous vous recontactons rapidement !', 'error', 6000)
+      return
+    }
     const hasNonTrompeLoeil = cart.some((item) => item.product.category !== "Trompe l'oeil")
     const hasTrompeLoeil = cart.some((item) => item.product.category === "Trompe l'oeil")
     const minDateForMode = customer.wantsDelivery ? deliverySchedule.minDateLivraison : deliverySchedule.minDateRetrait
@@ -1390,7 +1481,8 @@ function AppContent() {
     })
     if (!message) return
 
-    await saveOrderToFirebase('snap')
+    const snapResult = await saveOrderToFirebase('snap')
+    if (snapResult) markOrderPlaced(customer.phone, snapResult.orderNumber)
     const { removeActiveSession: removeSessionSnap } = await import('./lib/firebase')
     await removeSessionSnap(sessionId)
     setSnapMessage(message)
@@ -1710,6 +1802,7 @@ function AppContent() {
               referralCodeInput={referralCodeInput}
               setReferralCodeInput={setReferralCodeInput}
               mysteryFraiseDiscount={0}
+              pendingOrder={pendingOrderInfo}
             />
           </motion.section>
         </main>
@@ -1923,6 +2016,16 @@ function AppContent() {
           />
         </Suspense>
       )}
+      {selectedProductForBoxFruitee && (
+        <Suspense fallback={null}>
+          <BoxFruiteeModal
+            product={selectedProductForBoxFruitee}
+            getStock={getStock}
+            onClose={() => setSelectedProductForBoxFruitee(null)}
+            onSelect={handleBoxFruiteeSelect}
+          />
+        </Suspense>
+      )}
 
       {/* Modal Trompe l'oeil (précommande) */}
       <TrompeLOeilModal
@@ -1985,6 +2088,7 @@ function AppContent() {
         referralCodeInput={referralCodeInput}
         setReferralCodeInput={setReferralCodeInput}
         mysteryFraiseDiscount={0}
+        pendingOrder={pendingOrderInfo}
       />
 
       <OrderRecapModal

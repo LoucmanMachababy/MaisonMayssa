@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { jsPDF } from 'jspdf'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { LogOut, Package, Plus, Minus, Calendar, Clock, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp, Pencil, Search, Download, Bell, MessageSquare, MessageCircle, Filter, XCircle, Star, Tag, FileText, LayoutDashboard, Copy, Eye, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from 'lucide-react'
+import { LogOut, Package, Plus, Minus, Calendar, Clock, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp, Pencil, Search, Download, Bell, MessageSquare, MessageCircle, Filter, XCircle, Star, Tag, FileText, LayoutDashboard, Copy, Eye, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, CheckCheck } from 'lucide-react'
 import type { OrderStatus } from '../../lib/firebase'
 import {
   adminLogin, adminLogout, onAuthChange,
@@ -52,6 +52,16 @@ function phoneToWhatsApp(phone: string): string {
 }
 
 const GOOGLE_REVIEW_LINK = 'https://share.google/PsKmSr5Vx1VXqaNWx'
+
+/** Message WhatsApp "commande validée" pré-rempli */
+function buildValidatedMessage(order: Order): string {
+  const prenom = order.customer?.firstName ?? 'vous'
+  return (
+    `Bonjour ${prenom},\n\n` +
+    `Votre commande chez Maison Mayssa est bien validée ! 🎂✅\n\n` +
+    `Nous vous contacterons dès qu'elle sera prête 😊`
+  )
+}
 
 /** Message WhatsApp "commande prête" pré-rempli */
 function buildReadyMessage(order: Order): string {
@@ -821,7 +831,7 @@ function Dashboard({ user }: { user: User }) {
     if (historiqueVue === 'a_faire' && aFaireAujourdhuiOnly) {
       result = result.filter(([, o]) => o.requestedDate === todayRetraitStr)
     }
-    if (historiqueVue === 'a_traiter' && trompeLoeilFilter) {
+    if ((historiqueVue === 'a_traiter' || historiqueVue === 'a_faire') && trompeLoeilFilter) {
       result = result.filter(([, o]) =>
         o.items?.some((item) => {
           const pairs = getStockDecrementItems(item.productId ?? '', item.quantity ?? 1, PRODUCTS)
@@ -836,15 +846,19 @@ function Dashboard({ user }: { user: User }) {
     return result
   }, [sortedOrders, historiqueVue, aFaireAujourdhuiOnly, todayRetraitStr, trompeLoeilFilter])
 
-  // Récap trompes l'œil à préparer (vue Historique > À traiter : en préparation + validées ex. hors site)
+  // Récap trompes l'œil à préparer (vue Historique > À traiter ou À faire)
   const trompeLoeilSummary = useMemo(() => {
-    if (historiqueVue !== 'a_traiter') return [] as { name: string; quantity: number }[]
+    if (historiqueVue !== 'a_traiter' && historiqueVue !== 'a_faire') return [] as { name: string; quantity: number }[]
 
     const map = new Map<string, number>()
 
     for (const [, order] of sortedOrders) {
-      if (order.status !== 'en_preparation' && order.status !== 'validee') continue
-      if (order.status === 'validee' && order.requestedDate && order.requestedDate < todayRetraitStr) continue
+      if (historiqueVue === 'a_traiter') {
+        if (order.status !== 'en_preparation' && order.status !== 'validee') continue
+        if (order.status === 'validee' && order.requestedDate && order.requestedDate < todayRetraitStr) continue
+      } else {
+        if (order.status !== 'en_attente') continue
+      }
 
       for (const item of order.items ?? []) {
         const pairs = getStockDecrementItems(item.productId ?? '', item.quantity ?? 1, PRODUCTS)
@@ -1996,7 +2010,7 @@ function Dashboard({ user }: { user: User }) {
                       <button
                         key={t.vue}
                         type="button"
-                        onClick={() => { setHistoriqueVue(t.vue); if (t.vue !== 'a_traiter') setTrompeLoeilFilter(null) }}
+                        onClick={() => { setHistoriqueVue(t.vue); if (t.vue !== 'a_traiter' && t.vue !== 'a_faire') setTrompeLoeilFilter(null) }}
                         className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                           historiqueVue === t.vue ? t.color + ' shadow-sm' : 'bg-mayssa-soft/60 text-mayssa-brown/60 hover:bg-mayssa-soft'
                         }`}
@@ -2045,7 +2059,7 @@ function Dashboard({ user }: { user: User }) {
                     <p className="text-lg font-display font-bold text-emerald-800">{caATraiter.toFixed(2)} €</p>
                   </div>
                 )}
-                {historiqueVue === 'a_traiter' && trompeLoeilSummary.length > 0 && (
+                {(historiqueVue === 'a_traiter' || historiqueVue === 'a_faire') && trompeLoeilSummary.length > 0 && (
                   <div className="bg-mayssa-caramel/10 rounded-xl px-4 py-2 shadow-sm border border-mayssa-caramel/30 max-w-full">
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-caramel/80">
@@ -4391,6 +4405,18 @@ function Dashboard({ user }: { user: User }) {
                                   const isDone = order.status === 'validee' || order.status === 'livree'
                                   return (
                                     <>
+                                      {/* Bouton WhatsApp — confirmation "commande validée" */}
+                                      <a
+                                        href={`https://wa.me/${phone}?text=${encodeURIComponent(buildValidatedMessage(order))}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="p-2 rounded-lg text-teal-600 hover:text-white hover:bg-teal-500 transition-colors"
+                                        title={`Confirmer la commande à ${order.customer.firstName}`}
+                                        aria-label="Envoyer confirmation commande validée"
+                                      >
+                                        <CheckCheck size={16} />
+                                      </a>
                                       {/* Bouton WhatsApp — message "commande prête" pré-rempli */}
                                       <a
                                         href={`https://wa.me/${phone}?text=${encodeURIComponent(buildReadyMessage(order))}`}
@@ -4439,8 +4465,8 @@ function Dashboard({ user }: { user: User }) {
                                   <Download size={16} />
                                 </button>
                               </div>
-                              </div>{/* fin flex items-center gap-2 px-4 */}
-                            </div>{/* fin border-l */}
+                              </div>
+                            </div>
                           )
                           })}
                         </div>

@@ -4,9 +4,9 @@ import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
   Search, X, MapPin, Phone, Calendar, Clock,
   MessageCircle, Star, Pencil, Package, MessageSquare,
-  ClipboardList,
+  ClipboardList, LockOpen,
 } from 'lucide-react'
-import { updateOrderStatus, updateOrder, releaseDeliverySlot, reserveDeliverySlot, type Order, type OrderStatus } from '../../lib/firebase'
+import { updateOrderStatus, updateOrder, releaseDeliverySlot, reserveDeliverySlot, releaseOrderBlock, type Order, type OrderStatus } from '../../lib/firebase'
 import { formatOrderItemName } from '../../lib/utils'
 import { hapticFeedback } from '../../lib/haptics'
 import type { OrderItem } from '../../lib/firebase'
@@ -36,6 +36,16 @@ function buildReadyMessage(order: Order): string {
     `Bonjour ${prenom},\n\n` +
     `Vous avez commandé des trompe-l'œil pour aujourd'hui chez Maison Mayssa. Votre commande sera prête à être récupérée à partir de 18h.\n\n` +
     `Merci de me préciser l'heure qui vous conviendrait pour le retrait 😊`
+  )
+}
+
+function buildConfirmationMessage(order: Order): string {
+  const prenom = order.customer?.firstName ?? 'vous'
+  return (
+    `Bonjour ${prenom},\n\n` +
+    `Votre commande Maison Mayssa a bien été reçue et est validée ✅\n\n` +
+    `Nous vous recontacterons 24h avant afin de reconfirmer votre commande.\n\n` +
+    `Merci à vous ! 🙏🎂`
   )
 }
 
@@ -441,6 +451,22 @@ function OrderCard({ orderId, order, onEdit, onDateTimeChange }: OrderCardProps)
   const src = SOURCE_CFG[order.source ?? 'site'] ?? SOURCE_CFG.site
   const isDelivery = order.deliveryMode === 'livraison'
   const isDone = s === 'validee' || s === 'livree'
+  const [releasing, setReleasing] = useState(false)
+  const [released, setReleased] = useState(false)
+
+  const handleReleaseBlock = async () => {
+    if (!order.customer?.phone || releasing || released) return
+    hapticFeedback('medium')
+    setReleasing(true)
+    try {
+      await releaseOrderBlock(order.customer.phone)
+      setReleased(true)
+    } catch (e) {
+      console.error('[releaseOrderBlock]', e)
+    } finally {
+      setReleasing(false)
+    }
+  }
 
   const FLOW: string[] = isDelivery
     ? ['en_attente', 'en_preparation', 'pret', 'livree']
@@ -586,6 +612,16 @@ function OrderCard({ orderId, order, onEdit, onDateTimeChange }: OrderCardProps)
         {order.customer?.phone && (
           <>
             <a
+              href={`https://wa.me/${phoneToWhatsApp(order.customer.phone)}?text=${encodeURIComponent(buildConfirmationMessage(order))}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-sky-500 text-white text-xs font-bold hover:bg-sky-600 transition-colors"
+              title="Envoyer confirmation de commande"
+            >
+              <MessageCircle size={14} />
+              Confirmée
+            </a>
+            <a
               href={`https://wa.me/${phoneToWhatsApp(order.customer.phone)}?text=${encodeURIComponent(buildReadyMessage(order))}`}
               target="_blank"
               rel="noopener noreferrer"
@@ -627,6 +663,22 @@ function OrderCard({ orderId, order, onEdit, onDateTimeChange }: OrderCardProps)
           <Pencil size={14} />
           Modifier
         </button>
+        {order.customer?.phone && (
+          <button
+            type="button"
+            onClick={handleReleaseBlock}
+            disabled={releasing || released}
+            title="Permettre au client de recommander (lève le blocage double-commande)"
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer disabled:cursor-not-allowed ${
+              released
+                ? 'bg-emerald-100 text-emerald-700'
+                : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+            }`}
+          >
+            <LockOpen size={14} />
+            {releasing ? '…' : released ? 'Débloqué ✓' : 'Débloquer'}
+          </button>
+        )}
       </div>
     </div>
   )

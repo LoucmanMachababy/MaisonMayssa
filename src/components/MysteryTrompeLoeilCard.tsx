@@ -57,7 +57,7 @@ export function MysteryTrompeLoeilCard({ product, onToast }: MysteryTrompeLoeilC
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      className="group relative flex flex-col gap-3 sm:gap-4 overflow-hidden rounded-2xl sm:rounded-[2rem] bg-white/60 p-3 sm:p-4 shadow-xl ring-1 ring-white/40 ring-2 ring-amber-200/60"
+      className="group relative flex flex-col gap-3 sm:gap-4 overflow-hidden rounded-2xl sm:rounded-[2rem] bg-white/60 p-3 sm:p-4 shadow-xl ring-1 ring-white/40"
     >
       <div className="absolute top-4 right-4 z-10">
         <ProductBadges badges={product.badges ?? []} />

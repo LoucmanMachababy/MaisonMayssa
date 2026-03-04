@@ -1172,6 +1172,24 @@ export function listenActiveSessions(callback: (sessions: Record<string, ActiveS
   })
 }
 
+// ─── Déblocage double-commande ────────────────────────────────────────────────
+
+/** L'admin libère le blocage double-commande pour un numéro de téléphone. */
+export async function releaseOrderBlock(phone: string): Promise<void> {
+  const normalized = phone.replace(/\D/g, '')
+  if (!normalized) return
+  await set(ref(db, `orderReleases/${normalized}`), { releasedAt: Date.now() })
+}
+
+/** Retourne le timestamp du dernier déblocage admin pour ce numéro, ou null. */
+export async function getOrderRelease(phone: string): Promise<number | null> {
+  const normalized = phone.replace(/\D/g, '')
+  if (!normalized) return null
+  const snapshot = await get(ref(db, `orderReleases/${normalized}`))
+  if (!snapshot.exists()) return null
+  return (snapshot.val() as { releasedAt: number })?.releasedAt ?? null
+}
+
 export { db, auth, app }
 
 // --- Firebase Storage : upload d'images produits ---

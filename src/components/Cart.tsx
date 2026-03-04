@@ -74,6 +74,8 @@ interface CartProps {
     setReferralCodeInput?: (v: string) => void
     /** Réduction 10 % gagnée en trouvant le trompe l'oeil mystère (Fraise) */
     mysteryFraiseDiscount?: number
+    /** Si défini, le client a déjà passé une commande récente → on bloque */
+    pendingOrder?: { orderNumber?: number; placedAt: number } | null
 }
 
 export function Cart({
@@ -113,6 +115,7 @@ export function Cart({
     referralCodeInput = '',
     setReferralCodeInput,
     mysteryFraiseDiscount = 0,
+    pendingOrder = null,
 }: CartProps) {
     const hasItems = items.length > 0
     const itemCount = items.reduce((sum, item) => sum + item.quantity, 0)
@@ -808,6 +811,24 @@ export function Cart({
                             )}
 
                             <div className="space-y-3 pt-2">
+                                {pendingOrder ? (
+                                    /* ── Blocage double-commande ── */
+                                    <div className="max-w-md mx-auto rounded-2xl bg-emerald-50 border-2 border-emerald-200 p-5 text-center space-y-3">
+                                        <div className="text-4xl">✅</div>
+                                        <div className="space-y-1">
+                                            <p className="text-sm font-bold text-emerald-800">
+                                                Commande déjà reçue{pendingOrder.orderNumber ? ` (n°${pendingOrder.orderNumber})` : ''} !
+                                            </p>
+                                            <p className="text-xs text-emerald-700 leading-relaxed">
+                                                Nous avons bien reçu votre commande et elle est en cours de traitement. Nous vous recontacterons rapidement pour confirmer. Merci ! 🙏
+                                            </p>
+                                        </div>
+                                        <p className="text-[10px] text-emerald-600/70">
+                                            Ce message disparaîtra automatiquement dans 48 h.
+                                        </p>
+                                    </div>
+                                ) : (
+                                <>
                                 <p className="text-[10px] text-mayssa-brown/60 text-center font-medium flex items-center justify-center gap-1.5">
                                     <MessageCircle size={14} />
                                     Envoyez votre commande via WhatsApp, Instagram ou Snapchat.
@@ -871,6 +892,8 @@ export function Cart({
                                         <span>Snapchat</span>
                                     </button>
                                 </div>
+                                </>
+                                )}
                             </div>
                         </div>
                     </div>

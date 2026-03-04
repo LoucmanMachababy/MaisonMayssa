@@ -122,6 +122,18 @@ export const PRODUCTS: Product[] = [
         preorder: TROMPE_LOEIL_PREORDER,
     },
 
+    {
+        id: 'box-fruitee',
+        name: '🍓 Box Fruitée — 4 pièces au choix',
+        description: 'Compose ta box avec 4 trompe-l\'œil fruités au choix parmi : Mangue, Citron, Fraise, Myrtille, Framboise, Passion.',
+        price: 28,
+        originalPrice: 31,
+        category: "Trompe l'oeil",
+        image: '/Boxe-trompeloeil.webp',
+        badges: ['nouveau'],
+        preorder: TROMPE_LOEIL_PREORDER,
+    },
+
     // Mini gourmandises (avec coulis au choix : Nutella, Crème Bueno, Spéculoos, Pistache)
     {
         id: 'mini-box-brownies',
