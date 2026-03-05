@@ -1,123 +1,147 @@
 @import "tailwindcss";
 
 @theme {
-  --font-display: "Playfair Display", serif;
-  --font-sans: "Quicksand", sans-serif;
+  --font-display: "Playfair Display", "Cinzel", serif;
+  --font-sans: "Inter", "Quicksand", sans-serif;
 
-  --color-mayssa-brown: #5b3a29;
-  --color-mayssa-caramel: #f7b267;
-  --color-mayssa-cream: #fdf4e8;
-  --color-mayssa-rose: #fbe2dd;
-  --color-mayssa-soft: #fff9f3;
-  --color-mayssa-gold: #d4af37;
+  --color-mayssa-brown: #2A1B12;
+  --color-mayssa-caramel: #D48C45;
+  --color-mayssa-cream: #FFFDF9;
+  --color-mayssa-rose: #F8E3DE;
+  --color-mayssa-soft: #FCFBFA;
+  --color-mayssa-gold: #C5A059;
+  --color-mayssa-gold-light: #E0C792;
 
-  --animate-float: float 6s ease-in-out infinite;
-  --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  --animate-shimmer: shimmer 1.5s infinite;
+  --animate-float: float 7s ease-in-out infinite;
+  --animate-pulse-slow: pulse-glow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-shimmer: shimmer 2s infinite linear;
+  --animate-reveal-up: reveal-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-fade-in: fade-in 0.5s ease-out forwards;
 
   @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-12px); }
+  }
 
-    0%,
-    100% {
-      transform: translateY(0);
+  @keyframes pulse-glow {
+    0%, 100% {
+      opacity: 0.6;
+      box-shadow: 0 0 10px rgba(197, 160, 89, 0.2);
     }
-
     50% {
-      transform: translateY(-10px);
+      opacity: 1;
+      box-shadow: 0 0 25px rgba(197, 160, 89, 0.5);
     }
   }
 
   @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  @keyframes reveal-up {
     0% {
-      transform: translateX(-100%);
+      opacity: 0;
+      transform: translateY(30px);
     }
     100% {
-      transform: translateX(100%);
+      opacity: 1;
+      transform: translateY(0);
     }
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 }
 
 @layer base {
   :root {
-    --primary: #5b3a29;
-    --accent: #f7b267;
-    --background: #fff9f3;
+    --primary: #2A1B12;
+    --accent: #D48C45;
+    --background: #FCFBFA;
   }
 
   html {
     scroll-behavior: smooth;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-      scroll-behavior: auto !important;
-    }
-  }
-
-  *:focus-visible {
-    outline: 2px solid var(--color-mayssa-caramel);
-    outline-offset: 2px;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   body {
-    @apply m-0 bg-mayssa-soft text-mayssa-brown font-sans antialiased selection:bg-mayssa-caramel/30;
+    @apply m-0 bg-mayssa-soft text-mayssa-brown font-sans selection:bg-mayssa-gold/30 selection:text-mayssa-brown overflow-x-hidden;
   }
 
-  h1,
-  h2,
-  h3,
-  h4 {
-    @apply font-display font-bold;
+  h1, h2, h3, h4 {
+    @apply font-display font-medium tracking-tight;
   }
 }
 
 @utility glass-card {
-  background-color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.65);
   backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  box-shadow: 0 8px 32px 0 rgba(91, 58, 41, 0.08);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 
+    0 12px 40px -12px rgba(42, 27, 18, 0.12),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+}
+
+@utility glass-dark {
+  background: rgba(42, 27, 18, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
 }
 
 @utility premium-shadow {
-  box-shadow: 0 20px 50px rgba(91, 58, 41, 0.12);
+  box-shadow: 
+    0 20px 60px -15px rgba(42, 27, 18, 0.15),
+    0 8px 15px -5px rgba(42, 27, 18, 0.05);
 }
 
-@utility text-glow {
-  text-shadow: 0 0 20px rgba(247, 178, 103, 0.3);
+@utility text-glow-gold {
+  text-shadow: 0 0 20px rgba(197, 160, 89, 0.4);
 }
 
 @utility bg-mesh {
+  background-color: #FCFBFA;
   background-image:
-    radial-gradient(at 0% 0%, rgba(253, 244, 232, 0.8) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(251, 226, 221, 0.8) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(247, 178, 103, 0.15) 0px, transparent 50%),
-    radial-gradient(at 0% 100%, rgba(91, 58, 41, 0.08) 0px, transparent 50%);
+    radial-gradient(at 0% 0%, rgba(255, 253, 249, 1) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(248, 227, 222, 0.4) 0px, transparent 50%),
+    radial-gradient(at 50% 100%, rgba(197, 160, 89, 0.05) 0px, transparent 50%);
+  background-attachment: fixed;
 }
 
 @utility section-shell {
-  @apply glass-card rounded-[2.5rem] p-6 sm:p-8 md:p-10;
+  @apply glass-card rounded-[3rem] p-8 sm:p-12 md:p-16 border border-white/70;
+}
+
+@utility gold-gradient {
+  background: linear-gradient(135deg, #C5A059 0%, #E0C792 50%, #C5A059 100%);
+}
+
+@utility premium-border {
+  border: 1px solid transparent;
+  background: linear-gradient(white, white) padding-box,
+              linear-gradient(135deg, rgba(197, 160, 89, 0.5), rgba(197, 160, 89, 0.1)) border-box;
 }
 
 @layer utilities {
   .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
   }
-
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(91, 58, 41, 0.2);
+    background: rgba(42, 27, 18, 0.2);
     border-radius: 10px;
   }
-
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgba(91, 58, 41, 0.4);
+    background: var(--color-mayssa-gold);
   }
+
 
   .no-scrollbar::-webkit-scrollbar {
     display: none;
@@ -128,14 +152,13 @@
     scrollbar-width: none;
   }
 
-  /* Scrollbar visible pour les catégories desktop (glisser horizontalement) */
   .scrollbar-categories {
     scrollbar-width: thin;
-    scrollbar-color: rgba(91, 58, 41, 0.35) transparent;
+    scrollbar-color: rgba(198, 155, 86, 0.4) transparent;
   }
 
   .scrollbar-categories::-webkit-scrollbar {
-    height: 6px;
+    height: 4px;
   }
 
   .scrollbar-categories::-webkit-scrollbar-track {
@@ -143,11 +166,12 @@
   }
 
   .scrollbar-categories::-webkit-scrollbar-thumb {
-    background: rgba(91, 58, 41, 0.35);
+    background: rgba(198, 155, 86, 0.4);
     border-radius: 10px;
   }
 
   .scrollbar-categories::-webkit-scrollbar-thumb:hover {
-    background: rgba(91, 58, 41, 0.5);
+    background: rgba(198, 155, 86, 0.8);
   }
 }
+

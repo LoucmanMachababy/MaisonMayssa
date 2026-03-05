@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { X, Minus, Plus, Search, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
-import { createOffSiteOrder, decrementStockBatch, isTrompeLoeilProductId, getStockDecrementItems, reserveDeliverySlot, validatePromoCode, incrementPromoCodeUsage, type OrderSource, type OrderItem, type DeliveryMode, type StockMap } from '../../lib/firebase'
+import { createOffSiteOrder, decrementStockBatch, isTrompeLoeilProductId, getStockDecrementItems, reserveDeliverySlot, validatePromoCode, incrementPromoCodeUsage, updateUserOrderStats, type OrderSource, type OrderItem, type DeliveryMode, type StockMap } from '../../lib/firebase'
 import type { ProductWithAvailability } from '../../hooks/useProducts'
 import type { Product, ProductCategory, ProductSize } from '../../types'
 import { TiramisuCustomizationModal } from '../TiramisuCustomizationModal'
+import { BoxFlavorsModal } from '../BoxFlavorsModal'
 
 const ALL_CATEGORIES: ProductCategory[] = [
   "Trompe l'oeil", 'Mini Gourmandises', 'Brownies', 'Cookies', 'Layer Cups', 'Boxes', 'Tiramisus',
@@ -34,14 +35,25 @@ interface CartEntry {
   unitPrice: number
 }
 
+export type PresetClient = {
+  uid?: string
+  firstName: string
+  lastName: string
+  phone: string
+  email?: string
+  address?: string
+}
+
 interface AdminOffSiteOrderFormProps {
   allProducts: ProductWithAvailability[]
   stock: StockMap
   onClose: () => void
   onOrderCreated: () => void
+  /** Si défini, pré-remplit le formulaire avec les infos du client (ex. depuis la liste Inscrits) */
+  presetClient?: PresetClient | null
 }
 
-export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCreated }: AdminOffSiteOrderFormProps) {
+export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCreated, presetClient }: AdminOffSiteOrderFormProps) {
   const [source, setSource] = useState<OrderSource | null>(null)
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -57,6 +69,7 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
   const [sizePickerFor, setSizePickerFor] = useState<string | null>(null)
   const [tiramisuProduct, setTiramisuProduct] = useState<ProductWithAvailability | null>(null)
+  const [boxFlavorsProduct, setBoxFlavorsProduct] = useState<ProductWithAvailability | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [promoCodeInput, setPromoCodeInput] = useState('')
@@ -64,6 +77,15 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
   const [manualDiscount, setManualDiscount] = useState<number>(0)
   const [deliveryFee, setDeliveryFee] = useState(0)
   const [promoError, setPromoError] = useState('')
+
+  useEffect(() => {
+    if (presetClient) {
+      setFirstName(presetClient.firstName || '')
+      setLastName(presetClient.lastName || '')
+      setPhone(presetClient.phone || '')
+      setAddress(presetClient.address || '')
+    }
+  }, [presetClient])
 
   const subtotal = cart.reduce((sum, entry) => sum + entry.unitPrice * entry.quantity, 0)
   const discountAmount = appliedPromo ? appliedPromo.discount : (manualDiscount > 0 ? Math.min(manualDiscount, subtotal) : 0)
@@ -131,6 +153,18 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
     setTiramisuProduct(null)
   }
 
+  const handleBoxFlavorsSelect = (product: Product, size: ProductSize, flavorDescription: string, totalPrice: number) => {
+    const cartProduct = {
+      ...boxFlavorsProduct!,
+      id: `${product.id}-${size.ml}-${Date.now()}`,
+      name: `${product.name} – ${size.label}`,
+      description: flavorDescription,
+      price: totalPrice,
+    } as ProductWithAvailability
+    setCart(prev => [...prev, { product: cartProduct, quantity: 1, unitPrice: totalPrice }])
+    setBoxFlavorsProduct(null)
+  }
+
   const updateCartQuantity = (index: number, delta: number) => {
     setCart(prev => {
       const entry = prev[index]
@@ -176,13 +210,17 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
 
     setSaving(true)
     try {
-      const items: OrderItem[] = cart.map(entry => ({
-        productId: entry.product.id,
-        name: entry.sizeLabel ? `${entry.product.name} (${entry.sizeLabel})` : entry.product.name,
-        quantity: entry.quantity,
-        price: entry.unitPrice,
-        sizeLabel: entry.sizeLabel,
-      }))
+      const items: OrderItem[] = cart.map(entry => {
+        const baseName = entry.sizeLabel ? `${entry.product.name} (${entry.sizeLabel})` : entry.product.name
+        const name = entry.product.description ? `${baseName} — ${entry.product.description}` : baseName
+        return {
+          productId: entry.product.id,
+          name,
+          quantity: entry.quantity,
+          price: entry.unitPrice,
+          sizeLabel: entry.sizeLabel,
+        }
+      })
 
       await createOffSiteOrder({
         items,
@@ -190,12 +228,14 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
           firstName: firstName.trim(),
           lastName: lastName.trim(),
           phone: phone.trim(),
+          ...(presetClient?.email?.trim() && { email: presetClient.email.trim() }),
           ...(deliveryMode === 'livraison' && address.trim() && { address: address.trim() }),
         },
         total,
         status: 'en_attente',
         source,
         deliveryMode,
+        ...(presetClient?.uid && { userId: presetClient.uid }),
         ...(requestedDate && { requestedDate }),
         ...(requestedTime && { requestedTime }),
         ...(adminNote.trim() && { adminNote: adminNote.trim() }),
@@ -222,6 +262,15 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
 
       if (appliedPromo?.code) {
         incrementPromoCodeUsage(appliedPromo.code).catch(console.error)
+      }
+
+      if (presetClient?.uid) {
+        const hasTrompeLoeil = cart.some(e => isTrompeLoeilProductId(e.product.id) || !!e.product.bundleProductIds?.length)
+        updateUserOrderStats(presetClient.uid, {
+          hasTrompeLoeil,
+          hasDonation: false,
+          hasPromo: !!appliedPromo,
+        }).catch(console.error)
       }
 
       onOrderCreated()
@@ -352,6 +401,15 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
                             >
                               <Plus size={14} />
                             </button>
+                          ) : (product.id === 'box-cookies' || product.id === 'box-brownies' || product.id === 'box-mixte') ? (
+                            <button
+                              type="button"
+                              onClick={() => setBoxFlavorsProduct(product)}
+                              disabled={isSoldOut}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg bg-mayssa-brown text-white hover:bg-mayssa-caramel disabled:bg-mayssa-brown/20 transition-colors cursor-pointer text-xs"
+                            >
+                              <Plus size={14} />
+                            </button>
                           ) : product.sizes && product.sizes.length > 0 ? (
                             <button
                               type="button"
@@ -399,12 +457,15 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
               <div className="mt-3 border border-mayssa-brown/10 rounded-xl p-3 space-y-2">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">Panier ({cart.length})</p>
                 {cart.map((entry, i) => (
-                  <div key={`${entry.product.id}-${entry.sizeLabel ?? ''}`} className="flex items-center gap-2">
+                  <div key={`${entry.product.id}-${i}`} className="flex items-center gap-2">
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium text-mayssa-brown truncate">
                         {displayName(entry.product)}
                         {entry.sizeLabel && <span className="text-mayssa-brown/50"> ({entry.sizeLabel})</span>}
                       </p>
+                      {entry.product.description && (
+                        <p className="text-[10px] text-mayssa-brown/50 truncate">{entry.product.description}</p>
+                      )}
                     </div>
                     <div className="flex items-center gap-1.5">
                       <button type="button" onClick={() => updateCartQuantity(i, -1)} className="h-6 w-6 flex items-center justify-center rounded bg-mayssa-soft text-mayssa-brown hover:bg-red-50 cursor-pointer">
@@ -620,6 +681,14 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
         product={tiramisuProduct}
         onClose={() => setTiramisuProduct(null)}
         onSelect={handleTiramisuSelect}
+      />
+    )}
+    {boxFlavorsProduct && (
+      <BoxFlavorsModal
+        product={boxFlavorsProduct}
+        products={availableProducts}
+        onClose={() => setBoxFlavorsProduct(null)}
+        onSelect={handleBoxFlavorsSelect}
       />
     )}
     </>

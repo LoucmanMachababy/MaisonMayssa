@@ -14,6 +14,7 @@ import { PromoBanner } from './components/PromoBanner'
 import { Confetti, useConfetti } from './components/effects'
 import { OfflineIndicator } from './components/OfflineIndicator'
 import { CookieBanner } from './components/CookieBanner'
+import { EventAnnouncementModal } from './components/EventAnnouncementModal'
 import { InstagramInstructionModal } from './components/InstagramInstructionModal'
 import { SnapInstructionModal } from './components/SnapInstructionModal'
 import { FloatingCartBar } from './components/FloatingCartBar'
@@ -1139,11 +1140,16 @@ function AppContent() {
 
       const result = await createOrder({
         items: cart.map((item) => {
-          // Tiramisu : inclure base + toppings dans le nom pour admin / récap
-          const name =
-            item.product.category === 'Tiramisus' && item.product.description
-              ? `${item.product.name} – ${item.product.description}`
-              : item.product.name
+          // Inclure les personnalisations (toppings, coulis, parfums...) dans le nom pour l'admin
+          let name: string
+          if (item.product.category === 'Tiramisus' && item.product.description) {
+            name = `${item.product.name} – ${item.product.description}`
+          } else if (item.product.description) {
+            // Boxes, mini gourmandises, box fruitée, etc.
+            name = `${item.product.name} – ${item.product.description}`
+          } else {
+            name = item.product.name
+          }
           return {
             productId: getOriginalProductId(item.product.id),
             name,
@@ -1530,6 +1536,7 @@ function AppContent() {
       {/* Offline indicator for PWA */}
       <OfflineIndicator />
       <CookieBanner />
+      <EventAnnouncementModal />
 
       {/* Visual Effects (fond chargé en lazy pour accélérer le premier affichage) */}
       <Suspense fallback={null}>
@@ -1553,7 +1560,7 @@ function AppContent() {
         <div className="absolute bottom-[10%] right-[-5%] w-[30%] h-[30%] bg-mayssa-caramel/10 blur-[100px] rounded-full" />
       </div>
 
-      <div className="relative mx-auto max-w-7xl px-4 py-16 sm:py-20 md:py-24 sm:px-6 lg:px-8 overflow-x-hidden">
+      <div className="relative mx-auto max-w-7xl px-4 pt-28 sm:pt-32 pb-8 sm:pb-10 md:pb-12 sm:px-6 lg:px-8 overflow-x-hidden">
         <PromoBanner />
         <Header />
 
@@ -1642,11 +1649,11 @@ function AppContent() {
                       }}
                       aria-label={isActive ? `Catégorie ${cat} sélectionnée` : `Filtrer par ${cat}`}
                       className={`group relative flex flex-col items-center justify-center gap-2 sm:gap-3 rounded-xl sm:rounded-2xl p-3 sm:p-4 transition-all duration-300 cursor-pointer ${isActive
-                        ? 'bg-mayssa-brown text-white shadow-xl shadow-mayssa-brown/20 -translate-y-1'
-                        : 'bg-white/60 text-mayssa-brown hover:bg-white hover:shadow-lg hover:-translate-y-1 border border-mayssa-brown/5'
+                        ? 'bg-mayssa-brown text-mayssa-gold border border-mayssa-gold/30 shadow-lg shadow-mayssa-gold/10 -translate-y-1'
+                        : 'bg-white/50 backdrop-blur-md text-mayssa-brown border border-white/60 hover:bg-white/80 hover:shadow-lg hover:-translate-y-1'
                         }`}
                     >
-                      <div className={`p-2 sm:p-2.5 rounded-lg sm:rounded-xl transition-colors duration-300 ${isActive ? 'bg-white/20' : 'bg-mayssa-soft group-hover:bg-mayssa-rose/30'
+                      <div className={`p-2 sm:p-2.5 rounded-lg sm:rounded-xl transition-colors duration-300 ${isActive ? 'bg-mayssa-gold/10 text-mayssa-gold' : 'bg-mayssa-soft group-hover:bg-mayssa-gold/10 group-hover:text-mayssa-brown'
                         }`}>
                         {getCategoryIcon(cat)}
                       </div>
@@ -1656,7 +1663,7 @@ function AppContent() {
                       {isActive && (
                         <motion.div
                           layoutId="activeCategoryDot"
-                          className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-mayssa-caramel shadow-[0_0_10px_#f7b267]"
+                          className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-mayssa-gold shadow-[0_0_10px_#D4AF37]"
                         />
                       )}
                     </button>

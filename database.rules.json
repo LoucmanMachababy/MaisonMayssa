@@ -1,0 +1,72 @@
+{
+  "rules": {
+    "stock": {
+      ".read": true,
+      "$productId": {
+        ".write": "auth != null || (data.exists() && newData.exists() && newData.val() < data.val())"
+      }
+    },
+    "settings": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "products": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "orders": {
+      ".read": "auth != null",
+      "$orderId": {
+        ".read": true,
+        ".write": "auth != null || (!data.exists() && newData.exists())"
+      }
+    },
+    "deliverySlots": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "mysteryFraise": {
+      ".read": true,
+      ".write": false
+    },
+    "reviews": {
+      ".read": true,
+      ".write": true
+    },
+    "users": {
+      ".read": "auth != null",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && (auth.uid === $uid || auth.token.email === 'roumayssaghazi213@gmail.com')"
+      }
+    },
+    "promoCodes": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "referralCodes": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "polls": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "pollVotes": {
+      ".read": true,
+      ".write": true
+    },
+    "communityMap": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "notifyWhenAvailable": {
+      ".read": "auth != null",
+      ".write": true
+    },
+    "counters": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}

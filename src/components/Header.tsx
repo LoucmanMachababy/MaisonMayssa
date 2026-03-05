@@ -1,139 +1,63 @@
+import React from 'react'
 import { motion } from 'framer-motion'
-
-import { Instagram, Clock, Truck, MapPin, MessageCircle, Calendar } from 'lucide-react'
+import { Clock, Truck } from 'lucide-react'
 import { cn, isOpen } from '../lib/utils'
-import { PHONE_E164, FIRST_PICKUP_DATE_CLASSIC } from '../constants'
-import { OrderCountdown } from './OrderCountdown'
-import { hapticFeedback } from '../lib/haptics'
+import { FREE_DELIVERY_THRESHOLD } from '../lib/delivery'
 
 export function Header() {
     return (
-        <header className="relative w-full overflow-hidden section-shell bg-mesh">
-            <div className="relative z-10 flex flex-col items-center justify-between gap-8 sm:gap-10 lg:flex-row">
-                <div className="flex flex-col items-center gap-4 sm:gap-6 text-center lg:items-start lg:text-left w-full lg:w-auto">
+        <header className="relative w-full overflow-hidden mb-8 bg-white/40 backdrop-blur-xl rounded-[2.5rem] border border-white/80 shadow-premium-shadow">
+            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-[0.03] mix-blend-overlay pointer-events-none" />
+            
+            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8 p-6 sm:p-10 lg:p-14">
+                <div className="flex flex-col md:flex-row items-center gap-6 sm:gap-10 text-center md:text-left flex-1">
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.98 }}
+                        initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.15 }}
-                        className="relative"
+                        transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+                        className="relative group shrink-0"
                     >
-                        <div className="absolute -inset-3 sm:-inset-4 rounded-full bg-mayssa-caramel/20 blur-2xl animate-pulse-slow" aria-hidden="true" />
+                        <div className="absolute -inset-8 rounded-full bg-mayssa-gold/20 blur-[60px] opacity-70" aria-hidden="true" />
                         <img
                             src="/logo.webp"
-                            alt="Maison Mayssa - Trompe l'œil pâtissier Annecy"
-                            width={128}
-                            height={128}
-                            fetchPriority="high"
-                            decoding="async"
-                            className="relative h-20 w-20 sm:h-24 sm:w-24 md:h-28 md:w-28 lg:h-32 lg:w-32 rounded-3xl object-contain shadow-2xl ring-4 ring-white/50"
+                            alt="Maison Mayssa"
+                            className="relative h-24 w-24 sm:h-32 sm:w-32 lg:h-40 lg:w-40 rounded-[2.5rem] object-contain shadow-lg bg-white/30 backdrop-blur-md p-3 transition-transform duration-700 group-hover:scale-105"
                         />
                     </motion.div>
 
-                    <div className="space-y-3 sm:space-y-4">
-                        <div>
-                            <motion.p
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="text-[10px] sm:text-xs font-bold tracking-[0.3em] sm:tracking-[0.4em] uppercase text-mayssa-brown/75 mb-2"
-                            >
-                                Trompe l&apos;œil pâtissier • Annecy
-                            </motion.p>
-                            <motion.h1
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.1 }}
-                                className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-mayssa-brown leading-tight"
-                            >
-                                Maison <span className="text-mayssa-caramel italic">Mayssa</span>
-                            </motion.h1>
-                            <motion.h2
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.15 }}
-                                className="text-base sm:text-lg md:text-xl font-semibold text-mayssa-caramel/90 mt-1"
-                            >
-                                Trompe l&apos;œil Annecy — Pâtisseries artisanales
-                            </motion.h2>
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-center md:justify-start gap-4">
+                            <span className="h-[1px] w-8 bg-mayssa-gold/30"></span>
+                            <p className="text-[9px] sm:text-[10px] font-black uppercase text-mayssa-gold tracking-[0.4em]">
+                                Maison Mayssa — Annecy
+                            </p>
+                            <span className="h-[1px] w-8 bg-mayssa-gold/30 md:hidden"></span>
                         </div>
+                        
+                        <h1 className="text-4xl sm:text-5xl md:text-6xl font-display font-medium text-mayssa-brown tracking-tight leading-tight">
+                            Maison <span className="text-mayssa-gold italic font-light drop-shadow-sm">Mayssa</span>
+                        </h1>
+                        
+                        <p className="text-sm sm:text-base md:text-xl font-display text-mayssa-brown/60 italic">
+                            Sucrée & Salée — Trompe-l&apos;œil pâtissier
+                        </p>
 
-                        <motion.p
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.2 }}
-                            className="max-w-xl text-sm sm:text-base md:text-lg text-mayssa-brown/80 leading-relaxed font-medium px-2 sm:px-0"
-                        >
-                            Trompe l&apos;œil à Annecy : pâtisseries artisanales qui trompent l&apos;œil et régalent. Mangue, citron, pistache, passion… Livraison et retrait sur Annecy.
-                        </motion.p>
-
-                        <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.3 }}
-                            className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 lg:justify-start"
-                        >
+                        <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 pt-2">
                             <Badge
-                                icon={<Clock size={12} className="sm:w-3.5 sm:h-3.5" />}
-                                text={isOpen() ? 'Ouvert · 18h30 — 02h' : 'Fermé · Réouverture 18h30'}
+                                icon={<Clock size={16} className="text-mayssa-gold" />}
+                                text={isOpen() ? 'Atelier Ouvert' : 'Atelier Fermé'}
                                 variant={isOpen() ? 'open' : 'closed'}
                             />
-                            <Badge icon={<Truck size={12} className="sm:w-3.5 sm:h-3.5" />} text="Livraison Annecy" />
-                            <Badge icon={<MapPin size={12} className="sm:w-3.5 sm:h-3.5" />} text="Retrait possible" />
-                            <div className="w-full flex flex-col gap-1.5">
-                                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-mayssa-caramel/15 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-mayssa-brown/90 border border-mayssa-caramel/30">
-                                        <Calendar size={12} className="sm:w-3.5 sm:h-3.5 text-mayssa-caramel" />
-                                        Trompes l&apos;œil : 3 jours de préparation
-                                    </span>
-                                    <span className="inline-flex items-center rounded-full bg-mayssa-caramel/15 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-mayssa-brown/90 border border-mayssa-caramel/30">
-                                        <OrderCountdown firstPickupDateYyyyMmDd={FIRST_PICKUP_DATE_CLASSIC} />
-                                    </span>
-                                </div>
-                            </div>
-                        </motion.div>
+                            <Badge icon={<Truck size={16} className="text-mayssa-gold" />} text="Livraison Privée" />
+                        </div>
                     </div>
                 </div>
 
-                <motion.div
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.4 }}
-                    className="flex flex-col items-center gap-3 sm:gap-4 w-full lg:w-auto lg:items-end lg:min-w-[280px]"
-                >
-                    <div className="flex flex-col w-full max-w-sm lg:max-w-none gap-3">
-                        <a
-                            href={`https://wa.me/${PHONE_E164}?text=${encodeURIComponent('Bonjour, je souhaite commander.')}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            onClick={() => hapticFeedback('medium')}
-                            className="group flex items-center justify-center gap-3 rounded-2xl bg-[#25D366] px-5 sm:px-6 py-3 sm:py-4 text-sm sm:text-base text-white shadow-xl transition-all hover:-translate-y-1 hover:bg-[#20bd5a] active:scale-[0.98] cursor-pointer"
-                        >
-                            <MessageCircle size={22} className="sm:w-6 sm:h-6 transition-transform group-hover:scale-110" />
-                            <span className="font-bold">Commander sur WhatsApp</span>
-                        </a>
-
-                        <SocialLink
-                            href="https://www.instagram.com/maison_mayssa74/"
-                            icon={<Instagram size={16} className="sm:w-[18px] sm:h-[18px]" />}
-                            label="Nous suivre sur Instagram"
-                            className="bg-gradient-to-br from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white w-full"
-                        />
-
-                        <a
-                            href={`https://wa.me/${PHONE_E164}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            onClick={() => hapticFeedback('light')}
-                            className="flex items-center justify-center gap-2 text-xs sm:text-sm font-semibold text-mayssa-brown/70 hover:text-mayssa-caramel transition-colors cursor-pointer"
-                        >
-                            <MessageCircle size={14} />
-                            Ouvrir le chat Maison Mayssa
-                        </a>
-                    </div>
-
-                    <p className="text-center text-[10px] sm:text-xs font-semibold text-mayssa-brown/75 lg:text-right">
-                        Livraison offerte dès 45 € · Commande par WhatsApp uniquement
+                <div className="hidden lg:flex flex-col items-center md:items-end gap-3 shrink-0">
+                    <p className="text-[10px] font-medium text-mayssa-brown/60 uppercase tracking-widest">
+                        Livraison offerte dès {FREE_DELIVERY_THRESHOLD} € d&apos;achat
                     </p>
-                </motion.div>
+                </div>
             </div>
         </header>
     )
@@ -141,33 +65,16 @@ export function Header() {
 
 function Badge({ icon, text, variant = 'default' }: { icon: React.ReactNode; text: string; variant?: 'default' | 'open' | 'closed' }) {
     const variantClass = variant === 'open'
-        ? 'bg-emerald-500/15 text-emerald-800 border-emerald-400/40'
+        ? 'bg-gradient-to-r from-emerald-500/20 to-emerald-500/5 text-emerald-800 border-emerald-400/50 shadow-inner'
         : variant === 'closed'
-            ? 'bg-mayssa-brown/10 text-mayssa-brown/70 border-mayssa-brown/20'
-            : 'bg-white/60 text-mayssa-brown border-white/40'
-    const iconClass = variant === 'open' ? 'text-emerald-600' : variant === 'closed' ? 'text-mayssa-brown/70' : 'text-mayssa-caramel'
+            ? 'bg-gradient-to-r from-red-500/10 to-red-500/5 text-red-800/80 border-red-200/50'
+            : 'bg-white/70 text-mayssa-brown border border-white/80 shadow-sm backdrop-blur-xl'
+    
     return (
-        <span className={cn('inline-flex items-center gap-1.5 sm:gap-2 rounded-full px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold border shadow-sm transition-colors hover:opacity-90', variantClass)}>
-            <span className={cn('flex-shrink-0', iconClass)}>{icon}</span>
+        <span className={cn('inline-flex items-center gap-2.5 rounded-[1.5rem] px-5 py-2.5 text-xs sm:text-sm font-bold uppercase tracking-wider border hover:-translate-y-1 transition-all duration-300 cursor-default', variantClass)}>
+            <span className="flex-shrink-0 drop-shadow-sm">{icon}</span>
             <span className="whitespace-nowrap">{text}</span>
         </span>
     )
 }
 
-function SocialLink({ href, icon, label, className }: { href: string; icon: React.ReactNode; label: string; className?: string }) {
-    return (
-        <a
-            href={href}
-            target="_blank"
-            rel="noreferrer"
-            onClick={() => hapticFeedback('light')}
-            className={cn(
-                "flex items-center justify-center gap-1.5 sm:gap-2 rounded-2xl p-2.5 sm:p-3 shadow-lg transition-transform hover:-translate-y-1 active:scale-95 cursor-pointer",
-                className
-            )}
-        >
-            {icon}
-            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">{label}</span>
-        </a>
-    )
-}

@@ -238,6 +238,62 @@ export function isPreorderOpenNow(openings: PreorderOpening[], date?: Date): boo
   return false
 }
 
+/** Heure de fermeture des précommandes (fin de journée = 23:59) */
+const PREORDER_CLOSE_MINUTES = 23 * 60 + 59
+
+/**
+ * Compte à rebours basé sur les horaires d'ouverture des précommandes (réglages admin).
+ * - Si fenêtre ouverte : temps restant jusqu'à 23h59
+ * - Si fenêtre fermée : temps jusqu'à la prochaine ouverture
+ * Retourne null si pas de fenêtre à venir ou si ouvert sans limite.
+ */
+export function getPreorderCountdown(openings: PreorderOpening[], date?: Date): { hoursLeft: number; minutesLeft: number; isOpen: boolean } | null {
+  const now = date ?? new Date()
+  const today = now.getDay()
+  const currentMinutes = now.getHours() * 60 + now.getMinutes()
+
+  // Chercher si on est dans une fenêtre ouverte aujourd'hui
+  for (const o of openings) {
+    if (o.day !== today) continue
+    const fromMinutes = o.fromTime === '00:00' || o.fromTime === '0:00' ? 0 : parseTimeToMinutes(o.fromTime)
+    if (currentMinutes >= fromMinutes) {
+      // Fenêtre ouverte : temps jusqu'à 23h59
+      const remaining = PREORDER_CLOSE_MINUTES - currentMinutes
+      if (remaining <= 0) return null
+      return {
+        hoursLeft: Math.floor(remaining / 60),
+        minutesLeft: remaining % 60,
+        isOpen: true,
+      }
+    }
+  }
+
+  // Fenêtre fermée : temps jusqu'à la prochaine ouverture
+  for (let i = 0; i < 8; i++) {
+    const d = new Date(now)
+    d.setDate(d.getDate() + i)
+    const day = d.getDay()
+    for (const o of openings) {
+      if (o.day !== day) continue
+      const fromMinutes = o.fromTime === '00:00' || o.fromTime === '0:00' ? 0 : parseTimeToMinutes(o.fromTime)
+      const target = new Date(now)
+      target.setDate(target.getDate() + i)
+      target.setHours(Math.floor(fromMinutes / 60), fromMinutes % 60, 0, 0)
+      if (i === 0 && currentMinutes >= fromMinutes) continue
+      const remaining = Math.max(0, target.getTime() - now.getTime())
+      if (remaining > 0) {
+        const totalMins = Math.floor(remaining / 60000)
+        return {
+          hoursLeft: Math.floor(totalMins / 60),
+          minutesLeft: totalMins % 60,
+          isOpen: false,
+        }
+      }
+    }
+  }
+  return null
+}
+
 function mergeSettings(val: unknown): Settings {
   const raw = (val || {}) as Record<string, unknown>
   const preorderDays = Array.isArray(raw.preorderDays) ? raw.preorderDays as number[] : [3, 6]
@@ -356,6 +412,8 @@ export type Order = {
   referralDiscountAmount?: number
   /** UID du parrain (pour le créditer) */
   referrerUserId?: string
+  /** Checklist admin (stock vérifié, message envoyé, prêt) */
+  adminChecklist?: { stockChecked?: boolean; messageSent?: boolean; ready?: boolean }
 }
 
 /** Stats de commandes pour les badges (stocké dans le profil) */
@@ -578,7 +636,7 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus) {
   await update(ref(db, `orders/${orderId}`), { status })
 }
 
-export type OrderUpdate = Partial<Pick<Order, 'customer' | 'items' | 'total' | 'status' | 'deliveryMode' | 'requestedDate' | 'requestedTime' | 'adminNote' | 'clientNote' | 'deliveryFee' | 'distanceKm' | 'source' | 'excludeTrompeLoeilStock' | 'promoCode' | 'discountAmount' | 'donationAmount'>>
+export type OrderUpdate = Partial<Pick<Order, 'customer' | 'items' | 'total' | 'status' | 'deliveryMode' | 'requestedDate' | 'requestedTime' | 'adminNote' | 'clientNote' | 'deliveryFee' | 'distanceKm' | 'source' | 'excludeTrompeLoeilStock' | 'promoCode' | 'discountAmount' | 'donationAmount' | 'adminChecklist'>>
 
 export async function updateOrder(orderId: string, updates: OrderUpdate) {
   const clean = stripUndefined(updates as Record<string, unknown>)
@@ -802,6 +860,36 @@ export type UserProfile = {
   notifyOrderOpening?: boolean
 }
 
+// Valeur par défaut pour loyalty (anciens comptes ou données incomplètes)
+const DEFAULT_LOYALTY: UserLoyalty = {
+  points: 0,
+  lifetimePoints: 0,
+  tier: 'Douceur',
+  history: [],
+}
+
+function normalizeUserProfile(raw: Record<string, unknown> | null): UserProfile | null {
+  if (!raw || typeof raw !== 'object') return null
+  const L = raw.loyalty as Record<string, unknown> | undefined
+  const historyRaw = L?.history
+  const historyArray = Array.isArray(historyRaw)
+    ? historyRaw
+    : historyRaw && typeof historyRaw === 'object'
+      ? Object.values(historyRaw)
+      : []
+  const loyalty: UserLoyalty = L && typeof L === 'object'
+    ? {
+        points: typeof L.points === 'number' ? L.points : DEFAULT_LOYALTY.points,
+        lifetimePoints: typeof L.lifetimePoints === 'number' ? L.lifetimePoints : DEFAULT_LOYALTY.lifetimePoints,
+        tier: (L.tier as UserLoyalty['tier']) ?? DEFAULT_LOYALTY.tier,
+        history: historyArray as UserLoyalty['history'],
+        instagramClaimedAt: typeof L.instagramClaimedAt === 'number' ? L.instagramClaimedAt : undefined,
+        tiktokClaimedAt: typeof L.tiktokClaimedAt === 'number' ? L.tiktokClaimedAt : undefined,
+      }
+    : { ...DEFAULT_LOYALTY }
+  return { ...raw, loyalty } as UserProfile
+}
+
 // --- Profils Clients (Database) ---
 export function getUserRef(uid: string) {
   return ref(db, `users/${uid}`)
@@ -834,16 +922,18 @@ export async function createUserProfile(uid: string, profile: Omit<UserProfile, 
   return userProfile
 }
 
-// Lire un profil client
+// Lire un profil client (profil normalisé : loyalty toujours défini)
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   const snapshot = await get(getUserRef(uid))
-  return snapshot.exists() ? snapshot.val() : null
+  const raw = snapshot.exists() ? snapshot.val() : null
+  return normalizeUserProfile(raw)
 }
 
-// Écouter un profil client en temps réel
+// Écouter un profil client en temps réel (profil normalisé)
 export function listenUserProfile(uid: string, callback: (profile: UserProfile | null) => void) {
   return onValue(getUserRef(uid), (snapshot) => {
-    callback(snapshot.exists() ? snapshot.val() : null)
+    const raw = snapshot.exists() ? snapshot.val() : null
+    callback(normalizeUserProfile(raw))
   })
 }
 

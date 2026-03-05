@@ -66,6 +66,7 @@ interface CartSheetProps {
   referralCodeInput?: string
   setReferralCodeInput?: (v: string) => void
   mysteryFraiseDiscount?: number
+  pendingOrder?: { orderNumber?: number; placedAt: number } | null
 }
 
 export function CartSheet({
@@ -107,6 +108,7 @@ export function CartSheet({
   referralCodeInput = '',
   setReferralCodeInput,
   mysteryFraiseDiscount = 0,
+  pendingOrder = null,
 }: CartSheetProps) {
   const dragControls = useDragControls()
   const sheetRef = useRef<HTMLDivElement>(null)
@@ -840,86 +842,100 @@ export function CartSheet({
                 </span>
               </div>
 
-              <motion.button
-                type="button"
-                whileTap={{ scale: 0.98 }}
-                onClick={() => {
-                  if (canSend) {
-                    hapticFeedback('success')
-                    onSend()
-                  } else {
-                    hapticFeedback('warning')
-                  }
-                }}
-                disabled={!canSend}
-                aria-label={hasItems && canSend ? 'Envoyer la commande sur WhatsApp' : hasItems ? 'Complète tes infos pour envoyer' : 'Panier vide'}
-                className={cn(
-                  "w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base shadow-xl transition-all cursor-pointer",
-                  canSend
-                    ? "bg-[#25D366] text-white hover:bg-[#20bd5a]"
-                    : "bg-mayssa-brown/30 text-mayssa-cream/70"
-                )}
-              >
-                <MessageCircle size={18} aria-hidden="true" />
-                {hasItems
-                  ? canSend
-                    ? 'Envoyer sur WhatsApp'
-                    : ordersOpen === false
-                      ? 'Commandes fermées'
-                      : trompeLoeilBeforeMinDate
-                        ? `À partir du ${formatDateLabel(minDate)}`
-                        : orderCutoffPassed && hasNonTrompeLoeil
-                          ? "Jusqu'à 17h"
-                          : 'Complète tes infos'
-                  : 'Panier vide'}
-              </motion.button>
+              {pendingOrder ? (
+                <div className="rounded-2xl bg-emerald-50 border-2 border-emerald-200 p-4 text-center space-y-2">
+                  <div className="text-3xl">✅</div>
+                  <p className="text-sm font-bold text-emerald-800">
+                    Commande déjà reçue{pendingOrder.orderNumber ? ` (n°${pendingOrder.orderNumber})` : ''} !
+                  </p>
+                  <p className="text-xs text-emerald-700 leading-relaxed">
+                    Nous avons bien reçu votre commande. Nous vous recontacterons rapidement pour confirmer. Merci ! 🙏
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <motion.button
+                    type="button"
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => {
+                      if (canSend) {
+                        hapticFeedback('success')
+                        onSend()
+                      } else {
+                        hapticFeedback('warning')
+                      }
+                    }}
+                    disabled={!canSend}
+                    aria-label={hasItems && canSend ? 'Envoyer la commande sur WhatsApp' : hasItems ? 'Complète tes infos pour envoyer' : 'Panier vide'}
+                    className={cn(
+                      "w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base shadow-xl transition-all cursor-pointer",
+                      canSend
+                        ? "bg-[#25D366] text-white hover:bg-[#20bd5a]"
+                        : "bg-mayssa-brown/30 text-mayssa-cream/70"
+                    )}
+                  >
+                    <MessageCircle size={18} aria-hidden="true" />
+                    {hasItems
+                      ? canSend
+                        ? 'Envoyer sur WhatsApp'
+                        : ordersOpen === false
+                          ? 'Commandes fermées'
+                          : trompeLoeilBeforeMinDate
+                            ? `À partir du ${formatDateLabel(minDate)}`
+                            : orderCutoffPassed && hasNonTrompeLoeil
+                              ? "Jusqu'à 17h"
+                              : 'Complète tes infos'
+                      : 'Panier vide'}
+                  </motion.button>
 
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                <motion.button
-                  type="button"
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => {
-                    if (canSend) {
-                      hapticFeedback('success')
-                      onSendInstagram()
-                      onClose()
-                    }
-                  }}
-                  disabled={!canSend}
-                  aria-label={canSend ? 'Envoyer la commande sur Instagram' : 'Complète tes infos pour envoyer'}
-                  className={cn(
-                    "flex items-center justify-center gap-1.5 py-3 rounded-xl font-bold text-xs shadow-lg transition-all cursor-pointer",
-                    canSend
-                      ? "bg-gradient-to-r from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white"
-                      : "bg-mayssa-brown/20 text-mayssa-cream/70"
-                  )}
-                >
-                  <Instagram size={16} aria-hidden="true" />
-                  Instagram
-                </motion.button>
-                <motion.button
-                  type="button"
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => {
-                    if (canSend) {
-                      hapticFeedback('success')
-                      onSendSnap()
-                      onClose()
-                    }
-                  }}
-                  disabled={!canSend}
-                  aria-label={canSend ? 'Envoyer la commande sur Snapchat' : 'Complète tes infos pour envoyer'}
-                  className={cn(
-                    "flex items-center justify-center gap-1.5 py-3 rounded-xl font-bold text-xs shadow-lg transition-all cursor-pointer",
-                    canSend
-                      ? "bg-[#FFFC00] text-black"
-                      : "bg-mayssa-brown/20 text-mayssa-cream/70"
-                  )}
-                >
-                  <SnapIcon size={16} aria-hidden="true" />
-                  Snapchat
-                </motion.button>
-              </div>
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    <motion.button
+                      type="button"
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        if (canSend) {
+                          hapticFeedback('success')
+                          onSendInstagram()
+                          onClose()
+                        }
+                      }}
+                      disabled={!canSend}
+                      aria-label={canSend ? 'Envoyer la commande sur Instagram' : 'Complète tes infos pour envoyer'}
+                      className={cn(
+                        "flex items-center justify-center gap-1.5 py-3 rounded-xl font-bold text-xs shadow-lg transition-all cursor-pointer",
+                        canSend
+                          ? "bg-gradient-to-r from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white"
+                          : "bg-mayssa-brown/20 text-mayssa-cream/70"
+                      )}
+                    >
+                      <Instagram size={16} aria-hidden="true" />
+                      Instagram
+                    </motion.button>
+                    <motion.button
+                      type="button"
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        if (canSend) {
+                          hapticFeedback('success')
+                          onSendSnap()
+                          onClose()
+                        }
+                      }}
+                      disabled={!canSend}
+                      aria-label={canSend ? 'Envoyer la commande sur Snapchat' : 'Complète tes infos pour envoyer'}
+                      className={cn(
+                        "flex items-center justify-center gap-1.5 py-3 rounded-xl font-bold text-xs shadow-lg transition-all cursor-pointer",
+                        canSend
+                          ? "bg-[#FFFC00] text-black"
+                          : "bg-mayssa-brown/20 text-mayssa-cream/70"
+                      )}
+                    >
+                      <SnapIcon size={16} aria-hidden="true" />
+                      Snapchat
+                    </motion.button>
+                  </div>
+                </>
+              )}
             </div>
           </motion.div>
         </>
