@@ -17,7 +17,7 @@ expect(screen.getByText(/Maison/)).toBeInTheDocument()
 
   it('affiche Livraison offerte et WhatsApp uniquement', () => {
     render(<Header />)
-    expect(screen.getByText(/Livraison offerte dès 45 €/)).toBeInTheDocument()
+    expect(screen.getByText(/Livraison offerte dès 50 €/)).toBeInTheDocument()
     expect(screen.getByText(/Commande par WhatsApp uniquement/)).toBeInTheDocument()
   })
 })

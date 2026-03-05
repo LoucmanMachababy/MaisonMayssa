@@ -1,5 +1,5 @@
-import { Instagram, Phone, MapPin, Clock, MessageCircle } from 'lucide-react'
 import { useState, useRef } from 'react'
+import { Instagram, Phone, MapPin, Clock, MessageCircle } from 'lucide-react'
 import { hapticFeedback } from '../lib/haptics'
 import { PHONE_E164 } from '../constants'
 
@@ -11,49 +11,53 @@ export function Footer() {
         hapticFeedback('light')
         setClickCount(prev => prev + 1)
         
-        // Reset counter after 2 seconds of no clicks
         if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current)
         clickTimeoutRef.current = window.setTimeout(() => setClickCount(0), 2000)
         
-        // After 5 clicks, go to admin
         if (clickCount + 1 >= 5) {
             window.location.hash = 'admin'
             setClickCount(0)
         }
     }
     return (
-        <footer className="relative mt-12 sm:mt-16 md:mt-24 border-t border-mayssa-brown/5 bg-white/40 pt-12 sm:pt-16 pb-6 sm:pb-8 backdrop-blur-sm">
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                <div className="grid grid-cols-1 gap-8 sm:gap-10 md:gap-12 md:grid-cols-2 lg:grid-cols-4">
+        <footer className="relative mt-16 sm:mt-24 bg-mayssa-brown pt-16 sm:pt-20 pb-8 sm:pb-10 overflow-hidden text-mayssa-soft shadow-[0_-10px_40px_rgba(51,33,21,0.15)]">
+            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 mix-blend-overlay pointer-events-none" />
+            <div className="absolute top-0 right-1/4 -mt-32 w-96 h-96 bg-mayssa-gold/10 rounded-full blur-[120px] pointer-events-none" />
+            
+            <div className="relative z-10 mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
+                <div className="grid grid-cols-1 gap-12 sm:gap-14 md:gap-16 md:grid-cols-2 lg:grid-cols-4">
                     {/* Brand Column */}
-                    <div className="space-y-4 sm:space-y-6">
-                        <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="space-y-6">
+                        <div className="flex items-center gap-4">
                             <img
                                 src="/logo.webp"
                                 alt="Maison Mayssa - Pâtisserie Annecy"
-                                width={48}
-                                height={48}
+                                width={56}
+                                height={56}
                                 loading="lazy"
                                 decoding="async"
-                                className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl shadow-md cursor-pointer hover:scale-105 transition-transform"
+                                className="h-14 w-14 rounded-[1.2rem] shadow-lg cursor-pointer hover:scale-105 transition-transform ring-1 ring-mayssa-gold/30"
                                 onClick={handleLogoClick}
                                 title={clickCount > 0 ? `${clickCount}/5 clics` : ''}
                             />
-                            <span className="font-display text-xl sm:text-2xl font-bold text-mayssa-brown">Maison Mayssa</span>
+                            <div className="flex flex-col">
+                                <span className="font-display text-2xl font-medium tracking-tight text-mayssa-gold">Maison Mayssa</span>
+                                <span className="text-[9px] uppercase tracking-[0.3em] text-mayssa-soft/60">Annecy</span>
+                            </div>
                         </div>
-                        <p className="text-xs sm:text-sm leading-relaxed text-mayssa-brown/70">
-                            Pâtisseries artisanales d'exception à Annecy. Des créations faites maison avec passion pour sublimer vos moments gourmands.
+                        <p className="text-sm leading-relaxed text-mayssa-soft/70 font-light">
+                            Pâtisseries artisanales d'exception. Des créations faites maison avec passion pour sublimer vos instants gourmands.
                         </p>
-                        <div className="flex gap-3 sm:gap-4">
-                            <SocialIcon href="https://www.instagram.com/maison_mayssa74/" icon={<Instagram size={16} className="sm:w-[18px] sm:h-[18px]" />} label="Instagram Maison Mayssa" />
-                            <SocialIcon href={`https://wa.me/${PHONE_E164}`} icon={<Phone size={16} className="sm:w-[18px] sm:h-[18px]" />} label="WhatsApp Maison Mayssa" />
+                        <div className="flex gap-4 pt-2">
+                            <SocialIcon href="https://www.instagram.com/maison_mayssa74/" icon={<Instagram strokeWidth={1.5} size={18} />} label="Instagram" />
+                            <SocialIcon href={`https://wa.me/${PHONE_E164}`} icon={<Phone strokeWidth={1.5} size={18} />} label="WhatsApp" />
                         </div>
                     </div>
 
                     {/* Useful Links */}
                     <div>
-                        <h3 className="mb-4 sm:mb-6 font-display text-base sm:text-lg font-bold text-mayssa-brown">Liens Utiles</h3>
-                        <ul className="space-y-2 sm:space-y-3">
+                        <h3 className="mb-6 font-display text-lg font-medium text-mayssa-gold tracking-wide">Liens Utiles</h3>
+                        <ul className="space-y-4 font-light">
                             <li><FooterLink href="#la-carte">La Carte</FooterLink></li>
                             <li>
                                 <a
@@ -61,89 +65,67 @@ export function Footer() {
                                     target="_blank"
                                     rel="noreferrer"
                                     onClick={() => hapticFeedback('light')}
-                                    className="text-xs sm:text-sm text-mayssa-brown/70 hover:text-mayssa-caramel transition-all hover:scale-105 active:scale-95 cursor-pointer inline-flex items-center gap-1.5"
+                                    className="text-sm text-mayssa-soft/70 hover:text-mayssa-gold transition-all hover:translate-x-1 cursor-pointer inline-flex items-center gap-2 group"
                                 >
-                                    <MessageCircle size={14} />
+                                    <MessageCircle size={15} className="group-hover:scale-110 transition-transform text-mayssa-gold/70 group-hover:text-mayssa-gold" />
                                     Commander sur WhatsApp
                                 </a>
                             </li>
-                            <li>
-                                <a
-                                    href={`https://wa.me/${PHONE_E164}`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    onClick={() => hapticFeedback('light')}
-                                    className="text-xs sm:text-sm text-mayssa-brown/70 hover:text-mayssa-caramel transition-all hover:scale-105 active:scale-95 cursor-pointer inline-flex items-center gap-1.5"
-                                >
-                                    <MessageCircle size={14} />
-                                    Ouvrir le chat Maison Mayssa
-                                </a>
-                            </li>
-                            <li><FooterLink href="#occasions">Occasions</FooterLink></li>
-                            <li><FooterLink href="#soutien">Soutien / Don</FooterLink></li>
-                            <li><FooterLink href="#avis">Avis</FooterLink></li>
-                            <li><FooterLink href="#livraison">Zone de Livraison</FooterLink></li>
-                            <li><FooterLink href="#faq">FAQ</FooterLink></li>
-                            <li><FooterLink href="#contact">Contact</FooterLink></li>
+                            <li><FooterLink href="#occasions">Occasions & Événements</FooterLink></li>
+                            <li><FooterLink href="#avis">Témoignages</FooterLink></li>
+                            <li><FooterLink href="#faq">Questions Fréquentes</FooterLink></li>
                         </ul>
-                        <p className="mt-2 text-[10px] sm:text-xs text-mayssa-brown/65 italic">Commande par WhatsApp uniquement.</p>
                     </div>
 
                     {/* Contact Info */}
                     <div id="contact">
-                        <h3 className="mb-4 sm:mb-6 font-display text-base sm:text-lg font-bold text-mayssa-brown">Contact</h3>
-                        <ul className="space-y-3 sm:space-y-4">
-                            <li className="flex items-start gap-2 sm:gap-3 text-xs sm:text-sm text-mayssa-brown/70">
-                                <MapPin size={16} className="sm:w-[18px] sm:h-[18px] shrink-0 text-mayssa-caramel mt-0.5" />
-                                <span>Annecy et alentours (74) • France</span>
+                        <h3 className="mb-6 font-display text-lg font-medium text-mayssa-gold tracking-wide">Contact</h3>
+                        <ul className="space-y-5 font-light">
+                            <li className="flex items-start gap-3 text-sm text-mayssa-soft/70">
+                                <MapPin size={18} strokeWidth={1.5} className="shrink-0 text-mayssa-gold mt-0.5" />
+                                <span>Annecy et alentours (74)<br/>Maison Mayssa France</span>
                             </li>
-                            <li className="flex items-start gap-2 sm:gap-3 text-xs sm:text-sm text-mayssa-brown/70">
-                                <Clock size={16} className="sm:w-[18px] sm:h-[18px] shrink-0 text-mayssa-caramel mt-0.5" />
+                            <li className="flex items-start gap-3 text-sm text-mayssa-soft/70">
+                                <Clock size={18} strokeWidth={1.5} className="shrink-0 text-mayssa-gold mt-0.5" />
                                 <div>
-                                    <p className="font-bold text-mayssa-brown">Horaires de service</p>
-                                    <p>18h30 — 02h • Tous les jours</p>
+                                    <p className="text-mayssa-soft mb-1">Horaires d'ouverture</p>
+                                    <p className="opacity-80">18h30 — 02h • 7j/7</p>
                                 </div>
                             </li>
-                            <li className="flex items-start gap-2 sm:gap-3 text-xs sm:text-sm text-mayssa-brown/70">
-                                <Phone size={16} className="sm:w-[18px] sm:h-[18px] shrink-0 text-mayssa-caramel mt-0.5" />
-                                <a href={`https://wa.me/${PHONE_E164}`} target="_blank" rel="noreferrer" onClick={() => hapticFeedback('light')} className="hover:text-mayssa-caramel transition-colors active:opacity-80 cursor-pointer">06 19 87 10 05</a>
+                            <li className="flex items-start gap-3 text-sm text-mayssa-soft/70">
+                                <Phone size={18} strokeWidth={1.5} className="shrink-0 text-mayssa-gold mt-0.5" />
+                                <a href={`https://wa.me/${PHONE_E164}`} target="_blank" rel="noreferrer" onClick={() => hapticFeedback('light')} className="hover:text-mayssa-gold transition-colors cursor-pointer">06 19 87 10 05</a>
                             </li>
                         </ul>
                     </div>
 
                     {/* Information */}
                     <div id="livraison">
-                        <h3 className="mb-4 sm:mb-6 font-display text-base sm:text-lg font-bold text-mayssa-brown">Livraison</h3>
-                        <div className="rounded-xl sm:rounded-2xl bg-mayssa-soft/50 p-3 sm:p-4 border border-mayssa-brown/5">
-                            <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-mayssa-caramel mb-2">Conditions</p>
-                            <p className="text-xs sm:text-sm text-mayssa-brown/70 mb-2 sm:mb-3">Livraison offerte dès 45 € d'achat.</p>
-                            <p className="text-xs sm:text-sm text-mayssa-brown/70">Forfait de 5 € pour les commandes inférieures à 45 € (Zone Annecy).</p>
-                        </div>
+                        <h3 className="mb-6 font-display text-lg font-medium text-mayssa-gold tracking-wide">Livraison</h3>
+                        <p className="text-sm text-mayssa-soft/80 font-light">Livraison offerte dès 50 € d&apos;achat sur Annecy et alentours.</p>
+                        <p className="text-xs text-mayssa-soft/50 font-light leading-relaxed mt-2">Forfait de 5 € pour les commandes inférieures à 50 €.</p>
                     </div>
                 </div>
 
-                <div className="mt-12 sm:mt-16 border-t border-mayssa-brown/5 pt-6 sm:pt-8">
-                    <div className="flex flex-col items-center justify-between gap-3 sm:gap-4 sm:flex-row">
-                        <div className="flex items-center gap-2 text-[10px] sm:text-xs text-mayssa-brown/65 text-center sm:text-left">
-                            <span>© {new Date().getFullYear()} Maison Mayssa • Tous droits réservés.</span>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    hapticFeedback('light')
-                                    window.location.hash = 'admin'
-                                }}
-                                className="text-mayssa-brown/20 hover:text-mayssa-caramel text-xs hover:scale-110 transition-all cursor-pointer"
-                                title="Administration"
-                                aria-label="Accès administration"
-                            >
-                                ⚙️
-                            </button>
-                        </div>
-                        <div className="flex flex-wrap justify-center gap-4 sm:gap-6 text-[10px] sm:text-xs text-mayssa-brown/65">
-                            <FooterLink href="#confidentialite">Confidentialité</FooterLink>
-                            <FooterLink href="#mentions-legales">Mentions légales</FooterLink>
-                            <FooterLink href="#confidentialite">Politique de confidentialité</FooterLink>
-                        </div>
+                <div className="mt-16 sm:mt-20 border-t border-white/10 pt-8 flex flex-col items-center justify-between gap-6 md:flex-row">
+                    <div className="flex items-center gap-3 text-xs text-mayssa-soft/50 font-light text-center md:text-left tracking-wide">
+                        <span>© {new Date().getFullYear()} Maison Mayssa • Excellence & Savoir-faire</span>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                hapticFeedback('light')
+                                window.location.hash = 'admin'
+                            }}
+                            className="text-mayssa-soft/20 hover:text-mayssa-gold transition-all cursor-pointer hover:rotate-90 duration-300"
+                            title="Administration"
+                            aria-label="Accès administration"
+                        >
+                            ⚙️
+                        </button>
+                    </div>
+                    <div className="flex flex-wrap justify-center gap-6 text-xs text-mayssa-soft/50 font-light">
+                        <FooterLink href="#mentions-legales">Mentions légales</FooterLink>
+                        <FooterLink href="#confidentialite">Politique de confidentialité</FooterLink>
                     </div>
                 </div>
             </div>
@@ -158,7 +140,7 @@ function SocialIcon({ href, icon, label }: { href: string; icon: React.ReactNode
             target="_blank"
             rel="noreferrer"
             onClick={() => hapticFeedback('light')}
-            className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-mayssa-brown text-mayssa-cream shadow-sm transition-all hover:-translate-y-1 hover:bg-mayssa-caramel active:scale-95 cursor-pointer"
+            className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/5 border border-white/10 text-mayssa-gold transition-all hover:-translate-y-1 hover:bg-mayssa-gold hover:text-mayssa-brown active:scale-95 cursor-pointer backdrop-blur-sm"
             aria-label={label}
         >
             {icon}
@@ -191,9 +173,10 @@ function FooterLink({ href, children }: { href: string; children: React.ReactNod
         <a
             href={href}
             onClick={handleClick}
-            className="text-xs sm:text-sm text-mayssa-brown/70 hover:text-mayssa-caramel transition-all hover:scale-105 active:scale-95 cursor-pointer inline-block"
+            className="text-sm text-mayssa-soft/70 hover:text-mayssa-gold transition-all hover:translate-x-1 cursor-pointer inline-block group"
         >
             {children}
+            <span className="block max-w-0 group-hover:max-w-full transition-all duration-300 h-[1px] bg-mayssa-gold mt-1"></span>
         </a>
     )
 }

@@ -59,52 +59,50 @@ export function FloatingCartBar({ items, total }: FloatingCartBarProps) {
             onClick={scrollToCart}
             animate={justAdded ? { scale: [1, 1.05, 1] } : {}}
             transition={{ duration: 0.3 }}
-            className="flex items-center gap-4 rounded-2xl bg-mayssa-brown/95 backdrop-blur-md text-mayssa-cream px-5 py-3 shadow-2xl shadow-mayssa-brown/30 hover:bg-mayssa-brown hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer border border-white/10"
+            className="group flex items-center gap-4 rounded-2xl bg-mayssa-brown/90 backdrop-blur-xl text-mayssa-gold px-5 py-3 shadow-2xl shadow-[0_10px_40px_rgba(212,175,55,0.15)] hover:bg-mayssa-brown hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer border border-mayssa-gold/30"
           >
             <div className="relative">
-              <ShoppingBag size={20} />
+              <ShoppingBag size={20} className="drop-shadow-md" />
               <motion.span
                 key={itemCount}
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                className="absolute -top-2 -right-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-mayssa-caramel text-[10px] font-bold text-white shadow-lg"
+                className="absolute -top-2 -right-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-mayssa-gold text-[10px] font-bold text-mayssa-brown shadow-lg border border-mayssa-brown/20"
               >
                 {itemCount}
               </motion.span>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="text-left">
-                <p className="text-[10px] uppercase tracking-wider opacity-70 font-semibold">
-                  {itemCount} article{itemCount > 1 ? 's' : ''}
-                </p>
-                <p className="text-base font-bold leading-tight">
-                  {total.toFixed(2).replace('.', ',')} €
-                </p>
-              </div>
+            <div className="flex flex-col items-start px-2">
+              <span className="text-[10px] uppercase tracking-widest text-mayssa-gold/70 font-semibold mb-0.5">
+                {itemCount} article{itemCount > 1 ? 's' : ''}
+              </span>
+              <span className="text-base font-display font-medium leading-none drop-shadow-sm">
+                {total.toFixed(2).replace('.', ',')} €
+              </span>
+            </div>
 
-              <div className="h-8 w-px bg-white/20" />
+            <div className="h-8 w-[1px] bg-gradient-to-b from-transparent via-mayssa-gold/30 to-transparent mx-1" />
 
-              <div className="flex items-center gap-1.5 text-sm font-semibold">
-                <span>Voir la commande</span>
-                <motion.div
-                  animate={{ y: [0, 3, 0] }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
-                >
-                  <ArrowDown size={16} />
-                </motion.div>
-              </div>
+            <div className="flex items-center gap-2 text-sm uppercase tracking-wider font-bold text-mayssa-gold/90 group-hover:text-mayssa-gold transition-colors pl-1">
+              <span>Voir panier</span>
+              <motion.div
+                animate={{ y: [0, 3, 0] }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <ArrowDown size={14} className="stroke-[2.5px]" />
+              </motion.div>
             </div>
 
             {/* Pulse when just added */}
             <AnimatePresence>
               {justAdded && (
                 <motion.div
-                  initial={{ opacity: 0.6, scale: 1 }}
-                  animate={{ opacity: 0, scale: 1.3 }}
+                  initial={{ opacity: 0.8, scale: 1 }}
+                  animate={{ opacity: 0, scale: 1.15 }}
                   exit={{ opacity: 0 }}
-                  transition={{ duration: 0.8 }}
-                  className="absolute inset-0 rounded-2xl border-2 border-mayssa-caramel pointer-events-none"
+                  transition={{ duration: 0.8, ease: "easeOut" }}
+                  className="absolute inset-0 rounded-2xl box-border border-[1.5px] border-mayssa-gold pointer-events-none"
                 />
               )}
             </AnimatePresence>

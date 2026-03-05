@@ -2,20 +2,20 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { jsPDF } from 'jspdf'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { LogOut, Package, Plus, Minus, Calendar, Clock, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp, Pencil, Search, Download, Bell, MessageSquare, MessageCircle, Filter, XCircle, Star, Tag, FileText, LayoutDashboard, Copy, Eye, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, CheckCheck } from 'lucide-react'
+import { LogOut, Package, Plus, Calendar, Clock, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp, Pencil, Search, Download, Bell, MessageSquare, MessageCircle, Filter, XCircle, Star, Tag, FileText, LayoutDashboard, Copy, Eye, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, CheckCheck, ArrowRight, Settings, Moon, Sun, PanelLeftClose, PanelLeft, Menu } from 'lucide-react'
+import { cn } from '../../lib/utils'
 import type { OrderStatus } from '../../lib/firebase'
 import {
   adminLogin, adminLogout, onAuthChange,
   listenStock, updateStock, listenSettings, updateSettings,
   listenOrders, updateOrderStatus, deleteOrder, updateOrder,
   listenAllUsers, claimBirthdayGift, listenProductOverrides, deleteUserProfile,
-  adminAddPoints, adminRemovePoints,
   listenReviews,
   listenPromoCodes,
   listenNotifyWhenAvailable,
   isPreorderOpenNow, isTrompeLoeilProductId, getStockDecrementItems,
   releaseDeliverySlot, reserveDeliverySlot,
-  type StockMap, type Settings, type Order, type OrderSource, type UserProfile, type PreorderOpening, type Review, type PromoCodeRecord, type Poll, type NotifyWhenAvailableEntry,
+  type StockMap, type Settings as SettingsType, type Order, type OrderSource, type UserProfile, type PreorderOpening, type Review, type PromoCodeRecord, type Poll, type NotifyWhenAvailableEntry,
   listenPolls
 } from '../../lib/firebase'
 import type { OrderItem } from '../../lib/firebase'
@@ -39,8 +39,15 @@ import { AdminCommunityTab } from './AdminCommunityTab'
 import { AdminOffSiteOrderForm } from './AdminOffSiteOrderForm'
 import { PRODUCTS } from '../../constants'
 import { AdminEditOrderModal } from './AdminEditOrderModal'
+import { AdminClientProfileModal } from './AdminClientProfileModal'
+import { AdminNotificationsCenter } from './AdminNotificationsCenter'
+import { AdminDailyReport } from './AdminDailyReport'
+import { AdminWhatsAppDropdown } from './AdminWhatsAppDropdown'
+import { getPinnedOrders, getPinnedClients, togglePinOrder, isOrderPinned } from '../../lib/adminPins'
+import { Pin } from 'lucide-react'
 
 const DAY_LABELS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
+const DELIVERY_RADIUS_KM = 5
 
 /** Numéro au format wa.me (33...) pour lien WhatsApp */
 function phoneToWhatsApp(phone: string): string {
@@ -404,10 +411,13 @@ function UnauthorizedAccess() {
 // --- Dashboard ---
 function Dashboard({ user }: { user: User }) {
   const [stock, setStock] = useState<StockMap>({})
-  const [settings, setSettings] = useState<Settings>({ preorderDays: [3, 6], preorderMessage: '' })
+  const [settings, setSettings] = useState<SettingsType>({ preorderDays: [3, 6], preorderMessage: '' })
   const [orders, setOrders] = useState<Record<string, Order>>({})
   const [reviews, setReviews] = useState<Record<string, Review>>({})
   const [tab, setTab] = useState<'resume' | 'commandes' | 'historique' | 'planning_detail' | 'livraison' | 'retrait' | 'ca' | 'avis' | 'stock' | 'jours' | 'creneaux' | 'anniversaires' | 'inscrits' | 'produits' | 'promos' | 'sondage' | 'rappels' | 'abonnes' | 'alertes' | 'carte' | 'sessions' | 'production' | 'planning' | 'livret' | 'catalogue' | 'clients' | 'reglages'>('resume')
+  const [showNotifications, setShowNotifications] = useState(false)
+  const [showDailyReport, setShowDailyReport] = useState(false)
+  const [selectedClientUid, setSelectedClientUid] = useState<string | null>(null)
   const [livraisonMode, setLivraisonMode] = useState<'livraison' | 'retrait'>('livraison')
   const [catalogueSection, setCatalogueSection] = useState<'stock' | 'produits' | 'promos'>('stock')
   const [clientsSection, setClientsSection] = useState<'inscrits' | 'avis' | 'anniversaires' | 'alertes' | 'abonnes'>('inscrits')
@@ -420,6 +430,7 @@ function Dashboard({ user }: { user: User }) {
   const [notifyWhenAvailableEntries, setNotifyWhenAvailableEntries] = useState<Record<string, NotifyWhenAvailableEntry>>({})
   const { allProducts } = useProducts()
   const [showOffSiteForm, setShowOffSiteForm] = useState(false)
+  const [offSitePresetClient, setOffSitePresetClient] = useState<{ uid: string; firstName: string; lastName: string; phone: string; email?: string; address?: string } | null>(null)
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null)
   const [sourceFilter, setSourceFilter] = useState<OrderSource | 'all'>('all')
   const [deliveryFilter, setDeliveryFilter] = useState<'all' | 'livraison' | 'retrait'>('all')
@@ -444,6 +455,12 @@ function Dashboard({ user }: { user: User }) {
   const [trompeLoeilFilter, setTrompeLoeilFilter] = useState<string | null>(null)
   /** Filtre produit actif en vue "À valider" (productId, '' = tous) */
   const [pendingProductFilter, setPendingProductFilter] = useState<string>('')
+  /** Confirmation de refus avec choix de remettre ou non le stock */
+  const [refuseConfirm, setRefuseConfirm] = useState<{
+    orderId: string
+    order: Order
+    isDuplicate: boolean
+  } | null>(null)
   /** Planning : dates pour lesquelles le bloc "À produire" est replié (cliquer pour afficher/masquer) */
   const [planningProductionOpen, setPlanningProductionOpen] = useState<Set<string>>(new Set())
   /** Planning : production cumulée visible */
@@ -454,6 +471,7 @@ function Dashboard({ user }: { user: User }) {
   const [planningDaysCollapsed, setPlanningDaysCollapsed] = useState<Set<string>>(new Set())
   /** Planning : recherche par prénom */
   const [planningSearchQuery, setPlanningSearchQuery] = useState('')
+  const bulkValidateRef = useRef<HTMLDivElement>(null)
   /** Décalage en jours pour la fenêtre de planning (0 = aujourd'hui, -10 = 10 jours en arrière) */
   const [planningDayOffset, setPlanningDayOffset] = useState(0)
   /** Dates sélectionnées pour l'onglet Production (Set vide = aujourd'hui par défaut) */
@@ -462,6 +480,20 @@ function Dashboard({ user }: { user: User }) {
   const [globalSearch, setGlobalSearch] = useState('')
   /** Mode de l'onglet Planning/Historique : calendrier à venir | liste historique */
   const [historiqueMode, setHistoriqueMode] = useState<'calendrier' | 'liste'>('calendrier')
+  /** Menu validation en masse ouvert */
+  const [bulkValidateOpen, setBulkValidateOpen] = useState(false)
+  /** Pins (rafraîchir pour forcer re-render) */
+  const [pinsVersion, setPinsVersion] = useState(0)
+  const pinnedOrderIds = useMemo(() => getPinnedOrders(), [pinsVersion])
+  const pinnedClientPhones = useMemo(() => getPinnedClients(), [pinsVersion])
+  /** Dark mode admin (persisté en localStorage) */
+  const [darkMode, setDarkMode] = useState(() => {
+    try { return localStorage.getItem('admin-dark') === '1' } catch { return false }
+  })
+  /** Sidebar repliée (desktop) */
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  /** Sidebar ouverte sur mobile (drawer) */
+  const [sidebarMobileOpen, setSidebarMobileOpen] = useState(false)
 
   const setDatePreset = (preset: 'today' | '7d' | '30d' | 'month') => {
     const now = new Date()
@@ -539,6 +571,20 @@ function Dashboard({ user }: { user: User }) {
     }
   }, [orders, soundEnabled])
 
+  // Persister le dark mode
+  useEffect(() => {
+    try { localStorage.setItem('admin-dark', darkMode ? '1' : '0') } catch { /* ignore */ }
+  }, [darkMode])
+
+  // Fermer le menu validation en masse au clic extérieur
+  useEffect(() => {
+    const h = (e: MouseEvent) => {
+      if (bulkValidateRef.current && !bulkValidateRef.current.contains(e.target as Node)) setBulkValidateOpen(false)
+    }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
+
   // Anniversaires à venir (30 jours)
   const upcomingBirthdays = useMemo(() => {
     const now = new Date()
@@ -608,11 +654,12 @@ function Dashboard({ user }: { user: User }) {
     await updateOrderStatus(orderId, 'en_preparation')
   }
 
-  const handleRefuseOrder = async (orderId: string, order: Order) => {
+  const handleRefuseOrder = async (orderId: string, order: Order, restoreStock = true) => {
     await updateOrderStatus(orderId, 'refusee')
     if (order.deliveryMode === 'livraison' && order.requestedDate && order.requestedTime) {
       releaseDeliverySlot(order.requestedDate, order.requestedTime).catch(console.error)
     }
+    if (!restoreStock) return
     // Restaurer le stock de tous les produits décrémentés à la commande.
     // Pour les trompe-l'œil : skip si excludeTrompeLoeilStock=true (hors-site sans déduction)
     for (const item of order.items) {
@@ -626,6 +673,28 @@ function Dashboard({ user }: { user: User }) {
         }
       }
     }
+  }
+
+  /** Détecte si une commande est probablement un doublon : même numéro de téléphone + autre
+   * commande active (non refusée) créée le même jour. */
+  const isDuplicateOrder = (orderId: string, order: Order): boolean => {
+    const phone = order.customer?.phone?.replace(/\D/g, '')
+    if (!phone || phone.length < 8) return false
+    const dayStart = new Date(order.createdAt ?? 0)
+    dayStart.setHours(0, 0, 0, 0)
+    const dayEnd = dayStart.getTime() + 86400000
+    return Object.entries(orders).some(([id, o]) =>
+      id !== orderId &&
+      o.status !== 'refusee' &&
+      o.customer?.phone?.replace(/\D/g, '') === phone &&
+      (o.createdAt ?? 0) >= dayStart.getTime() &&
+      (o.createdAt ?? 0) < dayEnd
+    )
+  }
+
+  /** Ouvre la confirmation de refus (avec détection de doublon). */
+  const triggerRefuseOrder = (orderId: string, order: Order) => {
+    setRefuseConfirm({ orderId, order, isDuplicate: isDuplicateOrder(orderId, order) })
   }
 
   const handleSetOrderPreparationStatus = async (orderId: string, status: 'en_preparation' | 'pret') => {
@@ -1088,6 +1157,56 @@ function Dashboard({ user }: { user: User }) {
     return Math.round(((caMois - caMoisPrec) / caMoisPrec) * 100)
   }, [caOrders, caMois])
 
+  // Comparaison semaine vs semaine précédente
+  const comparaisonSemaine = useMemo(() => {
+    const n = new Date()
+    const startOfWeek = new Date(n)
+    startOfWeek.setDate(n.getDate() - n.getDay() + (n.getDay() === 0 ? -6 : 1))
+    startOfWeek.setHours(0, 0, 0, 0)
+    const endOfWeek = new Date(startOfWeek)
+    endOfWeek.setDate(startOfWeek.getDate() + 6)
+    endOfWeek.setHours(23, 59, 59, 999)
+    const startOfLastWeek = new Date(startOfWeek)
+    startOfLastWeek.setDate(startOfWeek.getDate() - 7)
+    const endOfLastWeek = new Date(startOfWeek)
+    endOfLastWeek.setDate(startOfWeek.getDate() - 1)
+    endOfLastWeek.setHours(23, 59, 59, 999)
+    const caCetteSemaine = caOrders
+      .filter(o => o.createdAt && o.createdAt >= startOfWeek.getTime() && o.createdAt <= endOfWeek.getTime())
+      .reduce((s, o) => s + (o.total ?? 0), 0)
+    const caSemainePrec = caOrders
+      .filter(o => o.createdAt && o.createdAt >= startOfLastWeek.getTime() && o.createdAt <= endOfLastWeek.getTime())
+      .reduce((s, o) => s + (o.total ?? 0), 0)
+    if (caSemainePrec === 0) return { delta: caCetteSemaine, pct: null }
+    const pct = Math.round(((caCetteSemaine - caSemainePrec) / caSemainePrec) * 100)
+    return { delta: caCetteSemaine - caSemainePrec, pct }
+  }, [caOrders])
+
+  // Top produits par période (jour, semaine, mois)
+  const topProduitsByPeriod = useMemo(() => {
+    const n = new Date()
+    const periods = {
+      jour: { start: new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime(), end: Date.now() },
+      semaine: { start: (() => { const d = new Date(n); d.setDate(d.getDate() - d.getDay() + (d.getDay() === 0 ? -6 : 1)); d.setHours(0, 0, 0, 0); return d.getTime() })(), end: Date.now() },
+      mois: { start: new Date(n.getFullYear(), n.getMonth(), 1).getTime(), end: Date.now() },
+    } as const
+    const result: Record<'jour' | 'semaine' | 'mois', { name: string; qty: number }[]> = { jour: [], semaine: [], mois: [] }
+    for (const [period, { start, end }] of Object.entries(periods)) {
+      const map: Record<string, { name: string; qty: number }> = {}
+      for (const o of caOrders) {
+        if (!o.createdAt || o.createdAt < start || o.createdAt > end) continue
+        for (const item of o.items ?? []) {
+          const key = item.productId ?? item.name
+          const name = formatOrderItemName(item)
+          if (!map[key]) map[key] = { name, qty: 0 }
+          map[key].qty += item.quantity
+        }
+      }
+      result[period as keyof typeof result] = Object.values(map).sort((a, b) => b.qty - a.qty).slice(0, 10)
+    }
+    return result
+  }, [caOrders])
+
   // Meilleure journée de tous les temps
   const meilleurJour = useMemo(() => {
     const byDay: Record<string, number> = {}
@@ -1102,16 +1221,267 @@ function Dashboard({ user }: { user: User }) {
     return { label: best[0], ca: Math.round(best[1] * 100) / 100 }
   }, [caOrders])
 
+  // CA heure par heure (aujourd'hui)
+  const caHourlyData = useMemo(() => {
+    const now = new Date()
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    const todayOrders = validatedOrders.filter(o => {
+      if (!o.createdAt) return false
+      const d = new Date(o.createdAt)
+      const s = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      return s === todayStr
+    })
+    const byHour: Record<number, number> = {}
+    for (let h = 0; h < 24; h++) byHour[h] = 0
+    for (const o of todayOrders) {
+      const h = new Date(o.createdAt!).getHours()
+      byHour[h] = (byHour[h] ?? 0) + (o.total ?? 0)
+    }
+    return Array.from({ length: Math.min(now.getHours() + 2, 24) }, (_, i) => ({
+      heure: `${i}h`,
+      ca: Math.round((byHour[i] ?? 0) * 100) / 100,
+    }))
+  }, [validatedOrders])
+
+  // Dernières 5 commandes (flux temps réel)
+  const last5Orders = useMemo(() => {
+    return Object.entries(orders)
+      .filter(([, o]) => !['refusee'].includes(o.status))
+      .sort(([, a], [, b]) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
+      .slice(0, 5)
+  }, [orders])
+
+  // Commandes urgentes (retrait dans < 2h)
+  const urgentOrders = useMemo(() => {
+    const now = new Date()
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    const twoHoursFromNow = now.getTime() + 2 * 60 * 60 * 1000
+    return Object.entries(orders)
+      .filter(([, o]) => {
+        if (!['en_attente', 'en_preparation'].includes(o.status)) return false
+        if (!o.requestedDate || !o.requestedTime) return false
+        if (o.requestedDate !== todayStr) return false
+        const [h, m] = (o.requestedTime ?? '23:59').split(':').map(Number)
+        const pickup = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m).getTime()
+        return pickup <= twoHoursFromNow && pickup >= now.getTime()
+      })
+      .sort(([, a], [, b]) => {
+        const ta = a.requestedTime ?? '23:59'
+        const tb = b.requestedTime ?? '23:59'
+        return ta.localeCompare(tb)
+      })
+  }, [orders])
+
+  const isDark = darkMode
+  const navItems: { id: string; icon: typeof LayoutDashboard; label: string; badge?: number }[] = [
+    { id: 'resume', icon: LayoutDashboard, label: 'Résumé' },
+    { id: 'commandes', icon: ClipboardList, label: 'À valider', badge: pendingCount },
+    { id: 'historique', icon: Calendar, label: 'Planning' },
+    { id: 'livret', icon: Truck, label: 'Journalier', badge: Object.values(orders).filter(o => o.status === 'en_preparation').length },
+    { id: 'ca', icon: TrendingUp, label: 'Analytics' },
+    { id: 'catalogue', icon: Package, label: 'Carte' },
+    { id: 'clients', icon: Users, label: 'Clients' },
+    { id: 'reglages', icon: Settings, label: 'Options' },
+  ]
+
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header premium */}
-      <header className="bg-mayssa-brown text-white sticky top-0 z-20 shadow-lg">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div>
-            <h1 className="text-base font-display font-bold tracking-tight">Dashboard Maison Mayssa</h1>
-            <p className="text-[10px] text-white/60">{user.email}</p>
+    <div className={cn('min-h-screen flex', isDark ? 'bg-zinc-950 text-zinc-100' : 'bg-[#fdfaf8] bg-mesh text-mayssa-brown')}>
+      {/* Overlay mobile sidebar */}
+      <div
+        className={cn(
+          'fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 lg:hidden',
+          sidebarMobileOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        )}
+        onClick={() => setSidebarMobileOpen(false)}
+        aria-hidden="true"
+      />
+      {/* Sidebar */}
+      <aside
+        className={cn(
+          'fixed left-0 top-0 z-50 h-screen flex flex-col border-r transition-all duration-300',
+          'lg:translate-x-0',
+          sidebarMobileOpen ? 'w-56' : (sidebarCollapsed ? 'w-16' : 'w-56'),
+          isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white/95 backdrop-blur-xl border-mayssa-brown/5',
+          sidebarMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        )}
+      >
+        <div className="flex items-center justify-between p-3 border-b border-inherit">
+          {!sidebarCollapsed && (
+            <div className="flex items-center gap-2 min-w-0">
+              <div className={cn('h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0', isDark ? 'bg-mayssa-gold/20' : 'bg-mayssa-brown')}>
+                <LayoutDashboard size={16} className={isDark ? 'text-mayssa-gold' : 'text-white'} />
+              </div>
+              <span className="text-xs font-bold truncate">Admin</span>
+            </div>
+          )}
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setSidebarMobileOpen(false)}
+              className={cn('p-1.5 rounded-lg transition-colors lg:hidden', isDark ? 'hover:bg-zinc-800' : 'hover:bg-mayssa-brown/5')}
+              title="Fermer"
+            >
+              <X size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setSidebarCollapsed((s) => !s)}
+              className={cn('p-1.5 rounded-lg transition-colors hidden lg:block', isDark ? 'hover:bg-zinc-800' : 'hover:bg-mayssa-brown/5')}
+              title={sidebarCollapsed ? 'Ouvrir' : 'Replier'}
+            >
+              {sidebarCollapsed ? <PanelLeft size={16} /> : <PanelLeftClose size={16} />}
+            </button>
           </div>
+        </div>
+        <nav className="flex-1 overflow-y-auto py-2 space-y-0.5">
+          {navItems.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => { setTab(t.id as any); setSidebarMobileOpen(false) }}
+              className={cn(
+                'w-full flex items-center gap-3 px-3 py-2.5 text-left transition-all',
+                sidebarCollapsed ? 'justify-center px-0' : '',
+                tab === t.id
+                  ? isDark ? 'bg-mayssa-gold/20 text-mayssa-gold border-r-2 border-mayssa-gold' : 'bg-mayssa-brown/10 text-mayssa-brown border-r-2 border-mayssa-brown'
+                  : isDark ? 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200' : 'text-mayssa-brown/60 hover:bg-mayssa-brown/5 hover:text-mayssa-brown'
+              )}
+            >
+              <t.icon size={18} strokeWidth={2.5} className="flex-shrink-0" />
+              {!sidebarCollapsed && (
+                <>
+                  <span className="text-xs font-bold truncate flex-1">{t.label}</span>
+                  {t.badge !== undefined && t.badge > 0 && (
+                    <span className={cn('flex h-5 min-w-[20px] items-center justify-center rounded-full text-[10px] font-black px-1', isDark ? 'bg-red-500/80 text-white' : 'bg-red-500 text-white')}>
+                      {t.badge}
+                    </span>
+                  )}
+                </>
+              )}
+            </button>
+          ))}
+          {/* Favoris / Pins */}
+          {(pinnedOrderIds.length > 0 || pinnedClientPhones.length > 0) && !sidebarCollapsed && (
+            <div className="mt-2 pt-2 border-t border-inherit">
+              <p className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/40">Favoris</p>
+              {pinnedOrderIds.slice(0, 5).map((id) => {
+                const o = orders[id]
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => { setTab('historique'); setEditingOrderId(id); setSidebarMobileOpen(false) }}
+                    className="w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-left text-[10px] hover:bg-mayssa-brown/5"
+                  >
+                    <span className="truncate">#{o?.orderNumber ?? id.slice(-6)}</span>
+                    <Pin size={10} className="text-mayssa-gold flex-shrink-0" fill="currentColor" />
+                  </button>
+                )
+              })}
+              {pinnedClientPhones.slice(0, 3).map((phone) => {
+                const match = Object.entries(allUsers).find(([, u]) => u.phone?.replace(/\D/g, '') === phone)
+                return (
+                  <button
+                    key={phone}
+                    type="button"
+                    onClick={() => { if (match) { setTab('clients'); setSelectedClientUid(match[0]); setSidebarMobileOpen(false) } }}
+                    className="w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-left text-[10px] hover:bg-mayssa-brown/5"
+                  >
+                    <span className="truncate">{match ? `${match[1].firstName} ${match[1].lastName}` : phone}</span>
+                    <Pin size={10} className="text-mayssa-gold flex-shrink-0" fill="currentColor" />
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </nav>
+        <div className="p-2 border-t border-inherit">
+          <button
+            type="button"
+            onClick={() => setDarkMode((d) => !d)}
+            className={cn(
+              'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors',
+              sidebarCollapsed ? 'justify-center px-0' : '',
+              isDark ? 'text-zinc-400 hover:bg-zinc-800' : 'text-mayssa-brown/60 hover:bg-mayssa-brown/5'
+            )}
+            title={isDark ? 'Mode clair' : 'Mode sombre'}
+          >
+            {isDark ? <Sun size={18} /> : <Moon size={18} />}
+            {!sidebarCollapsed && <span className="text-xs font-bold">{isDark ? 'Clair' : 'Sombre'}</span>}
+          </button>
+        </div>
+      </aside>
+
+      {/* Main content */}
+      <div className={cn('flex-1 flex flex-col min-w-0 ml-0', sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-56')}>
+      {/* Header premium admin */}
+      <header className={cn('sticky top-0 z-30 flex-shrink-0', isDark ? 'bg-zinc-900/95 backdrop-blur-xl border-b border-zinc-800' : 'bg-white/90 backdrop-blur-2xl border-b border-mayssa-brown/5 shadow-sm')}>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setSidebarMobileOpen(true)}
+              className={cn('lg:hidden p-2 rounded-xl transition-colors', isDark ? 'hover:bg-zinc-800' : 'hover:bg-mayssa-brown/5')}
+              title="Menu"
+              aria-label="Ouvrir le menu"
+            >
+              <Menu size={22} className={isDark ? 'text-zinc-300' : 'text-mayssa-brown'} />
+            </button>
+            <div className={cn('h-9 w-9 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0', isDark ? 'bg-mayssa-gold/20' : 'bg-mayssa-brown')}>
+              <LayoutDashboard size={18} className={isDark ? 'text-mayssa-gold' : 'text-white'} />
+            </div>
+            <div className="hidden sm:block">
+              <h1 className={cn('text-sm font-display font-bold tracking-tight', isDark ? 'text-zinc-100' : 'text-mayssa-brown')}>Maison Mayssa Admin</h1>
+              <p className={cn('text-[10px] tabular-nums', isDark ? 'text-zinc-500' : 'text-mayssa-brown/40')}>{user.email}</p>
+            </div>
+          </div>
+
+          {/* Status badge */}
+          <div className={cn(
+            'flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border flex-shrink-0',
+            settings.ordersOpen === false
+              ? 'bg-red-50 text-red-700 border-red-200'
+              : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+          )}>
+            <span className={cn('h-1.5 w-1.5 rounded-full', settings.ordersOpen === false ? 'bg-red-500' : 'bg-emerald-500 animate-pulse')} />
+            {settings.ordersOpen === false ? 'Fermé' : 'Ouvert'}
+          </div>
+
           <div className="flex items-center gap-2">
+            {/* Daily report button */}
+            <button
+              onClick={() => setShowDailyReport(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-mayssa-gold/10 text-mayssa-gold text-[10px] font-black uppercase tracking-wider hover:bg-mayssa-gold/20 transition-all cursor-pointer border border-mayssa-gold/20"
+              title="Rapport journalier"
+            >
+              <FileText size={14} />
+              <span className="hidden sm:inline">Rapport</span>
+            </button>
+
+            {/* Notifications bell */}
+            <div className="relative">
+              <button
+                onClick={() => setShowNotifications(s => !s)}
+                className={cn(
+                  'relative p-2.5 rounded-xl transition-all duration-300 border cursor-pointer',
+                  showNotifications
+                    ? 'bg-mayssa-brown text-white border-mayssa-brown'
+                    : 'bg-mayssa-brown/5 text-mayssa-brown/60 border-mayssa-brown/10 hover:bg-mayssa-brown/10'
+                )}
+                title="Notifications"
+              >
+                <Bell size={16} fill={soundEnabled ? 'currentColor' : 'none'} />
+              </button>
+              <AdminNotificationsCenter
+                orders={orders}
+                stock={stock}
+                allUsers={allUsers}
+                isOpen={showNotifications}
+                onClose={() => setShowNotifications(false)}
+                onNavigate={(t) => setTab(t as any)}
+              />
+            </div>
+
+            {/* Sound toggle */}
             <button
               onClick={() => {
                 if (soundEnabled && typeof Notification !== 'undefined' && Notification.permission === 'default') {
@@ -1119,159 +1489,125 @@ function Dashboard({ user }: { user: User }) {
                 }
                 setSoundEnabled((s) => !s)
               }}
-              className={`flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                soundEnabled ? 'bg-emerald-500/20 text-emerald-200' : 'bg-white/10 text-white/50'
-              }`}
-              title={soundEnabled ? 'Son activé' : 'Son désactivé'}
+              className={cn(
+                'p-2.5 rounded-xl transition-all duration-300 border cursor-pointer',
+                soundEnabled
+                  ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                  : 'bg-mayssa-brown/5 text-mayssa-brown/30 border-mayssa-brown/10'
+              )}
+              title={soundEnabled ? 'Son activé' : 'Son coupé'}
             >
-              <Bell size={14} />
-              {soundEnabled ? 'On' : 'Off'}
+              {soundEnabled ? '🔔' : '🔕'}
             </button>
+
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-white/80 hover:bg-white/10 transition-colors cursor-pointer"
+              className="p-2.5 rounded-xl text-mayssa-brown/40 hover:text-red-500 hover:bg-red-50 transition-all duration-300 border border-transparent hover:border-red-200 cursor-pointer"
+              title="Déconnexion"
             >
               <LogOut size={16} />
-              Déconnexion
             </button>
           </div>
         </div>
       </header>
 
       {/* Recherche globale */}
-      <div className="max-w-2xl mx-auto px-4 pt-3 relative z-30">
-        <div className="relative">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-mayssa-brown/40 pointer-events-none" />
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-4 sm:pt-8 relative z-30">
+        <div className="relative group">
+          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-mayssa-brown/30 group-focus-within:text-mayssa-gold transition-colors" />
           <input
             type="search"
             value={globalSearch}
             onChange={(e) => setGlobalSearch(e.target.value)}
-            placeholder="Rechercher client, téléphone, n° commande…"
-            className="w-full rounded-2xl border border-mayssa-brown/10 pl-9 pr-9 py-2.5 text-sm text-mayssa-brown placeholder:text-mayssa-brown/35 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-mayssa-caramel/30 focus:border-mayssa-caramel"
+            placeholder="Rechercher un client, téléphone, commande..."
+            className={cn(
+              'w-full rounded-[2rem] pl-12 pr-12 py-4 text-sm font-medium backdrop-blur-xl shadow-premium-shadow focus:outline-none focus:ring-2 focus:ring-mayssa-gold/20 focus:border-mayssa-gold transition-all',
+              isDark ? 'border border-zinc-700 bg-zinc-800/80 text-zinc-100 placeholder:text-zinc-500' : 'border border-mayssa-brown/10 text-mayssa-brown placeholder:text-mayssa-brown/30 bg-white/80'
+            )}
           />
           {globalSearch && (
             <button
               type="button"
               onClick={() => setGlobalSearch('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-mayssa-brown/40 hover:text-mayssa-brown cursor-pointer"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-mayssa-brown/30 hover:text-mayssa-brown transition-all"
             >
-              <X size={15} />
+              <X size={18} />
             </button>
           )}
-        </div>
-        {globalSearch.trim().length >= 2 && (
-          <div className="absolute left-4 right-4 top-full mt-1 bg-white rounded-2xl shadow-xl border border-mayssa-brown/10 overflow-hidden max-h-72 overflow-y-auto">
-            {globalSearchResults.length === 0 ? (
-              <p className="px-4 py-4 text-sm text-mayssa-brown/50 text-center">Aucun résultat pour « {globalSearch} »</p>
-            ) : (
-              globalSearchResults.map(([id, order]) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => { setEditingOrderId(id); setGlobalSearch('') }}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-mayssa-soft/60 transition-colors text-left border-b border-mayssa-brown/5 last:border-b-0 cursor-pointer"
-                >
-                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                    order.status === 'en_preparation' ? 'bg-blue-400' :
-                    order.status === 'pret' ? 'bg-emerald-400' :
-                    order.status === 'livree' || order.status === 'validee' ? 'bg-gray-400' :
-                    order.status === 'refusee' ? 'bg-red-400' : 'bg-amber-400'
-                  }`} />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-mayssa-brown truncate">
-                      {order.customer?.firstName} {order.customer?.lastName}
-                    </p>
-                    <p className="text-[11px] text-mayssa-brown/50 truncate">
-                      {order.customer?.phone && `${order.customer.phone} · `}#{order.orderNumber ?? id.slice(-6)}
-                      {order.requestedDate && ` · ${parseDateYyyyMmDd(order.requestedDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`}
-                    </p>
-                  </div>
-                  <div className="flex-shrink-0 text-right">
-                    <p className="text-xs font-bold text-mayssa-caramel">{(order.total ?? 0).toFixed(2).replace('.', ',')} €</p>
-                    <p className="text-[10px] text-mayssa-brown/40">{ORDER_STATUS_LABELS[order.status] ?? order.status}</p>
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-        )}
-      </div>
 
-      {/* Tabs groupés */}
-      <div className="max-w-2xl mx-auto px-4 pt-3">
-        <div className="flex flex-wrap gap-x-4 gap-y-2 bg-white/80 backdrop-blur rounded-2xl p-2 shadow-md border border-mayssa-brown/5 overflow-x-auto">
-          {[
-            { label: null, tabs: [{ id: 'resume', icon: LayoutDashboard, label: 'Résumé' }] },
-            {
-              label: 'Commandes',
-              tabs: [
-                { id: 'commandes', icon: ClipboardList, label: 'À valider', badge: pendingCount },
-                { id: 'historique', icon: LayoutDashboard, label: 'Planning' },
-                { id: 'planning_detail', icon: Calendar, label: 'Vue journalière' },
-                {
-                  id: 'livret',
-                  icon: Truck,
-                  label: 'Commandes',
-                  badge: Object.values(orders).filter(o => o.status === 'en_preparation').length,
-                },
-              ],
-            },
-            {
-              label: 'Vente',
-              tabs: [
-                { id: 'ca', icon: TrendingUp, label: 'CA' },
-                { id: 'catalogue', icon: Package, label: 'Catalogue' },
-              ],
-            },
-            {
-              label: null,
-              tabs: [
-                {
-                  id: 'clients',
-                  icon: Users,
-                  label: 'Clients',
-                  badge: upcomingBirthdays.filter(b => !b.claimed).length + Object.keys(notifyWhenAvailableEntries).length,
-                },
-                { id: 'reglages', icon: Calendar, label: 'Réglages' },
-              ],
-            },
-          ].map((group, gi) => (
-            <div key={gi} className="flex items-center gap-1.5 flex-shrink-0">
-              {group.label && (
-                <span className="text-[9px] font-bold uppercase tracking-wider text-mayssa-brown/40 hidden sm:inline">
-                  {group.label}
-                </span>
+          {/* Résultats de recherche en direct */}
+          <AnimatePresence>
+            {globalSearchResults.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 5, scale: 0.95 }}
+                className={cn(
+                'absolute top-full left-0 right-0 mt-3 p-2 backdrop-blur-2xl rounded-3xl shadow-2xl z-[60] overflow-hidden',
+                isDark ? 'bg-zinc-800/95 border border-zinc-700' : 'bg-white/95 border border-white/50'
               )}
-              {group.tabs.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => setTab(t.id as typeof tab)}
-                  className={`flex-shrink-0 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    tab === t.id ? 'bg-mayssa-brown text-white shadow-md' : 'text-mayssa-brown/60 hover:bg-mayssa-soft/80'
-                  }`}
-                >
-                  <t.icon size={14} />
-                  {t.label}
-                  {'badge' in t && (t.badge ?? 0) > 0 && (
-                    <span className="bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                      {Number(t.badge)}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          ))}
+              >
+                <div className="max-h-[min(400px,70vh)] overflow-y-auto custom-scrollbar p-2 space-y-1">
+                  {globalSearchResults.map(([id, order]) => (
+                    <button
+                      key={id}
+                      onClick={() => {
+                        setTab('historique')
+                        setEditingOrderId(id)
+                        setGlobalSearch('')
+                      }}
+                      className={cn(
+                        'w-full flex items-center justify-between p-4 rounded-2xl transition-colors text-left group',
+                        isDark ? 'hover:bg-zinc-700/50' : 'hover:bg-mayssa-soft/50'
+                      )}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className={cn('h-10 w-10 rounded-xl flex items-center justify-center', isDark ? 'bg-zinc-700 text-zinc-300' : 'bg-mayssa-soft text-mayssa-brown')}>
+                          {order.deliveryMode === 'livraison' ? <Truck size={18} /> : <MapPin size={18} />}
+                        </div>
+                        <div>
+                          <p className={cn('text-sm font-bold', isDark ? 'text-zinc-200' : 'text-mayssa-brown')}>
+                            {order.customer?.firstName} {order.customer?.lastName}
+                          </p>
+                          <p className={cn('text-[10px] font-medium', isDark ? 'text-zinc-500' : 'text-mayssa-brown/50')}>
+                            {order.orderNumber ? `#${order.orderNumber}` : 'Sans numéro'} • {new Date(order.createdAt ?? 0).toLocaleDateString('fr-FR')}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="text-xs font-black text-mayssa-gold">{order.total?.toFixed(0)}€</span>
+                        <span className={cn(
+                          "text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg",
+                          order.status === 'en_attente' ? "bg-amber-100 text-amber-600" :
+                          order.status === 'en_preparation' ? "bg-blue-100 text-blue-600" :
+                          order.status === 'pret' ? "bg-emerald-100 text-emerald-600" : "bg-mayssa-brown/5 text-mayssa-brown/40"
+                        )}>
+                          {order.status}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
-      <main className="max-w-2xl mx-auto px-4 py-4 space-y-4 pb-8">
+      <main className={cn('max-w-2xl mx-auto px-3 sm:px-4 py-4 space-y-4 pb-8 flex-1 overflow-x-hidden', isDark ? '' : '')}>
         {/* Status banner */}
-        <div className={`rounded-2xl p-4 text-center shadow-sm ${
-          settings.ordersOpen === false ? 'bg-red-50 border border-red-200' : isPreorderDay ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'
-        }`}>
-          <p className={`text-sm font-bold ${
-            settings.ordersOpen === false ? 'text-red-800' : isPreorderDay ? 'text-emerald-800' : 'text-amber-800'
-          }`}>
+        <div className={cn(
+          'rounded-2xl p-4 text-center shadow-sm',
+          settings.ordersOpen === false ? (isDark ? 'bg-red-950/40 border border-red-800' : 'bg-red-50 border border-red-200') :
+          isPreorderDay ? (isDark ? 'bg-emerald-950/40 border border-emerald-800' : 'bg-emerald-50 border border-emerald-200') :
+          (isDark ? 'bg-amber-950/40 border border-amber-800' : 'bg-amber-50 border border-amber-200')
+        )}>
+          <p className={cn(
+            'text-sm font-bold',
+            settings.ordersOpen === false ? (isDark ? 'text-red-300' : 'text-red-800') :
+            isPreorderDay ? (isDark ? 'text-emerald-300' : 'text-emerald-800') :
+            (isDark ? 'text-amber-300' : 'text-amber-800')
+          )}>
             {settings.ordersOpen === false
               ? 'Commandes fermées — les clients ne peuvent pas envoyer de commande'
               : isPreorderDay
@@ -1288,13 +1624,9 @@ function Dashboard({ user }: { user: User }) {
         {/* ===== TABLEAU DE BORD RÉSUMÉ ===== */}
         {tab === 'resume' && (() => {
           const now = new Date()
-          const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
           const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
           const endOfToday = startOfToday + 86400000 - 1
           const caJour = validatedOrders.filter(o => o.createdAt != null && o.createdAt >= startOfToday && o.createdAt <= endOfToday).reduce((s, o) => s + (o.total ?? 0), 0)
-          const livraisonsAujourdhui = Object.values(orders).filter(o => o.deliveryMode === 'livraison' && o.requestedDate === todayStr && o.status !== 'refusee').length
-          const retraitsAujourdhui = Object.values(orders).filter(o => o.deliveryMode === 'retrait' && o.requestedDate === todayStr && o.status !== 'refusee').length
-          const annivNonSouhaites = upcomingBirthdays.filter(b => !b.claimed).length
           return (
             <motion.section
               initial={{ opacity: 0, y: 8 }}
@@ -1329,64 +1661,145 @@ function Dashboard({ user }: { user: User }) {
               {(() => {
                 const preparationCount = Object.values(orders).filter(o => o.status === 'en_preparation').length
                 return (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                     <button
                       type="button"
                       onClick={() => setTab('commandes')}
-                      className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5 text-left hover:ring-2 hover:ring-amber-400 transition-all cursor-pointer"
+                      className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-premium-shadow border border-white hover:border-mayssa-gold transition-all duration-700 text-left group"
                     >
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">À valider</span>
-                      <p className={`text-xl font-display font-bold mt-0.5 ${pendingCount > 0 ? 'text-amber-600' : 'text-mayssa-brown'}`}>{pendingCount}</p>
-                      <p className="text-[10px] text-mayssa-caramel mt-1">Voir →</p>
+                      <span className="text-[10px] font-black uppercase tracking-[0.3em] text-mayssa-brown/30 group-hover:text-mayssa-gold transition-all">Commandes</span>
+                      <p className={cn("text-4xl font-display font-bold mt-3", pendingCount > 0 ? "text-amber-600" : "text-mayssa-brown")}>{pendingCount}</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-mayssa-gold mt-6 flex items-center gap-2">Actions Requises <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform" /></p>
                     </button>
                     <button
                       type="button"
                       onClick={() => { setTab('historique'); setHistoriqueVue('a_traiter') }}
-                      className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5 text-left hover:ring-2 hover:ring-blue-400 transition-all cursor-pointer"
+                      className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-premium-shadow border border-white hover:border-blue-400 transition-all duration-700 text-left group"
                     >
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">En préparation</span>
-                      <p className={`text-xl font-display font-bold mt-0.5 ${preparationCount > 0 ? 'text-blue-600' : 'text-mayssa-brown'}`}>{preparationCount}</p>
-                      <p className="text-[10px] text-blue-500 mt-1">Voir →</p>
+                      <span className="text-[10px] font-black uppercase tracking-[0.3em] text-mayssa-brown/30 group-hover:text-blue-500 transition-all">Atelier</span>
+                      <p className={cn("text-4xl font-display font-bold mt-3", preparationCount > 0 ? "text-blue-600" : "text-mayssa-brown")}>{preparationCount}</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-blue-500 mt-6 flex items-center gap-2">En Préparation <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform" /></p>
                     </button>
                     <button
                       type="button"
                       onClick={() => setTab('ca')}
-                      className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5 text-left hover:ring-2 hover:ring-mayssa-caramel transition-all cursor-pointer"
+                      className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-premium-shadow border border-white hover:border-mayssa-gold transition-all duration-700 text-left group"
                     >
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">CA aujourd'hui</span>
-                      <p className="text-xl font-display font-bold text-mayssa-caramel mt-0.5">{caJour.toFixed(2).replace('.', ',')} €</p>
-                      <p className="text-[10px] text-mayssa-brown/50 mt-1">Semaine : {caSemaine.toFixed(2).replace('.', ',')} €</p>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setTab('ca')}
-                      className="bg-gradient-to-br from-mayssa-caramel/10 to-mayssa-soft rounded-xl p-4 shadow-sm border border-mayssa-caramel/20 text-left hover:ring-2 hover:ring-mayssa-caramel transition-all cursor-pointer"
-                    >
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">CA depuis le début</span>
-                      <p className="text-xl font-display font-bold text-mayssa-caramel mt-0.5">{caTotal.toFixed(2).replace('.', ',')} €</p>
-                      <p className="text-[10px] text-mayssa-brown/50 mt-1">Mois : {caMois.toFixed(2).replace('.', ',')} €</p>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setTab('livret')}
-                      className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5 text-left hover:ring-2 hover:ring-mayssa-caramel transition-all cursor-pointer"
-                    >
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">Aujourd'hui</span>
-                      <p className="text-xl font-display font-bold text-mayssa-brown mt-0.5">{livraisonsAujourdhui} livr. · {retraitsAujourdhui} retr.</p>
-                      <p className="text-[10px] text-mayssa-caramel mt-1">Voir Livraisons →</p>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setTab('clients'); setClientsSection('anniversaires') }}
-                      className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5 text-left hover:ring-2 hover:ring-mayssa-caramel transition-all cursor-pointer"
-                    >
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">Anniversaires</span>
-                      <p className="text-xl font-display font-bold text-mayssa-brown mt-0.5">{annivNonSouhaites} à souhaiter</p>
-                      <p className="text-[10px] text-mayssa-caramel mt-1">Voir →</p>
+                      <span className="text-[10px] font-black uppercase tracking-[0.3em] text-mayssa-brown/30 group-hover:text-mayssa-gold transition-all">Performance</span>
+                      <p className="text-4xl font-display font-bold text-mayssa-gold mt-3 font-numeric">{caJour.toFixed(0)}€</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-mayssa-brown/30 mt-6">Aujourd'hui</p>
                     </button>
                   </div>
                 )
               })()}
+
+              {/* Alertes urgentes (retrait dans < 2h) */}
+              {urgentOrders.length > 0 && (
+                <div className={cn(
+                  'rounded-2xl p-4 border-2 animate-pulse',
+                  isDark ? 'bg-amber-950/50 border-amber-600/50' : 'bg-amber-50 border-amber-300'
+                )}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertTriangle size={18} className="text-amber-600" />
+                    <span className={cn('text-sm font-bold', isDark ? 'text-amber-400' : 'text-amber-800')}>
+                      {urgentOrders.length} commande{urgentOrders.length > 1 ? 's' : ''} urgente{urgentOrders.length > 1 ? 's' : ''} — retrait dans moins de 2h
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {urgentOrders.slice(0, 5).map(([id, o]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => { setTab('historique'); setEditingOrderId(id) }}
+                        className={cn(
+                          'px-3 py-1.5 rounded-xl text-xs font-bold transition-colors',
+                          isDark ? 'bg-amber-900/50 text-amber-200 hover:bg-amber-800/50' : 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                        )}
+                      >
+                        {o.customer?.firstName} — {o.requestedTime}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* CA heure par heure + Flux 5 commandes */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* CA heure par heure */}
+                <div className={cn(
+                  'rounded-2xl p-4 shadow-sm border',
+                  isDark ? 'bg-zinc-800/50 border-zinc-700' : 'bg-white border-mayssa-brown/5'
+                )}>
+                  <h3 className={cn('text-xs font-bold uppercase tracking-wider mb-3', isDark ? 'text-zinc-400' : 'text-mayssa-brown/50')}>
+                    CA du jour (heure par heure)
+                  </h3>
+                  {caHourlyData.length > 0 ? (
+                    <div className="h-32">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={caHourlyData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#52525b' : '#e4e4e7'} />
+                          <XAxis dataKey="heure" tick={{ fontSize: 10 }} stroke={isDark ? '#a1a1aa' : '#71717a'} />
+                          <YAxis tick={{ fontSize: 10 }} stroke={isDark ? '#a1a1aa' : '#71717a'} />
+                          <Tooltip
+                            contentStyle={isDark ? { backgroundColor: '#27272a', border: '1px solid #3f3f46' } : undefined}
+                            formatter={(v) => [v != null ? `${v}€` : '0€', 'CA']}
+                          />
+                          <Line type="monotone" dataKey="ca" stroke="#C5A059" strokeWidth={2} dot={{ fill: '#C5A059' }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <p className={cn('text-sm', isDark ? 'text-zinc-500' : 'text-mayssa-brown/50')}>Aucune vente aujourd'hui</p>
+                  )}
+                </div>
+                {/* Flux 5 dernières commandes */}
+                <div className={cn(
+                  'rounded-2xl p-4 shadow-sm border',
+                  isDark ? 'bg-zinc-800/50 border-zinc-700' : 'bg-white border-mayssa-brown/5'
+                )}>
+                  <h3 className={cn('text-xs font-bold uppercase tracking-wider mb-3', isDark ? 'text-zinc-400' : 'text-mayssa-brown/50')}>
+                    Dernières commandes
+                  </h3>
+                  {last5Orders.length === 0 ? (
+                    <p className={cn('text-sm', isDark ? 'text-zinc-500' : 'text-mayssa-brown/50')}>Aucune commande</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {last5Orders.map(([id, o]) => (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => { setTab('historique'); setEditingOrderId(id) }}
+                          className={cn(
+                            'w-full flex items-center justify-between p-2 rounded-xl text-left transition-colors',
+                            isDark ? 'hover:bg-zinc-700/50' : 'hover:bg-mayssa-soft/50'
+                          )}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className={cn('text-xs font-bold truncate', isDark ? 'text-zinc-200' : 'text-mayssa-brown')}>
+                              {o.customer?.firstName} {o.customer?.lastName}
+                            </p>
+                            <p className={cn('text-[10px]', isDark ? 'text-zinc-500' : 'text-mayssa-brown/50')}>
+                              {new Date(o.createdAt ?? 0).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                          <span className={cn('text-xs font-bold flex-shrink-0', isDark ? 'text-mayssa-gold' : 'text-mayssa-brown')}>
+                            {o.total?.toFixed(0)}€
+                          </span>
+                          <span className={cn(
+                            'ml-2 px-1.5 py-0.5 rounded text-[9px] font-bold flex-shrink-0',
+                            o.status === 'en_attente' ? 'bg-amber-500/20 text-amber-400' :
+                            o.status === 'en_preparation' ? 'bg-blue-500/20 text-blue-400' :
+                            o.status === 'pret' ? 'bg-emerald-500/20 text-emerald-400' :
+                            isDark ? 'bg-zinc-600 text-zinc-300' : 'bg-mayssa-brown/10 text-mayssa-brown/70'
+                          )}>
+                            {o.status === 'en_attente' ? 'Att.' : o.status === 'en_preparation' ? 'Prépa' : o.status === 'pret' ? 'Prête' : 'OK'}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
 
               {/* Stats : commandes cette semaine + Top 3 du mois */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1445,6 +1858,32 @@ function Dashboard({ user }: { user: User }) {
                 {ordersPourPrepDate.length === 0 ? (
                   <p className="text-sm text-mayssa-brown/50 py-2">Aucune commande pour cette date.</p>
                 ) : (
+                  <>
+                  {/* Vue produits à préparer (quantités totales) */}
+                  {(() => {
+                    const prodMap: Record<string, { name: string; qty: number }> = {}
+                    for (const [, o] of ordersPourPrepDate) {
+                      if (o.status === 'refusee') continue
+                      for (const item of o.items ?? []) {
+                        const key = item.productId ?? item.name
+                        if (!prodMap[key]) prodMap[key] = { name: formatOrderItemName(item), qty: 0 }
+                        prodMap[key].qty += item.quantity
+                      }
+                    }
+                    const prodList = Object.values(prodMap).sort((a, b) => b.qty - a.qty)
+                    return (
+                      <div className="mb-4 p-3 rounded-xl bg-mayssa-gold/5 border border-mayssa-gold/20">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60 mb-2">Produits à préparer ({prodList.reduce((s, p) => s + p.qty, 0)} pièces)</p>
+                        <div className="flex flex-wrap gap-2">
+                          {prodList.map((p, i) => (
+                            <span key={i} className="px-2.5 py-1 rounded-lg bg-white border border-mayssa-brown/10 text-xs font-bold text-mayssa-brown">
+                              {p.qty}× {p.name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })()}
                   <ul className="space-y-2">
                     {ordersPourPrepDate.map(([id, order]) => {
                       const client = [order.customer?.firstName, order.customer?.lastName].filter(Boolean).join(' ') || 'Client'
@@ -1463,6 +1902,35 @@ function Dashboard({ user }: { user: User }) {
                             <p className="text-xs font-bold text-mayssa-brown truncate">{client}</p>
                             <p className="text-[10px] text-mayssa-brown/60">{creneau}</p>
                             <p className="text-[10px] text-mayssa-brown/70 truncate mt-0.5">{itemsSummary || '—'}</p>
+                            {/* Checklist */}
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {[
+                                { key: 'stockChecked' as const, label: 'Stock', icon: Package },
+                                { key: 'messageSent' as const, label: 'Msg', icon: MessageCircle },
+                                { key: 'ready' as const, label: 'Prêt', icon: Check },
+                              ].map(({ key, label, icon: Icon }) => {
+                                const val = order.adminChecklist?.[key] ?? false
+                                return (
+                                  <button
+                                    key={key}
+                                    type="button"
+                                    onClick={() => updateOrder(id, {
+                                      adminChecklist: {
+                                        ...order.adminChecklist,
+                                        [key]: !val,
+                                      },
+                                    })}
+                                    className={cn(
+                                      'flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold transition-colors',
+                                      val ? 'bg-emerald-100 text-emerald-700' : 'bg-mayssa-brown/5 text-mayssa-brown/50'
+                                    )}
+                                  >
+                                    <Icon size={10} />
+                                    {label}
+                                  </button>
+                                )
+                              })}
+                            </div>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
                             <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold ${
@@ -1505,6 +1973,7 @@ function Dashboard({ user }: { user: User }) {
                       )
                     })}
                   </ul>
+                  </>
                 )}
               </div>
             </motion.section>
@@ -1527,7 +1996,7 @@ function Dashboard({ user }: { user: User }) {
                   <p className="text-lg font-display font-bold text-mayssa-brown">{pendingCount}</p>
                 </div>
                 <button
-                  onClick={() => setShowOffSiteForm(true)}
+                  onClick={() => { setOffSitePresetClient(null); setShowOffSiteForm(true) }}
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-mayssa-brown text-white text-xs font-bold hover:bg-mayssa-brown/90 shadow-md transition-all cursor-pointer"
                 >
                   <Plus size={16} />
@@ -1657,6 +2126,61 @@ function Dashboard({ user }: { user: User }) {
                       >
                         Valider la sélection
                       </button>
+                      <div className="relative" ref={bulkValidateRef}>
+                        <button
+                          type="button"
+                          onClick={() => setBulkValidateOpen((o) => !o)}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[10px] font-bold hover:bg-emerald-700 cursor-pointer flex items-center gap-1"
+                        >
+                          Tout valider <ChevronDown size={12} className={cn('transition-transform', bulkValidateOpen && 'rotate-180')} />
+                        </button>
+                        <AnimatePresence>
+                          {bulkValidateOpen && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -4 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -4 }}
+                              className="absolute left-0 top-full mt-1 py-1.5 rounded-xl shadow-xl border border-mayssa-brown/10 bg-white z-50 min-w-[220px]"
+                            >
+                              {[
+                                { key: 'all', label: 'Tout valider', filter: (ids: string[]) => ids },
+                                { key: 'no_zone', label: 'Sauf hors zone', filter: (ids: string[]) => ids.filter(id => {
+                                  const o = orders[id]
+                                  if (!o || o.deliveryMode !== 'livraison') return true
+                                  const km = o.distanceKm
+                                  return km != null && km <= DELIVERY_RADIUS_KM
+                                })},
+                                { key: 'no_creneau', label: 'Sauf sans créneau', filter: (ids: string[]) => ids.filter(id => {
+                                  const o = orders[id]
+                                  return o && o.requestedDate && o.requestedTime
+                                })},
+                              ].map(({ key, label, filter }) => {
+                                const toValidate = filter(ordersToValidate.map(([id]) => id))
+                                return (
+                                  <button
+                                    key={key}
+                                    type="button"
+                                    onClick={async () => {
+                                      setBulkValidateOpen(false)
+                                      if (toValidate.length === 0) return
+                                      if (!window.confirm(`Valider ${toValidate.length} commande(s) ?`)) return
+                                      for (const id of toValidate) {
+                                        const o = orders[id]
+                                        if (o) await handleValidateOrder(id, o)
+                                      }
+                                      setSelectedPendingIds(new Set())
+                                    }}
+                                    disabled={toValidate.length === 0}
+                                    className="w-full text-left px-4 py-2 text-xs font-medium text-mayssa-brown hover:bg-mayssa-soft disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    {label} ({toValidate.length})
+                                  </button>
+                                )
+                              })}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
                       <button
                         type="button"
                         onClick={async () => {
@@ -1706,6 +2230,14 @@ function Dashboard({ user }: { user: User }) {
                       />
                       <span className="sr-only">Sélectionner</span>
                     </label>
+                    <button
+                      type="button"
+                      onClick={() => { togglePinOrder(id); setPinsVersion(v => v + 1) }}
+                      className={cn('p-1.5 rounded-lg transition-colors', isOrderPinned(id) ? 'text-mayssa-gold' : 'text-mayssa-brown/30 hover:text-mayssa-brown/60')}
+                      title={isOrderPinned(id) ? 'Retirer des favoris' : 'Épingler'}
+                    >
+                      <Pin size={14} fill={isOrderPinned(id) ? 'currentColor' : 'none'} />
+                    </button>
                     <div className="min-w-0 flex-1">
                       <p className="text-[10px] font-bold text-mayssa-brown/50 uppercase tracking-wider mb-0.5">
                         Commande {order.orderNumber != null ? `#${order.orderNumber}` : `#${id.slice(-8)}`}
@@ -1729,16 +2261,7 @@ function Dashboard({ user }: { user: User }) {
                             <Phone size={10} />
                             {order.customer.phone}
                           </p>
-                          <a
-                            href={`https://wa.me/${phoneToWhatsApp(order.customer.phone)}`}
-                            target="_blank"
-                            rel="noreferrer noopener"
-                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-green-500 text-white text-[9px] font-bold hover:bg-green-600 transition-colors"
-                            title="Ouvrir WhatsApp"
-                          >
-                            <MessageCircle size={10} />
-                            WhatsApp
-                          </a>
+                          <AdminWhatsAppDropdown order={order} variant="compact" darkMode={isDark} />
                           <button
                             type="button"
                             onClick={() => { navigator.clipboard.writeText(order.customer!.phone!); }}
@@ -1863,30 +2386,9 @@ function Dashboard({ user }: { user: User }) {
                       <Download size={14} />
                       PDF
                     </button>
-                    {order.customer?.phone && (() => {
-                      const prenom = order.customer?.firstName ?? ''
-                      const ref = order.orderNumber ? `#${order.orderNumber}` : ''
-                      const msgs: Record<string, string> = {
-                        en_attente: `Bonjour ${prenom} 👋 Votre commande ${ref} a bien été reçue chez Maison Mayssa ! Nous la préparerons très prochainement. Merci de votre confiance 🍪`,
-                        en_preparation: `Bonjour ${prenom} 👋 Votre commande ${ref} est en cours de préparation chez Maison Mayssa 🍰`,
-                        pret: `Bonjour ${prenom} ✅ Votre commande ${ref} est prête ! Vous pouvez venir la récupérer dès maintenant chez Maison Mayssa 🎁\n\nSi vous avez apprécié, un petit avis Google nous aiderait énormément 🙏⭐ → https://share.google/hWmuK4HB8Bcp69KWC\n\nMerci et à bientôt 🍪`,
-                        livree: `Bonjour ${prenom} 🚗 Votre commande ${ref} est en route, notre livreur arrive bientôt !\n\nSi vous avez apprécié, un petit avis Google nous aiderait énormément 🙏⭐ → https://share.google/hWmuK4HB8Bcp69KWC\n\nMerci et à bientôt 🍪`,
-                        refusee: `Bonjour ${prenom}, malheureusement nous ne pouvons pas honorer votre commande ${ref} pour le moment. N'hésitez pas à nous recontacter pour reprogrammer 🙏`,
-                      }
-                      const msg = msgs[order.status] ?? msgs['en_attente']
-                      return (
-                        <a
-                          href={`https://wa.me/${phoneToWhatsApp(order.customer.phone)}?text=${encodeURIComponent(msg)}`}
-                          target="_blank"
-                          rel="noreferrer noopener"
-                          className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-green-500 text-white text-xs font-bold hover:bg-green-600 transition-colors"
-                          title="Envoyer un message WhatsApp"
-                        >
-                          <MessageCircle size={14} />
-                          {order.status === 'pret' ? 'Prête ✅' : order.status === 'livree' ? 'En route 🚗' : order.status === 'refusee' ? 'Refus' : 'Message'}
-                        </a>
-                      )
-                    })()}
+                    {order.customer?.phone && (
+                        <AdminWhatsAppDropdown order={order} variant="full" darkMode={isDark} />
+                      )}
                     <button
                       onClick={() => setEditingOrderId(id)}
                       className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-mayssa-brown/10 text-mayssa-brown text-xs font-bold hover:bg-mayssa-brown/20 transition-colors cursor-pointer"
@@ -1905,7 +2407,7 @@ function Dashboard({ user }: { user: User }) {
                           En prépa
                         </button>
                         <button
-                          onClick={() => handleRefuseOrder(id, order)}
+                          onClick={() => triggerRefuseOrder(id, order)}
                           className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-red-50 text-red-600 text-xs font-bold hover:bg-red-100 transition-colors cursor-pointer"
                         >
                           <X size={14} />
@@ -1947,15 +2449,6 @@ function Dashboard({ user }: { user: User }) {
               </>
             )}
 
-            {/* Off-site order form modal */}
-            {showOffSiteForm && (
-              <AdminOffSiteOrderForm
-                allProducts={allProducts}
-                stock={stock}
-                onClose={() => setShowOffSiteForm(false)}
-                onOrderCreated={() => setShowOffSiteForm(false)}
-              />
-            )}
           </motion.section>
         )}
 
@@ -2480,7 +2973,7 @@ function Dashboard({ user }: { user: User }) {
                           const prenom = order.customer?.firstName ?? ''
                           const ref = order.orderNumber ? `#${order.orderNumber}` : ''
                           const msgs: Record<string, string> = {
-                            en_attente: `Bonjour ${prenom} 👋 Votre commande ${ref} a bien été reçue chez Maison Mayssa ! Nous la préparerons très prochainement. Merci de votre confiance 🍪`,
+                            en_attente: `Bonjour ${prenom} 👋 Votre commande ${ref} a bien été reçue chez Maison Mayssa ! Nous la validons. Merci de votre confiance. L'adresse vous sera donnée 24h avant 🙂`,
                             en_preparation: `Bonjour ${prenom} 👋 Votre commande ${ref} est en cours de préparation chez Maison Mayssa 🍰`,
                             pret: `Bonjour ${prenom} ✅ Votre commande ${ref} est prête ! Vous pouvez venir la récupérer dès maintenant chez Maison Mayssa 🎁\n\nSi vous avez apprécié, un petit avis Google nous aiderait énormément 🙏⭐ → https://share.google/hWmuK4HB8Bcp69KWC\n\nMerci et à bientôt 🍪`,
                             livree: `Bonjour ${prenom} 🚗 Votre commande ${ref} est en route, notre livreur arrive bientôt !\n\nSi vous avez apprécié, un petit avis Google nous aiderait énormément 🙏⭐ → https://share.google/hWmuK4HB8Bcp69KWC\n\nMerci et à bientôt 🍪`,
@@ -2528,7 +3021,7 @@ function Dashboard({ user }: { user: User }) {
                         )}
                         {order.status === 'validee' && (
                           <button
-                            onClick={() => handleRefuseOrder(id, order)}
+                            onClick={() => triggerRefuseOrder(id, order)}
                             className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-amber-50 text-amber-700 text-xs font-bold hover:bg-amber-100 transition-colors cursor-pointer"
                           >
                             <X size={14} />
@@ -2603,69 +3096,182 @@ function Dashboard({ user }: { user: User }) {
         {/* ===== CHIFFRE D'AFFAIRES ===== */}
         {tab === 'ca' && (
           <motion.section
-            initial={{ opacity: 0, y: 8 }}
+            initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2 }}
-            className="bg-white rounded-2xl p-6 shadow-sm border border-mayssa-brown/5 space-y-6"
+            transition={{ duration: 0.5 }}
+            className="space-y-6"
           >
-            <h3 className="font-bold text-mayssa-brown text-sm flex items-center gap-2">
-              <TrendingUp size={18} />
-              Suivi du chiffre d&apos;affaires
-            </h3>
-
-            {/* KPIs */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="rounded-xl bg-mayssa-caramel/10 border border-mayssa-caramel/20 p-4">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">CA total (validé + livré)</p>
-                <p className="text-xl font-display font-bold text-mayssa-caramel">{caTotal.toFixed(2).replace('.', ',')} €</p>
+            {/* Header Analytics */}
+            <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-premium-shadow border border-white flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div>
+                <div className="flex items-center gap-3 text-mayssa-gold mb-2">
+                  <TrendingUp size={24} strokeWidth={2.5} />
+                  <h3 className="font-display font-bold text-2xl text-mayssa-brown tracking-tight">Performance Globale</h3>
+                </div>
+                <p className="text-xs font-medium text-mayssa-brown/40 uppercase tracking-widest">Analyse de votre activité commerciale</p>
               </div>
-              <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">Ce mois</p>
-                <p className="text-xl font-display font-bold text-emerald-700">{caMois.toFixed(2).replace('.', ',')} €</p>
-              </div>
-              <div className="rounded-xl bg-blue-50 border border-blue-200 p-4">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">Cette semaine</p>
-                <p className="text-xl font-display font-bold text-blue-700">{caSemaine.toFixed(2).replace('.', ',')} €</p>
-              </div>
-              <div className="rounded-xl bg-mayssa-soft/80 border border-mayssa-brown/10 p-4 shadow-sm">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">Nb commandes (validé + livré)</p>
-                <p className="text-xl font-display font-bold text-mayssa-brown">{caOrders.length}</p>
+              <div className="flex items-center gap-4 bg-mayssa-soft/30 p-2 rounded-2xl border border-mayssa-brown/5">
+                {(['jour', 'semaine', 'mois'] as const).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setCaPeriod(p)}
+                    className={cn(
+                      "px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                      caPeriod === p 
+                        ? "bg-mayssa-brown text-mayssa-gold shadow-lg" 
+                        : "text-mayssa-brown/40 hover:text-mayssa-brown hover:bg-white"
+                    )}
+                  >
+                    {p}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* CA moyen */}
-            <div className="rounded-xl bg-mayssa-soft/50 p-4 border border-mayssa-brown/5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">Panier moyen (validé + livré)</p>
-              <p className="text-lg font-display font-bold text-mayssa-brown">
-                {caOrders.length > 0
-                  ? (caTotal / caOrders.length).toFixed(2).replace('.', ',') + ' €'
-                  : '—'}
-              </p>
+            {/* Main Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="bg-white/80 backdrop-blur-xl rounded-[2rem] p-8 shadow-premium-shadow border border-white hover:border-mayssa-gold transition-all group">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-mayssa-brown/30 group-hover:text-mayssa-gold transition-colors">Chiffre d'Affaires</p>
+                <p className="text-3xl font-display font-bold text-mayssa-brown mt-4">{caTotal.toFixed(0)}<span className="text-mayssa-gold text-lg ml-1">€</span></p>
+                <div className="mt-6 flex items-center gap-2 text-[10px] font-bold text-emerald-600 bg-emerald-500/10 w-fit px-3 py-1 rounded-full">
+                  <TrendingUp size={10} />
+                  Total validé + livré
+                </div>
+              </div>
+
+              <div className="bg-white/80 backdrop-blur-xl rounded-[2rem] p-8 shadow-premium-shadow border border-white hover:border-emerald-400 transition-all group">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-mayssa-brown/30 group-hover:text-emerald-500 transition-colors">Panier Moyen</p>
+                <p className="text-3xl font-display font-bold text-mayssa-brown mt-4">
+                  {caOrders.length > 0 ? (caTotal / caOrders.length).toFixed(1) : '0'}<span className="text-emerald-500 text-lg ml-1">€</span>
+                </p>
+                <p className="mt-6 text-[10px] font-bold text-mayssa-brown/40 uppercase tracking-widest">Sur {caOrders.length} commandes</p>
+              </div>
+
+              <div className="bg-white/80 backdrop-blur-xl rounded-[2rem] p-8 shadow-premium-shadow border border-white hover:border-mayssa-gold transition-all group">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-mayssa-brown/30 group-hover:text-mayssa-gold transition-colors">Ventes Mois</p>
+                <p className="text-3xl font-display font-bold text-mayssa-gold mt-4">{caMois.toFixed(0)}<span className="text-mayssa-brown text-lg ml-1">€</span></p>
+                {croissanceMois !== null && (
+                  <div className={cn(
+                    "mt-6 flex items-center gap-2 text-[10px] font-bold w-fit px-3 py-1 rounded-full",
+                    croissanceMois >= 0 ? "text-emerald-600 bg-emerald-500/10" : "text-rose-600 bg-rose-500/10"
+                  )}>
+                    {croissanceMois >= 0 ? '+' : ''}{croissanceMois}% vs mois dernier
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-white/80 backdrop-blur-xl rounded-[2rem] p-8 shadow-premium-shadow border border-white hover:border-blue-400 transition-all group">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-mayssa-brown/30 group-hover:text-blue-500 transition-colors">Activité Semaine</p>
+                <p className="text-3xl font-display font-bold text-blue-600 mt-4">{caSemaine.toFixed(0)}<span className="text-mayssa-brown text-lg ml-1">€</span></p>
+                {comparaisonSemaine.pct !== null && (
+                  <div className={cn(
+                    "mt-6 flex items-center gap-2 text-[10px] font-bold w-fit px-3 py-1 rounded-full",
+                    comparaisonSemaine.pct >= 0 ? "text-emerald-600 bg-emerald-500/10" : "text-rose-600 bg-rose-500/10"
+                  )}>
+                    {comparaisonSemaine.pct >= 0 ? '+' : ''}{comparaisonSemaine.pct}% vs sem. dernière
+                  </div>
+                )}
+                <p className="mt-2 text-[10px] font-bold text-mayssa-brown/40 uppercase tracking-widest">Semaine en cours</p>
+              </div>
             </div>
 
-            {/* Par source */}
-            <div className="space-y-2">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">CA par source (validé + livré)</p>
-              <div className="space-y-2">
-                {(['site', 'whatsapp', 'instagram', 'snap'] as const).map((src) => {
-                  const ordersSrc = caOrders.filter((o) => (o.source ?? 'site') === src)
-                  const totalSrc = ordersSrc.reduce((s, o) => s + (o.total ?? 0), 0)
-                  const label = src === 'snap' ? 'Snap' : src === 'instagram' ? 'Insta' : src === 'whatsapp' ? 'WhatsApp' : 'Site'
-                  return (
-                    <div key={src} className="flex items-center justify-between py-2 px-3 rounded-xl bg-mayssa-soft/30">
-                      <span className="text-sm font-medium text-mayssa-brown">{label}</span>
-                      <span className="text-sm font-bold text-mayssa-caramel">{totalSrc.toFixed(2).replace('.', ',')} €</span>
-                      <span className="text-[10px] text-mayssa-brown/50">{ordersSrc.length} cmd.</span>
+            {/* Top produits par période */}
+            <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-premium-shadow border border-white">
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-mayssa-brown/40 mb-4">Produits les plus vendus</p>
+              <div className="flex gap-2 mb-4">
+                {(['jour', 'semaine', 'mois'] as const).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setCaPeriod(p)}
+                    className={cn(
+                      "px-4 py-2 rounded-xl text-[10px] font-bold uppercase",
+                      caPeriod === p ? "bg-mayssa-brown text-mayssa-gold" : "bg-mayssa-brown/5 text-mayssa-brown/60 hover:bg-mayssa-brown/10"
+                    )}
+                  >
+                    {p === 'jour' ? "Aujourd'hui" : p === 'semaine' ? 'Semaine' : 'Mois'}
+                  </button>
+                ))}
+              </div>
+              {topProduitsByPeriod[caPeriod].length === 0 ? (
+                <p className="text-sm text-mayssa-brown/50">Aucune vente sur cette période</p>
+              ) : (
+                <ul className="space-y-2">
+                  {topProduitsByPeriod[caPeriod].map((p, i) => (
+                    <li key={i} className="flex items-center justify-between py-2 border-b border-mayssa-brown/5 last:border-0">
+                      <span className="text-sm font-medium text-mayssa-brown">{i + 1}. {p.name}</span>
+                      <span className="text-sm font-bold text-mayssa-gold">{p.qty} vendu{p.qty > 1 ? 's' : ''}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Secondary Analysis Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Distribution par Source */}
+              <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-premium-shadow border border-white">
+                <div className="flex items-center justify-between mb-8">
+                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-mayssa-brown/40">Distribution par Canal</p>
+                  <MessageSquare size={16} className="text-mayssa-gold" />
+                </div>
+                <div className="space-y-4">
+                  {(['site', 'whatsapp', 'instagram', 'snap'] as const).map((src) => {
+                    const ordersSrc = caOrders.filter((o) => (o.source ?? 'site') === src)
+                    const totalSrc = ordersSrc.reduce((s, o) => s + (o.total ?? 0), 0)
+                    const percent = caTotal > 0 ? (totalSrc / caTotal) * 100 : 0
+                    const label = src.toUpperCase()
+                    const color = src === 'whatsapp' ? 'bg-emerald-500' : src === 'instagram' ? 'bg-rose-500' : src === 'snap' ? 'bg-amber-400' : 'bg-mayssa-brown'
+                    
+                    return (
+                      <div key={src} className="space-y-2">
+                        <div className="flex items-center justify-between text-[11px] font-black tracking-widest">
+                          <span className="text-mayssa-brown/60">{label}</span>
+                          <span className="text-mayssa-brown font-numeric">{totalSrc.toFixed(0)}€ <span className="text-mayssa-brown/30 ml-2">({ordersSrc.length} cmd)</span></span>
+                        </div>
+                        <div className="h-3 w-full bg-mayssa-brown/5 rounded-full overflow-hidden">
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${percent}%` }}
+                            transition={{ duration: 1, delay: 0.2 }}
+                            className={cn("h-full rounded-full transition-all", color)}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Meilleure Journée d'hier / historique */}
+              <div className="bg-gradient-to-br from-mayssa-brown to-mayssa-brown/90 rounded-[2.5rem] p-8 shadow-premium-shadow border border-mayssa-brown/10 text-white overflow-hidden relative group">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-mayssa-gold/10 blur-[100px] rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-110 transition-transform duration-700" />
+                <div className="relative z-10 flex flex-col h-full justify-between">
+                  <div>
+                    <div className="flex items-center gap-3 text-mayssa-gold mb-6">
+                      <Star size={20} fill="currentColor" />
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em]">Record Historique</p>
                     </div>
-                  )
-                })}
+                    {meilleurJour ? (
+                      <>
+                        <p className="text-5xl font-display font-medium mb-4">{meilleurJour.ca.toFixed(0)}<span className="text-mayssa-gold text-2xl ml-1">€</span></p>
+                        <p className="text-sm font-light text-white/60 tracking-wide uppercase italic">{meilleurJour.label}</p>
+                      </>
+                    ) : (
+                      <p className="text-sm text-white/50 italic">Pas encore de données...</p>
+                    )}
+                  </div>
+                  <div className="mt-12 bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/10">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-mayssa-gold mb-2">Conseil Stratégique</p>
+                    <p className="text-xs text-white/70 leading-relaxed font-light">Le panier moyen est en augmentation. Pensez à proposer des offres par lots sur les Trompe-l'œil pour booster les ventes.</p>
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* Courbe CA */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">Courbe CA</p>
+            <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-premium-shadow border border-white">
+              <div className="flex items-center justify-between mb-8">
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-mayssa-brown/40">Courbe de Croissance</p>
                 <div className="flex gap-1">
                   {(['jour', 'semaine', 'mois'] as const).map((p) => (
                     <button
@@ -3321,10 +3927,11 @@ function Dashboard({ user }: { user: User }) {
                   .map(([uid, u]) => (
                     <div
                       key={uid}
-                      className="flex items-center justify-between p-3 rounded-xl border border-mayssa-brown/10 bg-white hover:bg-mayssa-soft/30 transition-colors gap-2"
+                      className="flex items-center justify-between p-3 rounded-xl border border-mayssa-brown/10 bg-white hover:bg-mayssa-soft/30 transition-colors gap-2 cursor-pointer group"
+                      onClick={() => setSelectedClientUid(uid)}
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="font-bold text-sm text-mayssa-brown">
+                        <p className="font-bold text-sm text-mayssa-brown group-hover:text-mayssa-gold transition-colors">
                           {u.firstName} {u.lastName}
                         </p>
                         <p className="text-xs text-mayssa-brown/70 mt-0.5 flex items-center gap-1.5">
@@ -3333,62 +3940,36 @@ function Dashboard({ user }: { user: User }) {
                         </p>
                         <p className="text-[10px] text-mayssa-brown/50 truncate mt-0.5">{u.email}</p>
                       </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
+                      <div className="flex items-center gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
                         <span className="text-[10px] font-semibold text-mayssa-caramel bg-mayssa-caramel/10 px-2 py-1 rounded-lg flex items-center gap-1" title="Points fidélité">
                           <Gift size={12} />
                           {u.loyalty?.points ?? 0} pts
                         </span>
-                        <div className="flex items-center gap-0.5">
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              const raw = window.prompt(`Points à ajouter pour ${u.firstName} ${u.lastName} ?`)
-                              const pts = parseInt(raw ?? '', 10)
-                              if (Number.isNaN(pts) || pts <= 0) return
-                              try {
-                                await adminAddPoints(uid, pts)
-                              } catch (err) {
-                                console.error('Erreur ajout points:', err)
-                              }
-                            }}
-                            className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition-colors cursor-pointer"
-                            aria-label="Ajouter des points"
-                          >
-                            <Plus size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              const raw = window.prompt(`Points à retirer pour ${u.firstName} ${u.lastName} ? (max ${u.loyalty?.points ?? 0})`)
-                              const pts = parseInt(raw ?? '', 10)
-                              if (Number.isNaN(pts) || pts <= 0) return
-                              try {
-                                await adminRemovePoints(uid, pts)
-                              } catch (err) {
-                                console.error('Erreur retrait points:', err)
-                              }
-                            }}
-                            className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 transition-colors cursor-pointer"
-                            aria-label="Retirer des points"
-                          >
-                            <Minus size={14} />
-                          </button>
-                        </div>
-                        <span className="text-[10px] text-mayssa-brown/40">
-                          {u.createdAt ? new Date(u.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
-                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOffSitePresetClient({
+                              uid,
+                              firstName: u.firstName || '',
+                              lastName: u.lastName || '',
+                              phone: u.phone || '',
+                              email: u.email,
+                              address: u.address,
+                            })
+                            setShowOffSiteForm(true)
+                          }}
+                          className="p-1.5 rounded-lg text-mayssa-caramel hover:bg-mayssa-caramel/10 transition-colors cursor-pointer"
+                          title="Commande hors-site"
+                        >
+                          <ShoppingBag size={14} />
+                        </button>
                         <button
                           type="button"
                           onClick={async () => {
-                            if (!window.confirm(`Supprimer ${u.firstName} ${u.lastName} ? Le profil (points, adresse) sera effacé.`)) return
-                            try {
-                              await deleteUserProfile(uid)
-                            } catch (err) {
-                              console.error('Erreur suppression client:', err)
-                            }
+                            if (!window.confirm(`Supprimer ${u.firstName} ${u.lastName} ?`)) return
+                            try { await deleteUserProfile(uid) } catch (err) { console.error(err) }
                           }}
-                          className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
-                          aria-label={`Supprimer ${u.firstName} ${u.lastName}`}
+                          className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 transition-colors cursor-pointer"
                         >
                           <Trash2 size={14} />
                         </button>
@@ -3398,6 +3979,22 @@ function Dashboard({ user }: { user: User }) {
               </div>
             )}
           </motion.section>
+        )}
+
+        {/* Fiche client modale */}
+        {selectedClientUid && allUsers[selectedClientUid] && (
+          <AdminClientProfileModal
+            uid={selectedClientUid}
+            profile={allUsers[selectedClientUid]}
+            orders={orders}
+            onClose={() => setSelectedClientUid(null)}
+            onNewOrder={(preset) => {
+              setSelectedClientUid(null)
+              setOffSitePresetClient(preset)
+              setShowOffSiteForm(true)
+            }}
+            onPinChange={() => setPinsVersion(v => v + 1)}
+          />
         )}
 
         {/* ===== PRODUITS ===== */}
@@ -4483,6 +5080,74 @@ function Dashboard({ user }: { user: User }) {
           )
         })()}
 
+        {/* ── Modal confirmation refus avec choix stock ── */}
+        {refuseConfirm && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 24 }}
+              className="w-full max-w-sm bg-white rounded-2xl shadow-xl p-5 space-y-4"
+            >
+              <div>
+                <p className="font-bold text-mayssa-brown text-base">
+                  Refuser la commande de {refuseConfirm.order.customer?.firstName} ?
+                </p>
+                {refuseConfirm.isDuplicate && (
+                  <div className="mt-2 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                    <AlertTriangle size={15} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs text-amber-800">
+                      <strong>Doublon détecté</strong> — ce client a une autre commande active aujourd'hui.
+                      Le stock a peut-être déjà été déduit par la vraie commande.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const { orderId, order } = refuseConfirm
+                    setRefuseConfirm(null)
+                    await handleRefuseOrder(orderId, order, true)
+                  }}
+                  className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 font-medium text-sm transition-colors"
+                >
+                  <span>Refuser + remettre le stock</span>
+                  <span className="text-xs text-red-400 font-normal">comportement normal</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const { orderId, order } = refuseConfirm
+                    setRefuseConfirm(null)
+                    await handleRefuseOrder(orderId, order, false)
+                  }}
+                  className={`w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl font-medium text-sm transition-colors ${
+                    refuseConfirm.isDuplicate
+                      ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                      : 'bg-mayssa-soft/50 hover:bg-mayssa-soft text-mayssa-brown'
+                  }`}
+                >
+                  <span>Refuser sans remettre le stock</span>
+                  <span className={`text-xs font-normal ${refuseConfirm.isDuplicate ? 'text-amber-100' : 'text-mayssa-brown/50'}`}>
+                    {refuseConfirm.isDuplicate ? 'recommandé ↑' : 'pour doublon'}
+                  </span>
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setRefuseConfirm(null)}
+                className="w-full text-sm text-mayssa-brown/40 hover:text-mayssa-brown transition-colors py-1"
+              >
+                Annuler
+              </button>
+            </motion.div>
+          </div>
+        )}
+
         {/* Edit order modal (toujours affiché si on édite, quel que soit l'onglet) */}
         {editingOrderId && orders[editingOrderId] && (
           <AdminEditOrderModal
@@ -4495,13 +5160,31 @@ function Dashboard({ user }: { user: User }) {
           />
         )}
 
+        {/* Rapport journalier */}
+        <AdminDailyReport
+          orders={orders}
+          isOpen={showDailyReport}
+          onClose={() => setShowDailyReport(false)}
+        />
+
+        {showOffSiteForm && (
+          <AdminOffSiteOrderForm
+            allProducts={allProducts}
+            stock={stock}
+            onClose={() => { setShowOffSiteForm(false); setOffSitePresetClient(null) }}
+            onOrderCreated={() => { setShowOffSiteForm(false); setOffSitePresetClient(null) }}
+            presetClient={offSitePresetClient}
+          />
+        )}
+
         <a
           href="/"
-          className="block text-center text-sm text-mayssa-brown/40 hover:text-mayssa-brown transition-colors py-4"
+          className={cn('block text-center text-sm py-4 transition-colors', isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-mayssa-brown/40 hover:text-mayssa-brown')}
         >
           ← Retour au site
         </a>
       </main>
+      </div>
     </div>
   )
 }

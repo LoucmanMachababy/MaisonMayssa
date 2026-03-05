@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { X, Minus, Plus, Search, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
-import { createOffSiteOrder, decrementStockBatch, isTrompeLoeilProductId, getStockDecrementItems, reserveDeliverySlot, validatePromoCode, incrementPromoCodeUsage, type OrderSource, type OrderItem, type DeliveryMode, type StockMap } from '../../lib/firebase'
+import { createOffSiteOrder, decrementStockBatch, isTrompeLoeilProductId, getStockDecrementItems, reserveDeliverySlot, validatePromoCode, incrementPromoCodeUsage, updateUserOrderStats, type OrderSource, type OrderItem, type DeliveryMode, type StockMap } from '../../lib/firebase'
 import type { ProductWithAvailability } from '../../hooks/useProducts'
 import type { Product, ProductCategory, ProductSize } from '../../types'
 import { TiramisuCustomizationModal } from '../TiramisuCustomizationModal'
@@ -34,14 +34,25 @@ interface CartEntry {
   unitPrice: number
 }
 
+export type PresetClient = {
+  uid?: string
+  firstName: string
+  lastName: string
+  phone: string
+  email?: string
+  address?: string
+}
+
 interface AdminOffSiteOrderFormProps {
   allProducts: ProductWithAvailability[]
   stock: StockMap
   onClose: () => void
   onOrderCreated: () => void
+  /** Si défini, pré-remplit le formulaire avec les infos du client (ex. depuis la liste Inscrits) */
+  presetClient?: PresetClient | null
 }
 
-export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCreated }: AdminOffSiteOrderFormProps) {
+export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCreated, presetClient }: AdminOffSiteOrderFormProps) {
   const [source, setSource] = useState<OrderSource | null>(null)
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -64,6 +75,15 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
   const [manualDiscount, setManualDiscount] = useState<number>(0)
   const [deliveryFee, setDeliveryFee] = useState(0)
   const [promoError, setPromoError] = useState('')
+
+  useEffect(() => {
+    if (presetClient) {
+      setFirstName(presetClient.firstName || '')
+      setLastName(presetClient.lastName || '')
+      setPhone(presetClient.phone || '')
+      setAddress(presetClient.address || '')
+    }
+  }, [presetClient])
 
   const subtotal = cart.reduce((sum, entry) => sum + entry.unitPrice * entry.quantity, 0)
   const discountAmount = appliedPromo ? appliedPromo.discount : (manualDiscount > 0 ? Math.min(manualDiscount, subtotal) : 0)
@@ -190,12 +210,14 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
           firstName: firstName.trim(),
           lastName: lastName.trim(),
           phone: phone.trim(),
+          ...(presetClient?.email?.trim() && { email: presetClient.email.trim() }),
           ...(deliveryMode === 'livraison' && address.trim() && { address: address.trim() }),
         },
         total,
         status: 'en_attente',
         source,
         deliveryMode,
+        ...(presetClient?.uid && { userId: presetClient.uid }),
         ...(requestedDate && { requestedDate }),
         ...(requestedTime && { requestedTime }),
         ...(adminNote.trim() && { adminNote: adminNote.trim() }),
@@ -222,6 +244,15 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
 
       if (appliedPromo?.code) {
         incrementPromoCodeUsage(appliedPromo.code).catch(console.error)
+      }
+
+      if (presetClient?.uid) {
+        const hasTrompeLoeil = cart.some(e => isTrompeLoeilProductId(e.product.id) || !!e.product.bundleProductIds?.length)
+        updateUserOrderStats(presetClient.uid, {
+          hasTrompeLoeil,
+          hasDonation: false,
+          hasPromo: !!appliedPromo,
+        }).catch(console.error)
       }
 
       onOrderCreated()
