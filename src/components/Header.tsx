@@ -1,80 +1,93 @@
-import React from 'react'
 import { motion } from 'framer-motion'
-import { Clock, Truck } from 'lucide-react'
-import { cn, isOpen } from '../lib/utils'
-import { FREE_DELIVERY_THRESHOLD } from '../lib/delivery'
 
-export function Header() {
-    return (
-        <header className="relative w-full overflow-hidden mb-8 bg-white/40 backdrop-blur-xl rounded-[2.5rem] border border-white/80 shadow-premium-shadow">
-            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-[0.03] mix-blend-overlay pointer-events-none" />
-            
-            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8 p-6 sm:p-10 lg:p-14">
-                <div className="flex flex-col md:flex-row items-center gap-6 sm:gap-10 text-center md:text-left flex-1">
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
-                        className="relative group shrink-0"
-                    >
-                        <div className="absolute -inset-8 rounded-full bg-mayssa-gold/20 blur-[60px] opacity-70" aria-hidden="true" />
-                        <img
-                            src="/logo.webp"
-                            alt="Maison Mayssa"
-                            className="relative h-24 w-24 sm:h-32 sm:w-32 lg:h-40 lg:w-40 rounded-[2.5rem] object-contain shadow-lg bg-white/30 backdrop-blur-md p-3 transition-transform duration-700 group-hover:scale-105"
-                        />
-                    </motion.div>
-
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-center md:justify-start gap-4">
-                            <span className="h-[1px] w-8 bg-mayssa-gold/30"></span>
-                            <p className="text-[9px] sm:text-[10px] font-black uppercase text-mayssa-gold tracking-[0.4em]">
-                                Maison Mayssa — Annecy
-                            </p>
-                            <span className="h-[1px] w-8 bg-mayssa-gold/30 md:hidden"></span>
-                        </div>
-                        
-                        <h1 className="text-4xl sm:text-5xl md:text-6xl font-display font-medium text-mayssa-brown tracking-tight leading-tight">
-                            Maison <span className="text-mayssa-gold italic font-light drop-shadow-sm">Mayssa</span>
-                        </h1>
-                        
-                        <p className="text-sm sm:text-base md:text-xl font-display text-mayssa-brown/60 italic">
-                            Sucrée & Salée — Trompe-l&apos;œil pâtissier
-                        </p>
-
-                        <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 pt-2">
-                            <Badge
-                                icon={<Clock size={16} className="text-mayssa-gold" />}
-                                text={isOpen() ? 'Atelier Ouvert' : 'Atelier Fermé'}
-                                variant={isOpen() ? 'open' : 'closed'}
-                            />
-                            <Badge icon={<Truck size={16} className="text-mayssa-gold" />} text="Livraison Privée" />
-                        </div>
-                    </div>
-                </div>
-
-                <div className="hidden lg:flex flex-col items-center md:items-end gap-3 shrink-0">
-                    <p className="text-[10px] font-medium text-mayssa-brown/60 uppercase tracking-widest">
-                        Livraison offerte dès {FREE_DELIVERY_THRESHOLD} € d&apos;achat
-                    </p>
-                </div>
-            </div>
-        </header>
-    )
+function formatRestockDate(raw?: string): string {
+  if (!raw) return ''
+  const match = raw.match(/^\d{4}-\d{2}-\d{2}$/)
+  if (match) {
+    const d = new Date(raw + 'T12:00:00')
+    return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  }
+  return raw
 }
 
-function Badge({ icon, text, variant = 'default' }: { icon: React.ReactNode; text: string; variant?: 'default' | 'open' | 'closed' }) {
-    const variantClass = variant === 'open'
-        ? 'bg-gradient-to-r from-emerald-500/20 to-emerald-500/5 text-emerald-800 border-emerald-400/50 shadow-inner'
-        : variant === 'closed'
-            ? 'bg-gradient-to-r from-red-500/10 to-red-500/5 text-red-800/80 border-red-200/50'
-            : 'bg-white/70 text-mayssa-brown border border-white/80 shadow-sm backdrop-blur-xl'
-    
-    return (
-        <span className={cn('inline-flex items-center gap-2.5 rounded-[1.5rem] px-5 py-2.5 text-xs sm:text-sm font-bold uppercase tracking-wider border hover:-translate-y-1 transition-all duration-300 cursor-default', variantClass)}>
-            <span className="flex-shrink-0 drop-shadow-sm">{icon}</span>
-            <span className="whitespace-nowrap">{text}</span>
-        </span>
-    )
+interface HeaderProps {
+  nextRestockDate?: string
+  ordersOpen?: boolean
+  eventModeEnabled?: boolean
 }
 
+export function Header({ nextRestockDate, ordersOpen = true, eventModeEnabled = false }: HeaderProps) {
+  const restockLabel = formatRestockDate(nextRestockDate)
+
+  return (
+    <header className="relative w-full overflow-hidden min-h-[80vh] sm:min-h-[85vh] flex flex-col justify-end cursor-default transition-all duration-700">
+      {/* Image de fond (plus léger qu'une vidéo) */}
+      <img
+        src="/Trompe-loeil-header.webp"
+        alt=""
+        className="absolute inset-0 w-full h-full object-cover"
+        loading="eager"
+        decoding="async"
+        fetchPriority="high"
+      />
+
+      {/* Overlay dégradé plus doux en haut, plus dense en bas */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-mayssa-brown/95 via-mayssa-brown/70 to-mayssa-brown/20" />
+
+      {/* Contenu overlay — infos Maison Mayssa */}
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 pb-16 sm:pb-20 lg:pb-24 pt-28 sm:pt-32">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, ease: 'easeOut' }}
+          className="space-y-5 sm:space-y-6 text-white max-w-2xl min-w-0"
+        >
+          <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.38em] text-white/70 font-display">
+            Trompe l&apos;œil pâtissier · Annecy
+          </p>
+          <h1
+            className="text-4xl sm:text-[2.9rem] lg:text-[3.5rem] xl:text-[4rem] leading-tight font-display font-semibold tracking-[0.14em] uppercase drop-shadow-[0_18px_40px_rgba(0,0,0,0.6)]"
+          >
+            <span className="inline-block px-3 sm:px-4 py-1 sm:py-1.5 rounded-full bg-black/15 border border-white/15 backdrop-blur-sm">
+              MAISON MAYSSA
+            </span>
+          </h1>
+          <p className="text-[0.95rem] sm:text-base text-white/85 font-display max-w-xl">
+            Trompe l&apos;œil pâtissier en série limitée, préparé de nuit pour vos fins de soirée.
+          </p>
+          <div className="pt-3 sm:pt-5 space-y-2 sm:space-y-3">
+            <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.32em] text-white/75 font-display">
+              Prochain restock
+            </p>
+            <p className="text-3xl sm:text-[2.3rem] lg:text-[2.6rem] xl:text-[3rem] font-display font-semibold tracking-[0.06em] uppercase text-white drop-shadow-[0_15px_45px_rgba(0,0,0,0.7)]">
+              {restockLabel || 'Tous les jours'}
+            </p>
+          </div>
+          <div className="pt-4 sm:pt-6 flex flex-wrap items-center gap-3 sm:gap-4">
+            <a
+              href="#la-carte"
+              className="inline-flex items-center justify-center rounded-full bg-white/95 text-mayssa-brown px-7 sm:px-9 py-2.5 sm:py-3 text-[11px] sm:text-xs font-bold uppercase tracking-[0.28em] shadow-[0_18px_45px_rgba(0,0,0,0.45)] hover:bg-white active:scale-[0.97] transition-all cursor-pointer"
+            >
+              Découvrir la carte
+            </a>
+            <a
+              href={ordersOpen ? '#commande' : '#'}
+              aria-disabled={!ordersOpen}
+              onClick={(e) => {
+                if (!ordersOpen) e.preventDefault()
+              }}
+              className={`inline-flex items-center justify-center rounded-full border border-white/60 px-6 sm:px-7 py-2.5 sm:py-3 text-[11px] sm:text-xs font-semibold uppercase tracking-[0.26em] backdrop-blur-md transition-all ${
+                ordersOpen
+                  ? 'bg-white/10 text-white hover:bg-white/20 active:scale-[0.97] cursor-pointer'
+                  : 'bg-white/5 text-white/70 opacity-70 cursor-not-allowed'
+              }`}
+              title={!ordersOpen && eventModeEnabled ? 'Précommandes fermées cette semaine' : undefined}
+            >
+              {ordersOpen ? 'Commander maintenant' : 'Précommandes fermées'}
+            </a>
+          </div>
+        </motion.div>
+      </div>
+    </header>
+  )
+}

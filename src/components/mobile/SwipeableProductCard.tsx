@@ -1,14 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, useMotionValue, useTransform, useSpring } from 'framer-motion'
 import type { PanInfo } from 'framer-motion'
-import { Plus, Check, ShoppingBag, Heart, Calendar, ChevronRight, Star, CalendarClock } from 'lucide-react'
+import { Plus, Check, ShoppingBag, Calendar, ChevronRight, Star, CalendarClock, Info } from 'lucide-react'
 import type { Product } from '../../types'
 import { useReviews } from '../../hooks/useReviews'
 import { hapticFeedback } from '../../lib/haptics'
 import { isPreorderNotYetAvailable } from '../../lib/utils'
 import { ProductBadges } from '../ProductBadges'
 import { BlurImage } from '../BlurImage'
-import { ShareButton } from '../ShareButton'
 import { StockBadge } from '../StockBadge'
 import { formatDateLabel } from '../../lib/delivery'
 
@@ -16,8 +15,7 @@ interface SwipeableProductCardProps {
   product: Product
   onAdd: (product: Product) => void
   onTap?: (product: Product) => void
-  isFavorite?: boolean
-  onToggleFavorite?: (product: Product) => void
+  onViewDetail?: (product: Product) => void
   stock?: number | null
   isPreorderDay?: boolean
   dayNames?: string
@@ -29,7 +27,7 @@ interface SwipeableProductCardProps {
   highlightAsNew?: boolean
 }
 
-export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false, onToggleFavorite, stock = null, isPreorderDay = true, dayNames = '', preorderOpenDate, preorderOpenTime, priority = false, highlightAsNew = false }: SwipeableProductCardProps) {
+export function SwipeableProductCard({ product, onAdd, onTap, onViewDetail, stock = null, isPreorderDay = true, dayNames = '', preorderOpenDate, preorderOpenTime, priority = false, highlightAsNew = false }: SwipeableProductCardProps) {
   const [isAdded, setIsAdded] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null)
@@ -41,7 +39,7 @@ export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false
   const { getAverageRatingForProduct, getReviewCountForProduct } = useReviews()
   const isPreorderSoon = isPreorderNotYetAvailable(product)
   const showBientotDispo = product.preorder && !product.image
-  const isTrompeLoeil = product.category === "Trompe l'oeil"
+  const isTrompeLoeil = product.category === "Trompe l'œil"
   const isStockManaged = stock !== null
   const isUnavailable = isStockManaged && (stock <= 0 || (isTrompeLoeil && !isPreorderDay))
   const productRating = isTrompeLoeil ? getAverageRatingForProduct(product.id) : null
@@ -75,9 +73,6 @@ export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false
   const rightIconOpacity = useTransform(x, [30, 60, 120], [0, 0.7, 1])
   const rightIconScale = useTransform(x, [30, 60, 120], [0.7, 0.9, 1.1])
   const rightTextOpacity = useTransform(x, [60, 120], [0, 1])
-
-  const leftIconOpacity = useTransform(x, [-120, -60, -30], [1, 0.7, 0])
-  const leftIconScale = useTransform(x, [-120, -60, -30], [1.1, 0.9, 0.7])
 
   // Nettoyage des timeouts
   useEffect(() => {
@@ -128,16 +123,14 @@ export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false
       
       addedTimeoutRef.current = window.setTimeout(() => setIsAdded(false), 2000)
     }
-    // Swipe left for favorites (if available)
-    else if ((offset < -threshold || (offset < -50 && velocity < -500)) && onToggleFavorite) {
-      hapticFeedback('medium')
-      onToggleFavorite(product)
-    }
   }
 
   const handleTap = () => {
     // Only trigger tap if we weren't dragging significantly
-    if (!isDragging && onTap) {
+    if (isDragging) return
+    // Ne pas ajouter au panier si rupture de stock
+    if (isUnavailable) return
+    if (onTap) {
       hapticFeedback('light')
       onTap(product)
     }
@@ -171,34 +164,12 @@ export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false
           </motion.div>
         </div>
 
-        {/* Left swipe indicator (Favorites) */}
-        {onToggleFavorite && (
-          <div className="absolute inset-0 flex items-center justify-start px-6">
-            <motion.div
-              style={{ opacity: leftIconOpacity, scale: leftIconScale }}
-              className="flex items-center gap-3 text-white"
-              animate={swipeDirection === 'left' ? { x: [5, 0] } : {}}
-              transition={{ duration: 0.2 }}
-            >
-              <div className="flex flex-col items-center">
-                <Heart 
-                  size={24} 
-                  strokeWidth={2.5}
-                  className={isFavorite ? 'fill-white' : ''}
-                />
-                <span className="text-xs font-bold mt-1">
-                  {isFavorite ? 'Retirer' : 'Favoris'}
-                </span>
-              </div>
-            </motion.div>
-          </div>
-        )}
       </motion.div>
 
       {/* Enhanced swipeable card */}
       <motion.div
         drag="x"
-        dragConstraints={{ left: onToggleFavorite ? -150 : 0, right: isPreorderSoon || isUnavailable ? 0 : 150 }}
+        dragConstraints={{ left: 0, right: isPreorderSoon || isUnavailable ? 0 : 150 }}
         dragElastic={{ left: 0.1, right: 0.1 }}
         dragMomentum={false}
         whileDrag={{ 
@@ -223,7 +194,7 @@ export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false
       >
         <div className="flex gap-3">
           {/* Product image */}
-          <div className="relative w-20 h-20 flex-shrink-0 overflow-hidden rounded-xl bg-mayssa-cream/50">
+          <div className={`relative w-28 h-28 sm:w-32 sm:h-32 flex-shrink-0 overflow-hidden rounded-xl ${isTrompeLoeil ? 'border-2 border-mayssa-brown/20 bg-mayssa-brown/5 ring-1 ring-mayssa-brown/10' : 'bg-mayssa-cream/50'}`}>
             {product.badges?.length ? (
               <ProductBadges badges={product.badges} variant="compact" />
             ) : null}
@@ -231,7 +202,7 @@ export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false
               <BlurImage
                 src={product.image}
                 alt={product.name}
-                className="w-full h-full"
+                className="w-full h-full object-contain"
                 priority={priority}
               />
             ) : (
@@ -320,32 +291,20 @@ export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false
               )}
 
               <div className="flex items-center gap-2">
-                <div onClick={(e) => e.stopPropagation()}>
-                  <ShareButton
-                    product={product}
-                    variant="icon"
-                    className="flex h-8 w-8 items-center justify-center rounded-xl bg-white border border-mayssa-brown/10 shadow-sm text-mayssa-brown/40 hover:text-mayssa-brown"
-                  />
-                </div>
-
-                {onToggleFavorite && (
+                {onViewDetail && !isUnavailable && (
                   <motion.button
                     whileTap={{ scale: 0.85 }}
                     onClick={(e) => {
                       e.stopPropagation()
-                      hapticFeedback('medium')
-                      onToggleFavorite(product)
+                      hapticFeedback('light')
+                      onViewDetail(product)
                     }}
-                    className="flex h-8 w-8 items-center justify-center rounded-xl bg-white border border-mayssa-brown/10 shadow-sm"
-                    aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+                    className="flex h-8 w-8 items-center justify-center rounded-xl bg-white border border-mayssa-brown/10 shadow-sm text-mayssa-brown/40 hover:text-mayssa-brown"
+                    aria-label={`Voir les détails de ${product.name}`}
                   >
-                    <Heart
-                      size={16}
-                      className={`transition-colors ${isFavorite ? 'text-red-500 fill-red-500' : 'text-mayssa-brown/40'}`}
-                    />
+                    <Info size={16} />
                   </motion.button>
                 )}
-
                 {(isPreorderSoon || isUnavailable) ? (
                   <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-mayssa-brown/30 text-mayssa-brown/50" title={isPreorderSoon ? 'Disponible à partir du 14 février' : !isPreorderDay ? `Dispo ${dayNames}` : 'Rupture de stock'}>
                     <Calendar size={16} />
@@ -390,24 +349,6 @@ export function SwipeableProductCard({ product, onAdd, onTap, isFavorite = false
               </motion.div>
             </motion.div>
 
-            {/* Left swipe hint (if favorites available) */}
-            {onToggleFavorite && (
-              <motion.div
-                initial={{ opacity: 1 }}
-                animate={{ opacity: 0 }}
-                transition={{ delay: 4, duration: 0.8 }}
-                className="absolute bottom-2 left-3 text-[9px] text-mayssa-brown/50 flex items-center gap-1"
-              >
-                <motion.div
-                  animate={{ x: [0, -8, 0], opacity: [0.5, 1, 0.5] }}
-                  transition={{ duration: 1.5, repeat: 2, ease: "easeInOut" }}
-                  className="flex items-center"
-                >
-                  <Heart size={12} />
-                </motion.div>
-                <span className="font-medium">← Favori</span>
-              </motion.div>
-            )}
           </>
         )}
       </motion.div>

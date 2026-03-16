@@ -1,17 +1,16 @@
 import React, { useEffect, useState } from 'react'
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion'
-import { Instagram, Menu, X, Heart, User, Star, LogOut, ChevronDown, Gift, MessageCircle } from 'lucide-react'
+import { Instagram, Menu, X, User, Star, LogOut, ChevronDown, Gift, MessageCircle } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { PHONE_E164 } from '../constants'
 import { useAuth } from '../hooks/useAuth'
 import { hapticFeedback } from '../lib/haptics'
 
 interface NavbarProps {
-    favoritesCount?: number
     onAccountClick: () => void
 }
 
-export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
+export function Navbar({ onAccountClick }: NavbarProps) {
     const [isScrolled, setIsScrolled] = useState(false)
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
@@ -83,29 +82,23 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
             >
                 <div className="mx-auto max-w-7xl px-6 sm:px-10 lg:px-12">
                     <div className="flex items-center justify-between">
-                        {/* Logo */}
-                        <div className="flex items-center gap-5 group cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+                        {/* Logo + Maison Mayssa Annecy — tout à gauche */}
+                        <div className="flex items-center gap-3 group cursor-pointer shrink-0" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
                             <div className="relative">
                                 <div className="absolute inset-0 gold-gradient blur-xl opacity-0 group-hover:opacity-40 transition-opacity duration-700" />
-                                <img src="/logo.webp" alt="Maison Mayssa" width={60} height={60} className="relative h-12 w-12 sm:h-16 sm:w-16 rounded-2xl object-cover shadow-premium-shadow ring-1 ring-white transition-all duration-700 group-hover:scale-110 bg-white/50 p-1 backdrop-blur-md" />
+                                <img src="/logo.webp" alt="Maison Mayssa" width={48} height={48} className="relative h-10 w-10 sm:h-12 sm:w-12 rounded-xl object-cover shadow-premium-shadow ring-1 ring-white transition-all duration-700 group-hover:scale-110 bg-white/50 p-1 backdrop-blur-md" />
                             </div>
-                            <div className="flex flex-col">
-                                <span className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-mayssa-brown leading-none group-hover:text-mayssa-gold transition-colors duration-700">Maison <span className="italic font-light">Mayssa</span></span>
-                                <span className="text-[10px] uppercase tracking-[0.6em] font-black text-mayssa-gold mt-1.5 opacity-80">Annecy</span>
+                            <div className="flex flex-col leading-tight">
+                                <span className="font-display text-lg sm:text-xl font-bold tracking-tight text-mayssa-brown group-hover:text-mayssa-gold transition-colors duration-700">Maison <span className="italic font-light">Mayssa</span></span>
+                                <span className="text-[9px] uppercase tracking-[0.4em] font-black text-mayssa-gold opacity-80">Annecy</span>
                             </div>
                         </div>
 
-                        {/* Desktop Navigation */}
-                        <div className="hidden lg:flex flex-1 justify-center items-center gap-12">
+                        {/* Tout à droite : liens + compte + WhatsApp */}
+                        <div className="hidden lg:flex items-center gap-8">
                             <NavLink href="#la-carte">La Carte</NavLink>
-                            <NavLinkWithBadge href="#favoris" count={favoritesCount} icon={<Heart size={15} className={favoritesCount > 0 ? 'fill-mayssa-gold text-mayssa-gold' : ''} />}>
-                                Favoris
-                            </NavLinkWithBadge>
                             <NavLink href="#commande">Commandes</NavLink>
-                            <NavLink href="#notre-histoire">L'Héritage</NavLink>
-                        </div>
-
-                        <div className="hidden lg:flex items-center gap-6">
+                            <NavLink href="#notre-maison">Notre maison</NavLink>
                             {isAuthenticated ? (
                                 <div className="relative">
                                     <button
@@ -169,7 +162,7 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
                                 </button>
                             )}
 
-                            <div className="w-[1px] h-8 gold-gradient opacity-20 mx-2" />
+                            <div className="w-[1px] h-8 gold-gradient opacity-20" />
                             
                             <a
                                 href={`https://wa.me/${PHONE_E164}?text=${encodeURIComponent('Bonjour, je souhaite commander.')}`}
@@ -230,11 +223,8 @@ export function Navbar({ favoritesCount = 0, onAccountClick }: NavbarProps) {
 
                             <div className="flex-1 overflow-y-auto p-8 space-y-3">
                                 <MobileNavLink href="#la-carte" onClick={() => setIsMobileMenuOpen(false)}>La Carte</MobileNavLink>
-                                <MobileNavLinkWithBadge href="#favoris" count={favoritesCount} onClick={() => setIsMobileMenuOpen(false)}>
-                                    Mes Favoris
-                                </MobileNavLinkWithBadge>
                                 <MobileNavLink href="#commande" onClick={() => setIsMobileMenuOpen(false)}>Commandes</MobileNavLink>
-                                <MobileNavLink href="#notre-histoire" onClick={() => setIsMobileMenuOpen(false)}>L'Héritage</MobileNavLink>
+                                <MobileNavLink href="#notre-maison" onClick={() => setIsMobileMenuOpen(false)}>Notre maison</MobileNavLink>
 
                                 <div className="my-8 h-[1px] gold-gradient opacity-10" />
 
@@ -317,31 +307,6 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
     )
 }
 
-function NavLinkWithBadge({ href, children, count, icon }: { href: string; children: React.ReactNode; count: number; icon?: React.ReactNode }) {
-    return (
-        <a
-            href={href}
-            onClick={(e) => {
-                hapticFeedback('light')
-                e.preventDefault()
-                const targetId = href.replace('#', '')
-                const element = document.getElementById(targetId)
-                if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' })
-            }}
-            className="flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] font-black text-mayssa-brown/70 hover:text-mayssa-gold transition-all duration-500 relative group"
-        >
-            <span className="group-hover:scale-110 transition-transform duration-500">{icon}</span>
-            {children}
-            {count > 0 && (
-                <span className="absolute -top-3 -right-4 flex h-4.5 w-4.5 items-center justify-center rounded-full gold-gradient text-[9px] font-black text-white shadow-premium-shadow ring-2 ring-white">
-                    {count}
-                </span>
-            )}
-            <span className="absolute -bottom-1.5 left-1/2 w-0 h-[1.5px] gold-gradient transition-all duration-500 group-hover:w-full group-hover:left-0" />
-        </a>
-    )
-}
-
 function MobileNavLink({ href, children, onClick }: { href: string; children: React.ReactNode; onClick: () => void }) {
     return (
         <a
@@ -363,30 +328,3 @@ function MobileNavLink({ href, children, onClick }: { href: string; children: Re
     )
 }
 
-function MobileNavLinkWithBadge({ href, children, count, onClick }: { href: string; children: React.ReactNode; count: number; onClick: () => void }) {
-    return (
-        <a
-            href={href}
-            onClick={(e) => {
-                hapticFeedback('light')
-                e.preventDefault()
-                const targetId = href.replace('#', '')
-                onClick()
-                setTimeout(() => {
-                    const element = document.getElementById(targetId)
-                    if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                }, 350)
-            }}
-            className="flex items-center justify-between p-5 rounded-[1.5rem] hover:bg-mayssa-brown/5 transition-all group"
-        >
-            <span className="text-sm font-black uppercase tracking-[0.2em] text-mayssa-brown/80 group-hover:text-mayssa-gold transition-all">
-                {children}
-            </span>
-            {count > 0 && (
-                <span className="flex h-7 w-7 items-center justify-center rounded-full gold-gradient text-[11px] font-black text-white shadow-premium-shadow">
-                    {count}
-                </span>
-            )}
-        </a>
-    )
-}

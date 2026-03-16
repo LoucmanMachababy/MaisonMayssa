@@ -27,6 +27,15 @@ function phoneToWhatsApp(phone: string): string {
   return '33' + digits
 }
 
+function formatClientOrderItemName(name?: string): string {
+  // La Firebase stocke parfois `name` avec des infos optionnelles ajoutées via ` — ...`
+  // (ex: Base/Coulis/Flavor Description). Pour l'écran "commandes clients", on ne garde
+  // que le nom produit principal.
+  const raw = (name ?? '').trim()
+  if (!raw) return 'Article'
+  return raw.split(' — ')[0].trim() || raw
+}
+
 const TIER_CONFIG: Record<string, { label: string; color: string; bg: string; icon: string }> = {
   Douceur: { label: 'Douceur', color: 'text-amber-700', bg: 'bg-amber-50', icon: '🍪' },
   Gourmand: { label: 'Gourmand', color: 'text-orange-700', bg: 'bg-orange-50', icon: '🎂' },
@@ -236,7 +245,9 @@ export function AdminClientProfileModal({ uid, profile, orders, onClose, onNewOr
                 ) : (
                   clientOrders.map(([id, order]) => {
                     const date = order.createdAt ? new Date(order.createdAt) : null
-                    const items = (order.items ?? []).map(i => `${i.quantity}× ${i.name}`).join(', ')
+                    const items = (order.items ?? [])
+                      .map(i => `${i.quantity}× ${formatClientOrderItemName(i.name)}`)
+                      .join(', ')
                     return (
                       <div key={id} className="bg-mayssa-soft/30 rounded-xl p-3 border border-mayssa-brown/5">
                         <div className="flex items-start justify-between gap-2">

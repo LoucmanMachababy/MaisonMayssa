@@ -5,7 +5,7 @@ import type { LoyaltyTier } from './lib/firebase'
 export type Channel = 'whatsapp' | 'instagram' | 'snap'
 
 export type ProductCategory =
-    | "Trompe l'oeil"
+    | "Trompe l'œil"
     | 'Mini Gourmandises'
     | 'Brownies'
     | 'Cookies'
@@ -36,6 +36,8 @@ export type Product = {
     originalPrice?: number
     category: ProductCategory
     image?: string
+    /** Galerie d'images pour la modal (ex. trompe-l'œil : fermé/ouvert) */
+    images?: string[]
     sizes?: ProductSize[]
     /** Badges affichés sur la carte (Best seller, Nouveau, etc.) */
     badges?: ProductBadge[]
@@ -81,6 +83,8 @@ export type ProductOverride = {
     price?: number
     originalPrice?: number
     image?: string
+    /** Galerie d'images (ne pas écraser si absent — on garde celles du produit de base) */
+    images?: string[]
     badges?: ProductBadge[]
     sizes?: ProductSize[]
     /** false = rupture de stock */

@@ -6,7 +6,7 @@ import type { ProductOverrideMap, ProductOverride, ProductCategory, ProductBadge
 import type { ProductWithAvailability } from '../../hooks/useProducts'
 
 const ALL_CATEGORIES: ProductCategory[] = [
-  "Trompe l'oeil", 'Mini Gourmandises', 'Brownies', 'Cookies', 'Layer Cups', 'Boxes', 'Tiramisus',
+  "Trompe l'œil", 'Mini Gourmandises', 'Brownies', 'Cookies', 'Layer Cups', 'Boxes', 'Tiramisus',
 ]
 
 const ALL_BADGES: { value: ProductBadge; label: string }[] = [

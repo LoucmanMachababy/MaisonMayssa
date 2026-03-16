@@ -1,12 +1,11 @@
 // import removed to resolve lint
 import { motion } from 'framer-motion'
-import { Plus, ShoppingCart, Heart, Calendar, Star, CalendarClock } from 'lucide-react'
+import { Plus, ShoppingCart, Calendar, Star, CalendarClock, Info } from 'lucide-react'
 import type { Product } from '../types'
 import { use3DTilt } from '../hooks/use3DTilt'
 import { useReviews } from '../hooks/useReviews'
 import { isPreorderNotYetAvailable } from '../lib/utils'
 import { ProductBadges } from './ProductBadges'
-import { ShareButton } from './ShareButton'
 import { BlurImage } from './BlurImage'
 import { StockBadge } from './StockBadge'
 import { NotifyWhenAvailable } from './NotifyWhenAvailable'
@@ -17,8 +16,8 @@ import { formatDateLabel } from '../lib/delivery'
 interface ProductCardProps {
     product: Product
     onAdd: (product: Product) => void
-    isFavorite?: boolean
-    onToggleFavorite?: (product: Product) => void
+    /** Ouvre la modal détail (utilisé pour les produits en rupture) */
+    onViewDetail?: (product: Product) => void
     stock?: number | null
     isPreorderDay?: boolean
     dayNames?: string
@@ -30,14 +29,16 @@ interface ProductCardProps {
     priority?: boolean
     /** Cadre coloré "Nouveau" pour mettre en avant un produit */
     highlightAsNew?: boolean
+    /** Taille plus grande pour la grille style Le Meurice */
+    size?: 'default' | 'large'
 }
 
-export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavorite, stock = null, isPreorderDay = true, dayNames = '', preorderOpenDate, preorderOpenTime, priority = false, highlightAsNew = false }: ProductCardProps) {
+export function ProductCard({ product, onAdd, onViewDetail, stock = null, isPreorderDay = true, dayNames = '', preorderOpenDate, preorderOpenTime, priority = false, highlightAsNew = false, size = 'default' }: ProductCardProps) {
     const { ref, style, handlers } = use3DTilt(8)
     const { getAverageRatingForProduct, getReviewCountForProduct } = useReviews()
     const isPreorderSoon = isPreorderNotYetAvailable(product)
     const showBientotDispo = product.preorder && !product.image
-    const isTrompeLoeil = product.category === "Trompe l'oeil"
+    const isTrompeLoeil = product.category === "Trompe l'œil"
     const isStockManaged = stock !== null
     const isUnavailable = isStockManaged && (stock <= 0 || (isTrompeLoeil && !isPreorderDay))
 
@@ -69,7 +70,10 @@ export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavori
             tabIndex={0}
             aria-label={isUnavailable ? `${product.name} — Indisponible` : `Ajouter ${product.name} au panier`}
             onClick={() => {
-                if (!isPreorderSoon && !isUnavailable) {
+                if (isUnavailable && onViewDetail) {
+                    hapticFeedback('light')
+                    onViewDetail(product)
+                } else if (!isPreorderSoon && !isUnavailable) {
                     hapticFeedback('medium')
                     onAdd(product)
                 }
@@ -79,8 +83,10 @@ export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavori
             transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
             viewport={{ once: true, margin: "-50px" }}
             className={cn(
-                "group relative flex flex-col gap-5 overflow-hidden rounded-[2.5rem] p-5 transition-all duration-700 will-change-transform bg-white/40 backdrop-blur-3xl border border-white/80 shadow-premium-shadow",
-                isUnavailable && "cursor-default opacity-80 grayscale-[0.3]",
+                "group relative flex flex-col overflow-hidden rounded-[2.5rem] transition-all duration-700 will-change-transform bg-white/40 backdrop-blur-3xl border border-white/80 shadow-premium-shadow",
+                size === 'large' ? "gap-6 p-6 sm:p-7" : "gap-5 p-5",
+                isUnavailable && onViewDetail && "cursor-pointer",
+                isUnavailable && !onViewDetail && "cursor-default opacity-80 grayscale-[0.3]",
                 !isUnavailable && "cursor-pointer hover:-translate-y-3 hover:shadow-2xl hover:bg-white/60 active:scale-[0.98] premium-border",
                 highlightAsNew && "ring-2 ring-mayssa-gold/40 bg-gradient-to-br from-mayssa-gold/5 via-white/40 to-white/40"
             )}
@@ -89,39 +95,37 @@ export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavori
 
             {/* Action buttons */}
             <div className="absolute top-6 right-6 z-20 flex flex-col gap-3 opacity-0 translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-700 ease-out">
-                {onToggleFavorite && (
+                {onViewDetail && (
                     <motion.button
                         type="button"
                         onClick={(e) => {
                             e.stopPropagation()
                             hapticFeedback('light')
-                            onToggleFavorite(product)
+                            onViewDetail(product)
                         }}
-                        whileHover={{ scale: 1.15, rotate: 5 }}
+                        whileHover={{ scale: 1.15, rotate: -5 }}
                         whileTap={{ scale: 0.9 }}
-                        className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/90 backdrop-blur-md shadow-premium-shadow text-mayssa-brown hover:text-red-500 transition-all duration-500 border border-white/40"
+                        className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/90 backdrop-blur-md shadow-premium-shadow text-mayssa-brown/60 hover:text-mayssa-gold transition-all duration-500 border border-white/40"
+                        aria-label={`Voir les détails de ${product.name}`}
                     >
-                        <Heart
-                            size={20}
-                            className={cn("transition-all duration-500", isFavorite ? "text-red-500 fill-red-500 drop-shadow-md" : "opacity-70")}
-                        />
+                        <Info size={20} />
                     </motion.button>
                 )}
-                <div onClick={(e) => e.stopPropagation()}>
-                    <ShareButton
-                        product={product}
-                        className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/90 backdrop-blur-md shadow-premium-shadow text-mayssa-brown/60 hover:text-mayssa-gold transition-all duration-500 border border-white/40 hover:scale-110"
-                    />
-                </div>
             </div>
 
             <div
                 ref={ref}
                 style={style}
                 {...handlers}
-                className="flex flex-col gap-5 h-full relative z-10"
+                className={cn("flex flex-col h-full relative z-10", size === 'large' ? "gap-6" : "gap-5")}
             >
-                <div className="relative aspect-[4/3] overflow-hidden rounded-[1.8rem] border border-white/60 shadow-inner bg-mayssa-soft/30 group-hover:shadow-lg transition-all duration-1000">
+                <div className={cn(
+                  "relative overflow-hidden shadow-inner group-hover:shadow-lg transition-all duration-1000",
+                  size === 'large' ? "aspect-[3/4] rounded-[2rem]" : "aspect-[3/4] rounded-[1.8rem]",
+                  isTrompeLoeil
+                    ? "border-2 border-mayssa-brown/20 bg-mayssa-brown/5 ring-1 ring-mayssa-brown/10"
+                    : "border border-white/60 bg-mayssa-soft/30"
+                )}>
                     {product.badges?.length ? (
                         <ProductBadges badges={product.badges} variant="card" />
                     ) : null}
@@ -129,7 +133,7 @@ export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavori
                         <BlurImage
                             src={product.image}
                             alt={product.name}
-                            className="h-full w-full object-cover transition-transform duration-1000 ease-out group-hover:scale-110"
+                            className="h-full w-full object-cover transition-transform duration-1000 ease-out group-hover:scale-105"
                             priority={priority}
                         />
                     ) : (
@@ -144,16 +148,16 @@ export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavori
                     <div className="absolute inset-0 bg-gradient-to-t from-mayssa-brown/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
                 </div>
 
-                <div className="flex flex-col flex-1 gap-4 px-1">
-                    <div className="space-y-3">
+                <div className={cn("flex flex-col flex-1 px-1", size === 'large' ? "gap-5" : "gap-4")}>
+                    <div className={cn("space-y-3", size === 'large' && "space-y-4")}>
                         <div className="flex items-center justify-between gap-3">
-                            <h4 className="text-xl sm:text-2xl font-display font-medium leading-tight text-mayssa-brown group-hover:text-mayssa-gold transition-colors duration-700">
+                            <h4 className={cn("font-display font-medium leading-tight text-mayssa-brown group-hover:text-mayssa-gold transition-colors duration-700", size === 'large' ? "text-2xl sm:text-3xl" : "text-xl sm:text-2xl")}>
                                 {product.name}
                             </h4>
                             <div className="hidden sm:block h-[1px] flex-1 gold-gradient opacity-10" />
                         </div>
                         
-                        <p className="text-xs sm:text-sm font-sans font-light text-mayssa-brown/60 line-clamp-2 leading-relaxed tracking-wide">
+                        <p className={cn("font-sans font-light text-mayssa-brown/60 line-clamp-2 leading-relaxed tracking-wide", size === 'large' ? "text-sm sm:text-base" : "text-xs sm:text-sm")}>
                             {product.description || 'Une signature Maison Mayssa, pensée pour l\'émotion.'}
                         </p>
                         
@@ -206,7 +210,7 @@ export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavori
                                         {product.sizes ? 'De Collection' : 'Prix Signature'}
                                     </span>
                                     <div className="flex items-baseline gap-2">
-                                        <span className="text-2xl sm:text-3xl font-display font-medium text-mayssa-brown group-hover:text-mayssa-gold transition-colors duration-700">
+                                        <span className={cn("font-display font-medium text-mayssa-brown group-hover:text-mayssa-gold transition-colors duration-700", size === 'large' ? "text-3xl sm:text-4xl" : "text-2xl sm:text-3xl")}>
                                             {product.price.toFixed(2).replace('.', ',')}
                                             <span className="text-lg ml-1 font-sans opacity-60">€</span>
                                         </span>
@@ -221,11 +225,11 @@ export function ProductCard({ product, onAdd, isFavorite = false, onToggleFavori
                         </div>
 
                         {isUnavailable ? (
-                            <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                            <div className="flex flex-col items-end gap-2 flex-shrink-0 min-w-0">
                                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-mayssa-brown/5 text-mayssa-brown/20 border border-mayssa-brown/5">
                                     <Calendar size={24} strokeWidth={1.5} />
                                 </div>
-                                <NotifyWhenAvailable product={product} className="text-right scale-90 origin-right transition-all duration-500 opacity-60 hover:opacity-100" />
+                                <NotifyWhenAvailable product={product} className="text-right transition-all duration-500 opacity-60 hover:opacity-100" />
                             </div>
                         ) : (
                             <motion.button

@@ -7,7 +7,7 @@ import { TiramisuCustomizationModal } from '../TiramisuCustomizationModal'
 import { BoxFlavorsModal } from '../BoxFlavorsModal'
 
 const ALL_CATEGORIES: ProductCategory[] = [
-  "Trompe l'oeil", 'Mini Gourmandises', 'Brownies', 'Cookies', 'Layer Cups', 'Boxes', 'Tiramisus',
+  "Trompe l'œil", 'Mini Gourmandises', 'Brownies', 'Cookies', 'Layer Cups', 'Boxes', 'Tiramisus',
 ]
 
 /** Affiche le nom sous forme "Catégorie - Goût" pour les produits simples (Brownies, Cookies, Layer Cups) */

@@ -10,11 +10,12 @@ import {
   listenStock, updateStock, listenSettings, updateSettings,
   listenOrders, updateOrderStatus, deleteOrder, updateOrder,
   listenAllUsers, claimBirthdayGift, listenProductOverrides, deleteUserProfile,
-  listenReviews,
+  listenReviews, deleteReview,
   listenPromoCodes,
   listenNotifyWhenAvailable,
   isPreorderOpenNow, isTrompeLoeilProductId, getStockDecrementItems,
   releaseDeliverySlot, reserveDeliverySlot,
+  uploadEventPosterImage,
   type StockMap, type Settings as SettingsType, type Order, type OrderSource, type UserProfile, type PreorderOpening, type Review, type PromoCodeRecord, type Poll, type NotifyWhenAvailableEntry,
   listenPolls
 } from '../../lib/firebase'
@@ -39,6 +40,7 @@ import { AdminCommunityTab } from './AdminCommunityTab'
 import { AdminOffSiteOrderForm } from './AdminOffSiteOrderForm'
 import { PRODUCTS } from '../../constants'
 import { AdminEditOrderModal } from './AdminEditOrderModal'
+import { AdminEditReviewModal } from './AdminEditReviewModal'
 import { AdminClientProfileModal } from './AdminClientProfileModal'
 import { AdminNotificationsCenter } from './AdminNotificationsCenter'
 import { AdminDailyReport } from './AdminDailyReport'
@@ -432,6 +434,7 @@ function Dashboard({ user }: { user: User }) {
   const [showOffSiteForm, setShowOffSiteForm] = useState(false)
   const [offSitePresetClient, setOffSitePresetClient] = useState<{ uid: string; firstName: string; lastName: string; phone: string; email?: string; address?: string } | null>(null)
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null)
+  const [editingReviewId, setEditingReviewId] = useState<string | null>(null)
   const [sourceFilter, setSourceFilter] = useState<OrderSource | 'all'>('all')
   const [deliveryFilter, setDeliveryFilter] = useState<'all' | 'livraison' | 'retrait'>('all')
   const [statusFilter, setStatusFilter] = useState<'all' | 'en_attente' | 'en_preparation' | 'pret' | 'livree' | 'validee' | 'refusee'>('all')
@@ -474,6 +477,7 @@ function Dashboard({ user }: { user: User }) {
   const bulkValidateRef = useRef<HTMLDivElement>(null)
   /** Décalage en jours pour la fenêtre de planning (0 = aujourd'hui, -10 = 10 jours en arrière) */
   const [planningDayOffset, setPlanningDayOffset] = useState(0)
+  const [eventPosterUploading, setEventPosterUploading] = useState(false)
   /** Dates sélectionnées pour l'onglet Production (Set vide = aujourd'hui par défaut) */
   const [productionDates, setProductionDates] = useState<Set<string>>(new Set([]))
   /** Recherche globale (nom, téléphone, n° commande) */
@@ -1113,7 +1117,7 @@ function Dashboard({ user }: { user: User }) {
         const cat = id.startsWith('brownie-') ? 'Brownies'
           : id.startsWith('cookie-') ? 'Cookies'
           : id.startsWith('layer-') ? 'Layer Cups'
-          : id.startsWith('trompe-loeil-') || id === 'box-trompe-loeil' ? "Trompe l'œil"
+          : id.startsWith('trompe-loeil-') || id === 'box-trompe-loeil' || id === 'box-fruitee' || id === 'box-de-tout' ? "Trompe l'œil"
           : id.startsWith('tiramisu-') ? 'Tiramisus'
           : id.includes('box') || id.includes('mini') ? 'Boxes'
           : 'Autres'
@@ -3487,13 +3491,41 @@ function Dashboard({ user }: { user: User }) {
                 {Object.entries(reviews)
                   .sort(([, a], [, b]) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
                   .map(([id, r]) => (
-                    <li key={id} className="flex items-start gap-2 p-3 rounded-xl bg-mayssa-soft/30 border border-mayssa-brown/5 text-sm">
-                      <span className="font-bold text-mayssa-caramel">{r.rating}/5</span>
-                      {r.comment && <span className="text-mayssa-brown/80 flex-1 line-clamp-2">&laquo; {r.comment} &raquo;</span>}
+                    <li key={id} className="flex items-start gap-2 p-3 rounded-xl bg-mayssa-soft/30 border border-mayssa-brown/5 text-sm group">
+                      <span className="font-bold text-mayssa-caramel shrink-0">{r.rating}/5</span>
+                      {r.comment && <span className="text-mayssa-brown/80 flex-1 line-clamp-2 min-w-0">&laquo; {r.comment} &raquo;</span>}
                       {r.authorName && <span className="text-mayssa-brown/60 shrink-0">— {r.authorName}</span>}
                       <span className="text-[10px] text-mayssa-brown/40 shrink-0">
                         {r.createdAt ? new Date(r.createdAt).toLocaleDateString('fr-FR') : ''}
                       </span>
+                      <div className="flex shrink-0 gap-1 opacity-70 group-hover:opacity-100">
+                        <button
+                          type="button"
+                          onClick={() => { hapticFeedback('light'); setEditingReviewId(id) }}
+                          className="p-1.5 rounded-lg text-mayssa-caramel hover:bg-mayssa-soft transition-colors"
+                          title="Modifier l'avis"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (window.confirm('Supprimer cet avis ?')) {
+                              hapticFeedback('light')
+                              try {
+                                await deleteReview(id)
+                              } catch (err) {
+                                console.error('Erreur suppression avis:', err)
+                                alert('Impossible de supprimer l\'avis.')
+                              }
+                            }
+                          }}
+                          className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                          title="Supprimer l'avis"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </li>
                   ))}
               </ul>
@@ -3602,6 +3634,115 @@ function Dashboard({ user }: { user: User }) {
               </div>
             </div>
 
+            {/* Mode événement (stand / event) */}
+            <div className={`rounded-xl p-4 border-2 ${settings.eventModeEnabled ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200'}`}>
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <p className="text-sm font-bold text-mayssa-brown">
+                    {settings.eventModeEnabled ? 'Mode événement activé' : 'Mode événement désactivé'}
+                  </p>
+                  <p className="text-[10px] text-mayssa-brown/60 mt-0.5">
+                    Quand activé, le site affiche “Précommandes fermées cette semaine” + ton message (et bloque les boutons commander).
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !settings.eventModeEnabled
+                    // Quand on active un événement, on ferme les commandes automatiquement.
+                    // Quand on désactive, on ré-ouvre automatiquement (tu peux re-fermer ensuite si besoin).
+                    updateSettings({
+                      eventModeEnabled: next,
+                      ...(next ? { ordersOpen: false } : { ordersOpen: true }),
+                    })
+                  }}
+                  className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-colors cursor-pointer ${
+                    settings.eventModeEnabled
+                      ? 'bg-white border-2 border-amber-300 text-amber-700 hover:bg-amber-50'
+                      : 'bg-amber-500 text-white hover:bg-amber-600'
+                  }`}
+                >
+                  {settings.eventModeEnabled ? 'Désactiver l’événement' : 'Activer un événement'}
+                </button>
+              </div>
+
+              <div className="mt-3 space-y-2">
+                <textarea
+                  value={settings.eventModeMessage ?? ''}
+                  onChange={e => updateSettings({ eventModeMessage: e.target.value })}
+                  placeholder="Ex : Cette semaine je suis en stand : Salon X (adresse), samedi 14h–19h. Venez directement sur place 🙂"
+                  rows={3}
+                  className="w-full rounded-xl border border-mayssa-brown/10 px-3 py-2 text-xs text-mayssa-brown resize-none focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
+                />
+                <p className="text-[10px] text-mayssa-brown/40">
+                  Astuce : mets l’adresse + horaires + où te trouver sur le stand.
+                </p>
+              </div>
+
+              {/* Affiche (optionnelle) */}
+              <div className="mt-4 rounded-xl border border-mayssa-brown/10 bg-white p-4 space-y-3">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <p className="text-sm font-bold text-mayssa-brown">Affiche de l’événement (optionnel)</p>
+                  {settings.eventModePosterUrl && (
+                    <button
+                      type="button"
+                      onClick={() => updateSettings({ eventModePosterUrl: '' })}
+                      className="text-[10px] text-red-500 hover:text-red-700 font-bold cursor-pointer"
+                    >
+                      Supprimer l’image
+                    </button>
+                  )}
+                </div>
+
+                <input
+                  type="text"
+                  value={settings.eventModePosterUrl ?? ''}
+                  onChange={(e) => updateSettings({ eventModePosterUrl: e.target.value })}
+                  placeholder="URL de l’image (optionnel) — sinon uploade juste en dessous"
+                  className="w-full rounded-xl border border-mayssa-brown/10 px-3 py-2 text-xs text-mayssa-brown focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
+                />
+
+                <div className="flex items-center gap-3 flex-wrap">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={eventPosterUploading}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      try {
+                        setEventPosterUploading(true)
+                        const url = await uploadEventPosterImage(file)
+                        await updateSettings({ eventModePosterUrl: url })
+                      } catch (err) {
+                        console.error(err)
+                        alert("Impossible d'uploader l'image pour le moment.")
+                      } finally {
+                        setEventPosterUploading(false)
+                        e.currentTarget.value = ''
+                      }
+                    }}
+                    className="text-xs"
+                  />
+                  <span className="text-[10px] text-mayssa-brown/50">
+                    {eventPosterUploading ? 'Upload en cours…' : 'Formats conseillés : JPG/PNG/WebP'}
+                  </span>
+                </div>
+
+                {settings.eventModePosterUrl?.trim() && (
+                  <div className="pt-2">
+                    <img
+                      src={settings.eventModePosterUrl}
+                      alt="Aperçu affiche événement"
+                      className="w-full max-w-md rounded-2xl border border-mayssa-brown/10 shadow-sm"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Résumé de l'état actuel */}
             <div className="rounded-xl px-4 py-3 bg-mayssa-soft/60 border border-mayssa-brown/8 space-y-1.5">
               <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/40 mb-2">État actuel</p>
@@ -3679,6 +3820,21 @@ function Dashboard({ user }: { user: User }) {
               <p className="text-[10px] text-mayssa-brown/40">
                 Ce message s&apos;affiche en bannière caramel sur le site pour tous les visiteurs.
               </p>
+            </div>
+
+            {/* Date du prochain restock (header) */}
+            <div className="rounded-xl p-4 border border-mayssa-brown/10 bg-white space-y-3">
+              <p className="text-sm font-bold text-mayssa-brown">Date du prochain restock</p>
+              <p className="text-[10px] text-mayssa-brown/50">
+                Affichée dans le header sous « Annecy ». Format YYYY-MM-DD (ex. 2026-03-20) ou texte libre.
+              </p>
+              <input
+                type="text"
+                value={settings.nextRestockDate ?? ''}
+                onChange={e => updateSettings({ nextRestockDate: e.target.value || undefined })}
+                placeholder="Ex : 2026-03-20 ou Samedi 21 mars"
+                className="w-full rounded-xl border border-mayssa-brown/10 px-3 py-2 text-xs text-mayssa-brown focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
+              />
             </div>
 
             {/* Section A : Ouverture des précommandes */}
@@ -4425,13 +4581,34 @@ function Dashboard({ user }: { user: User }) {
             "Trompe l'oeil Cacahuète",
             "Trompe l'oeil Fraise",
           ]
+          const BOX_FRUITEE_LABELS = [
+            "Trompe l'oeil Mangue",
+            "Trompe l'oeil Citron",
+            "Trompe l'oeil Passion",
+            "Trompe l'oeil Framboise",
+            "Trompe l'oeil Fraise",
+            "Trompe l'oeil Myrtille",
+          ]
+          const BOX_DE_TOUT_LABELS = [
+            "Trompe l'oeil Mangue",
+            "Trompe l'oeil Citron",
+            "Trompe l'oeil Pistache",
+            "Trompe l'oeil Passion",
+            "Trompe l'oeil Framboise",
+            "Trompe l'oeil Cacahuète",
+            "Trompe l'oeil Fraise",
+            "Trompe l'oeil Myrtille",
+            "Trompe l'oeil Café",
+            "Trompe l'œil Gousse de Vanille",
+            "Trompe l'œil Popcorn",
+          ]
 
           /** Agrège les lignes de commandes en liste "à produire" : libellé détaillé → quantité (optionnel filtre par statut). La box trompe l'œil est décomposée en 7 trompes l'œil. */
           const getProductionList = (dayOrders: [string, Order][], filterStatus?: (s: string) => boolean): { label: string; quantity: number; sortKey: string }[] => {
             const quantityByLabel = new Map<string, number>()
             const sortKeyForLabel = (item: OrderItem): string => {
               const id = (item.productId ?? '').toLowerCase()
-              if (id.includes('trompe-loeil') || id === 'box-trompe-loeil') return '0-trompe'
+              if (id.includes('trompe-loeil') || id === 'box-trompe-loeil' || id === 'box-fruitee' || id === 'box-de-tout') return '0-trompe'
               if (id.includes('box') || id.includes('mini-box')) return '1-box'
               if (id.startsWith('brownie-')) return '2-brownie'
               if (id.startsWith('cookie-')) return '3-cookie'
@@ -4446,6 +4623,20 @@ function Dashboard({ user }: { user: User }) {
                 const productId = (item.productId ?? '').toLowerCase()
                 if (productId === 'box-trompe-loeil') {
                   for (const trompeLabel of BOX_TROMPE_LOEIL_LABELS) {
+                    quantityByLabel.set(trompeLabel, (quantityByLabel.get(trompeLabel) ?? 0) + item.quantity)
+                    if (!labelToSortKey.has(trompeLabel)) labelToSortKey.set(trompeLabel, '0-trompe')
+                  }
+                  continue
+                }
+                if (productId === 'box-fruitee') {
+                  for (const trompeLabel of BOX_FRUITEE_LABELS) {
+                    quantityByLabel.set(trompeLabel, (quantityByLabel.get(trompeLabel) ?? 0) + item.quantity)
+                    if (!labelToSortKey.has(trompeLabel)) labelToSortKey.set(trompeLabel, '0-trompe')
+                  }
+                  continue
+                }
+                if (productId === 'box-de-tout') {
+                  for (const trompeLabel of BOX_DE_TOUT_LABELS) {
                     quantityByLabel.set(trompeLabel, (quantityByLabel.get(trompeLabel) ?? 0) + item.quantity)
                     if (!labelToSortKey.has(trompeLabel)) labelToSortKey.set(trompeLabel, '0-trompe')
                   }
@@ -5157,6 +5348,16 @@ function Dashboard({ user }: { user: User }) {
             allProducts={allProducts}
             onClose={() => setEditingOrderId(null)}
             onSaved={() => setEditingOrderId(null)}
+          />
+        )}
+
+        {/* Edit review modal */}
+        {editingReviewId && reviews[editingReviewId] && (
+          <AdminEditReviewModal
+            reviewId={editingReviewId}
+            review={reviews[editingReviewId]}
+            onClose={() => setEditingReviewId(null)}
+            onSaved={() => setEditingReviewId(null)}
           />
         )}
 
