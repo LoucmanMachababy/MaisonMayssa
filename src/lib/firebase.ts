@@ -211,6 +211,14 @@ export type Settings = {
   preorderOpenTime?: string
   /** Dates de récupération proposées aux clients (YYYY-MM-DD[]). Si renseigné, remplace availableWeekdays dans le sélecteur de date. */
   pickupDates?: string[]
+  /** Date du prochain restock affichée dans le header (YYYY-MM-DD ou texte libre). */
+  nextRestockDate?: string
+  /** Mode événement : ferme les commandes + affiche un message dédié. */
+  eventModeEnabled?: boolean
+  /** Texte affiché aux clients quand le mode événement est actif. */
+  eventModeMessage?: string
+  /** URL de l'affiche (image) affichée aux clients en mode événement. */
+  eventModePosterUrl?: string
 }
 
 const DEFAULT_PREORDER_OPENINGS: PreorderOpening[] = [
@@ -319,6 +327,10 @@ function mergeSettings(val: unknown): Settings {
     : undefined
   const preorderOpenDate = typeof raw.preorderOpenDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw.preorderOpenDate) ? raw.preorderOpenDate : undefined
   const preorderOpenTime = typeof raw.preorderOpenTime === 'string' && /^\d{1,2}:\d{2}$/.test(raw.preorderOpenTime) ? raw.preorderOpenTime : undefined
+  const nextRestockDate = typeof raw.nextRestockDate === 'string' && raw.nextRestockDate.trim().length > 0 ? raw.nextRestockDate : undefined
+  const eventModeEnabled = raw.eventModeEnabled === true ? true : undefined
+  const eventModeMessage = typeof raw.eventModeMessage === 'string' ? raw.eventModeMessage : undefined
+  const eventModePosterUrl = typeof raw.eventModePosterUrl === 'string' ? raw.eventModePosterUrl : undefined
   return {
     preorderDays,
     preorderOpenings,
@@ -334,8 +346,12 @@ function mergeSettings(val: unknown): Settings {
     ...(pickupDates && pickupDates.length > 0 && { pickupDates }),
     ...(preorderOpenDate && { preorderOpenDate }),
     ...(preorderOpenTime && { preorderOpenTime }),
+    ...(nextRestockDate && { nextRestockDate }),
     globalMessage: typeof raw.globalMessage === 'string' ? raw.globalMessage : undefined,
     globalMessageEnabled: raw.globalMessageEnabled === true ? true : undefined,
+    eventModeEnabled,
+    eventModeMessage,
+    eventModePosterUrl,
   }
 }
 
@@ -726,6 +742,25 @@ export async function getReviewByOrderId(orderId: string): Promise<Review | null
   if (!val) return null
   const found = Object.entries(val).find(([, r]) => r.orderId === orderId)
   return found ? { ...found[1] } : null
+}
+
+/** Supprime un avis (admin). */
+export async function deleteReview(reviewId: string): Promise<void> {
+  const reviewRef = ref(db, `reviews/${reviewId}`)
+  await remove(reviewRef)
+}
+
+/** Modifie un avis (admin). Préserve createdAt, orderId, productRatings. */
+export async function updateReview(reviewId: string, updates: Partial<Pick<Review, 'rating' | 'comment' | 'authorName'>>): Promise<void> {
+  const reviewRef = ref(db, `reviews/${reviewId}`)
+  const snapshot = await get(reviewRef)
+  const current = snapshot.val() as Review | null
+  if (!current) throw new Error('Avis introuvable')
+  const merged: Review = {
+    ...current,
+    ...updates,
+  }
+  await set(reviewRef, stripUndefined(merged as unknown as Record<string, unknown>))
 }
 
 /** Retire les propriétés undefined (Firebase les refuse) */
@@ -1289,6 +1324,14 @@ const storage = getStorage(app)
 export async function uploadProductImage(file: File): Promise<string> {
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
   const path = `products/${Date.now()}-${safeName}`
+  const r = storageRef(storage, path)
+  await uploadBytes(r, file)
+  return getDownloadURL(r)
+}
+
+export async function uploadEventPosterImage(file: File): Promise<string> {
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+  const path = `events/${Date.now()}-${safeName}`
   const r = storageRef(storage, path)
   await uploadBytes(r, file)
   return getDownloadURL(r)

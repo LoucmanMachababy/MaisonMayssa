@@ -1,0 +1,26 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Images publiques (affiches / produits)
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email == 'roumayssaghazi213@gmail.com';
+    }
+
+    match /products/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /events/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Tout le reste refusé
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
+

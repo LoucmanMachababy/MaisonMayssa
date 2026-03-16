@@ -26,7 +26,7 @@ export function ToastComponent({ toast, onRemove }: ToastProps) {
     const [progress, setProgress] = useState(100)
     const [isPaused, setIsPaused] = useState(false)
     
-    const duration = toast.duration || 4000
+    const duration = toast.duration ?? 2500
     const shouldShowProgress = !toast.persistent && toast.type !== 'loading' && duration > 0
 
     useEffect(() => {
@@ -129,10 +129,10 @@ export function ToastComponent({ toast, onRemove }: ToastProps) {
                     <button
                         type="button"
                         onClick={() => onRemove(toast.id)}
-                        className="flex-shrink-0 text-mayssa-brown/40 hover:text-mayssa-brown transition-all opacity-0 group-hover:opacity-100 hover:scale-110 cursor-pointer"
+                        className="flex-shrink-0 p-1.5 -m-1.5 rounded-lg text-mayssa-brown/50 hover:text-mayssa-brown hover:bg-mayssa-brown/5 transition-all cursor-pointer touch-manipulation"
                         aria-label="Fermer la notification"
                     >
-                        <X size={16} />
+                        <X size={18} />
                     </button>
                 )}
             </div>

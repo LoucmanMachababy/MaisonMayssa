@@ -18,7 +18,7 @@ const FLAVORS: Flavor[] = [
   { label: 'Citron', productId: 'trompe-loeil-citron', emoji: '🍋' },
   { label: 'Fraise', productId: 'trompe-loeil-fraise', emoji: '🍓' },
   { label: 'Myrtille', productId: 'trompe-loeil-myrtille', emoji: '🫐' },
-  { label: 'Framboise', productId: 'trompe-loeil-framboise', emoji: '🫐' },
+  { label: 'Framboise', productId: 'trompe-loeil-framboise', emoji: '🍒' },
   { label: 'Passion', productId: 'trompe-loeil-passion', emoji: '🌟' },
 ]
 

@@ -21,10 +21,10 @@ export function Footer() {
     }
     return (
         <footer className="relative mt-16 sm:mt-24 bg-mayssa-brown pt-16 sm:pt-20 pb-8 sm:pb-10 overflow-hidden text-mayssa-soft shadow-[0_-10px_40px_rgba(51,33,21,0.15)]">
-            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 mix-blend-overlay pointer-events-none" />
+            <div className="absolute inset-0 opacity-10 mix-blend-overlay pointer-events-none" style={{ backgroundImage: "radial-gradient(circle at 20% 50%, rgba(197,160,89,0.15) 0%, transparent 50%)" }} />
             <div className="absolute top-0 right-1/4 -mt-32 w-96 h-96 bg-mayssa-gold/10 rounded-full blur-[120px] pointer-events-none" />
             
-            <div className="relative z-10 mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
+            <div className="relative z-10 w-full px-6 sm:px-8 lg:px-12">
                 <div className="grid grid-cols-1 gap-12 sm:gap-14 md:gap-16 md:grid-cols-2 lg:grid-cols-4">
                     {/* Brand Column */}
                     <div className="space-y-6">
@@ -71,7 +71,6 @@ export function Footer() {
                                     Commander sur WhatsApp
                                 </a>
                             </li>
-                            <li><FooterLink href="#occasions">Occasions & Événements</FooterLink></li>
                             <li><FooterLink href="#avis">Témoignages</FooterLink></li>
                             <li><FooterLink href="#faq">Questions Fréquentes</FooterLink></li>
                         </ul>
@@ -124,8 +123,28 @@ export function Footer() {
                         </button>
                     </div>
                     <div className="flex flex-wrap justify-center gap-6 text-xs text-mayssa-soft/50 font-light">
-                        <FooterLink href="#mentions-legales">Mentions légales</FooterLink>
-                        <FooterLink href="#confidentialite">Politique de confidentialité</FooterLink>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                hapticFeedback('light')
+                                window.location.hash = '#legal'
+                            }}
+                            className="text-mayssa-soft/70 hover:text-mayssa-gold transition-all cursor-pointer inline-block group"
+                        >
+                            <span>Mentions légales</span>
+                            <span className="block max-w-0 group-hover:max-w-full transition-all duration-300 h-[1px] bg-mayssa-gold mt-1"></span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                hapticFeedback('light')
+                                window.location.hash = '#legal'
+                            }}
+                            className="text-mayssa-soft/70 hover:text-mayssa-gold transition-all cursor-pointer inline-block group"
+                        >
+                            <span>Politique de confidentialité</span>
+                            <span className="block max-w-0 group-hover:max-w-full transition-all duration-300 h-[1px] bg-mayssa-gold mt-1"></span>
+                        </button>
                     </div>
                 </div>
             </div>

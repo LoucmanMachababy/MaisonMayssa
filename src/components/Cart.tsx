@@ -49,6 +49,8 @@ interface CartProps {
     maxDate?: string
     /** Si false, les clients ne peuvent pas envoyer de commande. */
     ordersOpen?: boolean
+    /** Message affiché quand les commandes sont fermées (ex: événement). */
+    ordersClosedMessage?: string
     /** Si true, l'admin a manuellement forcé l'ouverture — bypasse la coupure 17h. */
     ordersExplicit?: boolean
     /** Jours de la semaine autorisés (0=dim…6=sam). Si défini, le client ne peut choisir que ces jours. */
@@ -105,6 +107,7 @@ export function Cart({
     livraisonTimeSlots,
     ordersOpen = true,
     ordersExplicit = false,
+    ordersClosedMessage = '',
     promoCodeInput = '',
     setPromoCodeInput,
     appliedPromo = null,
@@ -216,8 +219,8 @@ export function Cart({
         touched[field] && validationErrors[field as keyof CustomerInfo]
 
     const isCustomerValid = Object.keys(validationErrors).length === 0
-    const hasNonTrompeLoeil = items.some((item) => item.product.category !== "Trompe l'oeil")
-    const hasTrompeLoeil = items.some((item) => item.product.category === "Trompe l'oeil")
+    const hasNonTrompeLoeil = items.some((item) => item.product.category !== "Trompe l'œil")
+    const hasTrompeLoeil = items.some((item) => item.product.category === "Trompe l'œil")
     // Bloquer seulement si la date choisie par le client est avant minDate (pas si aujourd'hui l'est)
     const trompeLoeilBeforeMinDate = hasTrompeLoeil && !!customer.date && customer.date < minDate
     const orderCutoffPassed = !isBeforeOrderCutoff()
@@ -231,6 +234,14 @@ export function Cart({
 
     return (
         <div className="flex flex-col min-w-0 w-full overflow-hidden section-shell bg-white/40 backdrop-blur-3xl border border-white/60 shadow-[0_8px_32px_rgba(0,0,0,0.05)] !p-4 sm:!p-8 md:!p-10 rounded-[2.5rem]">
+            {!ordersOpen && ordersClosedMessage.trim().length > 0 && (
+                <div className="mb-6 rounded-2xl border border-mayssa-brown/10 bg-white/80 backdrop-blur-md p-4">
+                    <p className="text-sm font-bold text-mayssa-brown">Précommandes fermées cette semaine</p>
+                    <p className="text-xs text-mayssa-brown/70 mt-1 leading-relaxed">
+                        {ordersClosedMessage}
+                    </p>
+                </div>
+            )}
             <header className="flex items-center justify-between flex-shrink-0 pb-6 border-b border-mayssa-gold/10">
                 <div className="flex items-center gap-3 text-mayssa-brown">
                     <div className="relative">

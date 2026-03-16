@@ -1,16 +1,14 @@
 import { motion } from 'framer-motion'
-import { Home, UtensilsCrossed, ShoppingBag, Heart } from 'lucide-react'
+import { Home, UtensilsCrossed, ShoppingBag } from 'lucide-react'
 import { hapticFeedback } from '../../lib/haptics'
 import { useState } from 'react'
 
 interface BottomNavProps {
   cartCount: number
-  favoritesCount: number
   onCartClick: () => void
-  onFavoritesClick: () => void
 }
 
-export function BottomNav({ cartCount, favoritesCount, onCartClick, onFavoritesClick }: BottomNavProps) {
+export function BottomNav({ cartCount, onCartClick }: BottomNavProps) {
   const [activeItem, setActiveItem] = useState<string | null>(null)
 
   const handleClick = (id: string, href: string) => {
@@ -22,11 +20,6 @@ export function BottomNav({ cartCount, favoritesCount, onCartClick, onFavoritesC
 
     if (id === 'cart') {
       onCartClick()
-      return
-    }
-
-    if (id === 'favorites') {
-      onFavoritesClick()
       return
     }
 
@@ -44,7 +37,6 @@ export function BottomNav({ cartCount, favoritesCount, onCartClick, onFavoritesC
   const navItems = [
     { id: 'home', icon: Home, label: 'Accueil', href: '#', count: 0 },
     { id: 'menu', icon: UtensilsCrossed, label: 'Carte', href: '#la-carte', count: 0 },
-    { id: 'favorites', icon: Heart, label: 'Favoris', href: '#', count: favoritesCount },
     { id: 'cart', icon: ShoppingBag, label: 'Panier', href: '#commande', count: cartCount },
   ]
 
@@ -66,7 +58,6 @@ export function BottomNav({ cartCount, favoritesCount, onCartClick, onFavoritesC
         {navItems.map((item) => {
           const Icon = item.icon
           const isCart = item.id === 'cart'
-          const isFavorites = item.id === 'favorites'
           const isActive = activeItem === item.id
           const hasContent = item.count > 0
 
@@ -93,8 +84,6 @@ export function BottomNav({ cartCount, favoritesCount, onCartClick, onFavoritesC
                 className={`relative p-3 rounded-2xl transition-all duration-200 ${
                   isCart
                     ? 'bg-mayssa-brown text-mayssa-cream shadow-lg'
-                    : isFavorites && hasContent
-                    ? 'bg-red-50 text-red-500 shadow-md'
                     : isActive
                     ? 'bg-mayssa-soft/80 text-mayssa-brown shadow-sm'
                     : 'text-mayssa-brown/60'
@@ -107,7 +96,6 @@ export function BottomNav({ cartCount, favoritesCount, onCartClick, onFavoritesC
                 <Icon
                   size={24} // Icônes légèrement plus grandes pour une meilleure lisibilité
                   strokeWidth={hasContent ? 2.5 : 2}
-                  className={isFavorites && hasContent ? 'fill-red-500' : ''}
                 />
 
                 {/* Enhanced badge with bounce animation */}
@@ -117,9 +105,7 @@ export function BottomNav({ cartCount, favoritesCount, onCartClick, onFavoritesC
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ type: "spring", damping: 15, stiffness: 400, delay: 0.1 }}
-                    className={`absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold text-white shadow-lg ${
-                      isFavorites ? 'bg-red-500' : 'bg-mayssa-caramel'
-                    } ring-2 ring-white`}
+                    className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold text-white shadow-lg bg-mayssa-caramel ring-2 ring-white"
                   >
                     {item.count > 99 ? '99+' : item.count}
                   </motion.span>
@@ -129,7 +115,7 @@ export function BottomNav({ cartCount, favoritesCount, onCartClick, onFavoritesC
               {/* Enhanced label with better contrast */}
               <motion.span 
                 className={`text-[10px] font-semibold transition-colors duration-200 ${
-                  isCart || (isFavorites && hasContent) 
+                  isCart || hasContent 
                     ? 'text-mayssa-brown' 
                     : isActive 
                     ? 'text-mayssa-brown'

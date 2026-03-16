@@ -1,7 +1,6 @@
 import { useMemo, useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { AnimatePresence, motion } from 'framer-motion'
-import { useFavorites } from './hooks/useFavorites'
 import { useActiveSession } from './hooks/useActiveSession'
 import { Navbar } from './components/Navbar'
 import { BirthdayBanner } from './components/BirthdayBanner'
@@ -10,11 +9,10 @@ import { ProductCard } from './components/ProductCard'
 import { Cart } from './components/Cart'
 import { Footer } from './components/Footer'
 import { ToastContainer, type Toast } from './components/Toast'
-import { PromoBanner } from './components/PromoBanner'
 import { Confetti, useConfetti } from './components/effects'
 import { OfflineIndicator } from './components/OfflineIndicator'
 import { CookieBanner } from './components/CookieBanner'
-import { EventAnnouncementModal } from './components/EventAnnouncementModal'
+import { EventModeModal } from './components/EventModeModal'
 import { InstagramInstructionModal } from './components/InstagramInstructionModal'
 import { SnapInstructionModal } from './components/SnapInstructionModal'
 import { FloatingCartBar } from './components/FloatingCartBar'
@@ -35,9 +33,10 @@ import { getMinDate } from './lib/delivery'
 // Firebase importé dynamiquement pour le reste
 // addUserPoints, createOrder, etc. sont importés via import() dans les handlers
 
-const VisualBackground = lazy(() => import('./components/effects/VisualBackground').then(m => ({ default: m.VisualBackground })))
+import { VisualBackground } from './components/effects/VisualBackground'
 
 const Testimonials = lazy(() => import('./components/Testimonials').then(m => ({ default: m.Testimonials })))
+const FAQSection = lazy(() => import('./components/LegalPages').then(m => ({ default: m.FAQSection })))
 const LegalPagesSections = lazy(() => import('./components/LegalPages').then(m => ({ default: m.default })))
 import {
   BottomNav,
@@ -46,7 +45,6 @@ import {
   FlyToCart,
   useFlyToCart,
   CartSheet,
-  FavoritesSheet,
   ProductDetailModal,
   StickyCategoryTabs,
   VoiceSearch,
@@ -59,11 +57,7 @@ const SizeSelectorModal = lazy(() => import('./components/SizeSelectorModal').th
 const TiramisuCustomizationModal = lazy(() => import('./components/TiramisuCustomizationModal').then(m => ({ default: m.TiramisuCustomizationModal })))
 const BoxCustomizationModal = lazy(() => import('./components/BoxCustomizationModal').then(m => ({ default: m.BoxCustomizationModal })))
 const BoxFlavorsModal = lazy(() => import('./components/BoxFlavorsModal').then(m => ({ default: m.BoxFlavorsModal })))
-const BoxFruiteeModal = lazy(() => import('./components/BoxFruiteeModal').then(m => ({ default: m.BoxFruiteeModal })))
-const FavorisSection = lazy(() => import('./components/FavorisSection').then(m => ({ default: m.FavorisSection })))
 const ComplementarySuggestions = lazy(() => import('./components/ComplementarySuggestions').then(m => ({ default: m.ComplementarySuggestions })))
-const OccasionsSection = lazy(() => import('./components/OccasionsSection').then(m => ({ default: m.OccasionsSection })))
-const PollSection = lazy(() => import('./components/PollSection').then(m => ({ default: m.PollSection })))
 const CommunityMapSection = lazy(() => import('./components/CommunityMapSection').then(m => ({ default: m.CommunityMapSection })))
 import { TrompeLOeilModal } from './components/TrompeLOeilModal'
 import { OrderConfirmation } from './components/OrderConfirmation'
@@ -73,6 +67,7 @@ import { OrderStatusPage } from './components/OrderStatusPage'
 import { DeliveryZoneMap } from './components/DeliveryZoneMap'
 import { REWARD_COSTS, REWARD_LABELS } from './lib/rewards'
 import { useProducts } from './hooks/useProducts'
+import { useReviews } from './hooks/useReviews'
 import type {
   Product,
   ProductSize,
@@ -100,9 +95,8 @@ import {
   CupSoda as Cup,
   Cake,
   Eye,
-  Heart
 } from 'lucide-react'
-import { PAYPAL_ME_USER, REFERRAL_DISCOUNT_EUR } from './constants'
+import { REFERRAL_DISCOUNT_EUR } from './constants'
 
 // ─── Anti-double-commande ─────────────────────────────────────────────────────
 
@@ -146,6 +140,7 @@ function getBundleEffectiveStock(product: { id: string; bundleProductIds?: strin
 
 function AppRouter() {
   const [isAdmin, setIsAdmin] = useState(() => window.location.hash === '#admin')
+  const [isLegal, setIsLegal] = useState(() => window.location.hash === '#legal')
   const [orderStatusId, setOrderStatusId] = useState<string | null>(null)
   const [adminRetryKey, setAdminRetryKey] = useState(0)
 
@@ -153,6 +148,7 @@ function AppRouter() {
     const handler = () => {
       const hash = window.location.hash
       setIsAdmin(hash === '#admin')
+      setIsLegal(hash === '#legal')
       const match = hash.match(/^#\/commande\/([a-zA-Z0-9_-]+)$/)
       setOrderStatusId(match ? match[1] : null)
     }
@@ -185,6 +181,18 @@ function AppRouter() {
             <AdminPanel />
           </Suspense>
         </ErrorBoundary>
+      </div>
+    )
+  }
+  if (isLegal) {
+    return (
+      <div className="min-h-screen bg-mayssa-soft">
+        <div className="max-w-4xl mx-auto px-4 py-10 sm:py-14">
+          <Suspense fallback={<div className="text-center text-mayssa-brown/60">Chargement des informations légales...</div>}>
+            <LegalPagesSections />
+          </Suspense>
+        </div>
+        <Footer />
       </div>
     )
   }
@@ -228,6 +236,10 @@ function AppContent() {
   const [ordersExplicit, setOrdersExplicit] = useState(false)
   const [globalMessage, setGlobalMessage] = useState('')
   const [globalMessageEnabled, setGlobalMessageEnabled] = useState(false)
+  const [eventModeEnabled, setEventModeEnabled] = useState(false)
+  const [eventModeMessage, setEventModeMessage] = useState('')
+  const [eventModePosterUrl, setEventModePosterUrl] = useState('')
+  const [nextRestockDate, setNextRestockDate] = useState('')
   const [deliverySchedule, setDeliverySchedule] = useState<{
     minDate: string
     minDateRetrait: string
@@ -254,10 +266,16 @@ function AppContent() {
       const fallback = (s.firstAvailableDate && s.firstAvailableDate.trim()) ? s.firstAvailableDate.trim() : today
       const minRetrait = (s.firstAvailableDateRetrait && s.firstAvailableDateRetrait.trim()) ? s.firstAvailableDateRetrait.trim() : fallback
       const minLivraison = (s.firstAvailableDateLivraison && s.firstAvailableDateLivraison.trim()) ? s.firstAvailableDateLivraison.trim() : fallback
-      setOrdersOpen(s.ordersOpen !== false)
-      setOrdersExplicit(s.ordersOpen === true)
+      const eventOn = s.eventModeEnabled === true
+      setEventModeEnabled(eventOn)
+      setEventModeMessage(s.eventModeMessage ?? '')
+      setEventModePosterUrl(s.eventModePosterUrl ?? '')
+      // Mode événement = commandes fermées (prioritaire)
+      setOrdersOpen((s.ordersOpen !== false) && !eventOn)
+      setOrdersExplicit((s.ordersOpen === true) && !eventOn)
       setGlobalMessage(s.globalMessage ?? '')
       setGlobalMessageEnabled(s.globalMessageEnabled === true)
+      setNextRestockDate(s.nextRestockDate ?? '')
       setDeliverySchedule({
         minDate: minRetrait,
         minDateRetrait: minRetrait,
@@ -307,7 +325,6 @@ function AppContent() {
   // Mobile state
   const [isMobile, setIsMobile] = useState(false)
   const [isCartSheetOpen, setIsCartSheetOpen] = useState(false)
-  const [isFavoritesSheetOpen, setIsFavoritesSheetOpen] = useState(false)
   const [showRecapModal, setShowRecapModal] = useState(false)
   const [selectedProductForDetail, setSelectedProductForDetail] = useState<Product | null>(null)
   const [promoCodeInput, setPromoCodeInput] = useState('')
@@ -315,15 +332,8 @@ function AppContent() {
   const [donationAmount, setDonationAmount] = useState(0)
   const [referralCodeInput, setReferralCodeInput] = useState('')
 
-  // Favorites (localStorage)
-  const {
-    favorites,
-    isFavorite,
-    removeFavorite,
-    toggleFavorite,
-    clearFavorites,
-    count: favoritesCount,
-  } = useFavorites(availableProducts)
+
+  const { getAverageRatingForProduct, getReviewCountForProduct } = useReviews()
 
   // Voice search
   const { isVoiceActive, toggleVoice, handleVoiceResult } = useVoiceSearch((query) => {
@@ -355,11 +365,7 @@ function AppContent() {
     if (!product) return
     sharedProductHandled.current = true
     setTimeout(() => {
-      if (window.innerWidth >= 768) {
-        setSelectedProductForDetail(product)
-      } else {
-        handleAddToCart(product)
-      }
+      setSelectedProductForDetail(product)
       // Nettoyer l'URL sans recharger la page
       const cleanUrl = window.location.origin + window.location.pathname
       window.history.replaceState({}, '', cleanUrl)
@@ -518,7 +524,7 @@ function AppContent() {
   }, [cart])
 
   const [note, setNote] = useState('')
-  const [activeCategory, setActiveCategory] = useState<ProductCategory | 'Tous'>('Tous')
+  const [activeCategory, setActiveCategory] = useState<ProductCategory>("Trompe l'œil")
   const [searchQuery, setSearchQuery] = useState('')
   const [customer, setCustomer] = useState<CustomerInfo>(() => {
     try {
@@ -538,7 +544,7 @@ function AppContent() {
           deliveryInstructions: p.deliveryInstructions || '',
         }
       }
-    } catch {}
+    } catch { /* ignore */ }
     return {
       firstName: '',
       lastName: '',
@@ -590,7 +596,6 @@ function AppContent() {
   const [selectedProductForTiramisu, setSelectedProductForTiramisu] = useState<Product | null>(null)
   const [selectedProductForBox, setSelectedProductForBox] = useState<Product | null>(null)
   const [selectedProductForBoxFlavors, setSelectedProductForBoxFlavors] = useState<Product | null>(null)
-  const [selectedProductForBoxFruitee, setSelectedProductForBoxFruitee] = useState<Product | null>(null)
   const [selectedProductForTrompeLoeil, setSelectedProductForTrompeLoeil] = useState<Product | null>(null)
   const [toasts, setToasts] = useState<Toast[]>([])
   const [isInstagramModalOpen, setIsInstagramModalOpen] = useState(false)
@@ -668,7 +673,7 @@ function AppContent() {
       if (reminderShown.current || cart.length === 0) return
       if (Date.now() - lastActivity.current < 2 * 60 * 1000) return
       reminderShown.current = true
-      showToast('Tu as encore des articles dans ton panier. Scrollez vers « Voir la commande » pour finaliser.', 'info', 6000)
+      showToast('Tu as encore des articles dans ton panier. Descendez vers « Voir la commande » pour finaliser.', 'info', 6000)
     }, 60 * 1000)
     return () => {
       window.removeEventListener('mousemove', bump)
@@ -689,14 +694,19 @@ function AppContent() {
   const { sessionId } = useActiveSession(cart, customer, total)
 
   const categories = useMemo(() => {
-    const cats = Array.from(new Set(availableProducts.map((p) => p.category)))
-    return ['Tous', ...cats] as const
+    return Array.from(new Set(availableProducts.map((p) => p.category))) as ProductCategory[]
   }, [availableProducts])
+
+  // Si la catégorie active n'existe pas (ex. pas de trompe l'oeil), prendre la première
+  useEffect(() => {
+    if (categories.length > 0 && !categories.includes(activeCategory)) {
+      setActiveCategory(categories[0])
+    }
+  }, [categories, activeCategory])
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
-      case 'Tous': return <LayoutGrid size={20} />
-      case "Trompe l'oeil": return <Eye size={20} />
+      case "Trompe l'œil": return <Eye size={20} />
       case 'Mini Gourmandises': return <Sparkles size={20} />
       case 'Brownies': return <Cake size={20} />
       case 'Cookies': return <Cookie size={20} />
@@ -711,9 +721,7 @@ function AppContent() {
     let filtered = availableProducts
 
     // Filter by category
-    if (activeCategory !== 'Tous') {
-      filtered = filtered.filter((p) => p.category === activeCategory)
-    }
+    filtered = filtered.filter((p) => p.category === activeCategory)
 
     // Filter by search query
     if (searchQuery.trim()) {
@@ -736,7 +744,27 @@ function AppContent() {
       const bPinned = (b as { pinned?: boolean }).pinned ? 1 : 0
       return bPinned - aPinned
     })
-    // 2. trompe-loeil-fraise en second si pas déjà épinglé
+    // 2. Trompe l'œil : tri par meilleurs avis (note moyenne puis nombre d'avis)
+    if (activeCategory === "Trompe l'œil") {
+      const pinnedCount = arr.filter((p) => (p as { pinned?: boolean }).pinned).length
+      const trompeLoeil = arr.slice(pinnedCount)
+      const rest = arr.slice(0, pinnedCount)
+      trompeLoeil.sort((a, b) => {
+        const aRating = getAverageRatingForProduct(a.id)
+        const bRating = getAverageRatingForProduct(b.id)
+        const aCount = getReviewCountForProduct(a.id)
+        const bCount = getReviewCountForProduct(b.id)
+        if (aRating != null && bRating != null) {
+          if (bRating !== aRating) return bRating - aRating
+          return bCount - aCount
+        }
+        if (aRating != null) return -1
+        if (bRating != null) return 1
+        return bCount - aCount
+      })
+      return [...rest, ...trompeLoeil]
+    }
+    // 3. trompe-loeil-fraise en second si pas déjà épinglé (autres catégories)
     const fraiseIdx = arr.findIndex((p) => p.id === 'trompe-loeil-fraise')
     if (fraiseIdx > 0 && !(arr[fraiseIdx] as { pinned?: boolean }).pinned) {
       const pinnedCount = arr.filter((p) => (p as { pinned?: boolean }).pinned).length
@@ -744,39 +772,10 @@ function AppContent() {
       arr.splice(pinnedCount, 0, fraise)
     }
     return arr
-  }, [filteredProducts])
+  }, [filteredProducts, activeCategory, getAverageRatingForProduct, getReviewCountForProduct])
 
   const handleAddToCart = (product: Product) => {
     if (isPreorderNotYetAvailable(product)) return
-
-    // Trompe l'oeil → modal dédiée (choix quantité + précommande)
-    if (product.category === "Trompe l'oeil") {
-      // Si des dates de récupération spécifiques sont configurées → ouvrir le modal (il affichera la date d'ouverture)
-      // Sinon si pas le bon jour → toast d'erreur
-      if (!isPreorderDay && !deliverySchedule.preorderOpenDate) {
-        showToast(`Précommande dispo ${dayNames} uniquement`, 'error')
-        return
-      }
-      if (product.bundleProductIds?.length) {
-        // Bundle : vérifier que chaque composant a du stock
-        const minStock = product.bundleProductIds.reduce((min, id) => {
-          const q = getStock(id)
-          return q === null ? min : Math.min(min, q)
-        }, Infinity)
-        if (minStock !== Infinity && minStock <= 0) {
-          showToast(`${product.name} est indisponible (un parfum en rupture)`, 'error')
-          return
-        }
-      } else {
-        const qty = getStock(product.id)
-        if (qty !== null && qty <= 0) {
-          showToast(`${product.name} est en rupture de stock`, 'error')
-          return
-        }
-      }
-      setSelectedProductForTrompeLoeil(product)
-      return
-    }
 
     // If product is a Tiramisu, open customization modal
     if (product.category === 'Tiramisus') {
@@ -793,12 +792,6 @@ function AppContent() {
     // Box cookies / brownies / mixte : choix du format + parfums
     if (product.id === 'box-cookies' || product.id === 'box-brownies' || product.id === 'box-mixte') {
       setSelectedProductForBoxFlavors(product)
-      return
-    }
-
-    // Box Fruitée 4 pièces : choix des parfums trompe-l'œil fruités
-    if (product.id === 'box-fruitee') {
-      setSelectedProductForBoxFruitee(product)
       return
     }
 
@@ -939,19 +932,6 @@ function AppContent() {
       return [...current, { product: cartProduct, quantity: 1 }]
     })
     setSelectedProductForBoxFlavors(null)
-  }
-
-  const handleBoxFruiteeSelect = (product: Product, flavorDescription: string) => {
-    const cartProduct: Product = {
-      ...product,
-      id: `${product.id}-${Date.now()}`,
-      description: flavorDescription,
-    }
-    setCart((current) => {
-      pendingAddToastRef.current = { message: `${product.name} ajouté au panier` }
-      return [...current, { product: cartProduct, quantity: 1 }]
-    })
-    setSelectedProductForBoxFruitee(null)
   }
 
   const RESERVATION_DURATION_MS = 10 * 60 * 1000 // 10 minutes
@@ -1194,7 +1174,7 @@ function AppContent() {
       if (user?.uid) {
         const { updateUserOrderStats } = await import('./lib/firebase')
         updateUserOrderStats(user.uid, {
-          hasTrompeLoeil: cart.some((item) => item.product.category === "Trompe l'oeil"),
+          hasTrompeLoeil: cart.some((item) => item.product.category === "Trompe l'œil"),
           hasDonation: donation > 0,
           hasPromo: !!appliedPromo,
         }).catch(console.error)
@@ -1207,7 +1187,7 @@ function AppContent() {
       // - Trompe-l'œil : seulement si la réservation n'a pas déjà décrémenté (non-auth)
       const { decrementStockBatch, getStockDecrementItems: getDecrItems } = await import('./lib/firebase')
       const itemsToDecrement = cart.flatMap((item) => {
-        const isTrompe = item.product.category === "Trompe l'oeil"
+        const isTrompe = item.product.category === "Trompe l'œil"
         // Trompe-l'œil déjà décrémenté via réservation (auth) → skip
         if (isTrompe && item.reservationConfirmed) return []
         if (isTrompe && isAuthenticated && item.reservationExpiresAt) return []
@@ -1232,8 +1212,8 @@ function AppContent() {
       showToast('Vous avez déjà passé une commande. Nous vous recontactons rapidement !', 'error', 6000)
       return
     }
-    const hasNonTrompeLoeil = cart.some((item) => item.product.category !== "Trompe l'oeil")
-    const hasTrompeLoeil = cart.some((item) => item.product.category === "Trompe l'oeil")
+    const hasNonTrompeLoeil = cart.some((item) => item.product.category !== "Trompe l'œil")
+    const hasTrompeLoeil = cart.some((item) => item.product.category === "Trompe l'œil")
     const minDateForMode = customer.wantsDelivery ? deliverySchedule.minDateLivraison : deliverySchedule.minDateRetrait
     if (hasTrompeLoeil && customer.date && customer.date < minDateForMode) {
       showToast(`Les précommandes trompe l'œil sont possibles à partir du ${formatDateLabel(minDateForMode)}.`, 'error', 5000)
@@ -1310,14 +1290,14 @@ function AppContent() {
     // --- Confirmer les réservations trompe l'oeil (le stock reste décrémenté) ---
     const trompeLOeilItems = cart.filter(
       (item) =>
-        item.product.category === "Trompe l'oeil" &&
+        item.product.category === "Trompe l'œil" &&
         item.reservationExpiresAt &&
         !item.reservationConfirmed,
     )
     if (trompeLOeilItems.length > 0) {
       setCart((current) =>
         current.map((item) =>
-          item.reservationExpiresAt && !item.reservationConfirmed && item.product.category === "Trompe l'oeil"
+          item.reservationExpiresAt && !item.reservationConfirmed && item.product.category === "Trompe l'œil"
             ? { ...item, reservationConfirmed: true }
             : item,
         ),
@@ -1380,8 +1360,8 @@ function AppContent() {
       showToast('Vous avez déjà passé une commande. Nous vous recontactons rapidement !', 'error', 6000)
       return
     }
-    const hasNonTrompeLoeil = cart.some((item) => item.product.category !== "Trompe l'oeil")
-    const hasTrompeLoeil = cart.some((item) => item.product.category === "Trompe l'oeil")
+    const hasNonTrompeLoeil = cart.some((item) => item.product.category !== "Trompe l'œil")
+    const hasTrompeLoeil = cart.some((item) => item.product.category === "Trompe l'œil")
     const minDateForMode = customer.wantsDelivery ? deliverySchedule.minDateLivraison : deliverySchedule.minDateRetrait
     if (hasTrompeLoeil && customer.date && customer.date < minDateForMode) {
       showToast(`Les précommandes trompe l'œil sont possibles à partir du ${formatDateLabel(minDateForMode)}.`, 'error', 5000)
@@ -1454,8 +1434,8 @@ function AppContent() {
       showToast('Vous avez déjà passé une commande. Nous vous recontactons rapidement !', 'error', 6000)
       return
     }
-    const hasNonTrompeLoeil = cart.some((item) => item.product.category !== "Trompe l'oeil")
-    const hasTrompeLoeil = cart.some((item) => item.product.category === "Trompe l'oeil")
+    const hasNonTrompeLoeil = cart.some((item) => item.product.category !== "Trompe l'œil")
+    const hasTrompeLoeil = cart.some((item) => item.product.category === "Trompe l'œil")
     const minDateForMode = customer.wantsDelivery ? deliverySchedule.minDateLivraison : deliverySchedule.minDateRetrait
     if (hasTrompeLoeil && customer.date && customer.date < minDateForMode) {
       showToast(`Les précommandes trompe l'œil sont possibles à partir du ${formatDateLabel(minDateForMode)}.`, 'error', 5000)
@@ -1498,7 +1478,8 @@ function AppContent() {
   // Page maintenance : si les commandes sont fermées, afficher une page dédiée
   // (sauf pour l'admin qui accède via #admin)
   const isAdminRoute = typeof window !== 'undefined' && window.location.hash === '#admin'
-  if (!ordersOpen && !isAdminRoute) {
+  // IMPORTANT: le mode événement ferme les commandes mais le catalogue doit rester visible
+  if (!ordersOpen && !eventModeEnabled && !isAdminRoute) {
     return (
       <div className="min-h-screen bg-mayssa-soft flex flex-col items-center justify-center px-6 py-12 text-center font-sans">
         <div className="max-w-sm w-full space-y-6">
@@ -1536,19 +1517,44 @@ function AppContent() {
       {/* Offline indicator for PWA */}
       <OfflineIndicator />
       <CookieBanner />
-      <EventAnnouncementModal />
+      <EventModeModal enabled={eventModeEnabled} message={eventModeMessage} posterUrl={eventModePosterUrl} />
 
-      {/* Visual Effects (fond chargé en lazy pour accélérer le premier affichage) */}
-      <Suspense fallback={null}>
-        <VisualBackground />
-      </Suspense>
+      {/* Visual Effects (fond décoratif) */}
+      <VisualBackground />
       <Confetti trigger={confettiTrigger} originX={confettiOrigin.x} originY={confettiOrigin.y} />
 
-      <Navbar favoritesCount={favoritesCount} onAccountClick={handleAccountClick} />
+      <Navbar onAccountClick={handleAccountClick} />
       <BirthdayBanner />
 
+      {/* Mode événement : commandes fermées + message */}
+      {eventModeEnabled && (
+        <div className="sticky top-0 z-50 w-full bg-mayssa-brown text-white text-center px-4 py-3 shadow-md">
+          <div className="max-w-5xl mx-auto">
+            <p className="text-sm font-bold">
+              Précommandes fermées cette semaine
+            </p>
+            {eventModePosterUrl.trim() && (
+              <div className="mt-2 flex justify-center">
+                <img
+                  src={eventModePosterUrl}
+                  alt="Affiche de l'événement Maison Mayssa"
+                  loading="lazy"
+                  decoding="async"
+                  className="max-h-48 w-auto rounded-xl border border-white/15 shadow-md"
+                />
+              </div>
+            )}
+            {eventModeMessage.trim() && (
+              <p className="text-xs text-white/85 mt-1">
+                {eventModeMessage}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Bannière message global admin */}
-      {globalMessageEnabled && globalMessage.trim() && (
+      {!eventModeEnabled && globalMessageEnabled && globalMessage.trim() && (
         <div className="sticky top-0 z-40 w-full bg-mayssa-caramel text-white text-center text-sm font-semibold px-4 py-2.5 shadow-md">
           📢 {globalMessage}
         </div>
@@ -1560,41 +1566,37 @@ function AppContent() {
         <div className="absolute bottom-[10%] right-[-5%] w-[30%] h-[30%] bg-mayssa-caramel/10 blur-[100px] rounded-full" />
       </div>
 
-      <div className="relative mx-auto max-w-7xl px-4 pt-28 sm:pt-32 pb-8 sm:pb-10 md:pb-12 sm:px-6 lg:px-8 overflow-x-hidden">
-        <PromoBanner />
-        <Header />
+      {/* Header hero pleine largeur — carousel d'images trompe l'œil */}
+      <div className="relative w-full pt-20 sm:pt-24">
+        <Header
+          nextRestockDate={nextRestockDate || undefined}
+          ordersOpen={ordersOpen}
+          eventModeEnabled={eventModeEnabled}
+        />
+      </div>
+
+      {/* Transition douce header → contenu (cohérence visuelle) */}
+      <div className="h-8 sm:h-12 bg-gradient-to-b from-mayssa-brown/5 to-transparent" />
+
+      <div className="relative w-full px-4 pb-8 sm:pb-10 md:pb-12 sm:px-6 lg:px-8 overflow-x-hidden">
 
         <main id="main-content" className="mt-8 sm:mt-12 flex flex-col gap-12 sm:gap-20 md:gap-28 items-center" aria-label="Contenu principal">
           {/* SEO : trompe l'œil Annecy (référencement Google) */}
-          <section id="trompe-loeil-annecy" className="w-full text-center px-4">
-            <h2 className="text-xl sm:text-2xl font-display font-bold text-mayssa-brown mb-2">
-              Trompe l&apos;œil à Annecy
-            </h2>
-            <p className="text-sm sm:text-base text-mayssa-brown/80 max-w-2xl mx-auto">
-              Découvrez nos trompes l&apos;œil pâtissiers à Annecy : créations artisanales Maison Mayssa (mangue, citron, pistache, passion, framboise, cacahuète). Précommande, livraison et retrait sur Annecy.
-            </p>
+          <section id="trompe-loeil-annecy" className="sr-only">
+            <h2>Trompe l&apos;œil à Annecy</h2>
+            <p>Découvrez nos trompes l&apos;œil pâtissiers à Annecy : créations artisanales Maison Mayssa (mangue, citron, pistache, passion, framboise, cacahuète). Précommande, livraison et retrait sur Annecy.</p>
           </section>
 
-          {/* Menu Section */}
+          {/* Section produits — style Cedric Grolet Le Meurice */}
           <motion.section
             id="la-carte"
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-50px" }}
             transition={{ duration: 0.5, ease: "easeOut" }}
-            className="space-y-10 w-full"
+            className="space-y-6 w-full"
           >
-            <div className="flex flex-col gap-4 sm:gap-6 md:flex-row md:items-end md:justify-between">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-mayssa-caramel">
-                  <Sparkles size={16} className="sm:w-[18px] sm:h-[18px]" />
-                  <span className="text-xs sm:text-sm font-bold uppercase tracking-widest">Carte Maison</span>
-                </div>
-                <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold text-mayssa-brown text-glow">
-                  Nos Douceurs
-                </h2>
-              </div>
-
+            <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center md:justify-between">
               {/* Search Bar */}
               <div className="flex gap-2 w-full md:w-auto">
                 <div className="relative flex-1 md:flex-none">
@@ -1634,9 +1636,9 @@ function AppContent() {
 
             </div>
 
-            {/* Category Filter - Grid layout for visibility */}
+            {/* Category Filter - compact */}
             <div className="block">
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-3">
+              <div className="flex flex-wrap gap-2">
                 {categories.map((cat) => {
                   const isActive = activeCategory === cat
                   return (
@@ -1645,19 +1647,18 @@ function AppContent() {
                       key={cat}
                       onClick={() => {
                         hapticFeedback('light')
-                        setActiveCategory(cat as any)
+                        setActiveCategory(cat)
                       }}
                       aria-label={isActive ? `Catégorie ${cat} sélectionnée` : `Filtrer par ${cat}`}
-                      className={`group relative flex flex-col items-center justify-center gap-2 sm:gap-3 rounded-xl sm:rounded-2xl p-3 sm:p-4 transition-all duration-300 cursor-pointer ${isActive
-                        ? 'bg-mayssa-brown text-mayssa-gold border border-mayssa-gold/30 shadow-lg shadow-mayssa-gold/10 -translate-y-1'
-                        : 'bg-white/50 backdrop-blur-md text-mayssa-brown border border-white/60 hover:bg-white/80 hover:shadow-lg hover:-translate-y-1'
+                      className={`group relative flex items-center gap-2 rounded-xl px-3 py-2 transition-all duration-300 cursor-pointer ${isActive
+                        ? 'bg-mayssa-brown text-mayssa-gold border border-mayssa-gold/30 shadow-md'
+                        : 'bg-white/50 backdrop-blur-md text-mayssa-brown border border-white/60 hover:bg-white/80 hover:shadow-md'
                         }`}
                     >
-                      <div className={`p-2 sm:p-2.5 rounded-lg sm:rounded-xl transition-colors duration-300 ${isActive ? 'bg-mayssa-gold/10 text-mayssa-gold' : 'bg-mayssa-soft group-hover:bg-mayssa-gold/10 group-hover:text-mayssa-brown'
-                        }`}>
+                      <div className={`p-1.5 rounded-lg transition-colors ${isActive ? 'bg-mayssa-gold/10 text-mayssa-gold' : 'bg-mayssa-soft group-hover:bg-mayssa-gold/10'}`}>
                         {getCategoryIcon(cat)}
                       </div>
-                      <span className="text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-center">
+                      <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">
                         {cat}
                       </span>
                       {isActive && (
@@ -1699,61 +1700,72 @@ function AppContent() {
               </div>
             ) : (
               <>
-                {/* Desktop Grid */}
-                <div className="hidden md:grid gap-4 sm:gap-6 grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  <AnimatePresence mode="popLayout">
+                {/* Desktop Grid — rendu uniquement sur desktop (réduit le DOM) */}
+                {!isMobile && (
+                  <div className="grid gap-6 sm:gap-8 grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    <AnimatePresence mode="popLayout">
+                      {orderedProducts.map((product, index) => (
+                        <ProductCard
+                          key={product.id}
+                          product={product}
+                          onAdd={(p) => {
+                            if (eventModeEnabled) {
+                              showToast('Précommandes fermées cette semaine. Consultez la carte et retrouvez-nous sur l’événement.', 'info', 6000)
+                              return
+                            }
+                            handleAddToCart(p)
+                          }}
+                          onViewDetail={setSelectedProductForDetail}
+                          stock={getBundleEffectiveStock(product, getStock)}
+                          isPreorderDay={isPreorderDay}
+                          dayNames={dayNames}
+                          preorderOpenDate={deliverySchedule.preorderOpenDate}
+                          preorderOpenTime={deliverySchedule.preorderOpenTime}
+                          priority={index < 4}
+                          highlightAsNew={false}
+                          size="large"
+                        />
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                )}
+
+                {/* Mobile Swipeable List — rendu uniquement sur mobile */}
+                {isMobile && (
+                  <div className="space-y-3">
                     {orderedProducts.map((product, index) => (
-                      <ProductCard
+                      <SwipeableProductCard
                         key={product.id}
                         product={product}
-                        onAdd={handleAddToCart}
-                        isFavorite={isFavorite(product.id)}
-                        onToggleFavorite={toggleFavorite}
+                        onAdd={(p) => {
+                          if (eventModeEnabled) {
+                            showToast('Précommandes fermées cette semaine. Consultez la carte et retrouvez-nous sur l’événement.', 'info', 6000)
+                            return
+                          }
+                          handleAddToCart(p)
+                        }}
+                        onTap={(p) => {
+                          if (eventModeEnabled) {
+                            showToast('Précommandes fermées cette semaine. Consultez la carte et retrouvez-nous sur l’événement.', 'info', 6000)
+                            return
+                          }
+                          handleAddToCart(p)
+                        }}
+                        onViewDetail={setSelectedProductForDetail}
                         stock={getBundleEffectiveStock(product, getStock)}
                         isPreorderDay={isPreorderDay}
                         dayNames={dayNames}
                         preorderOpenDate={deliverySchedule.preorderOpenDate}
                         preorderOpenTime={deliverySchedule.preorderOpenTime}
                         priority={index < 4}
-                        highlightAsNew={product.id === 'trompe-loeil-fraise'}
+                        highlightAsNew={false}
                       />
                     ))}
-                  </AnimatePresence>
-                </div>
-
-                {/* Mobile Swipeable List — tap = ajout direct (pas de page détail / pavé) */}
-                <div className="md:hidden space-y-3">
-                  {orderedProducts.map((product, index) => (
-                    <SwipeableProductCard
-                      key={product.id}
-                      product={product}
-                      onAdd={handleAddToCart}
-                      onTap={handleAddToCart}
-                      isFavorite={isFavorite(product.id)}
-                      onToggleFavorite={toggleFavorite}
-                      stock={getBundleEffectiveStock(product, getStock)}
-                      isPreorderDay={isPreorderDay}
-                      dayNames={dayNames}
-                      preorderOpenDate={deliverySchedule.preorderOpenDate}
-                      preorderOpenTime={deliverySchedule.preorderOpenTime}
-                      priority={index < 4}
-                      highlightAsNew={product.id === 'trompe-loeil-fraise'}
-                    />
-                  ))}
-                </div>
+                  </div>
+                )}
               </>
             )}
           </motion.section>
-
-          {/* Favoris Section (lazy — below fold) */}
-          <Suspense fallback={null}>
-            <FavorisSection
-              favorites={favorites}
-              onRemove={removeFavorite}
-              onAddToCart={handleAddToCart}
-              onClear={clearFavorites}
-            />
-          </Suspense>
 
           {/* Cart Section - Centered at the bottom for Desktop */}
           <motion.section
@@ -1764,221 +1776,244 @@ function AppContent() {
             transition={{ duration: 0.6, ease: "easeOut" }}
             className="w-full max-w-4xl lg:max-w-5xl mx-auto px-2 sm:px-4"
           >
-            {/* Fidelity Checkout Reminder */}
-            {!isAuthenticated && cart.length > 0 && (
-              <FidelityCheckoutReminder 
-                totalAmount={total}
-                onSignUpClick={handleFidelityRegister}
-              />
-            )}
+            {eventModeEnabled ? (
+              <div className="rounded-[2.5rem] border border-mayssa-brown/10 bg-white/70 backdrop-blur-2xl p-6 sm:p-8 shadow-premium-shadow">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">Informations</p>
+                <h2 className="mt-2 text-xl sm:text-2xl font-display text-mayssa-brown">
+                  Précommandes fermées cette semaine
+                </h2>
+                {eventModeMessage.trim() && (
+                  <p className="mt-3 text-sm sm:text-base text-mayssa-brown/75 leading-relaxed">
+                    {eventModeMessage}
+                  </p>
+                )}
+                <p className="mt-4 text-xs text-mayssa-brown/55">
+                  La carte et les prix restent visibles ci-dessus.
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Fidelity Checkout Reminder */}
+                {!isAuthenticated && cart.length > 0 && (
+                  <FidelityCheckoutReminder 
+                    totalAmount={total}
+                    onSignUpClick={handleFidelityRegister}
+                  />
+                )}
 
-            <Cart
-              items={cart}
-              total={total}
-              note={note}
-              customer={customer}
-              onUpdateQuantity={handleUpdateQuantity}
-              onNoteChange={setNote}
-              onCustomerChange={setCustomer}
-              onSend={() => setShowRecapModal(true)}
-              onSendInstagram={handleSendInstagram}
-              onSendSnap={handleSendSnap}
-              onAccountClick={handleAccountClick}
-              selectedReward={selectedReward}
-              onSelectReward={setSelectedReward}
-              deliverySlots={deliverySlots}
-              minDate={deliverySchedule.minDate}
-              minDateRetrait={deliverySchedule.minDateRetrait}
-              minDateLivraison={deliverySchedule.minDateLivraison}
-              maxDate={deliverySchedule.maxDate}
-              availableWeekdays={deliverySchedule.availableWeekdays}
-              pickupDates={deliverySchedule.pickupDates}
-              preorderOpenDate={deliverySchedule.preorderOpenDate}
-              preorderOpenTime={deliverySchedule.preorderOpenTime}
-              retraitTimeSlots={deliverySchedule.retraitTimeSlots}
-              livraisonTimeSlots={deliverySchedule.livraisonTimeSlots}
-              ordersOpen={ordersOpen}
-              ordersExplicit={ordersExplicit}
-              promoCodeInput={promoCodeInput}
-              setPromoCodeInput={setPromoCodeInput}
-              appliedPromo={appliedPromo}
-              onApplyPromo={handleApplyPromo}
-              onClearPromo={handleClearPromo}
-              donationAmount={donationAmount ?? 0}
-              setDonationAmount={setDonationAmount}
-              referralCodeInput={referralCodeInput}
-              setReferralCodeInput={setReferralCodeInput}
-              mysteryFraiseDiscount={0}
-              pendingOrder={pendingOrderInfo}
-            />
+                <Cart
+                  items={cart}
+                  total={total}
+                  note={note}
+                  customer={customer}
+                  onUpdateQuantity={handleUpdateQuantity}
+                  onNoteChange={setNote}
+                  onCustomerChange={setCustomer}
+                  onSend={() => setShowRecapModal(true)}
+                  onSendInstagram={handleSendInstagram}
+                  onSendSnap={handleSendSnap}
+                  onAccountClick={handleAccountClick}
+                  selectedReward={selectedReward}
+                  onSelectReward={setSelectedReward}
+                  deliverySlots={deliverySlots}
+                  minDate={deliverySchedule.minDate}
+                  minDateRetrait={deliverySchedule.minDateRetrait}
+                  minDateLivraison={deliverySchedule.minDateLivraison}
+                  maxDate={deliverySchedule.maxDate}
+                  availableWeekdays={deliverySchedule.availableWeekdays}
+                  pickupDates={deliverySchedule.pickupDates}
+                  preorderOpenDate={deliverySchedule.preorderOpenDate}
+                  preorderOpenTime={deliverySchedule.preorderOpenTime}
+                  retraitTimeSlots={deliverySchedule.retraitTimeSlots}
+                  livraisonTimeSlots={deliverySchedule.livraisonTimeSlots}
+                  ordersOpen={ordersOpen}
+                  ordersExplicit={ordersExplicit}
+                  promoCodeInput={promoCodeInput}
+                  setPromoCodeInput={setPromoCodeInput}
+                  appliedPromo={appliedPromo}
+                  onApplyPromo={handleApplyPromo}
+                  onClearPromo={handleClearPromo}
+                  donationAmount={donationAmount ?? 0}
+                  setDonationAmount={setDonationAmount}
+                  referralCodeInput={referralCodeInput}
+                  setReferralCodeInput={setReferralCodeInput}
+                  mysteryFraiseDiscount={0}
+                  pendingOrder={pendingOrderInfo}
+                />
+              </>
+            )}
           </motion.section>
         </main>
 
-        {/* Notre histoire */}
+        {/* Notre maison & livraison (regroupés) */}
         <motion.section
           id="notre-histoire"
+          className="content-visibility-auto mt-12 sm:mt-16 md:mt-24 section-shell bg-white/80 border border-mayssa-brown/5 premium-shadow scroll-mt-24"
           initial={{ opacity: 0, y: 50 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="mt-12 sm:mt-16 md:mt-24 section-shell bg-white/80 border border-mayssa-brown/5 premium-shadow scroll-mt-24"
         >
-          <div className="grid gap-6 sm:gap-8 md:grid-cols-[1.4fr_minmax(0,1fr)] items-start">
-            <div className="space-y-3 sm:space-y-4">
-              <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.3em] text-mayssa-brown/60">
-                Notre histoire
+          <div className="grid gap-8 sm:gap-10 md:grid-cols-[1.4fr_minmax(0,1fr)] items-start">
+            <div className="space-y-4 sm:space-y-5">
+              <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.3em] text-mayssa-brown/50">
+                Notre maison
               </p>
               <h2 className="text-2xl sm:text-3xl font-display text-mayssa-brown">
-                Une cuisine de cœur, née à la maison
+                Une passion née à la maison
               </h2>
               <p className="text-xs sm:text-sm leading-relaxed text-mayssa-brown/80">
-                Maison Mayssa est née d&apos;une grande passion pour la cuisine, les desserts
-                généreux et les tables chaleureuses que l&apos;on partage en famille ou entre amis.
-                Derrière chaque création se cache une personne discrète mais profondément
-                passionnée, qui préfère rester en retrait et laisser ses douceurs parler pour elle.
+                Maison Mayssa est née d&apos;une grande passion pour la cuisine, les desserts généreux et les
+                tables chaleureuses que l&apos;on partage en famille ou entre amis. Derrière chaque création se
+                cache une personne discrète mais profondément passionnée, qui préfère rester en retrait et
+                laisser ses douceurs parler pour elle.
               </p>
               <p className="text-xs sm:text-sm leading-relaxed text-mayssa-brown/80">
-                Au fil des années, les proches, voisins et amis ont commencé à commander de plus en
-                plus de brownies, cookies et autres gourmandises. C&apos;est ainsi qu&apos;est née
-                l&apos;envie de proposer un vrai service de précommande, tout en gardant l&apos;esprit
-                maison : des recettes faites avec soin, des ingrédients choisis, et une attention
-                particulière portée aux détails.
+                Au fil des années, les proches, voisins et amis ont commencé à commander de plus en plus de
+                brownies, cookies et trompes l&apos;œil. C&apos;est ainsi qu&apos;est née l&apos;envie de proposer un vrai
+                service de précommande, tout en gardant l&apos;esprit maison : des recettes faites avec soin, des
+                ingrédients choisis, et une attention particulière portée aux détails.
               </p>
-              <p className="text-xs sm:text-sm leading-relaxed text-mayssa-brown/80">
-                Pendant le mois de Ramadan, Maison Mayssa prépare également des assortiments
-                spécialement pensés pour accompagner les tables du ftour et de la soirée :
-                mini-gourmandises, box partagées, douceurs réconfortantes à savourer après une
-                journée de jeûne. Toujours dans le même esprit&nbsp;: fait maison, généreux, et
-                pensé pour faire plaisir.
-              </p>
+
+              <div className="mt-4 sm:mt-6 rounded-2xl bg-mayssa-soft/70 p-4 sm:p-5 border border-mayssa-brown/10 space-y-3">
+                <h3 className="font-display text-sm sm:text-base text-mayssa-brown">
+                  Zone géographique &amp; infos pratiques
+                </h3>
+                <p className="text-xs sm:text-sm leading-relaxed text-mayssa-brown/80">
+                  Les commandes sont préparées à Annecy. La livraison est proposée sur Annecy et proches
+                  alentours, avec un forfait de 5&nbsp;€ pour les commandes inférieures à {FREE_DELIVERY_THRESHOLD}
+                  &nbsp;€. À partir de {FREE_DELIVERY_THRESHOLD}&nbsp;€ d&apos;achat, la livraison est offerte sur la zone habituelle.
+                </p>
+                <ul className="list-disc pl-4 sm:pl-5 space-y-1.5 text-xs sm:text-sm text-mayssa-brown/80">
+                  <li>Service de 18h30 à 2h du matin</li>
+                  <li>Livraison Annecy & alentours</li>
+                  <li>Précommande simple par WhatsApp</li>
+                  <li>Règlement à la livraison, au retrait ou par PayPal</li>
+                </ul>
+              </div>
             </div>
 
-            <div className="space-y-3 sm:space-y-4 rounded-2xl sm:rounded-3xl bg-mayssa-soft/70 p-4 sm:p-5 border border-mayssa-brown/10">
-              <h3 className="font-display text-base sm:text-lg text-mayssa-brown">
-                Les valeurs de Maison Mayssa
-              </h3>
-              <ul className="list-disc pl-5 sm:pl-6 space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-mayssa-brown/80">
-                <li>Des recettes maison, testées et approuvées au fil du temps</li>
-                <li>Une carte courte mais travaillée, pour garantir la qualité</li>
-                <li>Des portions généreuses, comme à la maison</li>
-                <li>Un service de précommande simple, par WhatsApp uniquement</li>
-              </ul>
+            <div className="space-y-4">
+              <div className="rounded-2xl sm:rounded-3xl overflow-hidden border border-mayssa-brown/10 shadow-md">
+                <img
+                  src="/trompe-loeil-mangue.webp"
+                  alt="Trompe-l'œil mangue Maison Mayssa"
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </div>
+              <div className="rounded-2xl bg-mayssa-soft/80 p-4 border border-mayssa-brown/10">
+                <h3 className="font-display text-sm sm:text-base text-mayssa-brown mb-1.5">
+                  Livraison autour d&apos;Annecy
+                </h3>
+                <p className="text-xs sm:text-sm text-mayssa-brown/75 leading-relaxed">
+                  Pour les secteurs un peu plus éloignés du bassin annécien, la livraison peut être étudiée au
+                  cas par cas directement par message, en fonction du jour et du montant de la commande.
+                </p>
+              </div>
+              <div className="mt-1">
+                <DeliveryZoneMap />
+              </div>
             </div>
           </div>
         </motion.section>
 
-        {/* Zone géographique & infos pratiques */}
+        {/* Comment ça marche / Click & Collect */}
         <motion.section
-          id="livraison"
-          initial={{ opacity: 0, y: 50 }}
+          id="click-collect"
+          className="content-visibility-auto mt-12 sm:mt-16 section-shell bg-white/90 border border-mayssa-brown/5 premium-shadow scroll-mt-24"
+          initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.6, ease: "easeOut", delay: 0.2 }}
-          className="mt-12 sm:mt-16 section-shell bg-mayssa-soft/80 border border-mayssa-brown/5"
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
         >
-          <div className="grid gap-6 sm:gap-8 md:grid-cols-2">
-            <div className="space-y-2 sm:space-y-3">
-              <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.3em] text-mayssa-brown/60">
-                Zone géographique
+          <div className="flex flex-col items-center text-center gap-8 sm:gap-10">
+            <div className="space-y-2">
+              <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.35em] text-mayssa-brown/60">
+                Comment ça marche
               </p>
-              <h2 className="text-xl sm:text-2xl font-display text-mayssa-brown">
-                Où livre Maison Mayssa&nbsp;?
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-display text-mayssa-brown">
+                Expérience Click &amp; Collect
               </h2>
-              <p className="text-xs sm:text-sm leading-relaxed text-mayssa-brown/80">
-                Les commandes sont préparées à Annecy. La livraison est proposée sur Annecy et
-                proches alentours, avec un forfait de 5&nbsp;€ pour les commandes inférieures à
-                {FREE_DELIVERY_THRESHOLD}&nbsp;€. À partir de {FREE_DELIVERY_THRESHOLD}&nbsp;€ d&apos;achat, la livraison est offerte sur la zone
-                habituelle.
-              </p>
-              <p className="text-xs sm:text-sm leading-relaxed text-mayssa-brown/80">
-                Pour les secteurs un peu plus éloignés autour d&apos;Annecy (autres communes du
-                bassin annécien), la livraison peut être étudiée au cas par cas directement par
-                message, en fonction du jour et du montant de la commande.
-              </p>
             </div>
 
-            <div className="space-y-3 sm:space-y-4 rounded-2xl sm:rounded-3xl bg-white/80 p-4 sm:p-5 border border-mayssa-brown/10">
-              <h3 className="font-display text-base sm:text-lg text-mayssa-brown">Infos pratiques</h3>
-              <ul className="list-disc pl-5 sm:pl-6 space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-mayssa-brown/80">
-                <li>Service de 18h30 à 2h du matin</li>
-                <li>Livraison Annecy & alentours</li>
-                <li>Livraison offerte dès {FREE_DELIVERY_THRESHOLD}&nbsp;€ d&apos;achat</li>
-                <li>Précommande uniquement — paiement par PayPal (optionnel) ou sur place</li>
-                <li>Règlement à la livraison, au retrait ou par PayPal</li>
-              </ul>
-              <p className="mt-2 sm:mt-3 text-[10px] sm:text-xs text-mayssa-brown/60">
-                Pour toute question sur la zone de livraison ou un besoin particulier (grosse
-                commande, événement, Ramadan, etc.), le plus simple est d&apos;envoyer un message
-                directement via WhatsApp (commande et contact par WhatsApp uniquement).
-              </p>
+            <div className="grid w-full max-w-4xl gap-8 sm:gap-10 md:grid-cols-3">
+              <div className="flex flex-col items-center text-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full border border-mayssa-brown/20 bg-mayssa-soft/70 text-mayssa-brown/80">
+                  <span className="text-lg">🛒</span>
+                </div>
+                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.3em] text-mayssa-brown/60">
+                  Étape 1
+                </p>
+                <p className="text-sm sm:text-base font-semibold text-mayssa-brown">
+                  Commandez en ligne
+                </p>
+                <p className="text-xs sm:text-sm leading-relaxed text-mayssa-brown/70 max-w-xs">
+                  Parcourez nos créations et composez votre commande en quelques clics.
+                </p>
+              </div>
+
+              <div className="flex flex-col items-center text-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full border border-mayssa-brown/20 bg-mayssa-soft/70 text-mayssa-brown/80">
+                  <span className="text-lg">🕒</span>
+                </div>
+                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.3em] text-mayssa-brown/60">
+                  Étape 2
+                </p>
+                <p className="text-sm sm:text-base font-semibold text-mayssa-brown">
+                  Choisissez votre créneau
+                </p>
+                <p className="text-xs sm:text-sm leading-relaxed text-mayssa-brown/70 max-w-xs">
+                  Sélectionnez le jour et l&apos;heure qui vous conviennent pour le retrait.
+                </p>
+              </div>
+
+              <div className="flex flex-col items-center text-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full border border-mayssa-brown/20 bg-mayssa-soft/70 text-mayssa-brown/80">
+                  <span className="text-lg">🧁</span>
+                </div>
+                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.3em] text-mayssa-brown/60">
+                  Étape 3
+                </p>
+                <p className="text-sm sm:text-base font-semibold text-mayssa-brown">
+                  Retirez en Point retrait
+                </p>
+                <p className="text-xs sm:text-sm leading-relaxed text-mayssa-brown/70 max-w-xs">
+                  Récupérez vos douceurs à Annecy ou profitez de la livraison.
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="mt-6">
-            <DeliveryZoneMap />
+
+            <button
+              type="button"
+              onClick={() => {
+                const el = document.getElementById('commande')
+                if (el) {
+                  el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                } else {
+                  window.location.hash = '#commande'
+                }
+              }}
+              className="inline-flex items-center justify-center rounded-full bg-mayssa-brown px-8 sm:px-10 py-3 text-[11px] sm:text-xs font-bold uppercase tracking-[0.32em] text-white shadow-md hover:bg-mayssa-brown/90 active:scale-[0.98] transition-all cursor-pointer"
+            >
+              Commander maintenant
+            </button>
           </div>
         </motion.section>
 
         {/* Le projet : soutien & future boutique — après les infos pratiques */}
-        <motion.section
-          id="soutien"
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-80px' }}
-          transition={{ duration: 0.5, ease: 'easeOut' }}
-          className="mt-12 sm:mt-16 section-shell bg-white/60 border border-mayssa-brown/5"
-        >
-          <div className="rounded-2xl overflow-hidden border border-mayssa-brown/10 shadow-lg mb-6">
-            <picture>
-              <source srcSet="/boutique-fictif.webp" type="image/webp" />
-              <img
-                src="/boutique-fictif.png"
-                alt="Maison Mayssa – Sucrée & Salée, future boutique à Annecy"
-                className="w-full h-auto object-cover"
-                width={800}
-                height={534}
-                loading="lazy"
-                decoding="async"
-              />
-            </picture>
-          </div>
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 rounded-2xl bg-gradient-to-br from-mayssa-caramel/10 to-mayssa-brown/5 p-5 sm:p-6 border border-mayssa-caramel/20">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-mayssa-caramel/20 text-mayssa-caramel">
-              <Heart size={24} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.3em] text-mayssa-caramel/80 mb-1">
-                Le projet
-              </p>
-              <h3 className="text-lg sm:text-xl font-display font-bold text-mayssa-brown mb-2">
-                Une boutique trompe l&apos;œil à Annecy
-              </h3>
-              <p className="text-xs sm:text-sm text-mayssa-brown/80 leading-relaxed">
-                L&apos;objectif est d&apos;ouvrir ma boutique de pâtisserie trompe l&apos;œil à Annecy.
-                Chaque don compte et m&apos;aide à concrétiser ce rêve. Merci de tout cœur pour votre soutien.
-              </p>
-            </div>
-            <a
-              href={`https://www.paypal.me/${PAYPAL_ME_USER}`}
-              target="_blank"
-              rel="noreferrer noopener"
-              onClick={() => hapticFeedback('medium')}
-              className="shrink-0 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#0070ba] hover:bg-[#005ea6] text-white px-5 py-3.5 text-sm font-bold shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-            >
-              <Heart size={18} className="text-white/90" />
-              Faire un don (PayPal)
-            </a>
-          </div>
-        </motion.section>
+        {/* Comment ça marche / Click & Collect */}
 
         <Suspense fallback={null}>
-          <Testimonials />
-          <PollSection />
+          <FAQSection />
           <CommunityMapSection />
-          <OccasionsSection />
-          <LegalPagesSections />
         </Suspense>
         <AggregateRatingSchema />
         <Footer />
+        <Suspense fallback={null}>
+          <Testimonials />
+        </Suspense>
       </div>
 
 
@@ -2023,17 +2058,6 @@ function AppContent() {
           />
         </Suspense>
       )}
-      {selectedProductForBoxFruitee && (
-        <Suspense fallback={null}>
-          <BoxFruiteeModal
-            product={selectedProductForBoxFruitee}
-            getStock={getStock}
-            onClose={() => setSelectedProductForBoxFruitee(null)}
-            onSelect={handleBoxFruiteeSelect}
-          />
-        </Suspense>
-      )}
-
       {/* Modal Trompe l'oeil (précommande) */}
       <TrompeLOeilModal
         product={selectedProductForTrompeLoeil}
@@ -2047,9 +2071,7 @@ function AppContent() {
       {/* Mobile Components */}
       <BottomNav
         cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
-        favoritesCount={favoritesCount}
         onCartClick={() => setIsCartSheetOpen(true)}
-        onFavoritesClick={() => setIsFavoritesSheetOpen(true)}
       />
       <FloatingCartPreview
         items={cart}
@@ -2116,14 +2138,6 @@ function AppContent() {
         discountAmount={appliedPromo?.discount ?? 0}
         donationAmount={donationAmount ?? 0}
       />
-      <FavoritesSheet
-        isOpen={isFavoritesSheetOpen}
-        onClose={() => setIsFavoritesSheetOpen(false)}
-        favorites={favorites}
-        onRemove={removeFavorite}
-        onAddToCart={handleAddToCart}
-        onClear={clearFavorites}
-      />
       <FlyToCart
         trigger={flyTrigger}
         productImage={flyProduct.image}
@@ -2148,8 +2162,6 @@ function AppContent() {
         product={selectedProductForDetail}
         onClose={() => setSelectedProductForDetail(null)}
         onAdd={handleAddToCart}
-        isFavorite={isFavorite}
-        onToggleFavorite={toggleFavorite}
         stock={selectedProductForDetail ? getBundleEffectiveStock(selectedProductForDetail, getStock) : null}
         isPreorderDay={isPreorderDay}
         dayNames={dayNames}

@@ -227,8 +227,8 @@ export function CartSheet({
     touched[field] && validationErrors[field as keyof CustomerInfo]
 
   const isCustomerValid = Object.keys(validationErrors).length === 0
-  const hasNonTrompeLoeil = items.some((item) => item.product.category !== "Trompe l'oeil")
-  const hasTrompeLoeil = items.some((item) => item.product.category === "Trompe l'oeil")
+  const hasNonTrompeLoeil = items.some((item) => item.product.category !== "Trompe l'œil")
+  const hasTrompeLoeil = items.some((item) => item.product.category === "Trompe l'œil")
   const trompeLoeilBeforeMinDate = hasTrompeLoeil && !!customer.date && customer.date < minDate
   const orderCutoffPassed = !isBeforeOrderCutoff()
   const isClassicPreorderPhase = isBeforeFirstPickupDate(FIRST_PICKUP_DATE_CLASSIC)

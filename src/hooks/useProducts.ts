@@ -29,7 +29,13 @@ export function useProducts() {
       const override = overrides[p.id]
       if (!override) return { ...p, available: true }
       const { isCustom: _, ...overrideFields } = override
-      return { ...p, ...overrideFields, available: override.available !== false, pinned: override.pinned ?? false } as ProductWithAvailability
+      const mergedProduct = { ...p, ...overrideFields, available: override.available !== false, pinned: override.pinned ?? false } as ProductWithAvailability
+      if (p.images?.length) {
+        if (!overrideFields.images?.length || overrideFields.images.length < p.images.length) {
+          mergedProduct.images = p.images
+        }
+      }
+      return mergedProduct
     })
 
     // 2. Add custom products (created by admin, not in constants.ts)

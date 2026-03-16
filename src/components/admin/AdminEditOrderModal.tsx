@@ -7,7 +7,7 @@ import type { ProductWithAvailability } from '../../hooks/useProducts'
 import type { ProductCategory } from '../../types'
 
 const ALL_CATEGORIES: ProductCategory[] = [
-  "Trompe l'oeil", 'Mini Gourmandises', 'Brownies', 'Cookies', 'Layer Cups', 'Boxes', 'Tiramisus',
+  "Trompe l'œil", 'Mini Gourmandises', 'Brownies', 'Cookies', 'Layer Cups', 'Boxes', 'Tiramisus',
 ]
 
 interface AdminEditOrderModalProps {
