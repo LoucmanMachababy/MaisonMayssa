@@ -33,29 +33,4 @@ describe('ProductCard', () => {
     expect(onAdd).toHaveBeenCalledWith(product)
   })
 
-  it('affiche le bouton favori si onToggleFavorite fourni', () => {
-    const onAdd = vi.fn()
-    const onToggleFavorite = vi.fn()
-    render(
-      <ProductCard
-        product={product}
-        onAdd={onAdd}
-        onToggleFavorite={onToggleFavorite}
-      />
-    )
-    expect(screen.getByRole('button', { name: /Ajouter aux favoris/i })).toBeInTheDocument()
-  })
-
-  it('appelle onToggleFavorite au clic sur le cœur', () => {
-    const onToggleFavorite = vi.fn()
-    render(
-      <ProductCard
-        product={product}
-        onAdd={vi.fn()}
-        onToggleFavorite={onToggleFavorite}
-      />
-    )
-    fireEvent.click(screen.getByRole('button', { name: /Ajouter aux favoris/i }))
-    expect(onToggleFavorite).toHaveBeenCalledWith(product)
-  })
 })

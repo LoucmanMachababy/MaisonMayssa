@@ -216,8 +216,8 @@ export function Cart({
         touched[field] && validationErrors[field as keyof CustomerInfo]
 
     const isCustomerValid = Object.keys(validationErrors).length === 0
-    const hasNonTrompeLoeil = items.some((item) => item.product.category !== "Trompe l'oeil")
-    const hasTrompeLoeil = items.some((item) => item.product.category === "Trompe l'oeil")
+    const hasNonTrompeLoeil = items.some((item) => item.product.category !== "Trompe l'œil")
+    const hasTrompeLoeil = items.some((item) => item.product.category === "Trompe l'œil")
     // Bloquer seulement si la date choisie par le client est avant minDate (pas si aujourd'hui l'est)
     const trompeLoeilBeforeMinDate = hasTrompeLoeil && !!customer.date && customer.date < minDate
     const orderCutoffPassed = !isBeforeOrderCutoff()

@@ -1,6 +1,6 @@
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Plus, Minus, ShoppingBag, CalendarClock } from 'lucide-react'
+import { X, Plus, Minus, ShoppingBag, CalendarClock, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { Product } from '../types'
 import { BlurImage } from './BlurImage'
 import { useFocusTrap } from '../hooks/useAccessibility'
@@ -19,8 +19,14 @@ interface TrompeLOeilModalProps {
 
 export function TrompeLOeilModal({ product, stock, onClose, onConfirm, preorderOpenDate, preorderOpenTime }: TrompeLOeilModalProps) {
   const [quantity, setQuantity] = useState(1)
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0)
+  const touchStartX = useRef<number>(0)
   const modalRef = useRef<HTMLDivElement>(null)
   useFocusTrap(modalRef, !!product, onClose)
+
+  useEffect(() => {
+    setSelectedImageIndex(0)
+  }, [product?.id])
 
   // Vérifier si les précommandes sont déjà ouvertes
   const isPreorderOpen = useMemo(() => {
@@ -43,6 +49,21 @@ export function TrompeLOeilModal({ product, stock, onClose, onConfirm, preorderO
 
   if (!product) return null
 
+  const images = (product as { images?: string[] }).images?.length
+    ? (product as { images: string[] }).images!
+    : product.image
+      ? [product.image]
+      : []
+
+  const goToPrevImage = () => {
+    if (images.length <= 1) return
+    setSelectedImageIndex((i) => (i - 1 + images.length) % images.length)
+  }
+  const goToNextImage = () => {
+    if (images.length <= 1) return
+    setSelectedImageIndex((i) => (i + 1) % images.length)
+  }
+
   const maxQty = stock !== null ? (product?.bundleProductIds?.length ? stock : Math.min(stock, 20)) : 20
   const totalPrice = product.price * quantity
 
@@ -60,7 +81,7 @@ export function TrompeLOeilModal({ product, stock, onClose, onConfirm, preorderO
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm"
+            className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm cursor-pointer"
           />
           <motion.div
             ref={modalRef}
@@ -81,14 +102,59 @@ export function TrompeLOeilModal({ product, stock, onClose, onConfirm, preorderO
               <X size={16} />
             </button>
 
-            {/* Image */}
-            {product.image && (
-              <div className="relative h-48 sm:h-56 overflow-hidden bg-mayssa-cream/50">
-                <BlurImage
-                  src={product.image}
-                  alt={product.name}
-                  className="w-full h-full"
-                />
+            {/* Image — galerie avec défilement si plusieurs images */}
+            {images.length > 0 && (
+              <div
+                className="relative h-48 sm:h-56 overflow-hidden bg-mayssa-brown/10 select-none"
+                onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX }}
+                onTouchEnd={(e) => {
+                  if (images.length <= 1) return
+                  const diff = touchStartX.current - e.changedTouches[0].clientX
+                  if (Math.abs(diff) > 50) {
+                    if (diff > 0) goToNextImage()
+                    else goToPrevImage()
+                  }
+                }}
+              >
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={selectedImageIndex}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute inset-0"
+                  >
+                    <BlurImage
+                      src={images[selectedImageIndex]}
+                      alt={`${product.name} — vue ${selectedImageIndex + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </motion.div>
+                </AnimatePresence>
+                {images.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={goToPrevImage}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-mayssa-brown/90 text-white shadow-lg hover:bg-mayssa-brown transition-colors cursor-pointer"
+                      aria-label="Image précédente"
+                    >
+                      <ChevronLeft size={20} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={goToNextImage}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-mayssa-brown/90 text-white shadow-lg hover:bg-mayssa-brown transition-colors cursor-pointer"
+                      aria-label="Image suivante"
+                    >
+                      <ChevronRight size={20} />
+                    </button>
+                    <span className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 px-2.5 py-1 rounded-full bg-black/50 text-white text-xs font-bold">
+                      {selectedImageIndex + 1} / {images.length}
+                    </span>
+                  </>
+                )}
                 <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-white to-transparent" />
               </div>
             )}

@@ -44,7 +44,7 @@ function getOrderLineLabel(item: CartItem, pickupDateLabel?: string): string {
   const name = stripEmoji(p.name)
   const cat = p.category
   const trompeLabel = pickupDateLabel ?? getTrompeLOeilPickupLabel()
-  if (cat === "Trompe l'oeil") return `🎨 ${name} (PRÉCOMMANDE – récupération ${trompeLabel})`
+  if (cat === "Trompe l'œil") return `🎨 ${name} (PRÉCOMMANDE – récupération ${trompeLabel})`
   if (cat === 'Tiramisus') {
     const base = p.description ?? ''
     return `Tiramisu – ${name}${base ? ` – ${base}` : ''}`
@@ -99,7 +99,7 @@ export function buildOrderMessage(params: BuildOrderMessageParams): string {
     }
   }
 
-  const hasTrompeLoeil = cart.some((i) => i.product.category === "Trompe l'oeil")
+  const hasTrompeLoeil = cart.some((i) => i.product.category === "Trompe l'œil")
   const pickupDateLabel = customer.date ? formatDateYyyyMmDdToFrench(customer.date) : getTrompeLOeilPickupLabel()
   if (hasTrompeLoeil) {
     lines.push(`Date de récupération : ${pickupDateLabel}`)
@@ -172,7 +172,7 @@ export function buildOrderMessage(params: BuildOrderMessageParams): string {
     lines.push('', '')
   }
 
-  const hasClassic = cart.some((i) => i.product.category !== "Trompe l'oeil")
+  const hasClassic = cart.some((i) => i.product.category !== "Trompe l'œil")
   if (hasClassic && isBeforeFirstPickupDate(FIRST_PICKUP_DATE_CLASSIC)) {
     lines.push('📅 *PRÉCOMMANDE*')
     lines.push(`Récupération des pâtisseries, cookies, boxes… à partir du ${FIRST_PICKUP_DATE_CLASSIC_LABEL}.`)

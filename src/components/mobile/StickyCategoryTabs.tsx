@@ -4,9 +4,9 @@ import { hapticFeedback } from '../../lib/haptics'
 import type { ProductCategory } from '../../types'
 
 interface StickyCategoryTabsProps {
-  categories: readonly (ProductCategory | 'Tous')[]
-  activeCategory: ProductCategory | 'Tous'
-  onCategoryChange: (category: ProductCategory | 'Tous') => void
+  categories: readonly ProductCategory[]
+  activeCategory: ProductCategory
+  onCategoryChange: (category: ProductCategory) => void
 }
 
 export function StickyCategoryTabs({
@@ -33,7 +33,7 @@ export function StickyCategoryTabs({
     return () => observer.disconnect()
   }, [])
 
-  const handleSelect = (category: ProductCategory | 'Tous') => {
+  const handleSelect = (category: ProductCategory) => {
     hapticFeedback('light')
     onCategoryChange(category)
   }

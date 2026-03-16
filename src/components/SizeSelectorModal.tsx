@@ -30,7 +30,7 @@ export function SizeSelectorModal({ product, onClose, onSelect }: SizeSelectorMo
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={onClose}
-                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] cursor-pointer"
                     />
 
                     {/* Modal */}
@@ -43,7 +43,7 @@ export function SizeSelectorModal({ product, onClose, onSelect }: SizeSelectorMo
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9, y: 20 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                        className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 mx-auto max-w-md"
+                        className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[61] mx-auto max-w-md"
                     >
                         <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl">
                             {/* Close button */}
@@ -51,7 +51,7 @@ export function SizeSelectorModal({ product, onClose, onSelect }: SizeSelectorMo
                                 type="button"
                                 onClick={onClose}
                                 aria-label="Fermer"
-                                className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-mayssa-brown/75 shadow-lg backdrop-blur-sm transition-all hover:bg-white hover:text-mayssa-brown hover:scale-110 active:scale-95 cursor-pointer"
+                                className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-mayssa-brown/60 shadow-lg backdrop-blur-sm transition-all hover:bg-white hover:text-mayssa-brown hover:scale-110 active:scale-95 cursor-pointer"
                             >
                                 <X size={18} aria-hidden="true" />
                             </button>

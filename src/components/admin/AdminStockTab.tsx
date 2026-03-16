@@ -5,7 +5,7 @@ import type { ProductWithAvailability } from '../../hooks/useProducts'
 import type { ProductCategory } from '../../types'
 
 const ALL_CATEGORIES: ProductCategory[] = [
-  "Trompe l'oeil", 'Mini Gourmandises', 'Brownies', 'Cookies', 'Layer Cups', 'Boxes', 'Tiramisus',
+  "Trompe l'œil", 'Mini Gourmandises', 'Brownies', 'Cookies', 'Layer Cups', 'Boxes', 'Tiramisus',
 ]
 
 type SortOption = 'name-asc' | 'name-desc' | 'stock-asc' | 'stock-desc'
@@ -16,7 +16,7 @@ interface AdminStockTabProps {
 }
 
 export function AdminStockTab({ allProducts, stock }: AdminStockTabProps) {
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(["Trompe l'oeil"]))
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(["Trompe l'œil"]))
   const [saving, setSaving] = useState<string | null>(null)
   const [initQty, setInitQty] = useState<Record<string, string>>({})
   const [sortBy, setSortBy] = useState<SortOption>('stock-desc')
