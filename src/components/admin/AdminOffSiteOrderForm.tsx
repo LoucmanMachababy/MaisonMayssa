@@ -5,6 +5,14 @@ import type { ProductWithAvailability } from '../../hooks/useProducts'
 import type { Product, ProductCategory, ProductSize } from '../../types'
 import { TiramisuCustomizationModal } from '../TiramisuCustomizationModal'
 import { BoxFlavorsModal } from '../BoxFlavorsModal'
+import { BoxDecouverteTrompeModal } from '../BoxDecouverteTrompeModal'
+import {
+  BOX_DECOUVERTE_TROMPE_PRODUCT_ID,
+  DISCOVERY_BOX_TROMPE_SLOT_COUNT,
+  getTrompeBundleSelectionSlotCount,
+  isCustomizableTrompeBundleBoxId,
+} from '../../constants'
+import { getEligibleTrompeIdsForDiscoveryBox, listIndividualTrompeLoeilProducts } from '../../lib/discoveryBox'
 
 const ALL_CATEGORIES: ProductCategory[] = [
   "Trompe l'œil", 'Mini Gourmandises', 'Brownies', 'Cookies', 'Layer Cups', 'Boxes', 'Tiramisus',
@@ -33,6 +41,44 @@ interface CartEntry {
   quantity: number
   sizeLabel?: string
   unitPrice: number
+  /** Box découverte + boxes bundle trompes (même champ que le site). */
+  trompeDiscoverySelection?: string[]
+  /** true = ne pas déduire le stock trompe-l'œil pour cette ligne (réponse « non » à la modale). */
+  excludeTrompeStock?: boolean
+}
+
+function isOffsiteTrompeStockLine(product: { id: string; bundleProductIds?: string[] }): boolean {
+  const base = product.id.replace(/-\d{10,}$/, '')
+  return isTrompeLoeilProductId(base) || !!product.bundleProductIds?.length
+}
+
+/** Au moins un composant trompe-l'œil de la ligne est suivi en stock (clé présente dans stock). */
+function entryTouchesTrackedTrompeStock(
+  entry: { product: ProductWithAvailability; quantity: number; trompeDiscoverySelection?: string[] },
+  stockMap: StockMap,
+  products: ProductWithAvailability[],
+): boolean {
+  if (!isOffsiteTrompeStockLine(entry.product)) return false
+  const pairs = getStockDecrementItems(entry.product.id, entry.quantity, products, {
+    trompeDiscoverySelection: entry.trompeDiscoverySelection,
+  })
+  return pairs.some((p) => isTrompeLoeilProductId(p.productId) && p.productId in stockMap)
+}
+
+function mergeCartEntry(prev: CartEntry[], entry: CartEntry): CartEntry[] {
+  const existingIndex = prev.findIndex(
+    (e) =>
+      e.product.id === entry.product.id &&
+      e.sizeLabel === entry.sizeLabel &&
+      e.excludeTrompeStock === entry.excludeTrompeStock &&
+      JSON.stringify(e.trompeDiscoverySelection ?? []) === JSON.stringify(entry.trompeDiscoverySelection ?? []),
+  )
+  if (existingIndex >= 0) {
+    return prev.map((e, i) =>
+      i === existingIndex ? { ...e, quantity: e.quantity + entry.quantity } : e,
+    )
+  }
+  return [...prev, entry]
 }
 
 export type PresetClient = {
@@ -58,18 +104,24 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [phone, setPhone] = useState('')
+  const [contactHandle, setContactHandle] = useState('')
   const [cart, setCart] = useState<CartEntry[]>([])
   const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>('retrait')
   const [address, setAddress] = useState('')
   const [requestedDate, setRequestedDate] = useState('')
   const [requestedTime, setRequestedTime] = useState('')
   const [adminNote, setAdminNote] = useState('')
-  const [excludeTrompeLoeilStock, setExcludeTrompeLoeilStock] = useState(false)
+  const [trompeDeductionAsk, setTrompeDeductionAsk] = useState<{
+    title: string
+    onChoice: (deductFromStock: boolean) => void
+    onCancel: () => void
+  } | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
   const [sizePickerFor, setSizePickerFor] = useState<string | null>(null)
   const [tiramisuProduct, setTiramisuProduct] = useState<ProductWithAvailability | null>(null)
   const [boxFlavorsProduct, setBoxFlavorsProduct] = useState<ProductWithAvailability | null>(null)
+  const [trompePickerProduct, setTrompePickerProduct] = useState<ProductWithAvailability | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [promoCodeInput, setPromoCodeInput] = useState('')
@@ -123,17 +175,31 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
 
   const addToCart = (product: ProductWithAvailability, sizeLabel?: string, price?: number) => {
     const unitPrice = price ?? product.price
-    const existingIndex = cart.findIndex(e =>
-      e.product.id === product.id && e.sizeLabel === sizeLabel
-    )
-    if (existingIndex >= 0) {
-      setCart(prev => prev.map((e, i) =>
-        i === existingIndex ? { ...e, quantity: e.quantity + 1 } : e
-      ))
-    } else {
-      setCart(prev => [...prev, { product, quantity: 1, sizeLabel, unitPrice }])
+    const entry: CartEntry = { product, quantity: 1, sizeLabel, unitPrice }
+    if (!isOffsiteTrompeStockLine(product)) {
+      setCart((prev) => mergeCartEntry(prev, entry))
+      setSizePickerFor(null)
+      return
     }
-    setSizePickerFor(null)
+    if (!entryTouchesTrackedTrompeStock(entry, stock, allProducts)) {
+      setCart((prev) => mergeCartEntry(prev, { ...entry, excludeTrompeStock: false }))
+      setSizePickerFor(null)
+      return
+    }
+    setTrompeDeductionAsk({
+      title: displayName(product),
+      onChoice: (deductFromStock) => {
+        setCart((prev) =>
+          mergeCartEntry(prev, { ...entry, excludeTrompeStock: !deductFromStock }),
+        )
+        setTrompeDeductionAsk(null)
+        setSizePickerFor(null)
+      },
+      onCancel: () => {
+        setTrompeDeductionAsk(null)
+        setSizePickerFor(null)
+      },
+    })
   }
 
   const handleTiramisuSelect = (product: Product, size: ProductSize, base: string, allToppings: string[]) => {
@@ -151,6 +217,80 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
     } as ProductWithAvailability
     setCart(prev => [...prev, { product: cartProduct, quantity: 1, unitPrice: totalPrice }])
     setTiramisuProduct(null)
+  }
+
+  const trompePickerEligibleTrompes = useMemo(() => {
+    const p = trompePickerProduct
+    if (!p) return []
+    if (p.id === BOX_DECOUVERTE_TROMPE_PRODUCT_ID) {
+      const ids = new Set(getEligibleTrompeIdsForDiscoveryBox(allProducts, []))
+      return listIndividualTrompeLoeilProducts(allProducts).filter((x) => ids.has(x.id))
+    }
+    if (isCustomizableTrompeBundleBoxId(p.id) && p.bundleProductIds?.length) {
+      const allowed = new Set(p.bundleProductIds)
+      return listIndividualTrompeLoeilProducts(allProducts).filter((x) => allowed.has(x.id))
+    }
+    return []
+  }, [trompePickerProduct, allProducts])
+
+  const trompePickerSlotCount = trompePickerProduct
+    ? getTrompeBundleSelectionSlotCount(trompePickerProduct.id)
+    : DISCOVERY_BOX_TROMPE_SLOT_COUNT
+
+  const getStockForPicker = (productId: string): number | null =>
+    productId in stock ? stock[productId] : null
+
+  const handleTrompePickerConfirm = (selectionIds: string[]) => {
+    if (!trompePickerProduct) return
+    const base = trompePickerProduct
+    if (base.id === BOX_DECOUVERTE_TROMPE_PRODUCT_ID) {
+      if (
+        selectionIds.length !== DISCOVERY_BOX_TROMPE_SLOT_COUNT ||
+        new Set(selectionIds).size !== DISCOVERY_BOX_TROMPE_SLOT_COUNT
+      ) {
+        return
+      }
+    } else if (isCustomizableTrompeBundleBoxId(base.id)) {
+      const n = getTrompeBundleSelectionSlotCount(base.id)
+      const allowed = new Set(base.bundleProductIds ?? [])
+      if (
+        n === 0 ||
+        selectionIds.length !== n ||
+        new Set(selectionIds).size !== n ||
+        !selectionIds.every((id) => allowed.has(id))
+      ) {
+        return
+      }
+    } else {
+      return
+    }
+    const resolveName = (id: string) => allProducts.find((x) => x.id === id)?.name ?? id
+    const cartProduct = {
+      ...base,
+      id: `${base.id}-${Date.now()}`,
+      description: `Choix : ${selectionIds.map(resolveName).join(', ')}`,
+    } as ProductWithAvailability
+    const entry: CartEntry = {
+      product: cartProduct,
+      quantity: 1,
+      unitPrice: base.price,
+      trompeDiscoverySelection: selectionIds,
+    }
+    setTrompePickerProduct(null)
+    if (!entryTouchesTrackedTrompeStock(entry, stock, allProducts)) {
+      setCart((prev) => mergeCartEntry(prev, { ...entry, excludeTrompeStock: false }))
+      return
+    }
+    setTrompeDeductionAsk({
+      title: base.name,
+      onChoice: (deductFromStock) => {
+        setCart((prev) =>
+          mergeCartEntry(prev, { ...entry, excludeTrompeStock: !deductFromStock }),
+        )
+        setTrompeDeductionAsk(null)
+      },
+      onCancel: () => setTrompeDeductionAsk(null),
+    })
   }
 
   const handleBoxFlavorsSelect = (product: Product, size: ProductSize, flavorDescription: string, totalPrice: number) => {
@@ -204,7 +344,10 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
   const handleSubmit = async () => {
     setError('')
     if (!source) { setError('Choisissez une source'); return }
-    if (!firstName.trim() || !lastName.trim() || !phone.trim()) { setError('Remplissez les infos client'); return }
+    if (!firstName.trim() || !lastName.trim()) { setError('Remplissez les infos client'); return }
+    const needsPhone = source === 'whatsapp'
+    if (needsPhone && !phone.trim()) { setError('Le téléphone est obligatoire pour WhatsApp'); return }
+    if (!needsPhone && !contactHandle.trim()) { setError(source === 'snap' ? 'Le pseudo Snapchat est obligatoire' : 'Le pseudo Instagram est obligatoire'); return }
     if (cart.length === 0) { setError('Ajoutez au moins un produit'); return }
     if (deliveryMode === 'livraison' && !address.trim()) { setError('L\'adresse est obligatoire pour une livraison'); return }
 
@@ -212,13 +355,19 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
     try {
       const items: OrderItem[] = cart.map(entry => {
         const baseName = entry.sizeLabel ? `${entry.product.name} (${entry.sizeLabel})` : entry.product.name
-        const name = entry.product.description ? `${baseName} — ${entry.product.description}` : baseName
+        // Ne pas coller la description catalogue (trompe-l'œil, etc.) : elle alourdit l'affichage admin.
+        // On garde la description uniquement pour les lignes personnalisées (tiramisu / box parfums) : id = ...-<timestamp>.
+        const isCustomLine = /-\d{10,}$/.test(entry.product.id)
+        const name =
+          entry.product.description && isCustomLine ? `${baseName} — ${entry.product.description}` : baseName
         return {
           productId: entry.product.id,
           name,
           quantity: entry.quantity,
           price: entry.unitPrice,
           sizeLabel: entry.sizeLabel,
+          ...(entry.trompeDiscoverySelection?.length ? { trompeDiscoverySelection: entry.trompeDiscoverySelection } : {}),
+          ...(entry.excludeTrompeStock ? { excludeTrompeStock: true } : {}),
         }
       })
 
@@ -227,7 +376,8 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
         customer: {
           firstName: firstName.trim(),
           lastName: lastName.trim(),
-          phone: phone.trim(),
+          phone: needsPhone ? phone.trim() : '',
+          ...(!needsPhone && { contactPlatform: source === 'snap' ? 'snap' : 'instagram', contactHandle: contactHandle.trim() }),
           ...(presetClient?.email?.trim() && { email: presetClient.email.trim() }),
           ...(deliveryMode === 'livraison' && address.trim() && { address: address.trim() }),
         },
@@ -239,7 +389,6 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
         ...(requestedDate && { requestedDate }),
         ...(requestedTime && { requestedTime }),
         ...(adminNote.trim() && { adminNote: adminNote.trim() }),
-        ...(excludeTrompeLoeilStock && { excludeTrompeLoeilStock: true }),
         ...(appliedPromo && { promoCode: appliedPromo.code, discountAmount: appliedPromo.discount }),
         ...(!appliedPromo && discountAmount > 0 && { discountAmount }),
         ...(deliveryMode === 'livraison' && deliveryFee > 0 ? { deliveryFee } : {}),
@@ -252,9 +401,12 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
       // Ne déduire que les produits dont le stock doit être mis à jour (exclure trompes l'oeil si coché)
       // Les bundles sont développés en leurs composants individuels
       const itemsToDecrement = cart.flatMap(entry => {
-        const isTrompe = isTrompeLoeilProductId(entry.product.id) || !!entry.product.bundleProductIds?.length
-        if (excludeTrompeLoeilStock && isTrompe) return []
-        return getStockDecrementItems(entry.product.id, entry.quantity, allProducts)
+        const baseId = entry.product.id.replace(/-\d{10,}$/, '')
+        const isTrompe = isTrompeLoeilProductId(baseId) || !!entry.product.bundleProductIds?.length
+        if (entry.excludeTrompeStock && isTrompe) return []
+        return getStockDecrementItems(entry.product.id, entry.quantity, allProducts, {
+          trompeDiscoverySelection: entry.trompeDiscoverySelection,
+        })
       })
       if (itemsToDecrement.length > 0) {
         await decrementStockBatch(itemsToDecrement)
@@ -265,7 +417,10 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
       }
 
       if (presetClient?.uid) {
-        const hasTrompeLoeil = cart.some(e => isTrompeLoeilProductId(e.product.id) || !!e.product.bundleProductIds?.length)
+        const hasTrompeLoeil = cart.some((e) => {
+          const b = e.product.id.replace(/-\d{10,}$/, '')
+          return isTrompeLoeilProductId(b) || !!e.product.bundleProductIds?.length
+        })
         updateUserOrderStats(presetClient.uid, {
           hasTrompeLoeil,
           hasDonation: false,
@@ -340,13 +495,23 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
                 className="rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm text-mayssa-brown border border-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
               />
             </div>
-            <input
-              type="tel"
-              placeholder="Téléphone"
-              value={phone}
-              onChange={e => setPhone(e.target.value)}
-              className="mt-2 w-full rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm text-mayssa-brown border border-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
-            />
+            {source === 'whatsapp' || !source ? (
+              <input
+                type="tel"
+                placeholder="Téléphone (WhatsApp)"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                className="mt-2 w-full rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm text-mayssa-brown border border-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
+              />
+            ) : (
+              <input
+                type="text"
+                placeholder={source === 'snap' ? 'Pseudo Snapchat' : 'Pseudo Instagram'}
+                value={contactHandle}
+                onChange={e => setContactHandle(e.target.value)}
+                className="mt-2 w-full rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm text-mayssa-brown border border-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
+              />
+            )}
           </div>
 
           {/* Produits */}
@@ -382,50 +547,48 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
                         })()
                       : stock[product.id]
                     const isSoldOut = stockQty !== undefined && stockQty <= 0
+                    const addBtnClass =
+                      'flex h-7 w-7 items-center justify-center rounded-lg bg-mayssa-brown text-white hover:bg-mayssa-caramel transition-colors cursor-pointer text-xs'
                     return (
                       <div key={product.id}>
-                        <div className={`flex items-center justify-between px-3 py-2 border-t border-mayssa-brown/5 ${isSoldOut ? 'opacity-40' : ''}`}>
+                        <div
+                          className={`flex items-center justify-between px-3 py-2 border-t border-mayssa-brown/5 ${
+                            isSoldOut ? 'bg-amber-50/40' : ''
+                          }`}
+                        >
                           <div className="min-w-0 flex-1">
                             <p className="text-xs font-medium text-mayssa-brown truncate">{displayName(product)}</p>
                             <p className="text-[10px] text-mayssa-brown/50">
                               {product.price.toFixed(2).replace('.', ',')} €
-                              {stockQty !== undefined && <span className="ml-1">· {stockQty} en stock</span>}
+                              {stockQty !== undefined && (
+                                <span className={`ml-1 ${isSoldOut ? 'text-amber-700 font-semibold' : ''}`}>
+                                  · {stockQty} en stock{isSoldOut ? ' (rupture)' : ''}
+                                </span>
+                              )}
                             </p>
                           </div>
                           {product.category === 'Tiramisus' ? (
-                            <button
-                              type="button"
-                              onClick={() => setTiramisuProduct(product)}
-                              disabled={isSoldOut}
-                              className="flex h-7 w-7 items-center justify-center rounded-lg bg-mayssa-brown text-white hover:bg-mayssa-caramel disabled:bg-mayssa-brown/20 transition-colors cursor-pointer text-xs"
-                            >
+                            <button type="button" onClick={() => setTiramisuProduct(product)} className={addBtnClass}>
                               <Plus size={14} />
                             </button>
                           ) : (product.id === 'box-cookies' || product.id === 'box-brownies' || product.id === 'box-mixte') ? (
-                            <button
-                              type="button"
-                              onClick={() => setBoxFlavorsProduct(product)}
-                              disabled={isSoldOut}
-                              className="flex h-7 w-7 items-center justify-center rounded-lg bg-mayssa-brown text-white hover:bg-mayssa-caramel disabled:bg-mayssa-brown/20 transition-colors cursor-pointer text-xs"
-                            >
+                            <button type="button" onClick={() => setBoxFlavorsProduct(product)} className={addBtnClass}>
+                              <Plus size={14} />
+                            </button>
+                          ) : product.id === BOX_DECOUVERTE_TROMPE_PRODUCT_ID || isCustomizableTrompeBundleBoxId(product.id) ? (
+                            <button type="button" onClick={() => setTrompePickerProduct(product)} className={addBtnClass}>
                               <Plus size={14} />
                             </button>
                           ) : product.sizes && product.sizes.length > 0 ? (
                             <button
                               type="button"
                               onClick={() => setSizePickerFor(sizePickerFor === product.id ? null : product.id)}
-                              disabled={isSoldOut}
-                              className="flex h-7 w-7 items-center justify-center rounded-lg bg-mayssa-brown text-white hover:bg-mayssa-caramel disabled:bg-mayssa-brown/20 transition-colors cursor-pointer text-xs"
+                              className={addBtnClass}
                             >
                               <Plus size={14} />
                             </button>
                           ) : (
-                            <button
-                              type="button"
-                              onClick={() => addToCart(product)}
-                              disabled={isSoldOut}
-                              className="flex h-7 w-7 items-center justify-center rounded-lg bg-mayssa-brown text-white hover:bg-mayssa-caramel disabled:bg-mayssa-brown/20 transition-colors cursor-pointer"
-                            >
+                            <button type="button" onClick={() => addToCart(product)} className={addBtnClass}>
                               <Plus size={14} />
                             </button>
                           )}
@@ -465,6 +628,9 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
                       </p>
                       {entry.product.description && (
                         <p className="text-[10px] text-mayssa-brown/50 truncate">{entry.product.description}</p>
+                      )}
+                      {entry.excludeTrompeStock && isOffsiteTrompeStockLine(entry.product) && (
+                        <p className="text-[9px] text-amber-700 font-semibold mt-0.5">Stock trompe-l&apos;œil non déduit</p>
                       )}
                     </div>
                     <div className="flex items-center gap-1.5">
@@ -636,19 +802,6 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
             </div>
           </div>
 
-          {/* Exclure trompes l'oeil du stock */}
-          {cart.some(e => isTrompeLoeilProductId(e.product.id) || !!e.product.bundleProductIds?.length) && (
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={excludeTrompeLoeilStock}
-                onChange={e => setExcludeTrompeLoeilStock(e.target.checked)}
-                className="rounded border-mayssa-brown/20 text-mayssa-caramel focus:ring-mayssa-caramel"
-              />
-              <span className="text-xs text-mayssa-brown">Ne pas déduire le stock des trompes l&apos;œil</span>
-            </label>
-          )}
-
           {/* Note admin */}
           <div>
             <label className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60 mb-2 block">Note (optionnel)</label>
@@ -676,6 +829,51 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
       </div>
     </div>
 
+    {trompeDeductionAsk && (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="trompe-deduction-title"
+        className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50"
+        onClick={trompeDeductionAsk.onCancel}
+      >
+        <div
+          className="w-full max-w-sm rounded-2xl bg-white shadow-xl p-5 space-y-4"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h3 id="trompe-deduction-title" className="text-base font-bold text-mayssa-brown">
+            {trompeDeductionAsk.title}
+          </h3>
+          <p className="text-sm text-mayssa-brown/80 leading-relaxed">
+            Voulez-vous déduire ce trompe-l&apos;œil du stock ?
+          </p>
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={() => trompeDeductionAsk.onChoice(true)}
+              className="w-full py-3 rounded-xl bg-mayssa-brown text-white text-sm font-bold hover:bg-mayssa-caramel transition-colors cursor-pointer"
+            >
+              Oui, déduire du stock
+            </button>
+            <button
+              type="button"
+              onClick={() => trompeDeductionAsk.onChoice(false)}
+              className="w-full py-3 rounded-xl bg-mayssa-soft text-mayssa-brown text-sm font-bold hover:bg-mayssa-caramel/20 transition-colors cursor-pointer"
+            >
+              Non, ne pas déduire
+            </button>
+            <button
+              type="button"
+              onClick={trompeDeductionAsk.onCancel}
+              className="w-full py-2 text-xs text-mayssa-brown/50 hover:text-mayssa-brown transition-colors cursor-pointer"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
     {tiramisuProduct && (
       <TiramisuCustomizationModal
         product={tiramisuProduct}
@@ -689,6 +887,17 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
         products={availableProducts}
         onClose={() => setBoxFlavorsProduct(null)}
         onSelect={handleBoxFlavorsSelect}
+      />
+    )}
+    {trompePickerProduct && (
+      <BoxDecouverteTrompeModal
+        product={trompePickerProduct}
+        eligibleTrompes={trompePickerEligibleTrompes}
+        getStock={getStockForPicker}
+        slotCount={trompePickerSlotCount}
+        allowOutOfStock
+        onClose={() => setTrompePickerProduct(null)}
+        onConfirm={handleTrompePickerConfirm}
       />
     )}
     </>

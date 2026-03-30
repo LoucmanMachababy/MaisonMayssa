@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf'
 import type { Order } from './firebase'
+import { getOrderDepositAmount, getOrderRemainingToPay } from './orderAmounts'
 import { formatOrderItemName } from './utils'
 
 function formatDateYyyyMmDd(yyyyMmDd: string): string {
@@ -95,7 +96,13 @@ export function printOrderSlip(order: Order, orderId: string): void {
       ${deliveryFee > 0 ? `<tr><td colspan="2">Frais de livraison</td><td style="text-align:right">+${deliveryFee.toFixed(2).replace('.', ',')} €</td></tr>` : ''}
       ${totalDiscount > 0 ? `<tr><td colspan="2">Réduction</td><td style="text-align:right">-${totalDiscount.toFixed(2).replace('.', ',')} €</td></tr>` : ''}
       ${donation > 0 ? `<tr><td colspan="2">Don projet</td><td style="text-align:right">+${donation.toFixed(2).replace('.', ',')} €</td></tr>` : ''}
-      <tr class="total-row"><td colspan="2">Total</td><td style="text-align:right">${total.toFixed(2).replace('.', ',')} €</td></tr>
+      <tr class="total-row"><td colspan="2">Total TTC</td><td style="text-align:right">${total.toFixed(2).replace('.', ',')} €</td></tr>
+      ${
+        getOrderDepositAmount(order) > 0
+          ? `<tr><td colspan="2">Acompte versé</td><td style="text-align:right">−${getOrderDepositAmount(order).toFixed(2).replace('.', ',')} €</td></tr>`
+          : ''
+      }
+      <tr class="total-row"><td colspan="2">Reste à régler</td><td style="text-align:right">${getOrderRemainingToPay(order).toFixed(2).replace('.', ',')} €</td></tr>
     </tbody>
   </table>
 
@@ -287,9 +294,32 @@ export function exportSingleOrderPDF(order: Order, orderId: string): void {
   doc.rect(margin, y, maxWidth, 8)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(11)
-  doc.text('Total', margin + 14, y + 5.5)
+  doc.text('Total TTC', margin + 14, y + 5.5)
   doc.text(`${(order.total ?? 0).toFixed(2).replace('.', ',')} €`, pageWidth - margin - 2, y + 5.5, { align: 'right' })
-  y += 16
+  y += 8
+
+  const dep = getOrderDepositAmount(order)
+  if (dep > 0) {
+    doc.setFillColor(255, 255, 255)
+    doc.rect(margin, y, maxWidth, 6)
+    doc.rect(margin, y, maxWidth, 6)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10)
+    doc.text('Acompte versé', margin + 14, y + 4.5)
+    doc.text(`−${dep.toFixed(2).replace('.', ',')} €`, pageWidth - margin - 2, y + 4.5, { align: 'right' })
+    y += 6
+  }
+
+  doc.setFillColor(254, 245, 236)
+  doc.rect(margin, y, maxWidth, 8, 'F')
+  doc.rect(margin, y, maxWidth, 8)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
+  doc.text('Reste à régler', margin + 14, y + 5.5)
+  doc.text(`${getOrderRemainingToPay(order).toFixed(2).replace('.', ',')} €`, pageWidth - margin - 2, y + 5.5, { align: 'right' })
+  y += 8
+
+  y += 8
 
   // Pied de page
   doc.setFont('helvetica', 'normal')

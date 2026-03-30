@@ -1,14 +1,22 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, MessageCircle, MapPin, Calendar } from 'lucide-react'
+import { X, MessageCircle, MapPin, Calendar, Instagram } from 'lucide-react'
 import type { CartItem, CustomerInfo } from '../types'
+import { PRODUCTS, isTrompeBoxWithStoredSelection } from '../constants'
 import { formatDateYyyyMmDdToFrench } from '../lib/utils'
+import { normalizeInstagramHandle } from '../lib/delivery'
 import { useFocusTrap } from '../hooks/useAccessibility'
-import { useRef } from 'react'
+import { useRef, useState, useEffect } from 'react'
+import { SnapIcon } from './SnapIcon'
+
+export type OrderRecapSendChannel = 'whatsapp' | 'instagram' | 'snap'
 
 interface OrderRecapModalProps {
   isOpen: boolean
   onClose: () => void
-  onConfirm: () => void
+  /** Le canal affiché est passé ici pour éviter une closure périmée sur l’état parent. */
+  onConfirm: (channel: OrderRecapSendChannel) => void | Promise<void>
+  /** Canal d’envoi après validation (texte du bouton et consigne). */
+  channel?: OrderRecapSendChannel
   customer: CustomerInfo
   items: CartItem[]
   total: number
@@ -17,10 +25,33 @@ interface OrderRecapModalProps {
   donationAmount?: number
 }
 
+const CHANNEL_COPY: Record<
+  OrderRecapSendChannel,
+  { hint: string; confirmLabel: string; buttonClass: string }
+> = {
+  whatsapp: {
+    hint: "Vérifie les infos avant d'envoyer sur WhatsApp.",
+    confirmLabel: 'Oui, envoyer sur WhatsApp',
+    buttonClass: 'bg-[#25D366] text-white shadow-lg hover:bg-[#20bd5a]',
+  },
+  instagram: {
+    hint: 'Vérifie les infos. Ensuite tu pourras copier le message pour Instagram.',
+    confirmLabel: 'Oui, confirmer (Instagram)',
+    buttonClass:
+      'bg-gradient-to-r from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white shadow-lg hover:opacity-95',
+  },
+  snap: {
+    hint: 'Vérifie les infos. Ensuite tu pourras copier le message pour Snapchat.',
+    confirmLabel: 'Oui, confirmer (Snapchat)',
+    buttonClass: 'bg-[#FFFC00] text-black shadow-lg hover:brightness-95',
+  },
+}
+
 export function OrderRecapModal({
   isOpen,
   onClose,
   onConfirm,
+  channel = 'whatsapp',
   customer,
   items,
   total,
@@ -30,13 +61,25 @@ export function OrderRecapModal({
 }: OrderRecapModalProps) {
   const modalRef = useRef<HTMLDivElement>(null)
   useFocusTrap(modalRef, isOpen, onClose)
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (!isOpen) setSubmitting(false)
+  }, [isOpen])
 
   const finalTotal = total - discountAmount + deliveryFee + donationAmount
   const modeLabel = customer.wantsDelivery ? 'Livraison' : 'Retrait sur place'
+  const copy = CHANNEL_COPY[channel]
 
-  const handleConfirm = () => {
-    onConfirm()
-    onClose()
+  const handleConfirm = async () => {
+    if (submitting) return
+    setSubmitting(true)
+    try {
+      await onConfirm(channel)
+      onClose()
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -48,7 +91,7 @@ export function OrderRecapModal({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm cursor-pointer"
+        className="fixed inset-0 z-[85] bg-black/60 backdrop-blur-sm cursor-pointer"
       />
       <motion.div
         ref={modalRef}
@@ -59,7 +102,8 @@ export function OrderRecapModal({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[61] max-w-md mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+        onPointerDown={(e) => e.stopPropagation()}
+        className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[86] max-w-md mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
       >
         <div className="p-5 pb-4 border-b border-mayssa-brown/10 flex-shrink-0">
           <div className="flex items-center justify-between">
@@ -73,12 +117,19 @@ export function OrderRecapModal({
               <X size={18} />
             </button>
           </div>
-          <p className="text-xs text-mayssa-brown/60 mt-1">
-            Vérifie les infos avant d&apos;envoyer sur WhatsApp.
-          </p>
+          <p className="text-xs text-mayssa-brown/60 mt-1">{copy.hint}</p>
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          {channel === 'instagram' && (
+            <div className="flex items-start gap-3 text-sm">
+              <Instagram size={18} className="text-mayssa-caramel shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-mayssa-brown">Compte Instagram</p>
+                <p className="text-mayssa-brown/80">@{normalizeInstagramHandle(customer.firstName)}</p>
+              </div>
+            </div>
+          )}
           <div className="flex items-start gap-3 text-sm">
             <MapPin size={18} className="text-mayssa-caramel shrink-0 mt-0.5" />
             <div>
@@ -107,12 +158,29 @@ export function OrderRecapModal({
 
           <div className="rounded-xl bg-mayssa-soft/50 p-3 border border-mayssa-brown/5">
             <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60 mb-2">Articles</p>
-            <ul className="space-y-1 text-sm text-mayssa-brown/80">
-              {items.map((item) => (
-                <li key={item.product.id}>
-                  {item.quantity}× {item.product.name} — {(item.product.price * item.quantity).toFixed(2).replace('.', ',')} €
-                </li>
-              ))}
+            <ul className="space-y-2 text-sm text-mayssa-brown/80">
+              {items.map((item) => {
+                const baseId = item.product.id.replace(/-\d{10,}$/, '')
+                const showTrompeList = isTrompeBoxWithStoredSelection(baseId)
+                const sel = item.trompeDiscoverySelection
+                return (
+                  <li key={item.product.id}>
+                    <div>
+                      {item.quantity}× {item.product.name} —{' '}
+                      {(item.product.price * item.quantity).toFixed(2).replace('.', ',')} €
+                    </div>
+                    {showTrompeList && sel && sel.length > 0 && (
+                      <ul className="mt-1 ml-3 text-[11px] text-mayssa-brown/65 list-disc space-y-0.5">
+                        {sel.map((tid) => (
+                          <li key={tid}>
+                            {PRODUCTS.find((p) => p.id === tid)?.name.replace(/^Trompe l'œil\s+/i, '').trim() ?? tid}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                )
+              })}
             </ul>
           </div>
 
@@ -142,17 +210,21 @@ export function OrderRecapModal({
           <button
             type="button"
             onClick={handleConfirm}
-            className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-[#25D366] text-white font-bold shadow-lg hover:bg-[#20bd5a] transition-colors cursor-pointer"
+            disabled={submitting}
+            className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${copy.buttonClass}`}
           >
-            <MessageCircle size={20} />
-            Envoyer sur WhatsApp
+            {channel === 'whatsapp' && <MessageCircle size={20} />}
+            {channel === 'instagram' && <Instagram size={20} />}
+            {channel === 'snap' && <SnapIcon size={20} />}
+            {submitting ? 'Envoi…' : copy.confirmLabel}
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="w-full py-3 rounded-xl text-sm font-medium text-mayssa-brown/70 hover:text-mayssa-brown hover:bg-mayssa-soft/50 transition-colors cursor-pointer"
+            disabled={submitting}
+            className="w-full py-3 rounded-xl text-sm font-medium text-mayssa-brown/70 hover:text-mayssa-brown hover:bg-mayssa-soft/50 transition-colors cursor-pointer disabled:opacity-50"
           >
-            Modifier ma commande
+            Non, modifier ma commande
           </button>
         </div>
       </motion.div>

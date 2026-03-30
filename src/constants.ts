@@ -15,6 +15,29 @@ export const DELIVERY_SLOT_MAX_CAPACITY = 5
 /** ID du trompe-l'œil mystère (Fraise) — le premier qui trouve a 10 % dessus */
 export const MYSTERY_TROMPE_LOEIL_ID = 'trompe-loeil-fraise'
 
+/** Box « découverte » : 5 trompe-l'œil au choix (exclusions gérées dans l’admin + Firebase). */
+export const BOX_DECOUVERTE_TROMPE_PRODUCT_ID = 'box-decouverte-trompe-5'
+export const DISCOVERY_BOX_TROMPE_SLOT_COUNT = 5
+
+/** Box fruitée : 6 trompe-l'œil distincts au choix parmi 7 saveurs fruitées. */
+export const FRUITEE_BOX_TROMPE_SLOT_COUNT = 6
+
+/** Autres boxes trompe-l'œil : le client choisit une fois chaque saveur parmi la liste du bundle (stock comme la box découverte). */
+export const CUSTOMIZABLE_TROMPE_BUNDLE_BOX_IDS = [
+  'box-trompe-loeil',
+  'box-fruitee',
+  'box-de-tout',
+] as const
+
+export function isCustomizableTrompeBundleBoxId(id: string): boolean {
+  return (CUSTOMIZABLE_TROMPE_BUNDLE_BOX_IDS as readonly string[]).includes(id)
+}
+
+/** Box avec liste de trompes enregistrée sur la ligne de commande (`trompeDiscoverySelection`). */
+export function isTrompeBoxWithStoredSelection(baseId: string): boolean {
+  return baseId === BOX_DECOUVERTE_TROMPE_PRODUCT_ID || isCustomizableTrompeBundleBoxId(baseId)
+}
+
 /** Précommande trompe-l'œil : à récupérer sous 3 j après préco. Dispo gérée par Firebase (jours + stock). */
 const TROMPE_LOEIL_PREORDER = { availableFrom: '2026-02-13', daysToPickup: 3 }
 
@@ -177,9 +200,34 @@ export const PRODUCTS: Product[] = [
         preorder: TROMPE_LOEIL_PREORDER,
     },
     {
+        id: 'trompe-loeil-pecan',
+        name: "Trompe l'œil Noix de pécan",
+        description: 'Praliné noix de pécan, caramel beurre salé, ganache onctueuse, biscuit moelleux, coque chocolat.',
+        price: 7,
+        originalPrice: 8.5,
+        category: "Trompe l'œil",
+        image: '/noix-de-pecan.webp',
+        badges: ['nouveau'],
+        preorder: TROMPE_LOEIL_PREORDER,
+    },
+    {
+        id: 'trompe-loeil-grappe-banane',
+        name: "Trompe l'œil Grappe de Banane",
+        description: 'Coulis banane, morceaux de banane, crème vanille, coque chocolat blanc.',
+        price: 6,
+        originalPrice: 7.5,
+        category: "Trompe l'œil",
+        image: '/trompe-loeil-grappe-de-banane.webp',
+        badges: ['nouveaute'],
+        preorder: TROMPE_LOEIL_PREORDER,
+        pinned: true,
+        highlightAsNew: true,
+    },
+    {
         id: 'box-fruitee',
         name: '🍓 Box Fruitée',
-        description: 'Mangue, Citron, Passion, Framboise, Fraise, Myrtille — 6 trompe-l\'œil fruités.',
+        description:
+            'Compose ta box : 6 trompe-l\'œil fruités au choix parmi Mangue, Passion, Fraise, Framboise, Myrtille, Citron, Banane (7 saveurs — 6 à choisir).',
         price: 35,
         category: "Trompe l'œil",
         image: '/Boxe-trompeloeil.webp',
@@ -187,17 +235,30 @@ export const PRODUCTS: Product[] = [
         preorder: TROMPE_LOEIL_PREORDER,
         bundleProductIds: [
             'trompe-loeil-mangue',
-            'trompe-loeil-citron',
             'trompe-loeil-passion',
-            'trompe-loeil-framboise',
             'trompe-loeil-fraise',
+            'trompe-loeil-framboise',
             'trompe-loeil-myrtille',
+            'trompe-loeil-citron',
+            'trompe-loeil-grappe-banane',
         ],
+    },
+    {
+        id: BOX_DECOUVERTE_TROMPE_PRODUCT_ID,
+        name: "Box découverte — 5 trompe-l'œil au choix",
+        description:
+            'Composez votre box : 5 trompe-l’œil différents parmi les saveurs proposées (selon disponibilité et carte du moment).',
+        price: 40,
+        originalPrice: 42.5,
+        category: "Trompe l'œil",
+        image: '/Boxe-trompeloeil.webp',
+        badges: ['nouveau'],
+        preorder: TROMPE_LOEIL_PREORDER,
     },
     {
         id: 'box-de-tout',
         name: "La box de tout",
-        description: "La totalité des trompe-l'œil (11) pour 90 euros.",
+        description: "La totalité des trompe-l'œil (12), dont la noix de pécan, pour 90 euros.",
         price: 90,
         category: "Trompe l'œil",
         image: '/Boxe2.webp',
@@ -215,6 +276,7 @@ export const PRODUCTS: Product[] = [
             'trompe-loeil-cafe',
             'trompe-loeil-vanille',
             'trompe-loeil-popcorn',
+            'trompe-loeil-pecan',
         ],
     },
 
@@ -619,3 +681,14 @@ export const PRODUCTS: Product[] = [
         ],
     },
 ]
+
+/** Nombre de saveurs distinctes à choisir pour une box « trompe au choix » (découverte, fruitée, etc.). */
+export function getTrompeBundleSelectionSlotCount(baseId: string): number {
+  if (baseId === BOX_DECOUVERTE_TROMPE_PRODUCT_ID) return DISCOVERY_BOX_TROMPE_SLOT_COUNT
+  if (baseId === 'box-fruitee') return FRUITEE_BOX_TROMPE_SLOT_COUNT
+  if (isCustomizableTrompeBundleBoxId(baseId)) {
+    const p = PRODUCTS.find((x) => x.id === baseId)
+    return p?.bundleProductIds?.length ?? 0
+  }
+  return 0
+}

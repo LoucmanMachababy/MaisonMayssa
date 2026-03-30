@@ -1,46 +1,61 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Check, MessageCircle, Copy, ChevronRight } from 'lucide-react'
+import { X, Check, MessageCircle, Copy } from 'lucide-react'
 import { useEscapeKey } from '../hooks/useEscapeKey'
 import { hapticFeedback } from '../lib/haptics'
+import type { CartItem, CustomerInfo } from '../types'
+import { normalizeInstagramHandle } from '../lib/delivery'
+import { SocialOrderRecapPanel } from './SocialOrderRecapPanel'
 
-const INSTAGRAM_DM_URL = 'https://ig.me/m/maison.mayssa74'
+const INSTAGRAM_HANDLE = 'maison_mayssa74'
+const INSTAGRAM_DM_URL = `https://ig.me/m/${INSTAGRAM_HANDLE}`
 
-interface InstagramInstructionModalProps {
-  isOpen: boolean
-  onClose: () => void
-  messageParts?: string[]
+export type InstagramOrderModalData = {
+  orderNumber: number
+  shortPasteMessage: string
+  customer: CustomerInfo
+  items: CartItem[]
+  finalTotal: number
+  deliveryFee: number
+  discountAmount: number
+  donationAmount: number
 }
 
-export function InstagramInstructionModal({ isOpen, onClose, messageParts = [] }: InstagramInstructionModalProps) {
+interface InstagramInstructionModalProps {
+  data: InstagramOrderModalData | null
+  onClose: () => void
+}
+
+export function InstagramInstructionModal({ data, onClose }: InstagramInstructionModalProps) {
+  const isOpen = data !== null
   useEscapeKey(onClose, isOpen)
 
-  const [currentPart, setCurrentPart] = useState(0)
-  const [copiedParts, setCopiedParts] = useState<Set<number>>(new Set([0]))
-  const totalParts = messageParts.length
-  const hasMultipleParts = totalParts > 1
+  const [copied, setCopied] = useState(false)
 
-  // Reset state when modal opens
   useEffect(() => {
-    if (isOpen) {
-      setCurrentPart(0)
-      setCopiedParts(new Set([0])) // Part 0 is already copied by handleSend
+    if (!data?.shortPasteMessage) return
+    let cancelled = false
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+    void navigator.clipboard.writeText(data.shortPasteMessage).then(() => {
+      if (cancelled) return
+      setCopied(true)
+      timeoutId = setTimeout(() => setCopied(false), 2200)
+    }).catch(() => {})
+    return () => {
+      cancelled = true
+      if (timeoutId != null) clearTimeout(timeoutId)
     }
-  }, [isOpen])
+  }, [data?.orderNumber, data?.shortPasteMessage])
 
-  const handleCopyPart = async (index: number) => {
-    hapticFeedback('light')
+  const handleCopy = async () => {
+    if (!data) return
+    hapticFeedback('medium')
     try {
-      await navigator.clipboard.writeText(messageParts[index])
-      setCopiedParts(prev => new Set(prev).add(index))
-      setCurrentPart(index)
-    } catch {}
-  }
-
-  const handleCopyNext = async () => {
-    const nextPart = currentPart + 1
-    if (nextPart < totalParts) {
-      await handleCopyPart(nextPart)
+      await navigator.clipboard.writeText(data.shortPasteMessage)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2200)
+    } catch {
+      setCopied(false)
     }
   }
 
@@ -49,14 +64,11 @@ export function InstagramInstructionModal({ isOpen, onClose, messageParts = [] }
     window.open(INSTAGRAM_DM_URL, '_blank')
   }
 
-  const allPartsCopied = copiedParts.size >= totalParts
-
-  if (!isOpen) return null
+  if (!data) return null
 
   return (
     <AnimatePresence>
       <>
-        {/* Backdrop */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -65,131 +77,92 @@ export function InstagramInstructionModal({ isOpen, onClose, messageParts = [] }
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70]"
         />
 
-        {/* Modal */}
         <motion.div
           initial={{ opacity: 0, scale: 0.9, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: 20 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[70] mx-auto max-w-md pointer-events-none"
+          className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[70] mx-auto max-w-md pointer-events-none max-h-[90vh]"
         >
-          <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl pointer-events-auto max-h-[85vh] overflow-y-auto">
-            {/* Close button */}
+          <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl pointer-events-auto max-h-[90vh] flex flex-col">
             <button
+              type="button"
               onClick={() => { hapticFeedback('light'); onClose() }}
               className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-mayssa-brown/60 shadow-lg backdrop-blur-sm transition-all hover:bg-white hover:text-mayssa-brown hover:scale-110 active:scale-95 cursor-pointer"
+              aria-label="Fermer"
             >
               <X size={18} />
             </button>
 
-            {/* Content */}
-            <div className="p-6 sm:p-8 space-y-6">
-              <div className="text-center space-y-1">
+            <div className="p-6 sm:p-8 space-y-5 overflow-y-auto">
+              <div className="text-center space-y-1 pr-8">
                 <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-mayssa-caramel">
                   Commande Instagram
                 </p>
                 <h3 className="text-xl sm:text-2xl font-display font-bold text-mayssa-brown">
-                  C'est presque fini !
+                  Dernière étape
                 </h3>
-                {hasMultipleParts && (
-                  <p className="text-xs text-mayssa-brown/60 mt-1">
-                    Ta commande fait {totalParts} messages (limite Instagram)
-                  </p>
-                )}
+                <p className="text-xs text-mayssa-brown/70 leading-relaxed">
+                  Tu n&apos;as qu&apos;à <strong>copier-coller</strong> le message ci-dessous dans un DM à{' '}
+                  <strong>@{INSTAGRAM_HANDLE}</strong>. Le récap de ta commande est aussi affiché pour vérifier.
+                </p>
               </div>
 
-              {/* Step 1: Message copied */}
-              <div className="flex items-start gap-4 rounded-2xl bg-emerald-50 p-4 border border-emerald-100">
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: 'spring', damping: 15, stiffness: 400, delay: 0.2 }}
-                  className="flex-shrink-0 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500 text-white"
+              <SocialOrderRecapPanel
+                orderNumber={data.orderNumber}
+                customer={data.customer}
+                items={data.items}
+                finalTotal={data.finalTotal}
+                deliveryFee={data.deliveryFee}
+                discountAmount={data.discountAmount}
+                donationAmount={data.donationAmount}
+                instagramHandle={normalizeInstagramHandle(data.customer.firstName)}
+              />
+
+              <div className="rounded-2xl bg-amber-50/90 border border-amber-100 p-3">
+                <p className="text-[11px] font-semibold text-mayssa-brown mb-1">Message à envoyer (court)</p>
+                <p className="text-[10px] text-mayssa-brown/55 mb-2">
+                  Il a été copié automatiquement ; sinon appuie sur le bouton.
+                </p>
+                <div className="rounded-xl bg-white/90 border border-mayssa-brown/10 p-3 max-h-28 overflow-y-auto mb-3">
+                  <p className="text-xs text-mayssa-brown/90 whitespace-pre-wrap break-words font-mono leading-relaxed">
+                    {data.shortPasteMessage}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  className={`flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl font-bold text-sm transition-all cursor-pointer ${
+                    copied
+                      ? 'bg-emerald-500 text-white'
+                      : 'bg-mayssa-caramel text-mayssa-brown hover:bg-mayssa-caramel/90'
+                  }`}
                 >
-                  <Check size={20} strokeWidth={3} />
-                </motion.div>
-                <div>
-                  <p className="font-bold text-mayssa-brown">
-                    {hasMultipleParts ? `Message 1/${totalParts} copié !` : 'Message copié !'}
-                  </p>
-                  <p className="text-sm text-mayssa-brown/70 mt-0.5">
-                    {hasMultipleParts
-                      ? 'Colle-le en DM, puis reviens copier la suite.'
-                      : 'Ta commande est prête dans ton presse-papier.'}
-                  </p>
-                </div>
+                  {copied ? (
+                    <>
+                      <Check size={18} strokeWidth={2.5} />
+                      Message copié !
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={18} />
+                      Copier le message
+                    </>
+                  )}
+                </button>
               </div>
 
-              {/* Multi-part: Copy remaining parts */}
-              {hasMultipleParts && (
-                <div className="space-y-2">
-                  {messageParts.map((_, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handleCopyPart(index)}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all cursor-pointer ${
-                        copiedParts.has(index)
-                          ? 'bg-emerald-50 border border-emerald-200'
-                          : 'bg-mayssa-soft/50 border border-mayssa-brown/5 hover:bg-mayssa-soft'
-                      }`}
-                    >
-                      <div className={`flex-shrink-0 flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
-                        copiedParts.has(index) ? 'bg-emerald-500 text-white' : 'bg-mayssa-brown/10 text-mayssa-brown'
-                      }`}>
-                        {copiedParts.has(index) ? <Check size={14} /> : index + 1}
-                      </div>
-                      <span className={`flex-1 text-sm font-medium ${copiedParts.has(index) ? 'text-emerald-700' : 'text-mayssa-brown'}`}>
-                        Message {index + 1}/{totalParts}
-                        {copiedParts.has(index) && ' · copié'}
-                      </span>
-                      {!copiedParts.has(index) && <Copy size={14} className="text-mayssa-brown/40" />}
-                    </button>
-                  ))}
-
-                  {!allPartsCopied && (
-                    <button
-                      onClick={handleCopyNext}
-                      className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-mayssa-caramel/10 text-mayssa-caramel font-bold text-sm hover:bg-mayssa-caramel/20 transition-colors cursor-pointer"
-                    >
-                      <Copy size={16} />
-                      Copier le message {currentPart + 2}/{totalParts}
-                      <ChevronRight size={16} />
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Step 2: Open Instagram */}
-              <div className="flex flex-col gap-4">
-                <div className="flex items-start gap-4 rounded-2xl bg-mayssa-cream/80 p-4 border border-mayssa-brown/5">
-                  <div className="flex-shrink-0 flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white">
-                    <MessageCircle size={20} />
-                  </div>
-                  <div>
-                    <p className="font-bold text-mayssa-brown">
-                      {hasMultipleParts ? 'Colle chaque message en DM' : 'Colle-le en DM Instagram'}
-                    </p>
-                    <p className="text-sm text-mayssa-brown/70 mt-0.5">
-                      {hasMultipleParts
-                        ? 'Envoie les messages un par un dans la discussion.'
-                        : 'Ouvre les messages Instagram et colle ta commande dans la discussion.'}
-                    </p>
-                  </div>
-                </div>
-
+              <div className="flex flex-col gap-3">
                 <motion.button
+                  type="button"
                   whileTap={{ scale: 0.98 }}
                   onClick={handleOpenDMs}
                   className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-gradient-to-r from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white font-bold shadow-lg hover:shadow-xl transition-shadow cursor-pointer"
                 >
                   <MessageCircle size={20} />
-                  Ouvrir les DMs Instagram
+                  Ouvrir Instagram — @{INSTAGRAM_HANDLE}
                 </motion.button>
               </div>
-
-              <p className="text-center text-xs text-mayssa-brown/50">
-                Tu peux aussi coller le message (Ctrl+V ou maintenir appuyé) sur une autre app.
-              </p>
             </div>
           </div>
         </motion.div>

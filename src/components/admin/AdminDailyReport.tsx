@@ -4,7 +4,8 @@ import { X, FileText, Download, CheckCircle, Clock, Truck, MapPin, Package, Mess
 import { jsPDF } from 'jspdf'
 import { cn } from '../../lib/utils'
 import type { Order } from '../../lib/firebase'
-import { parseDateYyyyMmDd, formatOrderItemName } from '../../lib/utils'
+import { parseDateYyyyMmDd, formatOrderItemName, expandOrderItemForProductionAggregate } from '../../lib/utils'
+import { formatOrderCustomerDisplayName } from '../../lib/orderCustomerDisplay'
 
 interface AdminDailyReportProps {
   orders: Record<string, Order>
@@ -38,14 +39,17 @@ export function AdminDailyReport({ orders, isOpen, onClose }: AdminDailyReportPr
     livrees: reportOrders.filter(([, o]) => ['livree', 'validee'].includes(o.status)).length,
   }
 
-  // Production recap: sum all items
+  // Production recap: sum all items (box découverte → une ligne par trompe choisi)
   const productionMap: Record<string, { name: string; qty: number }> = {}
   for (const [, o] of reportOrders) {
     if (o.status === 'refusee') continue
     for (const item of o.items ?? []) {
-      const key = item.productId ?? item.name
-      if (!productionMap[key]) productionMap[key] = { name: formatOrderItemName(item), qty: 0 }
-      productionMap[key].qty += item.quantity
+      const q = item.quantity ?? 1
+      for (const row of expandOrderItemForProductionAggregate({ ...item, quantity: q })) {
+        const key = row.aggregateKey
+        if (!productionMap[key]) productionMap[key] = { name: row.label, qty: 0 }
+        productionMap[key].qty += row.quantity
+      }
     }
   }
   const productionList = Object.values(productionMap).sort((a, b) => b.qty - a.qty)
@@ -104,7 +108,7 @@ export function AdminDailyReport({ orders, isOpen, onClose }: AdminDailyReportPr
 
     for (const [, o] of reportOrders) {
       if (y > 250) { doc.addPage(); y = 20 }
-      const client = [o.customer?.firstName, o.customer?.lastName].filter(Boolean).join(' ') || 'Client'
+      const client = formatOrderCustomerDisplayName(o)
       const creneau = o.requestedTime ?? '—'
       const mode = o.deliveryMode === 'livraison' ? 'Livraison' : 'Retrait'
       const total = (o.total ?? 0).toFixed(2)
@@ -261,7 +265,7 @@ export function AdminDailyReport({ orders, isOpen, onClose }: AdminDailyReportPr
                 <div className="space-y-3">
                   <p className="text-xs font-black text-mayssa-brown uppercase tracking-wider">Commandes du jour</p>
                   {reportOrders.map(([id, o]) => {
-                    const client = [o.customer?.firstName, o.customer?.lastName].filter(Boolean).join(' ') || 'Client'
+                    const client = formatOrderCustomerDisplayName(o)
                     const items = (o.items ?? []).map(i => `${i.quantity}× ${formatOrderItemName(i)}`).join(', ')
                     return (
                       <div key={id} className={cn(

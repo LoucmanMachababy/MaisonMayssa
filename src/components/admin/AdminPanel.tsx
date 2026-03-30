@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { jsPDF } from 'jspdf'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { LogOut, Package, Plus, Calendar, Clock, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp, Pencil, Search, Download, Bell, MessageSquare, MessageCircle, Filter, XCircle, Star, Tag, FileText, LayoutDashboard, Copy, Eye, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, CheckCheck, ArrowRight, Settings, Moon, Sun, PanelLeftClose, PanelLeft, Menu } from 'lucide-react'
+import { LogOut, Package, Plus, Calendar, Clock, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp, Pencil, Search, Download, Bell, MessageSquare, MessageCircle, Filter, XCircle, Star, Tag, FileText, LayoutDashboard, Copy, Eye, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, CheckCheck, ArrowRight, Settings, Moon, Sun, PanelLeftClose, PanelLeft, Menu, Percent } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import type { OrderStatus } from '../../lib/firebase'
 import {
@@ -21,8 +21,16 @@ import {
 } from '../../lib/firebase'
 import type { OrderItem } from '../../lib/firebase'
 import type { ProductOverrideMap } from '../../types'
-import { parseDateYyyyMmDd, formatOrderItemName } from '../../lib/utils'
+import {
+  parseDateYyyyMmDd,
+  formatOrderItemName,
+  getNearestPreparationPickupDate,
+  dayOffsetFromTodayToDate,
+  expandOrderItemForProductionAggregate,
+  normalizeOrderProductBaseId,
+} from '../../lib/utils'
 import { hapticFeedback } from '../../lib/haptics'
+import { buildWhatsAppChatHref } from '../../lib/whatsappOpen'
 import { exportSingleOrderPDF } from '../../lib/orderPrint'
 import type { User } from 'firebase/auth'
 import { useProducts } from '../../hooks/useProducts'
@@ -38,7 +46,7 @@ import { AdminSessionsTab } from './AdminSessionsTab'
 import { AdminSubscribersTab } from './AdminSubscribersTab'
 import { AdminCommunityTab } from './AdminCommunityTab'
 import { AdminOffSiteOrderForm } from './AdminOffSiteOrderForm'
-import { PRODUCTS } from '../../constants'
+import { PRODUCTS, BOX_DECOUVERTE_TROMPE_PRODUCT_ID, isCustomizableTrompeBundleBoxId } from '../../constants'
 import { AdminEditOrderModal } from './AdminEditOrderModal'
 import { AdminEditReviewModal } from './AdminEditReviewModal'
 import { AdminClientProfileModal } from './AdminClientProfileModal'
@@ -46,6 +54,9 @@ import { AdminNotificationsCenter } from './AdminNotificationsCenter'
 import { AdminDailyReport } from './AdminDailyReport'
 import { AdminWhatsAppDropdown } from './AdminWhatsAppDropdown'
 import { getPinnedOrders, getPinnedClients, togglePinOrder, isOrderPinned } from '../../lib/adminPins'
+import { formatOrderCustomerDisplayName } from '../../lib/orderCustomerDisplay'
+import { getOrderDepositAmount, getOrderRemainingToPay, DEPOSIT_50_PERCENT_MIN_TOTAL_EUR } from '../../lib/orderAmounts'
+import { AdminDeposit50Prompt } from './AdminDeposit50Prompt'
 import { Pin } from 'lucide-react'
 
 const DAY_LABELS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
@@ -102,6 +113,82 @@ function buildReviewMessage(order: Order): string {
   )
 }
 
+/** Message WhatsApp Business — demande d'acompte 50 % (commandes ≥ 30 € en attente). */
+const DEPOSIT_REQUEST_WHATSAPP_MESSAGE = [
+  'Bonsoir 😊  ',
+  'Merci beaucoup pour votre commande chez Maison Mayssa 💕  ',
+  '',
+  'Afin de valider votre commande, un acompte de 50% est demandé.  ',
+  'Le reste sera à régler lors de la récupération.  ',
+  '',
+  'Vous pouvez effectuer l\'acompte via : virement bancaire ou PayPal ',
+  '',
+  'Une fois l\'acompte envoyé, votre commande sera confirmée.  ',
+  'Retrait à l\'adresse suivante :  ',
+  '📍 3 rue des Edelweiss, 74000 Annecy  ',
+  '',
+  'Merci pour votre confiance 🌸',
+].join('\n')
+
+function shouldShowDepositWhatsAppButton(order: Order): boolean {
+  return (
+    order.status === 'en_attente' &&
+    (order.total ?? 0) >= DEPOSIT_50_PERCENT_MIN_TOTAL_EUR &&
+    !!order.customer?.phone?.trim()
+  )
+}
+
+function depositWhatsAppHref(order: Order): string {
+  const phone = phoneToWhatsApp(order.customer!.phone!)
+  return buildWhatsAppChatHref(phone, DEPOSIT_REQUEST_WHATSAPP_MESSAGE)
+}
+
+/** Message WhatsApp — commande confirmée, retrait sur place (en attente, pas livraison). */
+const PICKUP_CONFIRMED_WHATSAPP_MESSAGE = [
+  'Bonjour,',
+  '',
+  'Votre commande a bien été confirmée. Je vous attends au 3 rue des Edelweiss, 74000 Annecy, à l\'heure prévue.',
+  '',
+  'Merci à vous !',
+  'Maison Mayssa',
+].join('\n')
+
+function shouldShowPickupRetraitConfirmedWhatsAppButton(order: Order): boolean {
+  return (
+    order.status === 'en_attente' &&
+    order.deliveryMode === 'retrait' &&
+    !!order.customer?.phone?.trim()
+  )
+}
+
+function pickupRetraitConfirmedWhatsAppHref(order: Order): string {
+  const phone = phoneToWhatsApp(order.customer!.phone!)
+  return buildWhatsAppChatHref(phone, PICKUP_CONFIRMED_WHATSAPP_MESSAGE)
+}
+
+/** Message WhatsApp — commande confirmée, livraison (en attente, livraison uniquement). */
+const DELIVERY_CONFIRMED_WHATSAPP_MESSAGE = [
+  'Bonjour,',
+  '',
+  'Votre commande a bien été confirmée. À l\'heure de livraison que vous avez indiquée, vous serez livré(e) dans un créneau d\'une heure.',
+  '',
+  'Merci à vous !',
+  'Maison Mayssa',
+].join('\n')
+
+function shouldShowDeliveryLivraisonConfirmedWhatsAppButton(order: Order): boolean {
+  return (
+    order.status === 'en_attente' &&
+    order.deliveryMode === 'livraison' &&
+    !!order.customer?.phone?.trim()
+  )
+}
+
+function deliveryLivraisonConfirmedWhatsAppHref(order: Order): string {
+  const phone = phoneToWhatsApp(order.customer!.phone!)
+  return buildWhatsAppChatHref(phone, DELIVERY_CONFIRMED_WHATSAPP_MESSAGE)
+}
+
 const ORDER_STATUS_LABELS: Record<string, string> = {
   en_attente: 'En attente',
   en_preparation: 'En préparation',
@@ -134,12 +221,12 @@ function playNewOrderSound() {
 function exportOrdersToCSV(entries: [string, Order][], filenameSuffix?: string): void {
   const SEP = ';'
   const BOM = '\uFEFF'
-  const header = ['Date', 'Heure', 'Client', 'Téléphone', 'Source', 'Statut', 'Mode', 'Adresse', 'Distance km', 'Date retrait', 'Note client', 'Articles', 'Frais livr.', 'Total (€)'].join(SEP)
+  const header = ['Date', 'Heure', 'Client', 'Téléphone', 'Source', 'Statut', 'Mode', 'Adresse', 'Distance km', 'Date retrait', 'Note client', 'Articles', 'Frais livr.', 'Total (€)', 'Acompte (€)', 'Reste à régler (€)'].join(SEP)
   const rows = entries.map(([, o]) => {
     const date = o.createdAt ? new Date(o.createdAt) : null
     const dateStr = date ? date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
     const timeStr = date ? date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''
-    const client = [o.customer?.firstName, o.customer?.lastName].filter(Boolean).join(' ')
+    const client = formatOrderCustomerDisplayName(o)
     const phone = o.customer?.phone ?? ''
     const source = o.source === 'snap' ? 'Snap' : o.source === 'instagram' ? 'Insta' : o.source === 'whatsapp' ? 'WhatsApp' : 'Site'
     const status = ORDER_STATUS_LABELS[o.status] ?? o.status
@@ -153,7 +240,9 @@ function exportOrdersToCSV(entries: [string, Order][], filenameSuffix?: string):
     const items = (o.items ?? []).map((i) => `${i.quantity}× ${formatOrderItemName(i)}`).join(' | ')
     const deliveryFee = (o.deliveryFee ?? 0) > 0 ? (o.deliveryFee ?? 0).toFixed(2).replace('.', ',') : ''
     const total = (o.total ?? 0).toFixed(2).replace('.', ',')
-    return [dateStr, timeStr, client, phone, source, status, mode, `"${adresse}"`, distanceKm, retrait, `"${clientNote}"`, `"${items.replace(/"/g, '""')}"`, deliveryFee, total].join(SEP)
+    const ac = getOrderDepositAmount(o).toFixed(2).replace('.', ',')
+    const reste = getOrderRemainingToPay(o).toFixed(2).replace('.', ',')
+    return [dateStr, timeStr, client, phone, source, status, mode, `"${adresse}"`, distanceKm, retrait, `"${clientNote}"`, `"${items.replace(/"/g, '""')}"`, deliveryFee, total, ac, reste].join(SEP)
   })
   const csv = BOM + header + '\n' + rows.join('\n')
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
@@ -202,7 +291,7 @@ function exportOrdersToPDF(entries: [string, Order][], filenameSuffix?: string):
       ? createdAtDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
       : ''
 
-    const client = [o.customer?.firstName, o.customer?.lastName].filter(Boolean).join(' ') || 'Client'
+    const client = formatOrderCustomerDisplayName(o)
     const phone = o.customer?.phone ?? ''
     const statusLabel = ORDER_STATUS_LABELS[o.status ?? ''] ?? (o.status ?? '')
     const modeLabel = o.deliveryMode === 'livraison' ? 'Livraison' : 'Retrait'
@@ -250,6 +339,16 @@ function exportOrdersToPDF(entries: [string, Order][], filenameSuffix?: string):
 
     doc.setFont('helvetica', 'bold')
     doc.text('Total: ' + (o.total ?? 0).toFixed(2) + ' €', margin + 3, lineY)
+    lineY += 5
+    const depPdf = getOrderDepositAmount(o)
+    if (depPdf > 0) {
+      doc.setFont('helvetica', 'normal')
+      doc.text('Acompte versé: −' + depPdf.toFixed(2).replace('.', ',') + ' €', margin + 3, lineY)
+      lineY += 5
+      doc.setFont('helvetica', 'bold')
+      doc.text('Reste à régler: ' + getOrderRemainingToPay(o).toFixed(2).replace('.', ',') + ' €', margin + 3, lineY)
+      lineY += 5
+    }
 
     const cardHeight = Math.max(45, lineY - cardY + 8)
     doc.setDrawColor(91, 58, 41)
@@ -464,10 +563,19 @@ function Dashboard({ user }: { user: User }) {
     order: Order
     isDuplicate: boolean
   } | null>(null)
-  /** Planning : dates pour lesquelles le bloc "À produire" est replié (cliquer pour afficher/masquer) */
-  const [planningProductionOpen, setPlanningProductionOpen] = useState<Set<string>>(new Set())
-  /** Planning : production cumulée visible */
-  const [planningCumulOpen, setPlanningCumulOpen] = useState(false)
+  /** Modale message WhatsApp (copier / ouvrir l’app) — acompte ou retrait confirmé */
+  const [whatsappMessageModal, setWhatsappMessageModal] = useState<{
+    title: string
+    message: string
+    waHref: string
+    /** Numéro client à copier (iPhone : ouvrir WhatsApp Business → nouvelle discussion → coller) */
+    customerPhone: string
+  } | null>(null)
+  const [whatsappCopyFeedback, setWhatsappCopyFeedback] = useState<'message' | 'phone' | null>(null)
+  /** Planning : dates pour lesquelles le bloc "À produire" est replié (vide = tout ouvert par défaut) */
+  const [planningProductionCollapsed, setPlanningProductionCollapsed] = useState<Set<string>>(new Set())
+  /** Planning : production cumulée — liste détaillée (KPI toujours visibles en dessous) */
+  const [planningCumulOpen, setPlanningCumulOpen] = useState(true)
   /** Planning : bitmask des jours sélectionnés pour la prod cumulée (bit i = jour i du planning). Défaut 0b011 = auj+demain. */
   const [planningCumulDays, setPlanningCumulDays] = useState(0b0000011)
   /** Planning : jours repliés en mode "rideau" (dateStr) */
@@ -477,6 +585,8 @@ function Dashboard({ user }: { user: User }) {
   const bulkValidateRef = useRef<HTMLDivElement>(null)
   /** Décalage en jours pour la fenêtre de planning (0 = aujourd'hui, -10 = 10 jours en arrière) */
   const [planningDayOffset, setPlanningDayOffset] = useState(0)
+  /** Filtre statut sur le planning calendrier (défaut : en préparation) */
+  const [planningOrderStatusFilter, setPlanningOrderStatusFilter] = useState<OrderStatus | 'all'>('en_preparation')
   const [eventPosterUploading, setEventPosterUploading] = useState(false)
   /** Dates sélectionnées pour l'onglet Production (Set vide = aujourd'hui par défaut) */
   const [productionDates, setProductionDates] = useState<Set<string>>(new Set([]))
@@ -616,10 +726,11 @@ function Dashboard({ user }: { user: User }) {
     if (q.length < 2) return []
     return Object.entries(orders)
       .filter(([, o]) => {
-        const fullName = `${o.customer?.firstName ?? ''} ${o.customer?.lastName ?? ''}`.toLowerCase()
+        const display = formatOrderCustomerDisplayName(o).toLowerCase()
         const phone = (o.customer?.phone ?? '').replace(/[\s\-().+]/g, '')
         const orderNum = o.orderNumber != null ? String(o.orderNumber) : ''
-        return fullName.includes(q) || phone.includes(q) || orderNum.includes(q)
+        const handle = (o.customer?.contactHandle ?? '').toLowerCase()
+        return display.includes(q) || phone.includes(q) || orderNum.includes(q) || handle.includes(q)
       })
       .sort(([, a], [, b]) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
       .slice(0, 8)
@@ -667,10 +778,12 @@ function Dashboard({ user }: { user: User }) {
     // Restaurer le stock de tous les produits décrémentés à la commande.
     // Pour les trompe-l'œil : skip si excludeTrompeLoeilStock=true (hors-site sans déduction)
     for (const item of order.items) {
-      const pairs = getStockDecrementItems(item.productId ?? '', item.quantity ?? 1, PRODUCTS)
+      const pairs = getStockDecrementItems(item.productId ?? '', item.quantity ?? 1, PRODUCTS, {
+        trompeDiscoverySelection: item.trompeDiscoverySelection,
+      })
       for (const pair of pairs) {
         const isTrompe = isTrompeLoeilProductId(pair.productId)
-        if (isTrompe && order.excludeTrompeLoeilStock === true) continue
+        if (isTrompe && (order.excludeTrompeLoeilStock === true || item.excludeTrompeStock === true)) continue
         if (pair.productId in stock) {
           const currentQty = stock[pair.productId] ?? 0
           await updateStock(pair.productId, currentQty + pair.quantity)
@@ -767,14 +880,15 @@ function Dashboard({ user }: { user: User }) {
   const today = new Date().getDay()
   const isPreorderDay = isPreorderOpenNow(openings)
 
-  // Filtre par recherche (nom, téléphone) et dates
+  // Filtre par recherche (nom, téléphone, pseudo) et dates
   const matchesSearch = (o: Order) => {
     if (!searchQuery.trim()) return true
     const q = searchQuery.trim().toLowerCase()
-    const name = `${o.customer?.firstName ?? ''} ${o.customer?.lastName ?? ''}`.toLowerCase()
+    const display = formatOrderCustomerDisplayName(o).toLowerCase()
     const phone = (o.customer?.phone ?? '').replace(/\s/g, '')
+    const handle = (o.customer?.contactHandle ?? '').toLowerCase()
     const qClean = q.replace(/\s/g, '')
-    return name.includes(q) || phone.includes(qClean)
+    return display.includes(q) || phone.includes(qClean) || handle.includes(q)
   }
   const matchesDateRange = (o: Order) => {
     const ts = o.createdAt
@@ -802,6 +916,37 @@ function Dashboard({ user }: { user: User }) {
     t.setDate(t.getDate() + 1)
     return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`
   }, [])
+
+  const planningCalendarActive = tab === 'planning' || (tab === 'historique' && historiqueMode === 'calendrier')
+  const prevPlanningCalendarActiveRef = useRef(false)
+  const planningCalendarPendingOffsetRef = useRef(false)
+
+  useEffect(() => {
+    const wasActive = prevPlanningCalendarActiveRef.current
+    prevPlanningCalendarActiveRef.current = planningCalendarActive
+
+    if (!planningCalendarActive) {
+      planningCalendarPendingOffsetRef.current = false
+      return
+    }
+
+    if (!wasActive) {
+      setPlanningOrderStatusFilter('en_preparation')
+      planningCalendarPendingOffsetRef.current = true
+      if (Object.keys(orders).length > 0) {
+        const target = getNearestPreparationPickupDate(orders)
+        setPlanningDayOffset(dayOffsetFromTodayToDate(target))
+        planningCalendarPendingOffsetRef.current = false
+      }
+      return
+    }
+
+    if (planningCalendarPendingOffsetRef.current && Object.keys(orders).length > 0) {
+      const target = getNearestPreparationPickupDate(orders)
+      setPlanningDayOffset(dayOffsetFromTodayToDate(target))
+      planningCalendarPendingOffsetRef.current = false
+    }
+  }, [planningCalendarActive, orders])
 
   // Commandes à valider (toutes en_attente, toutes sources)
   const ordersToValidate = Object.entries(orders)
@@ -907,7 +1052,9 @@ function Dashboard({ user }: { user: User }) {
     if ((historiqueVue === 'a_traiter' || historiqueVue === 'a_faire') && trompeLoeilFilter) {
       result = result.filter(([, o]) =>
         o.items?.some((item) => {
-          const pairs = getStockDecrementItems(item.productId ?? '', item.quantity ?? 1, PRODUCTS)
+          const pairs = getStockDecrementItems(item.productId ?? '', item.quantity ?? 1, PRODUCTS, {
+            trompeDiscoverySelection: item.trompeDiscoverySelection,
+          })
           return pairs.some((pair) => {
             if (!isTrompeLoeilProductId(pair.productId)) return false
             const component = PRODUCTS.find(p => p.id === pair.productId)
@@ -934,7 +1081,9 @@ function Dashboard({ user }: { user: User }) {
       }
 
       for (const item of order.items ?? []) {
-        const pairs = getStockDecrementItems(item.productId ?? '', item.quantity ?? 1, PRODUCTS)
+        const pairs = getStockDecrementItems(item.productId ?? '', item.quantity ?? 1, PRODUCTS, {
+          trompeDiscoverySelection: item.trompeDiscoverySelection,
+        })
         for (const pair of pairs) {
           if (!isTrompeLoeilProductId(pair.productId)) continue
           const component = PRODUCTS.find(p => p.id === pair.productId)
@@ -1047,8 +1196,15 @@ function Dashboard({ user }: { user: User }) {
     const counts: Record<string, { name: string; qty: number; ca: number }> = {}
     for (const order of caOrders) {
       for (const item of order.items ?? []) {
-        const key = item.name || item.productId || 'Inconnu'
-        if (!counts[key]) counts[key] = { name: key.length > 25 ? key.slice(0, 22) + '…' : key, qty: 0, ca: 0 }
+        const base = normalizeOrderProductBaseId(item.productId)
+        const key =
+          (base === BOX_DECOUVERTE_TROMPE_PRODUCT_ID || isCustomizableTrompeBundleBoxId(base)) &&
+          item.trompeDiscoverySelection?.length
+            ? `${base}:${[...item.trompeDiscoverySelection].sort().join(',')}`
+            : base || item.productId || item.name || 'Inconnu'
+        const display = formatOrderItemName(item)
+        const short = display.length > 25 ? display.slice(0, 22) + '…' : display
+        if (!counts[key]) counts[key] = { name: short, qty: 0, ca: 0 }
         counts[key].qty += item.quantity
         counts[key].ca += item.price * item.quantity
       }
@@ -1076,8 +1232,15 @@ function Dashboard({ user }: { user: User }) {
     const counts: Record<string, { name: string; qty: number }> = {}
     for (const order of ordersMois) {
       for (const item of order.items ?? []) {
-        const key = item.name || item.productId || 'Inconnu'
-        if (!counts[key]) counts[key] = { name: key.length > 20 ? key.slice(0, 17) + '…' : key, qty: 0 }
+        const base = normalizeOrderProductBaseId(item.productId)
+        const key =
+          (base === BOX_DECOUVERTE_TROMPE_PRODUCT_ID || isCustomizableTrompeBundleBoxId(base)) &&
+          item.trompeDiscoverySelection?.length
+            ? `${base}:${[...item.trompeDiscoverySelection].sort().join(',')}`
+            : base || item.productId || item.name || 'Inconnu'
+        const display = formatOrderItemName(item)
+        const short = display.length > 20 ? display.slice(0, 17) + '…' : display
+        if (!counts[key]) counts[key] = { name: short, qty: 0 }
         counts[key].qty += item.quantity
       }
     }
@@ -1113,11 +1276,12 @@ function Dashboard({ user }: { user: User }) {
     const map: Record<string, { ca: number; qty: number }> = {}
     for (const order of caOrders) {
       for (const item of order.items ?? []) {
-        const id = item.productId ?? ''
+        const id = (item.productId ?? '').toLowerCase()
+        const baseLower = normalizeOrderProductBaseId(item.productId).toLowerCase()
         const cat = id.startsWith('brownie-') ? 'Brownies'
           : id.startsWith('cookie-') ? 'Cookies'
           : id.startsWith('layer-') ? 'Layer Cups'
-          : id.startsWith('trompe-loeil-') || id === 'box-trompe-loeil' || id === 'box-fruitee' || id === 'box-de-tout' ? "Trompe l'œil"
+          : id.startsWith('trompe-loeil-') || id === 'box-trompe-loeil' || id === 'box-fruitee' || id === 'box-de-tout' || baseLower === BOX_DECOUVERTE_TROMPE_PRODUCT_ID ? "Trompe l'œil"
           : id.startsWith('tiramisu-') ? 'Tiramisus'
           : id.includes('box') || id.includes('mini') ? 'Boxes'
           : 'Autres'
@@ -1289,7 +1453,12 @@ function Dashboard({ user }: { user: User }) {
   ]
 
   return (
-    <div className={cn('min-h-screen flex', isDark ? 'bg-zinc-950 text-zinc-100' : 'bg-[#fdfaf8] bg-mesh text-mayssa-brown')}>
+    <div
+      className={cn(
+        'min-h-dvh min-h-[100dvh] flex',
+        isDark ? 'bg-zinc-950 text-zinc-100' : 'bg-[#fdfaf8] bg-mesh text-mayssa-brown',
+      )}
+    >
       {/* Overlay mobile sidebar */}
       <div
         className={cn(
@@ -1302,14 +1471,15 @@ function Dashboard({ user }: { user: User }) {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed left-0 top-0 z-50 h-screen flex flex-col border-r transition-all duration-300',
+          'fixed left-0 top-0 z-50 h-dvh max-h-[100dvh] flex flex-col border-r transition-all duration-300',
+          'pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]',
           'lg:translate-x-0',
-          sidebarMobileOpen ? 'w-56' : (sidebarCollapsed ? 'w-16' : 'w-56'),
+          sidebarMobileOpen ? 'w-[min(18rem,calc(100vw-1rem))]' : (sidebarCollapsed ? 'w-16' : 'w-56'),
           isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white/95 backdrop-blur-xl border-mayssa-brown/5',
           sidebarMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
       >
-        <div className="flex items-center justify-between p-3 border-b border-inherit">
+        <div className="flex items-center justify-between p-3 sm:p-3 border-b border-inherit min-h-[52px]">
           {!sidebarCollapsed && (
             <div className="flex items-center gap-2 min-w-0">
               <div className={cn('h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0', isDark ? 'bg-mayssa-gold/20' : 'bg-mayssa-brown')}>
@@ -1322,10 +1492,14 @@ function Dashboard({ user }: { user: User }) {
             <button
               type="button"
               onClick={() => setSidebarMobileOpen(false)}
-              className={cn('p-1.5 rounded-lg transition-colors lg:hidden', isDark ? 'hover:bg-zinc-800' : 'hover:bg-mayssa-brown/5')}
+              className={cn(
+                'min-h-11 min-w-11 inline-flex items-center justify-center rounded-xl transition-colors lg:hidden',
+                isDark ? 'hover:bg-zinc-800' : 'hover:bg-mayssa-brown/5',
+              )}
               title="Fermer"
+              aria-label="Fermer le menu"
             >
-              <X size={18} />
+              <X size={22} />
             </button>
             <button
               type="button"
@@ -1337,13 +1511,13 @@ function Dashboard({ user }: { user: User }) {
             </button>
           </div>
         </div>
-        <nav className="flex-1 overflow-y-auto py-2 space-y-0.5">
+        <nav className="flex-1 overflow-y-auto overscroll-y-contain py-2 space-y-0.5 touch-pan-y">
           {navItems.map((t) => (
             <button
               key={t.id}
               onClick={() => { setTab(t.id as any); setSidebarMobileOpen(false) }}
               className={cn(
-                'w-full flex items-center gap-3 px-3 py-2.5 text-left transition-all',
+                'w-full flex items-center gap-3 px-3 py-3.5 text-left transition-all lg:py-2.5 min-h-[48px] lg:min-h-0',
                 sidebarCollapsed ? 'justify-center px-0' : '',
                 tab === t.id
                   ? isDark ? 'bg-mayssa-gold/20 text-mayssa-gold border-r-2 border-mayssa-gold' : 'bg-mayssa-brown/10 text-mayssa-brown border-r-2 border-mayssa-brown'
@@ -1398,12 +1572,12 @@ function Dashboard({ user }: { user: User }) {
             </div>
           )}
         </nav>
-        <div className="p-2 border-t border-inherit">
+        <div className="p-2 border-t border-inherit pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]">
           <button
             type="button"
             onClick={() => setDarkMode((d) => !d)}
             className={cn(
-              'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors',
+              'w-full flex items-center gap-3 px-3 py-3.5 rounded-lg transition-colors lg:py-2.5 min-h-[48px] lg:min-h-0',
               sidebarCollapsed ? 'justify-center px-0' : '',
               isDark ? 'text-zinc-400 hover:bg-zinc-800' : 'text-mayssa-brown/60 hover:bg-mayssa-brown/5'
             )}
@@ -1416,32 +1590,51 @@ function Dashboard({ user }: { user: User }) {
       </aside>
 
       {/* Main content */}
-      <div className={cn('flex-1 flex flex-col min-w-0 ml-0', sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-56')}>
+      <div
+        className={cn(
+          'flex-1 flex flex-col min-w-0 ml-0 w-full min-h-0',
+          /* Mobile : une seule colonne scrollable (évite le body qui « saute » et garde header + recherche visibles) */
+          'max-lg:h-dvh max-lg:max-h-dvh max-lg:overflow-hidden',
+          sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-56',
+        )}
+      >
       {/* Header premium admin */}
-      <header className={cn('sticky top-0 z-30 flex-shrink-0', isDark ? 'bg-zinc-900/95 backdrop-blur-xl border-b border-zinc-800' : 'bg-white/90 backdrop-blur-2xl border-b border-mayssa-brown/5 shadow-sm')}>
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+      <header
+        className={cn(
+          'sticky top-0 z-30 flex-shrink-0 max-lg:relative max-lg:shrink-0 pt-[env(safe-area-inset-top,0px)]',
+          isDark ? 'bg-zinc-900/95 backdrop-blur-xl border-b border-zinc-800' : 'bg-white/90 backdrop-blur-2xl border-b border-mayssa-brown/5 shadow-sm',
+        )}
+      >
+        <div className="max-w-5xl mx-auto px-3 sm:px-6 py-2.5 sm:py-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 basis-[min(100%,14rem)] sm:basis-auto sm:flex-initial">
             <button
               type="button"
               onClick={() => setSidebarMobileOpen(true)}
-              className={cn('lg:hidden p-2 rounded-xl transition-colors', isDark ? 'hover:bg-zinc-800' : 'hover:bg-mayssa-brown/5')}
+              className={cn(
+                'lg:hidden min-h-11 min-w-11 inline-flex items-center justify-center rounded-xl transition-colors shrink-0',
+                isDark ? 'hover:bg-zinc-800' : 'hover:bg-mayssa-brown/5',
+              )}
               title="Menu"
               aria-label="Ouvrir le menu"
             >
-              <Menu size={22} className={isDark ? 'text-zinc-300' : 'text-mayssa-brown'} />
+              <Menu size={24} className={isDark ? 'text-zinc-300' : 'text-mayssa-brown'} />
             </button>
-            <div className={cn('h-9 w-9 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0', isDark ? 'bg-mayssa-gold/20' : 'bg-mayssa-brown')}>
+            <div className={cn('h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0', isDark ? 'bg-mayssa-gold/20' : 'bg-mayssa-brown')}>
               <LayoutDashboard size={18} className={isDark ? 'text-mayssa-gold' : 'text-white'} />
             </div>
-            <div className="hidden sm:block">
-              <h1 className={cn('text-sm font-display font-bold tracking-tight', isDark ? 'text-zinc-100' : 'text-mayssa-brown')}>Maison Mayssa Admin</h1>
-              <p className={cn('text-[10px] tabular-nums', isDark ? 'text-zinc-500' : 'text-mayssa-brown/40')}>{user.email}</p>
+            <div className="min-w-0 flex-1">
+              <h1 className={cn('text-xs sm:text-sm font-display font-bold tracking-tight truncate', isDark ? 'text-zinc-100' : 'text-mayssa-brown')}>
+                Maison Mayssa Admin
+              </h1>
+              <p className={cn('text-[9px] sm:text-[10px] tabular-nums truncate max-w-[55vw] sm:max-w-[240px] md:max-w-md', isDark ? 'text-zinc-500' : 'text-mayssa-brown/40')}>
+                {user.email}
+              </p>
             </div>
           </div>
 
           {/* Status badge */}
           <div className={cn(
-            'flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border flex-shrink-0',
+            'flex items-center gap-2 px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border flex-shrink-0 min-h-9',
             settings.ordersOpen === false
               ? 'bg-red-50 text-red-700 border-red-200'
               : 'bg-emerald-50 text-emerald-700 border-emerald-200'
@@ -1450,14 +1643,14 @@ function Dashboard({ user }: { user: User }) {
             {settings.ordersOpen === false ? 'Fermé' : 'Ouvert'}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 w-full sm:w-auto justify-end sm:justify-start">
             {/* Daily report button */}
             <button
               onClick={() => setShowDailyReport(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-mayssa-gold/10 text-mayssa-gold text-[10px] font-black uppercase tracking-wider hover:bg-mayssa-gold/20 transition-all cursor-pointer border border-mayssa-gold/20"
+              className="flex items-center justify-center gap-1.5 min-h-11 min-w-11 sm:min-w-0 px-2.5 sm:px-3 sm:py-2 rounded-xl bg-mayssa-gold/10 text-mayssa-gold text-[10px] font-black uppercase tracking-wider hover:bg-mayssa-gold/20 transition-all cursor-pointer border border-mayssa-gold/20"
               title="Rapport journalier"
             >
-              <FileText size={14} />
+              <FileText size={16} className="sm:shrink-0" />
               <span className="hidden sm:inline">Rapport</span>
             </button>
 
@@ -1466,14 +1659,15 @@ function Dashboard({ user }: { user: User }) {
               <button
                 onClick={() => setShowNotifications(s => !s)}
                 className={cn(
-                  'relative p-2.5 rounded-xl transition-all duration-300 border cursor-pointer',
+                  'relative min-h-11 min-w-11 inline-flex items-center justify-center rounded-xl transition-all duration-300 border cursor-pointer',
                   showNotifications
                     ? 'bg-mayssa-brown text-white border-mayssa-brown'
                     : 'bg-mayssa-brown/5 text-mayssa-brown/60 border-mayssa-brown/10 hover:bg-mayssa-brown/10'
                 )}
                 title="Notifications"
+                aria-label="Notifications"
               >
-                <Bell size={16} fill={soundEnabled ? 'currentColor' : 'none'} />
+                <Bell size={18} fill={soundEnabled ? 'currentColor' : 'none'} />
               </button>
               <AdminNotificationsCenter
                 orders={orders}
@@ -1494,38 +1688,42 @@ function Dashboard({ user }: { user: User }) {
                 setSoundEnabled((s) => !s)
               }}
               className={cn(
-                'p-2.5 rounded-xl transition-all duration-300 border cursor-pointer',
+                'min-h-11 min-w-11 inline-flex items-center justify-center rounded-xl transition-all duration-300 border cursor-pointer text-lg',
                 soundEnabled
                   ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
                   : 'bg-mayssa-brown/5 text-mayssa-brown/30 border-mayssa-brown/10'
               )}
               title={soundEnabled ? 'Son activé' : 'Son coupé'}
+              aria-label={soundEnabled ? 'Son activé' : 'Son coupé'}
             >
               {soundEnabled ? '🔔' : '🔕'}
             </button>
 
             <button
               onClick={handleLogout}
-              className="p-2.5 rounded-xl text-mayssa-brown/40 hover:text-red-500 hover:bg-red-50 transition-all duration-300 border border-transparent hover:border-red-200 cursor-pointer"
+              className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-xl text-mayssa-brown/40 hover:text-red-500 hover:bg-red-50 transition-all duration-300 border border-transparent hover:border-red-200 cursor-pointer"
               title="Déconnexion"
+              aria-label="Déconnexion"
             >
-              <LogOut size={16} />
+              <LogOut size={18} />
             </button>
           </div>
         </div>
       </header>
 
       {/* Recherche globale */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-4 sm:pt-8 relative z-30">
-        <div className="relative group">
-          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-mayssa-brown/30 group-focus-within:text-mayssa-gold transition-colors" />
+      <div className="max-w-5xl mx-auto px-3 sm:px-6 pt-3 sm:pt-8 relative z-30 flex-shrink-0 max-lg:shrink-0 w-full min-w-0">
+        <div className="relative group w-full min-w-0">
+          <Search size={18} className="absolute left-3.5 sm:left-4 top-1/2 -translate-y-1/2 text-mayssa-brown/30 group-focus-within:text-mayssa-gold transition-colors pointer-events-none z-[1]" />
           <input
             type="search"
             value={globalSearch}
             onChange={(e) => setGlobalSearch(e.target.value)}
-            placeholder="Rechercher un client, téléphone, commande..."
+            placeholder="Client, tél. ou n° commande…"
+            aria-label="Rechercher un client, un numéro de téléphone ou un numéro de commande"
+            title="Rechercher un client, un numéro de téléphone ou un numéro de commande"
             className={cn(
-              'w-full rounded-[2rem] pl-12 pr-12 py-4 text-sm font-medium backdrop-blur-xl shadow-premium-shadow focus:outline-none focus:ring-2 focus:ring-mayssa-gold/20 focus:border-mayssa-gold transition-all',
+              'w-full min-w-0 rounded-[2rem] pl-11 sm:pl-12 pr-11 sm:pr-12 py-3.5 sm:py-4 text-base sm:text-sm font-medium backdrop-blur-xl shadow-premium-shadow focus:outline-none focus:ring-2 focus:ring-mayssa-gold/20 focus:border-mayssa-gold transition-all',
               isDark ? 'border border-zinc-700 bg-zinc-800/80 text-zinc-100 placeholder:text-zinc-500' : 'border border-mayssa-brown/10 text-mayssa-brown placeholder:text-mayssa-brown/30 bg-white/80'
             )}
           />
@@ -1571,7 +1769,7 @@ function Dashboard({ user }: { user: User }) {
                         </div>
                         <div>
                           <p className={cn('text-sm font-bold', isDark ? 'text-zinc-200' : 'text-mayssa-brown')}>
-                            {order.customer?.firstName} {order.customer?.lastName}
+                            {formatOrderCustomerDisplayName(order)}
                           </p>
                           <p className={cn('text-[10px] font-medium', isDark ? 'text-zinc-500' : 'text-mayssa-brown/50')}>
                             {order.orderNumber ? `#${order.orderNumber}` : 'Sans numéro'} • {new Date(order.createdAt ?? 0).toLocaleDateString('fr-FR')}
@@ -1598,7 +1796,14 @@ function Dashboard({ user }: { user: User }) {
         </div>
       </div>
 
-      <main className={cn('max-w-2xl mx-auto px-3 sm:px-4 py-4 space-y-4 pb-8 flex-1 overflow-x-hidden', isDark ? '' : '')}>
+      <main
+        className={cn(
+          'w-full max-w-full md:max-w-3xl lg:max-w-4xl mx-auto px-3 sm:px-5 py-4 space-y-4 flex-1 overflow-x-hidden',
+          'max-lg:min-h-0 max-lg:overflow-y-auto max-lg:overscroll-y-contain touch-pan-y',
+          'pb-[max(2rem,calc(env(safe-area-inset-bottom,0px)+1rem))]',
+          isDark ? '' : '',
+        )}
+      >
         {/* Status banner */}
         <div className={cn(
           'rounded-2xl p-4 text-center shadow-sm',
@@ -1720,7 +1925,7 @@ function Dashboard({ user }: { user: User }) {
                           isDark ? 'bg-amber-900/50 text-amber-200 hover:bg-amber-800/50' : 'bg-amber-100 text-amber-800 hover:bg-amber-200'
                         )}
                       >
-                        {o.customer?.firstName} — {o.requestedTime}
+                        {formatOrderCustomerDisplayName(o)} — {o.requestedTime}
                       </button>
                     ))}
                   </div>
@@ -1780,7 +1985,7 @@ function Dashboard({ user }: { user: User }) {
                         >
                           <div className="min-w-0 flex-1">
                             <p className={cn('text-xs font-bold truncate', isDark ? 'text-zinc-200' : 'text-mayssa-brown')}>
-                              {o.customer?.firstName} {o.customer?.lastName}
+                              {formatOrderCustomerDisplayName(o)}
                             </p>
                             <p className={cn('text-[10px]', isDark ? 'text-zinc-500' : 'text-mayssa-brown/50')}>
                               {new Date(o.createdAt ?? 0).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
@@ -1869,9 +2074,12 @@ function Dashboard({ user }: { user: User }) {
                     for (const [, o] of ordersPourPrepDate) {
                       if (o.status === 'refusee') continue
                       for (const item of o.items ?? []) {
-                        const key = item.productId ?? item.name
-                        if (!prodMap[key]) prodMap[key] = { name: formatOrderItemName(item), qty: 0 }
-                        prodMap[key].qty += item.quantity
+                        const q = item.quantity ?? 1
+                        for (const row of expandOrderItemForProductionAggregate({ ...item, quantity: q })) {
+                          const key = row.aggregateKey
+                          if (!prodMap[key]) prodMap[key] = { name: row.label, qty: 0 }
+                          prodMap[key].qty += row.quantity
+                        }
                       }
                     }
                     const prodList = Object.values(prodMap).sort((a, b) => b.qty - a.qty)
@@ -1890,7 +2098,7 @@ function Dashboard({ user }: { user: User }) {
                   })()}
                   <ul className="space-y-2">
                     {ordersPourPrepDate.map(([id, order]) => {
-                      const client = [order.customer?.firstName, order.customer?.lastName].filter(Boolean).join(' ') || 'Client'
+                      const client = formatOrderCustomerDisplayName(order)
                       const reqDate = order.requestedDate ?? ''
                       const creneau = order.requestedTime
                         ? `${parseDateYyyyMmDd(reqDate).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })} à ${order.requestedTime}`
@@ -2029,7 +2237,7 @@ function Dashboard({ user }: { user: User }) {
                   <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-mayssa-brown/40" />
                   <input
                     type="text"
-                    placeholder="Nom ou téléphone..."
+                    placeholder="Nom, téléphone ou pseudo..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-mayssa-brown/10 text-xs text-mayssa-brown bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel focus:border-transparent"
@@ -2248,7 +2456,7 @@ function Dashboard({ user }: { user: User }) {
                       </p>
                       <div className="flex items-center gap-2 mb-0.5">
                         <p className="text-sm font-bold text-mayssa-brown">
-                          {order.customer?.firstName} {order.customer?.lastName}
+                          {formatOrderCustomerDisplayName(order)}
                         </p>
                         <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold border ${
                           orderSource === 'snap' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
@@ -2259,18 +2467,20 @@ function Dashboard({ user }: { user: User }) {
                           {orderSource === 'snap' ? 'Snap' : orderSource === 'instagram' ? 'Insta' : orderSource === 'whatsapp' ? 'WhatsApp' : 'Site'}
                         </span>
                       </div>
-                      {order.customer?.phone && (
+                      {(order.customer?.phone || order.customer?.contactHandle) && (
                         <div className="flex items-center gap-2 mt-0.5">
                           <p className="text-[10px] text-mayssa-brown/50 flex items-center gap-1">
                             <Phone size={10} />
-                            {order.customer.phone}
+                            {order.customer.phone || (order.customer.contactPlatform ? `${order.customer.contactPlatform === 'snap' ? 'snap' : 'insta'}: ${order.customer.contactHandle}` : order.customer.contactHandle)}
                           </p>
-                          <AdminWhatsAppDropdown order={order} variant="compact" darkMode={isDark} />
+                          {(orderSource === 'whatsapp' && order.customer?.phone) && (
+                            <AdminWhatsAppDropdown order={order} variant="compact" darkMode={isDark} />
+                          )}
                           <button
                             type="button"
-                            onClick={() => { navigator.clipboard.writeText(order.customer!.phone!); }}
+                            onClick={() => { navigator.clipboard.writeText((order.customer?.phone || order.customer?.contactHandle || '').toString()); }}
                             className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-mayssa-brown/10 text-mayssa-brown text-[9px] font-bold hover:bg-mayssa-brown/20 transition-colors cursor-pointer"
-                            title="Copier le numéro"
+                            title={order.customer?.phone ? 'Copier le numéro' : 'Copier le pseudo'}
                           >
                             <Copy size={10} />
                             Copier
@@ -2366,7 +2576,7 @@ function Dashboard({ user }: { user: User }) {
                       </div>
                     )}
                     <div className="border-t border-mayssa-brown/10 pt-1 mt-1 flex justify-between items-center">
-                      <span className="text-xs font-bold text-mayssa-brown">Total</span>
+                      <span className="text-xs font-bold text-mayssa-brown">Total TTC</span>
                       <div className="flex items-center gap-1.5">
                         {(order.discountAmount ?? 0) > 0 && (
                           <span className="text-xs text-mayssa-brown/40 line-through">
@@ -2378,10 +2588,28 @@ function Dashboard({ user }: { user: User }) {
                         </span>
                       </div>
                     </div>
+                    {getOrderDepositAmount(order) > 0 && (
+                      <div className="flex items-center justify-between text-xs pt-1 border-t border-mayssa-brown/10">
+                        <span className="text-mayssa-brown/70">Acompte versé</span>
+                        <span className="font-bold text-mayssa-brown">
+                          −{getOrderDepositAmount(order).toFixed(2).replace('.', ',')} €
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between text-xs pt-1 mt-0.5 font-bold text-amber-800 border-t border-mayssa-brown/10">
+                      <span>Reste à régler</span>
+                      <span className="font-numeric text-sm">
+                        {getOrderRemainingToPay(order).toFixed(2).replace('.', ',')} €
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex flex-wrap gap-2">
+                  <div className="mt-2">
+                    <AdminDeposit50Prompt orderId={id} order={order} variant={isDark ? 'dark' : 'light'} />
+                  </div>
+
+                  {/* Actions — zones tactiles plus hautes sur mobile */}
+                  <div className="flex flex-wrap gap-2 touch-manipulation max-sm:[&_button]:min-h-12 max-sm:[&_button]:shrink-0 max-sm:[&_a]:min-h-12 max-sm:[&_a]:inline-flex max-sm:[&_a]:items-center">
                     <button
                       onClick={() => { hapticFeedback('light'); exportSingleOrderPDF(order, id) }}
                       className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-mayssa-brown/10 text-mayssa-brown text-xs font-bold hover:bg-mayssa-brown/20 transition-colors cursor-pointer"
@@ -2390,9 +2618,69 @@ function Dashboard({ user }: { user: User }) {
                       <Download size={14} />
                       PDF
                     </button>
-                    {order.customer?.phone && (
-                        <AdminWhatsAppDropdown order={order} variant="full" darkMode={isDark} />
-                      )}
+                    {(orderSource === 'whatsapp' && order.customer?.phone) && (
+                      <AdminWhatsAppDropdown order={order} variant="full" darkMode={isDark} />
+                    )}
+                    {shouldShowDepositWhatsAppButton(order) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          hapticFeedback('light')
+                          setWhatsappCopyFeedback(null)
+                          setWhatsappMessageModal({
+                            title: 'Message WhatsApp — acompte 50 %',
+                            message: DEPOSIT_REQUEST_WHATSAPP_MESSAGE,
+                            waHref: depositWhatsAppHref(order),
+                            customerPhone: order.customer!.phone!.trim(),
+                          })
+                        }}
+                        className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition-colors cursor-pointer shadow-sm"
+                        title="Copier le message ou ouvrir WhatsApp"
+                      >
+                        <MessageCircle size={14} />
+                        Acompte 50 %
+                      </button>
+                    )}
+                    {shouldShowPickupRetraitConfirmedWhatsAppButton(order) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          hapticFeedback('light')
+                          setWhatsappCopyFeedback(null)
+                          setWhatsappMessageModal({
+                            title: 'Message WhatsApp — retrait confirmé',
+                            message: PICKUP_CONFIRMED_WHATSAPP_MESSAGE,
+                            waHref: pickupRetraitConfirmedWhatsAppHref(order),
+                            customerPhone: order.customer!.phone!.trim(),
+                          })
+                        }}
+                        className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-sky-600 text-white text-xs font-bold hover:bg-sky-700 transition-colors cursor-pointer shadow-sm"
+                        title="Copier le message ou ouvrir WhatsApp"
+                      >
+                        <MapPin size={14} />
+                        Retrait confirmé
+                      </button>
+                    )}
+                    {shouldShowDeliveryLivraisonConfirmedWhatsAppButton(order) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          hapticFeedback('light')
+                          setWhatsappCopyFeedback(null)
+                          setWhatsappMessageModal({
+                            title: 'Message WhatsApp — livraison confirmée',
+                            message: DELIVERY_CONFIRMED_WHATSAPP_MESSAGE,
+                            waHref: deliveryLivraisonConfirmedWhatsAppHref(order),
+                            customerPhone: order.customer!.phone!.trim(),
+                          })
+                        }}
+                        className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-violet-600 text-white text-xs font-bold hover:bg-violet-700 transition-colors cursor-pointer shadow-sm"
+                        title="Copier le message ou ouvrir WhatsApp (Business sur Android si installé)"
+                      >
+                        <Truck size={14} />
+                        Livraison confirmée
+                      </button>
+                    )}
                     <button
                       onClick={() => setEditingOrderId(id)}
                       className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-mayssa-brown/10 text-mayssa-brown text-xs font-bold hover:bg-mayssa-brown/20 transition-colors cursor-pointer"
@@ -2638,7 +2926,7 @@ function Dashboard({ user }: { user: User }) {
                   <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-mayssa-brown/40" />
                   <input
                     type="text"
-                    placeholder="Nom ou téléphone..."
+                    placeholder="Nom, téléphone ou pseudo..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-mayssa-brown/10 text-xs text-mayssa-brown bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
@@ -2804,7 +3092,7 @@ function Dashboard({ user }: { user: User }) {
                           </p>
                           <div className="flex items-center gap-2 mb-0.5">
                             <p className="font-bold text-sm text-mayssa-brown">
-                              {order.customer?.firstName} {order.customer?.lastName}
+                              {formatOrderCustomerDisplayName(order)}
                             </p>
                             <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold ${
                               orderSource === 'snap' ? 'bg-yellow-100 text-yellow-800' :
@@ -2815,27 +3103,29 @@ function Dashboard({ user }: { user: User }) {
                               {orderSource === 'snap' ? 'Snap' : orderSource === 'instagram' ? 'Insta' : orderSource === 'whatsapp' ? 'WhatsApp' : 'Site'}
                             </span>
                           </div>
-                          {order.customer?.phone && (
+                          {(order.customer?.phone || order.customer?.contactHandle) && (
                             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                               <p className="text-[10px] text-mayssa-brown/50 flex items-center gap-1">
                                 <Phone size={10} />
-                                {order.customer.phone}
+                                {order.customer.phone || (order.customer.contactPlatform ? `${order.customer.contactPlatform === 'snap' ? 'snap' : 'insta'}: ${order.customer.contactHandle}` : order.customer.contactHandle)}
                               </p>
-                              <a
-                                href={`https://wa.me/${phoneToWhatsApp(order.customer.phone)}`}
-                                target="_blank"
-                                rel="noreferrer noopener"
-                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-green-500 text-white text-[9px] font-bold hover:bg-green-600 transition-colors"
-                                title="Ouvrir WhatsApp"
-                              >
-                                <MessageCircle size={10} />
-                                WhatsApp
-                              </a>
+                              {(orderSource === 'whatsapp' && order.customer?.phone) && (
+                                <a
+                                  href={buildWhatsAppChatHref(phoneToWhatsApp(order.customer.phone), '')}
+                                  target="_blank"
+                                  rel="noreferrer noopener"
+                                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-green-500 text-white text-[9px] font-bold hover:bg-green-600 transition-colors"
+                                  title="Ouvrir WhatsApp"
+                                >
+                                  <MessageCircle size={10} />
+                                  WhatsApp
+                                </a>
+                              )}
                               <button
                                 type="button"
-                                onClick={() => { navigator.clipboard.writeText(order.customer!.phone!); }}
+                                onClick={() => { navigator.clipboard.writeText((order.customer?.phone || order.customer?.contactHandle || '').toString()); }}
                                 className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-mayssa-brown/10 text-mayssa-brown text-[9px] font-bold hover:bg-mayssa-brown/20 transition-colors cursor-pointer"
-                                title="Copier le numéro"
+                                title={order.customer?.phone ? 'Copier le numéro' : 'Copier le pseudo'}
                               >
                                 <Copy size={10} />
                                 Copier
@@ -2914,7 +3204,7 @@ function Dashboard({ user }: { user: User }) {
                         {order.items?.map((item, i) => (
                           <div key={i} className="flex items-center justify-between text-xs">
                             <span className="text-mayssa-brown">
-                              {item.quantity}× {formatOrderItemName(item)}
+                            {item.quantity}× {formatOrderItemName(item)}
                             </span>
                             <span className="font-bold text-mayssa-brown">
                               {(item.price * item.quantity).toFixed(2).replace('.', ',')} €
@@ -2937,7 +3227,7 @@ function Dashboard({ user }: { user: User }) {
                           </div>
                         )}
                         <div className="border-t border-mayssa-brown/10 pt-1 mt-1 flex justify-between items-center">
-                          <span className="text-xs font-bold text-mayssa-brown">Total</span>
+                          <span className="text-xs font-bold text-mayssa-brown">Total TTC</span>
                           <div className="flex items-center gap-1.5">
                             {(order.discountAmount ?? 0) > 0 && (
                               <span className="text-xs text-mayssa-brown/40 line-through">
@@ -2949,6 +3239,24 @@ function Dashboard({ user }: { user: User }) {
                             </span>
                           </div>
                         </div>
+                        {getOrderDepositAmount(order) > 0 && (
+                          <div className="flex items-center justify-between text-xs pt-1 border-t border-mayssa-brown/10">
+                            <span className="text-mayssa-brown/70">Acompte versé</span>
+                            <span className="font-bold text-mayssa-brown">
+                              −{getOrderDepositAmount(order).toFixed(2).replace('.', ',')} €
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between text-xs pt-1 mt-0.5 font-bold text-amber-800 border-t border-mayssa-brown/10">
+                          <span>Reste à régler</span>
+                          <span className="font-numeric text-sm">
+                            {getOrderRemainingToPay(order).toFixed(2).replace('.', ',')} €
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mt-2">
+                        <AdminDeposit50Prompt orderId={id} order={order} variant="light" />
                       </div>
 
                       {/* Statut + Actions */}
@@ -2973,7 +3281,7 @@ function Dashboard({ user }: { user: User }) {
                           <Download size={14} />
                           PDF
                         </button>
-                        {order.customer?.phone && (() => {
+                        {(orderSource === 'whatsapp' && order.customer?.phone) && (() => {
                           const prenom = order.customer?.firstName ?? ''
                           const ref = order.orderNumber ? `#${order.orderNumber}` : ''
                           const msgs: Record<string, string> = {
@@ -2987,7 +3295,7 @@ function Dashboard({ user }: { user: User }) {
                           const msg = msgs[order.status] ?? msgs['en_attente']
                           return (
                             <a
-                              href={`https://wa.me/${phoneToWhatsApp(order.customer.phone)}?text=${encodeURIComponent(msg)}`}
+                              href={buildWhatsAppChatHref(phoneToWhatsApp(order.customer.phone), msg)}
                               target="_blank"
                               rel="noreferrer noopener"
                               className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-green-500 text-white text-xs font-bold hover:bg-green-600 transition-colors"
@@ -3555,10 +3863,20 @@ function Dashboard({ user }: { user: User }) {
                 </button>
               ))}
             </div>
-            {catalogueSection === 'stock' && <AdminStockTab allProducts={allProducts} stock={stock} />}
+            {catalogueSection === 'stock' && (
+              <AdminStockTab
+                allProducts={allProducts}
+                stock={stock}
+                boxDecouverteTrompeExcludedIds={settings.boxDecouverteTrompeExcludedIds ?? []}
+              />
+            )}
             {catalogueSection === 'produits' && (
               <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
-                <AdminProductsTab allProducts={allProducts} overrides={productOverrides} />
+                <AdminProductsTab
+                  allProducts={allProducts}
+                  overrides={productOverrides}
+                  boxDecouverteTrompeExcludedIds={settings.boxDecouverteTrompeExcludedIds ?? []}
+                />
               </motion.div>
             )}
             {catalogueSection === 'promos' && <AdminPromosTab promoCodes={promoCodes} />}
@@ -3572,7 +3890,11 @@ function Dashboard({ user }: { user: User }) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2 }}
           >
-            <AdminStockTab allProducts={allProducts} stock={stock} />
+            <AdminStockTab
+              allProducts={allProducts}
+              stock={stock}
+              boxDecouverteTrompeExcludedIds={settings.boxDecouverteTrompeExcludedIds ?? []}
+            />
           </motion.div>
         )}
 
@@ -4160,7 +4482,11 @@ function Dashboard({ user }: { user: User }) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2 }}
           >
-            <AdminProductsTab allProducts={allProducts} overrides={productOverrides} />
+            <AdminProductsTab
+              allProducts={allProducts}
+              overrides={productOverrides}
+              boxDecouverteTrompeExcludedIds={settings.boxDecouverteTrompeExcludedIds ?? []}
+            />
           </motion.div>
         )}
 
@@ -4272,18 +4598,28 @@ function Dashboard({ user }: { user: User }) {
             })
           }
 
-          // Agrégation multi-dates
-          const productionMap = new Map<string, { name: string; quantity: number; orders: number }>()
+          // Agrégation multi-dates (box découverte → une ligne par trompe + libellés catalogue)
+          const productionMap = new Map<string, { aggregateKey: string; name: string; quantity: number; orders: number }>()
           let totalOrders = 0
           for (const [, order] of Object.entries(orders)) {
             if (order.status === 'refusee' || order.status === 'livree' || order.status === 'validee' || order.status === 'pret') continue
             if (!order.requestedDate || !selectedDates.has(order.requestedDate)) continue
             totalOrders++
             for (const item of order.items ?? []) {
-              const key = item.name || item.productId || 'Inconnu'
-              const existing = productionMap.get(key)
-              if (existing) { existing.quantity += item.quantity ?? 1; existing.orders++ }
-              else { productionMap.set(key, { name: key, quantity: item.quantity ?? 1, orders: 1 }) }
+              const lineQty = item.quantity ?? 1
+              const rows = expandOrderItemForProductionAggregate({ ...item, quantity: lineQty })
+              rows.forEach((row) => {
+                const aggKey = row.aggregateKey
+                const existing = productionMap.get(aggKey)
+                // +1 par ligne parente : chaque saveur d’une box reçoit le même nombre de « cmd » que de boîtes concernées
+                const orderDelta = 1
+                if (existing) {
+                  existing.quantity += row.quantity
+                  existing.orders += orderDelta
+                } else {
+                  productionMap.set(aggKey, { aggregateKey: aggKey, name: row.label, quantity: row.quantity, orders: orderDelta })
+                }
+              })
             }
           }
           const productionList = Array.from(productionMap.values()).sort((a, b) => b.quantity - a.quantity)
@@ -4451,7 +4787,7 @@ function Dashboard({ user }: { user: User }) {
                           doc.setTextColor(60, 40, 20)
                           doc.text(item.name, 20, y)
                           doc.setTextColor(150, 120, 90)
-                          doc.text(String(item.orders), 148, y, { align: 'right' })
+                          doc.text(item.orders > 0 ? String(item.orders) : '—', 148, y, { align: 'right' })
                           doc.setFont('helvetica', 'bold')
                           doc.setTextColor(196, 154, 108)
                           doc.setFontSize(11)
@@ -4500,12 +4836,12 @@ function Dashboard({ user }: { user: User }) {
                   <div className="space-y-2">
                     {productionList.map((item) => (
                       <div
-                        key={item.name}
+                        key={item.aggregateKey}
                         className="flex items-center justify-between p-3 rounded-xl bg-mayssa-soft/30 border border-mayssa-brown/5"
                       >
                         <span className="text-sm font-semibold text-mayssa-brown">{item.name}</span>
                         <div className="flex items-center gap-3">
-                          <span className="text-[10px] text-mayssa-brown/40">{item.orders} cmd</span>
+                          <span className="text-[10px] text-mayssa-brown/40">{item.orders > 0 ? `${item.orders} cmd` : '—'}</span>
                           <span className="text-xl font-display font-bold text-mayssa-caramel w-10 text-right">{item.quantity}</span>
                         </div>
                       </div>
@@ -4546,7 +4882,7 @@ function Dashboard({ user }: { user: User }) {
                               </span>
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="font-bold text-sm text-mayssa-brown">{order.customer?.firstName} {order.customer?.lastName}</p>
+                              <p className="font-bold text-sm text-mayssa-brown">{formatOrderCustomerDisplayName(order)}</p>
                               <p className="text-[10px] text-mayssa-brown/50">{order.deliveryMode === 'livraison' ? '🚗 Livraison' : '📍 Retrait'}</p>
                               <ul className="mt-1 space-y-0.5">
                                 {order.items?.map((item, i) => (
@@ -4571,43 +4907,14 @@ function Dashboard({ user }: { user: User }) {
           /** Statuts considérés comme "déjà faits" : pas comptés dans "reste à faire" */
           const DONE_STATUSES = ['validee', 'livree', 'pret'] as const
 
-          /** Box Trompe l'œil = 1 de chaque saveur ; on décompose en trompes l'œil individuels pour le calcul */
-          const BOX_TROMPE_LOEIL_LABELS = [
-            "Trompe l'oeil Mangue",
-            "Trompe l'oeil Citron",
-            "Trompe l'oeil Pistache",
-            "Trompe l'oeil Passion",
-            "Trompe l'oeil Framboise",
-            "Trompe l'oeil Cacahuète",
-            "Trompe l'oeil Fraise",
-          ]
-          const BOX_FRUITEE_LABELS = [
-            "Trompe l'oeil Mangue",
-            "Trompe l'oeil Citron",
-            "Trompe l'oeil Passion",
-            "Trompe l'oeil Framboise",
-            "Trompe l'oeil Fraise",
-            "Trompe l'oeil Myrtille",
-          ]
-          const BOX_DE_TOUT_LABELS = [
-            "Trompe l'oeil Mangue",
-            "Trompe l'oeil Citron",
-            "Trompe l'oeil Pistache",
-            "Trompe l'oeil Passion",
-            "Trompe l'oeil Framboise",
-            "Trompe l'oeil Cacahuète",
-            "Trompe l'oeil Fraise",
-            "Trompe l'oeil Myrtille",
-            "Trompe l'oeil Café",
-            "Trompe l'œil Gousse de Vanille",
-            "Trompe l'œil Popcorn",
-          ]
-
-          /** Agrège les lignes de commandes en liste "à produire" : libellé détaillé → quantité (optionnel filtre par statut). La box trompe l'œil est décomposée en 7 trompes l'œil. */
+          /** Agrège les lignes de commandes en liste "à produire" : libellé détaillé → quantité (optionnel filtre par statut). Les boxes trompes sont décomposées en trompes choisies (ou catalogue par défaut). */
           const getProductionList = (dayOrders: [string, Order][], filterStatus?: (s: string) => boolean): { label: string; quantity: number; sortKey: string }[] => {
             const quantityByLabel = new Map<string, number>()
             const sortKeyForLabel = (item: OrderItem): string => {
-              const id = (item.productId ?? '').toLowerCase()
+              const raw = item.productId ?? ''
+              const id = raw.toLowerCase()
+              const base = normalizeOrderProductBaseId(raw).toLowerCase()
+              if (base === BOX_DECOUVERTE_TROMPE_PRODUCT_ID.toLowerCase()) return '0-trompe'
               if (id.includes('trompe-loeil') || id === 'box-trompe-loeil' || id === 'box-fruitee' || id === 'box-de-tout') return '0-trompe'
               if (id.includes('box') || id.includes('mini-box')) return '1-box'
               if (id.startsWith('brownie-')) return '2-brownie'
@@ -4620,31 +4927,42 @@ function Dashboard({ user }: { user: User }) {
             const ordersToUse = filterStatus ? dayOrders.filter(([, o]) => filterStatus(o.status ?? '')) : dayOrders
             for (const [, order] of ordersToUse) {
               for (const item of order.items ?? []) {
+                const basePid = normalizeOrderProductBaseId(item.productId ?? '').toLowerCase()
+                if (basePid === BOX_DECOUVERTE_TROMPE_PRODUCT_ID.toLowerCase()) {
+                  const sel = item.trompeDiscoverySelection
+                  if (sel?.length) {
+                    for (const tid of sel) {
+                      const trompeLabel = PRODUCTS.find((p) => p.id === tid)?.name ?? tid
+                      quantityByLabel.set(trompeLabel, (quantityByLabel.get(trompeLabel) ?? 0) + item.quantity)
+                      if (!labelToSortKey.has(trompeLabel)) labelToSortKey.set(trompeLabel, '0-trompe')
+                    }
+                  } else {
+                    const label = formatOrderItemName(item)
+                    quantityByLabel.set(label, (quantityByLabel.get(label) ?? 0) + item.quantity)
+                    if (!labelToSortKey.has(label)) labelToSortKey.set(label, '0-trompe')
+                  }
+                  continue
+                }
+                if (basePid === 'box-trompe-loeil' || basePid === 'box-fruitee' || basePid === 'box-de-tout') {
+                  const sel = item.trompeDiscoverySelection
+                  const fallbackIds = PRODUCTS.find((p) => p.id === basePid)?.bundleProductIds ?? []
+                  const ids = sel?.length ? sel : fallbackIds
+                  for (const tid of ids) {
+                    const trompeLabel = PRODUCTS.find((p) => p.id === tid)?.name ?? tid
+                    quantityByLabel.set(trompeLabel, (quantityByLabel.get(trompeLabel) ?? 0) + item.quantity)
+                    if (!labelToSortKey.has(trompeLabel)) labelToSortKey.set(trompeLabel, '0-trompe')
+                  }
+                  continue
+                }
                 const productId = (item.productId ?? '').toLowerCase()
-                if (productId === 'box-trompe-loeil') {
-                  for (const trompeLabel of BOX_TROMPE_LOEIL_LABELS) {
-                    quantityByLabel.set(trompeLabel, (quantityByLabel.get(trompeLabel) ?? 0) + item.quantity)
-                    if (!labelToSortKey.has(trompeLabel)) labelToSortKey.set(trompeLabel, '0-trompe')
-                  }
-                  continue
-                }
-                if (productId === 'box-fruitee') {
-                  for (const trompeLabel of BOX_FRUITEE_LABELS) {
-                    quantityByLabel.set(trompeLabel, (quantityByLabel.get(trompeLabel) ?? 0) + item.quantity)
-                    if (!labelToSortKey.has(trompeLabel)) labelToSortKey.set(trompeLabel, '0-trompe')
-                  }
-                  continue
-                }
-                if (productId === 'box-de-tout') {
-                  for (const trompeLabel of BOX_DE_TOUT_LABELS) {
-                    quantityByLabel.set(trompeLabel, (quantityByLabel.get(trompeLabel) ?? 0) + item.quantity)
-                    if (!labelToSortKey.has(trompeLabel)) labelToSortKey.set(trompeLabel, '0-trompe')
-                  }
-                  continue
-                }
-                const baseName = formatOrderItemName(item)
-                const detail = item.sizeLabel ? ` — ${item.sizeLabel}` : ''
-                const label = baseName + detail
+                const baseName = isTrompeLoeilProductId(productId)
+                  ? (PRODUCTS.find((p) => p.id === productId)?.name ?? formatOrderItemName(item))
+                  : formatOrderItemName(item)
+                // On met le "sizeLabel" entre parenthèses pour pouvoir tronquer les descriptions catalogue
+                // qui arrivent souvent après un tiret (—/–) sans perdre l'info de format.
+                const detail = !isTrompeLoeilProductId(productId) && item.sizeLabel ? ` (${item.sizeLabel})` : ''
+                const rawLabel = baseName + detail
+                const label = rawLabel.split(/\s*[—–]\s*/)[0]?.trim() || rawLabel
                 quantityByLabel.set(label, (quantityByLabel.get(label) ?? 0) + item.quantity)
                 if (!labelToSortKey.has(label)) labelToSortKey.set(label, sortKeyForLabel(item))
               }
@@ -4668,7 +4986,9 @@ function Dashboard({ user }: { user: User }) {
 
           const planningSearchLower = planningSearchQuery.trim().toLowerCase()
           const matchesPlanningSearch = (o: Order) =>
-            !planningSearchLower || (o.customer?.firstName ?? '').toLowerCase().includes(planningSearchLower)
+            !planningSearchLower ||
+            formatOrderCustomerDisplayName(o).toLowerCase().includes(planningSearchLower) ||
+            (o.customer?.phone ?? '').replace(/\s/g, '').includes(planningSearchLower.replace(/\s/g, ''))
 
           // Génère 10 jours à partir du décalage sélectionné
           const days: { dateStr: string; label: string; dayOrders: [string, Order][] }[] = []
@@ -4679,6 +4999,7 @@ function Dashboard({ user }: { user: User }) {
             const dayName = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' })
             const dayOrders = Object.entries(orders)
               .filter(([, o]) => o.requestedDate === dateStr && o.status !== 'refusee' && matchesPlanningSearch(o))
+              .filter(([, o]) => planningOrderStatusFilter === 'all' || o.status === planningOrderStatusFilter)
               .sort(([, a], [, b]) => (a.requestedTime ?? '00:00').localeCompare(b.requestedTime ?? '00:00'))
             days.push({ dateStr, label: dayName, dayOrders })
           }
@@ -4697,7 +5018,7 @@ function Dashboard({ user }: { user: User }) {
               <div className="flex items-center gap-2 bg-white rounded-2xl p-2 shadow-sm border border-mayssa-brown/5">
                 <button
                   type="button"
-                  onClick={() => { setPlanningDayOffset((o) => o - 10); setPlanningDaysCollapsed(new Set()); setPlanningProductionOpen(new Set()) }}
+                  onClick={() => { setPlanningDayOffset((o) => o - 10); setPlanningDaysCollapsed(new Set()); setPlanningProductionCollapsed(new Set()) }}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-mayssa-brown/70 hover:bg-mayssa-soft hover:text-mayssa-brown transition-colors cursor-pointer flex-shrink-0"
                   title="Reculer de 10 jours"
                 >
@@ -4708,7 +5029,7 @@ function Dashboard({ user }: { user: User }) {
                   {!windowContainsToday && (
                     <button
                       type="button"
-                      onClick={() => { setPlanningDayOffset(0); setPlanningDaysCollapsed(new Set()); setPlanningProductionOpen(new Set()) }}
+                      onClick={() => { setPlanningDayOffset(0); setPlanningDaysCollapsed(new Set()); setPlanningProductionCollapsed(new Set()) }}
                       className="text-[10px] font-bold text-mayssa-caramel hover:text-mayssa-brown uppercase tracking-wider transition-colors cursor-pointer px-2 py-1 rounded-lg bg-mayssa-caramel/10 hover:bg-mayssa-caramel/20"
                     >
                       ↩ Aujourd'hui
@@ -4723,7 +5044,7 @@ function Dashboard({ user }: { user: User }) {
                 </div>
                 <button
                   type="button"
-                  onClick={() => { setPlanningDayOffset((o) => o + 10); setPlanningDaysCollapsed(new Set()); setPlanningProductionOpen(new Set()) }}
+                  onClick={() => { setPlanningDayOffset((o) => o + 10); setPlanningDaysCollapsed(new Set()); setPlanningProductionCollapsed(new Set()) }}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-mayssa-brown/70 hover:bg-mayssa-soft hover:text-mayssa-brown transition-colors cursor-pointer flex-shrink-0"
                   title="Avancer de 10 jours"
                 >
@@ -4753,6 +5074,32 @@ function Dashboard({ user }: { user: User }) {
                     <X size={18} />
                   </button>
                 )}
+              </div>
+
+              {/* Filtre statut (défaut : en préparation à l’ouverture) */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/45">Statut</span>
+                {([
+                  { v: 'all' as const, l: 'Toutes' },
+                  { v: 'en_attente' as const, l: 'Attente' },
+                  { v: 'en_preparation' as const, l: 'Prépa' },
+                  { v: 'pret' as const, l: 'Prête' },
+                  { v: 'livree' as const, l: 'Livrée' },
+                  { v: 'validee' as const, l: 'Validée' },
+                ]).map(({ v, l }) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setPlanningOrderStatusFilter(v)}
+                    className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+                      planningOrderStatusFilter === v
+                        ? 'bg-mayssa-brown text-white shadow-sm'
+                        : 'bg-white border border-mayssa-brown/12 text-mayssa-brown/65 hover:bg-mayssa-soft/60'
+                    }`}
+                  >
+                    {l}
+                  </button>
+                ))}
               </div>
 
               {/* KPIs période */}
@@ -4818,6 +5165,8 @@ function Dashboard({ user }: { user: User }) {
 
                 const cumulOrders = days.filter((_, i) => isDaySelected(i)).flatMap((d) => d.dayOrders)
                 const cumulList = getProductionWithRestant(cumulOrders)
+                const cumulOrderCount = cumulOrders.length
+                const cumulPieceCount = cumulList.reduce((s, r) => s + r.total, 0)
                 const selectedLabels = days.filter((_, i) => isDaySelected(i)).map((d) => {
                   const origIdx = days.indexOf(d)
                   return shortLabel(d.dateStr, origIdx)
@@ -4837,7 +5186,7 @@ function Dashboard({ user }: { user: User }) {
                           Prod. cumulée
                         </span>
                         <span className="text-[10px] text-mayssa-brown/40 truncate">
-                          {selectedLabels.join(' + ')} · {cumulList.length} ligne{cumulList.length !== 1 ? 's' : ''}
+                          {selectedLabels.join(' + ')} · détail ci-dessous
                         </span>
                         {planningCumulOpen ? <ChevronUp size={15} className="text-mayssa-brown/50 flex-shrink-0 ml-auto" /> : <ChevronDown size={15} className="text-mayssa-brown/50 flex-shrink-0 ml-auto" />}
                       </button>
@@ -4917,6 +5266,22 @@ function Dashboard({ user }: { user: User }) {
                       })}
                     </div>
 
+                    {/* Chiffres clés — toujours visibles */}
+                    <div className="grid grid-cols-3 gap-2 px-4 py-3 bg-gradient-to-b from-mayssa-caramel/8 to-white border-b border-mayssa-brown/5">
+                      <div className="text-center rounded-xl bg-white/90 border border-mayssa-brown/10 px-2 py-2 shadow-sm">
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-mayssa-brown/45">Commandes</p>
+                        <p className="text-2xl sm:text-3xl font-display font-bold text-mayssa-brown tabular-nums leading-tight">{cumulOrderCount}</p>
+                      </div>
+                      <div className="text-center rounded-xl bg-white/90 border border-mayssa-brown/10 px-2 py-2 shadow-sm">
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-mayssa-brown/45">Lignes prod.</p>
+                        <p className="text-2xl sm:text-3xl font-display font-bold text-mayssa-caramel tabular-nums leading-tight">{cumulList.length}</p>
+                      </div>
+                      <div className="text-center rounded-xl bg-white/90 border border-mayssa-brown/10 px-2 py-2 shadow-sm">
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-mayssa-brown/45">Pièces</p>
+                        <p className="text-2xl sm:text-3xl font-display font-bold text-mayssa-brown tabular-nums leading-tight">{cumulPieceCount}</p>
+                      </div>
+                    </div>
+
                     {/* Liste de production */}
                     {planningCumulOpen && (
                       <div className="px-4 py-3">
@@ -4980,11 +5345,12 @@ function Dashboard({ user }: { user: User }) {
                           </span>
                           {isToday && <span className="text-[9px] font-bold uppercase tracking-wider bg-mayssa-caramel text-white px-1.5 py-0.5 rounded">Aujourd'hui</span>}
                         </div>
-                        <div className="flex items-center gap-3 text-[10px] text-mayssa-brown/50 font-bold">
+                        <div className="flex items-center gap-3">
                           {dayOrders.length > 0 && (
                             <>
-                              <span>{dayOrders.length} cmd</span>
-                              <span className="text-mayssa-caramel">{dayCA.toFixed(2).replace('.', ',')} €</span>
+                              <span className="text-lg font-display font-bold tabular-nums text-mayssa-brown">{dayOrders.length}</span>
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/40">cmd</span>
+                              <span className="text-lg font-display font-bold tabular-nums text-mayssa-caramel">{dayCA.toFixed(2).replace('.', ',')} €</span>
                             </>
                           )}
                           {isDayCollapsed
@@ -5009,9 +5375,9 @@ function Dashboard({ user }: { user: User }) {
                       {/* À produire ce jour : total + reste à faire (ouvrir / masquer) */}
                       {dayOrders.length > 0 && (() => {
                         const productionList = getProductionWithRestant(dayOrders)
-                        const isProductionOpen = planningProductionOpen.has(dateStr)
+                        const isProductionOpen = !planningProductionCollapsed.has(dateStr)
                         const toggleProduction = () => {
-                          setPlanningProductionOpen((prev) => {
+                          setPlanningProductionCollapsed((prev) => {
                             const next = new Set(prev)
                             if (next.has(dateStr)) next.delete(dateStr)
                             else next.add(dateStr)
@@ -5027,9 +5393,10 @@ function Dashboard({ user }: { user: User }) {
                               aria-expanded={isProductionOpen}
                               aria-label={isProductionOpen ? 'Masquer la production du jour' : 'Afficher la production du jour'}
                             >
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">À produire ce jour</p>
-                                <span className="text-[9px] text-mayssa-brown/40">({productionList.length} lignes)</span>
+                                <span className="text-lg font-display font-bold tabular-nums text-mayssa-caramel">{productionList.length}</span>
+                                <span className="text-[9px] text-mayssa-brown/40">lignes</span>
                               </div>
                               {isProductionOpen ? <ChevronUp size={16} className="text-mayssa-brown/50" /> : <ChevronDown size={16} className="text-mayssa-brown/50" />}
                             </button>
@@ -5061,13 +5428,14 @@ function Dashboard({ user }: { user: User }) {
                       ) : (
                         <div className="divide-y divide-mayssa-brown/5">
                           {dayOrders.map(([id, order]) => {
+                            const orderSource = order.source ?? 'site'
                             const SRC: Record<string, { label: string; bg: string; text: string; border: string }> = {
                               whatsapp:  { label: 'WA',    bg: 'bg-green-100',  text: 'text-green-700',  border: 'border-l-green-400' },
                               snap:      { label: 'Snap',  bg: 'bg-yellow-100', text: 'text-yellow-700', border: 'border-l-yellow-400' },
                               instagram: { label: 'Insta', bg: 'bg-pink-100',   text: 'text-pink-700',   border: 'border-l-pink-500' },
                               site:      { label: 'Site',  bg: 'bg-slate-100',  text: 'text-slate-500',  border: 'border-l-slate-300' },
                             }
-                            const src = SRC[order.source ?? 'site'] ?? SRC.site
+                            const src = SRC[orderSource] ?? SRC.site
                             return (
                             <div
                               key={id}
@@ -5081,7 +5449,7 @@ function Dashboard({ user }: { user: User }) {
                               >
                                 <div className="min-w-0">
                                   <p className="text-sm font-semibold text-mayssa-brown truncate">
-                                    {order.customer?.firstName} {order.customer?.lastName}
+                                    {formatOrderCustomerDisplayName(order)}
                                   </p>
                                   <p className="text-[10px] text-mayssa-brown/50 truncate">
                                     {order.items?.map(i => `${i.quantity}× ${formatOrderItemName(i)}`).join(', ')}
@@ -5124,7 +5492,7 @@ function Dashboard({ user }: { user: User }) {
                                 type="button"
                                 onClick={() => setEditingOrderId(id)}
                                 className="hidden sm:flex min-w-0 flex-1 items-center gap-3 text-left hover:bg-mayssa-brown/5 active:bg-mayssa-brown/10 transition-colors cursor-pointer rounded-lg -m-1 p-1"
-                                aria-label={`Voir la commande de ${order.customer?.firstName} ${order.customer?.lastName}`}
+                                aria-label={`Voir la commande de ${formatOrderCustomerDisplayName(order)}`}
                               >
                                 <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
                                   order.status === 'en_preparation' ? 'bg-blue-400' :
@@ -5134,7 +5502,7 @@ function Dashboard({ user }: { user: User }) {
                                 }`} />
                                 <div className="min-w-0 flex-1">
                                   <p className="text-xs font-semibold text-mayssa-brown truncate">
-                                    {order.customer?.firstName} {order.customer?.lastName}
+                                    {formatOrderCustomerDisplayName(order)}
                                   </p>
                                   <p className="text-[10px] text-mayssa-brown/50 truncate">
                                     {order.items?.map(i => `${i.quantity}× ${formatOrderItemName(i)}`).join(', ')}
@@ -5188,14 +5556,77 @@ function Dashboard({ user }: { user: User }) {
                                     </div>
                                   )
                                 })()}
-                                {order.customer?.phone && (() => {
+                                {shouldShowDepositWhatsAppButton(order) && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      hapticFeedback('light')
+                                      setWhatsappCopyFeedback(null)
+                                      setWhatsappMessageModal({
+                                        title: 'Message WhatsApp — acompte 50 %',
+                                        message: DEPOSIT_REQUEST_WHATSAPP_MESSAGE,
+                                        waHref: depositWhatsAppHref(order),
+                                        customerPhone: order.customer!.phone!.trim(),
+                                      })
+                                    }}
+                                    className="p-2 rounded-lg text-emerald-700 hover:text-white hover:bg-emerald-600 transition-colors"
+                                    title="Copier ou ouvrir WhatsApp — acompte 50 %"
+                                    aria-label="WhatsApp acompte 50 pour cent"
+                                  >
+                                    <Percent size={16} />
+                                  </button>
+                                )}
+                                {shouldShowPickupRetraitConfirmedWhatsAppButton(order) && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      hapticFeedback('light')
+                                      setWhatsappCopyFeedback(null)
+                                      setWhatsappMessageModal({
+                                        title: 'Message WhatsApp — retrait confirmé',
+                                        message: PICKUP_CONFIRMED_WHATSAPP_MESSAGE,
+                                        waHref: pickupRetraitConfirmedWhatsAppHref(order),
+                                        customerPhone: order.customer!.phone!.trim(),
+                                      })
+                                    }}
+                                    className="p-2 rounded-lg text-sky-700 hover:text-white hover:bg-sky-600 transition-colors"
+                                    title="Copier ou ouvrir WhatsApp — retrait confirmé"
+                                    aria-label="WhatsApp retrait confirmé"
+                                  >
+                                    <MapPin size={16} />
+                                  </button>
+                                )}
+                                {shouldShowDeliveryLivraisonConfirmedWhatsAppButton(order) && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      hapticFeedback('light')
+                                      setWhatsappCopyFeedback(null)
+                                      setWhatsappMessageModal({
+                                        title: 'Message WhatsApp — livraison confirmée',
+                                        message: DELIVERY_CONFIRMED_WHATSAPP_MESSAGE,
+                                        waHref: deliveryLivraisonConfirmedWhatsAppHref(order),
+                                        customerPhone: order.customer!.phone!.trim(),
+                                      })
+                                    }}
+                                    className="p-2 rounded-lg text-violet-700 hover:text-white hover:bg-violet-600 transition-colors"
+                                    title="Copier ou ouvrir WhatsApp — livraison confirmée"
+                                    aria-label="WhatsApp livraison confirmée"
+                                  >
+                                    <Truck size={16} />
+                                  </button>
+                                )}
+                                {(orderSource === 'whatsapp' && order.customer?.phone) && (() => {
                                   const phone = phoneToWhatsApp(order.customer.phone)
                                   const isDone = order.status === 'validee' || order.status === 'livree'
                                   return (
                                     <>
                                       {/* Bouton WhatsApp — confirmation "commande validée" */}
                                       <a
-                                        href={`https://wa.me/${phone}?text=${encodeURIComponent(buildValidatedMessage(order))}`}
+                                        href={buildWhatsAppChatHref(phone, buildValidatedMessage(order))}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         onClick={(e) => e.stopPropagation()}
@@ -5207,7 +5638,7 @@ function Dashboard({ user }: { user: User }) {
                                       </a>
                                       {/* Bouton WhatsApp — message "commande prête" pré-rempli */}
                                       <a
-                                        href={`https://wa.me/${phone}?text=${encodeURIComponent(buildReadyMessage(order))}`}
+                                        href={buildWhatsAppChatHref(phone, buildReadyMessage(order))}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         onClick={(e) => e.stopPropagation()}
@@ -5220,7 +5651,7 @@ function Dashboard({ user }: { user: User }) {
                                       {/* Bouton avis Google — affiché uniquement quand validée ou livrée */}
                                       {isDone && (
                                         <a
-                                          href={`https://wa.me/${phone}?text=${encodeURIComponent(buildReviewMessage(order))}`}
+                                          href={buildWhatsAppChatHref(phone, buildReviewMessage(order))}
                                           target="_blank"
                                           rel="noopener noreferrer"
                                           onClick={(e) => e.stopPropagation()}
@@ -5271,6 +5702,130 @@ function Dashboard({ user }: { user: User }) {
           )
         })()}
 
+        {/* ── Modale message WhatsApp (copier / ouvrir l’app) ── */}
+        {whatsappMessageModal && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="whatsapp-modal-title"
+            className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+            onClick={() => { setWhatsappMessageModal(null); setWhatsappCopyFeedback(null) }}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 24 }}
+              onClick={(e) => e.stopPropagation()}
+              className={cn(
+                'w-full max-w-lg rounded-2xl shadow-xl p-5 space-y-4 max-h-[90vh] flex flex-col',
+                isDark ? 'bg-zinc-900 border border-zinc-700' : 'bg-white',
+              )}
+            >
+              <h2
+                id="whatsapp-modal-title"
+                className={cn('text-base font-bold', isDark ? 'text-zinc-100' : 'text-mayssa-brown')}
+              >
+                {whatsappMessageModal.title}
+              </h2>
+              <p className={cn('text-xs leading-relaxed', isDark ? 'text-zinc-400' : 'text-mayssa-brown/60')}>
+                <strong className={cn('font-semibold', isDark ? 'text-zinc-300' : 'text-mayssa-brown/80')}>iPhone :</strong>{' '}
+                Safari ne peut pas ouvrir WhatsApp Business à la place de WhatsApp perso. Ouvrez{' '}
+                <strong>WhatsApp Business</strong>, touchez <strong>Discussions</strong> puis <strong>nouvelle discussion</strong>, collez le <strong>numéro</strong> copié, puis collez le <strong>message</strong> dans la conversation.
+                {' '}Sur Android, le bouton vert tente d’ouvrir WhatsApp Business en priorité.
+              </p>
+              <textarea
+                readOnly
+                value={whatsappMessageModal.message}
+                rows={12}
+                className={cn(
+                  'w-full resize-y min-h-[180px] rounded-xl border px-3 py-2 text-sm font-sans leading-relaxed',
+                  isDark
+                    ? 'bg-zinc-950 border-zinc-600 text-zinc-100'
+                    : 'bg-mayssa-soft/30 border-mayssa-brown/15 text-mayssa-brown',
+                )}
+                onFocus={(e) => e.target.select()}
+              />
+              <div className="flex flex-col gap-2 flex-shrink-0">
+                <div className="flex flex-col sm:flex-row gap-2 sm:items-stretch">
+                  <div className="flex flex-col gap-2 flex-1 min-w-0">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(whatsappMessageModal.message)
+                          setWhatsappCopyFeedback('message')
+                          hapticFeedback('light')
+                          window.setTimeout(() => setWhatsappCopyFeedback(null), 2500)
+                        } catch {
+                          setWhatsappCopyFeedback(null)
+                        }
+                      }}
+                      className={cn(
+                        'flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-colors w-full',
+                        whatsappCopyFeedback === 'message'
+                          ? 'bg-emerald-600 text-white'
+                          : isDark
+                            ? 'bg-zinc-800 text-zinc-100 hover:bg-zinc-700 border border-zinc-600'
+                            : 'bg-mayssa-brown/10 text-mayssa-brown hover:bg-mayssa-brown/20',
+                      )}
+                    >
+                      <Copy size={18} />
+                      {whatsappCopyFeedback === 'message' ? 'Message copié' : 'Copier le message'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(whatsappMessageModal.customerPhone)
+                          setWhatsappCopyFeedback('phone')
+                          hapticFeedback('light')
+                          window.setTimeout(() => setWhatsappCopyFeedback(null), 2500)
+                        } catch {
+                          setWhatsappCopyFeedback(null)
+                        }
+                      }}
+                      className={cn(
+                        'flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-colors w-full',
+                        whatsappCopyFeedback === 'phone'
+                          ? 'bg-emerald-600 text-white'
+                          : isDark
+                            ? 'bg-zinc-800 text-zinc-100 hover:bg-zinc-700 border border-zinc-600'
+                            : 'bg-mayssa-brown/10 text-mayssa-brown hover:bg-mayssa-brown/20',
+                      )}
+                    >
+                      <Phone size={18} />
+                      {whatsappCopyFeedback === 'phone' ? 'Numéro copié' : 'Copier le numéro'}
+                    </button>
+                  </div>
+                  <a
+                    href={whatsappMessageModal.waHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => hapticFeedback('light')}
+                    className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#25D366] text-white text-sm font-bold hover:bg-[#20bd5a] transition-colors sm:w-40 sm:self-stretch"
+                  >
+                    <MessageCircle size={18} />
+                    Ouvrir WhatsApp
+                  </a>
+                </div>
+                <p className={cn('text-[10px] text-center', isDark ? 'text-zinc-500' : 'text-mayssa-brown/45')}>
+                  Numéro : {whatsappMessageModal.customerPhone}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setWhatsappMessageModal(null); setWhatsappCopyFeedback(null) }}
+                className={cn(
+                  'w-full text-sm py-2 transition-colors',
+                  isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-mayssa-brown/40 hover:text-mayssa-brown',
+                )}
+              >
+                Fermer
+              </button>
+            </motion.div>
+          </div>
+        )}
+
         {/* ── Modal confirmation refus avec choix stock ── */}
         {refuseConfirm && (
           <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
@@ -5282,7 +5837,7 @@ function Dashboard({ user }: { user: User }) {
             >
               <div>
                 <p className="font-bold text-mayssa-brown text-base">
-                  Refuser la commande de {refuseConfirm.order.customer?.firstName} ?
+                  Refuser la commande de {formatOrderCustomerDisplayName(refuseConfirm.order)} ?
                 </p>
                 {refuseConfirm.isDuplicate && (
                   <div className="mt-2 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">

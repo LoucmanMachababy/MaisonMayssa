@@ -3,6 +3,7 @@ import { motion, AnimatePresence, useMotionValue } from 'framer-motion'
 import { X, Plus, Minus, ShoppingBag, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from 'lucide-react'
 import { hapticFeedback } from '../../lib/haptics'
 import type { Product, ProductSize } from '../../types'
+import { BOX_DECOUVERTE_TROMPE_PRODUCT_ID, isCustomizableTrompeBundleBoxId } from '../../constants'
 import { ProductBadges } from '../ProductBadges'
 import { StockBadge } from '../StockBadge'
 import { useFocusTrap } from '../../hooks/useAccessibility'
@@ -50,13 +51,16 @@ export function ProductDetailModal({ product, onClose, onAdd, stock = null, isPr
 
   // Box cookies / brownies / mixte : onAdd ouvre la modal parfums (il faut passer le produit original)
   const isBoxWithFlavors = product?.id === 'box-cookies' || product?.id === 'box-brownies' || product?.id === 'box-mixte'
+  const isBoxTrompeAuChoix =
+    product?.id === BOX_DECOUVERTE_TROMPE_PRODUCT_ID ||
+    (!!product && isCustomizableTrompeBundleBoxId(product.id))
 
   const handleAdd = () => {
     if (!product) return
     if (isUnavailable) return
     hapticFeedback('success')
 
-    if (isBoxWithFlavors) {
+    if (isBoxWithFlavors || isBoxTrompeAuChoix) {
       onAdd(product)
       onClose()
       return

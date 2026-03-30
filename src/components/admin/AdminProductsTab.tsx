@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react'
 import { ChevronDown, ChevronUp, RotateCcw, Plus, Trash2, Tag, Pin, ImagePlus } from 'lucide-react'
-import { PRODUCTS } from '../../constants'
-import { updateProductOverride, setProductOverride, deleteProductOverride, uploadProductImage } from '../../lib/firebase'
+import { PRODUCTS, BOX_DECOUVERTE_TROMPE_PRODUCT_ID } from '../../constants'
+import { updateProductOverride, setProductOverride, deleteProductOverride, uploadProductImage, updateSettings } from '../../lib/firebase'
+import { listIndividualTrompeLoeilProducts } from '../../lib/discoveryBox'
 import type { ProductOverrideMap, ProductOverride, ProductCategory, ProductBadge, ProductSize } from '../../types'
 import type { ProductWithAvailability } from '../../hooks/useProducts'
 
@@ -12,6 +13,7 @@ const ALL_CATEGORIES: ProductCategory[] = [
 const ALL_BADGES: { value: ProductBadge; label: string }[] = [
   { value: 'best-seller', label: 'Best seller' },
   { value: 'nouveau', label: 'Nouveau' },
+  { value: 'nouveaute', label: 'Nouveauté' },
   { value: 'coup-de-coeur', label: 'Coup de coeur' },
   { value: 'populaire', label: 'Populaire' },
 ]
@@ -21,9 +23,15 @@ const staticProductMap = new Map(PRODUCTS.map(p => [p.id, p]))
 interface AdminProductsTabProps {
   allProducts: ProductWithAvailability[]
   overrides: ProductOverrideMap
+  /** Même source que le stock box : exclusions pour la composition client */
+  boxDecouverteTrompeExcludedIds?: string[]
 }
 
-export function AdminProductsTab({ allProducts, overrides }: AdminProductsTabProps) {
+export function AdminProductsTab({
+  allProducts,
+  overrides,
+  boxDecouverteTrompeExcludedIds = [],
+}: AdminProductsTabProps) {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(ALL_CATEGORIES))
   const [editingProduct, setEditingProduct] = useState<string | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
@@ -131,6 +139,7 @@ export function AdminProductsTab({ allProducts, overrides }: AdminProductsTabPro
                     isCustom={isCustomProduct(product.id)}
                     isEditing={editingProduct === product.id}
                     isSaving={saving === product.id}
+                    boxDecouverteTrompeExcludedIds={boxDecouverteTrompeExcludedIds}
                     onToggleAvailability={() => handleToggleAvailability(product)}
                     onEdit={() => setEditingProduct(editingProduct === product.id ? null : product.id)}
                     onReset={() => handleResetProduct(product.id)}
@@ -153,13 +162,25 @@ interface ProductCardProps {
   isCustom: boolean
   isEditing: boolean
   isSaving: boolean
+  boxDecouverteTrompeExcludedIds: string[]
   onToggleAvailability: () => void
   onEdit: () => void
   onReset: () => void
   onDelete: () => void
 }
 
-function ProductCard({ product, hasOverride, isCustom, isEditing, isSaving, onToggleAvailability, onEdit, onReset, onDelete }: ProductCardProps) {
+function ProductCard({
+  product,
+  hasOverride,
+  isCustom,
+  isEditing,
+  isSaving,
+  boxDecouverteTrompeExcludedIds,
+  onToggleAvailability,
+  onEdit,
+  onReset,
+  onDelete,
+}: ProductCardProps) {
   return (
     <div className={`rounded-xl border transition-all ${
       !product.available
@@ -238,6 +259,7 @@ function ProductCard({ product, hasOverride, isCustom, isEditing, isSaving, onTo
           product={product}
           hasOverride={hasOverride}
           isCustom={isCustom}
+          boxDecouverteTrompeExcludedIds={boxDecouverteTrompeExcludedIds}
           onReset={onReset}
           onDelete={onDelete}
         />
@@ -251,11 +273,19 @@ interface ProductEditFormProps {
   product: ProductWithAvailability
   hasOverride: boolean
   isCustom: boolean
+  boxDecouverteTrompeExcludedIds: string[]
   onReset: () => void
   onDelete: () => void
 }
 
-function ProductEditForm({ product, hasOverride, isCustom, onReset, onDelete }: ProductEditFormProps) {
+function ProductEditForm({
+  product,
+  hasOverride,
+  isCustom,
+  boxDecouverteTrompeExcludedIds,
+  onReset,
+  onDelete,
+}: ProductEditFormProps) {
   const staticProduct = staticProductMap.get(product.id)
   const [name, setName] = useState(product.name)
   const [price, setPrice] = useState(product.price.toString())
@@ -269,9 +299,52 @@ function ProductEditForm({ product, hasOverride, isCustom, onReset, onDelete }: 
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string>(product.image || '')
   const [imageUploadError, setImageUploadError] = useState('')
+  const [nouveauteBusy, setNouveauteBusy] = useState(false)
 
   const toggleBadge = (badge: ProductBadge) => {
     setBadges(prev => prev.includes(badge) ? prev.filter(b => b !== badge) : [...prev, badge])
+  }
+
+  /** Badge « Nouveauté » : applique tout de suite le cadre doré boutique (comme la grappe de banane). */
+  const toggleNouveauteWithFrame = async () => {
+    if (nouveauteBusy) return
+    const wasOn = badges.includes('nouveaute')
+    const newBadges: ProductBadge[] = wasOn
+      ? badges.filter((b) => b !== 'nouveaute')
+      : [...badges, 'nouveaute' as ProductBadge]
+    const frameOn = !wasOn
+    setBadges(newBadges)
+    setNouveauteBusy(true)
+    try {
+      if (isCustom) {
+        await setProductOverride(product.id, {
+          name: product.name,
+          price: product.price,
+          originalPrice: product.originalPrice,
+          description: product.description || undefined,
+          badges: newBadges.length > 0 ? newBadges : undefined,
+          sizes: (product.sizes ?? []).length > 0 ? product.sizes : undefined,
+          category: product.category,
+          isCustom: true,
+          available: product.available,
+          ...(product.image && { image: product.image }),
+          pinned: (product as ProductWithAvailability).pinned ?? false,
+          highlightAsNew: frameOn,
+        })
+      } else {
+        const staticBadges = staticProduct?.badges || []
+        const patch: Partial<ProductOverride> = {
+          highlightAsNew: frameOn,
+          badges:
+            JSON.stringify(newBadges) !== JSON.stringify(staticBadges)
+              ? newBadges
+              : null,
+        }
+        await updateProductOverride(product.id, patch)
+      }
+    } finally {
+      setNouveauteBusy(false)
+    }
   }
 
   const updateSize = (index: number, field: keyof ProductSize, value: string) => {
@@ -313,6 +386,7 @@ function ProductEditForm({ product, hasOverride, isCustom, onReset, onDelete }: 
         available: product.available,
         ...(finalImageUrl && { image: finalImageUrl }),
         pinned: (product as ProductWithAvailability).pinned ?? false,
+        highlightAsNew: badges.includes('nouveaute'),
       })
     } else {
       // For static products, always save price/originalPrice to clear any stale override values
@@ -322,7 +396,10 @@ function ProductEditForm({ product, hasOverride, isCustom, onReset, onDelete }: 
       }
       if (name !== staticProduct?.name) override.name = name
       if (description !== (staticProduct?.description || '')) override.description = description || undefined
-      if (JSON.stringify(badges) !== JSON.stringify(staticProduct?.badges || [])) override.badges = badges
+      if (JSON.stringify(badges) !== JSON.stringify(staticProduct?.badges || [])) {
+        override.badges = badges
+        override.highlightAsNew = badges.includes('nouveaute')
+      }
       if (JSON.stringify(sizes) !== JSON.stringify(staticProduct?.sizes || [])) override.sizes = sizes
 
       await updateProductOverride(product.id, override)
@@ -384,6 +461,43 @@ function ProductEditForm({ product, hasOverride, isCustom, onReset, onDelete }: 
         />
       </div>
 
+      {/* Box découverte : exclusions de saveurs (réglage global Firebase) */}
+      {product.id === BOX_DECOUVERTE_TROMPE_PRODUCT_ID && (
+        <div className="rounded-xl border border-violet-200/80 bg-violet-50/50 p-3 space-y-2">
+          <p className="text-[10px] font-bold text-mayssa-brown">
+            Trompe-l&apos;œil proposés dans cette box
+          </p>
+          <p className="text-[9px] text-mayssa-brown/50 leading-snug">
+            Cliquez sur une saveur pour l&apos;exclure du choix client (elle disparaît de la fenêtre de composition). Le
+            stock affiché pour la box tient compte des saveurs encore proposées.
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {listIndividualTrompeLoeilProducts(PRODUCTS).map((p) => {
+              const excluded = boxDecouverteTrompeExcludedIds.includes(p.id)
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    const cur = new Set(boxDecouverteTrompeExcludedIds)
+                    if (excluded) cur.delete(p.id)
+                    else cur.add(p.id)
+                    void updateSettings({ boxDecouverteTrompeExcludedIds: [...cur] })
+                  }}
+                  className={`px-2 py-1 rounded-lg text-[9px] font-bold transition-colors cursor-pointer border ${
+                    excluded
+                      ? 'border-mayssa-brown/20 bg-mayssa-brown/10 text-mayssa-brown/45 line-through'
+                      : 'border-mayssa-caramel/35 bg-white text-mayssa-brown hover:border-mayssa-caramel'
+                  }`}
+                >
+                  {p.name.replace(/^Trompe l'œil\s+/i, '')}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Badges */}
       <div>
         <label className="text-[10px] font-bold text-mayssa-brown/60 block mb-1">Badges</label>
@@ -391,17 +505,26 @@ function ProductEditForm({ product, hasOverride, isCustom, onReset, onDelete }: 
           {ALL_BADGES.map(b => (
             <button
               key={b.value}
-              onClick={() => toggleBadge(b.value)}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+              type="button"
+              disabled={nouveauteBusy && b.value === 'nouveaute'}
+              onClick={() =>
+                b.value === 'nouveaute' ? void toggleNouveauteWithFrame() : toggleBadge(b.value)
+              }
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-colors cursor-pointer disabled:opacity-50 ${
                 badges.includes(b.value)
-                  ? 'bg-mayssa-caramel text-white'
+                  ? b.value === 'nouveaute'
+                    ? 'bg-gradient-to-r from-amber-600 to-mayssa-gold text-white ring-2 ring-amber-200/80 shadow-sm'
+                    : 'bg-mayssa-caramel text-white'
                   : 'bg-mayssa-soft/50 text-mayssa-brown/40 hover:bg-mayssa-soft'
               }`}
             >
-              {b.label}
+              {b.value === 'nouveaute' && nouveauteBusy ? '…' : b.label}
             </button>
           ))}
         </div>
+        <p className="text-[9px] text-mayssa-brown/45 mt-1.5 leading-snug">
+          <span className="font-semibold text-mayssa-brown/55">Nouveauté :</span> active le cadre doré sur la boutique (effet immédiat, comme la grappe de banane).
+        </p>
       </div>
 
       {/* Sizes */}
@@ -490,6 +613,7 @@ function ProductEditForm({ product, hasOverride, isCustom, onReset, onDelete }: 
                 available: product.available,
                 ...(product.image && { image: product.image }),
                 pinned: newPinned,
+                highlightAsNew: product.highlightAsNew ?? false,
               })
             } else {
               await updateProductOverride(product.id, { pinned: newPinned })

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Bell, ShoppingBag, Package, AlertTriangle, Cake, TrendingDown, Clock } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import type { Order, UserProfile } from '../../lib/firebase'
+import { formatOrderCustomerDisplayName } from '../../lib/orderCustomerDisplay'
 import type { StockMap } from '../../lib/firebase'
 
 interface Notification {
@@ -53,7 +54,7 @@ export function AdminNotificationsCenter({ orders, stock, allUsers, isOpen, onCl
         return pickup <= twoHoursFromNow && pickup >= now.getTime()
       })
       .forEach(([id, o]) => {
-        const name = [o.customer?.firstName, o.customer?.lastName].filter(Boolean).join(' ')
+        const name = formatOrderCustomerDisplayName(o)
         notifs.push({
           id: `urgent-${id}`,
           type: 'order_urgent',
@@ -76,7 +77,7 @@ export function AdminNotificationsCenter({ orders, stock, allUsers, isOpen, onCl
         .sort(([, a], [, b]) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
         .slice(0, 3)
       recent.forEach(([id, o]) => {
-        const name = [o.customer?.firstName, o.customer?.lastName].filter(Boolean).join(' ')
+        const name = formatOrderCustomerDisplayName(o)
         notifs.push({
           id: `pending-${id}`,
           type: 'order_pending',
@@ -96,7 +97,7 @@ export function AdminNotificationsCenter({ orders, stock, allUsers, isOpen, onCl
       .sort(([, a], [, b]) => (a.createdAt ?? 0) - (b.createdAt ?? 0))
       .slice(0, 3)
     stalePending.forEach(([id, o]) => {
-      const name = [o.customer?.firstName, o.customer?.lastName].filter(Boolean).join(' ')
+      const name = formatOrderCustomerDisplayName(o)
       const mins = Math.floor((Date.now() - (o.createdAt ?? 0)) / 60000)
       notifs.push({
         id: `stale-${id}`,

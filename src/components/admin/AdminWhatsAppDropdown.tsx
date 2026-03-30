@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MessageCircle, CheckCheck, Star, Mail, ChevronDown } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { buildWhatsAppChatHref } from '../../lib/whatsappOpen'
 import type { Order } from '../../lib/firebase'
 
 const GOOGLE_REVIEW_LINK = 'https://share.google/PsKmSr5Vx1VXqaNWx'
@@ -79,7 +80,7 @@ export function AdminWhatsAppDropdown({ order, onClose, className, variant = 'fu
     }
     const msg = t.buildMsg ? t.buildMsg(order) : ''
     if (msg) {
-      window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer')
+      window.open(buildWhatsAppChatHref(waNum, msg), '_blank', 'noopener,noreferrer')
       setOpen(false)
       onClose?.()
     }
@@ -87,7 +88,7 @@ export function AdminWhatsAppDropdown({ order, onClose, className, variant = 'fu
 
   const handleCustomSend = () => {
     if (customMsg.trim()) {
-      window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(customMsg.trim())}`, '_blank', 'noopener,noreferrer')
+      window.open(buildWhatsAppChatHref(waNum, customMsg.trim()), '_blank', 'noopener,noreferrer')
       setOpen(false)
       setShowCustom(false)
       setCustomMsg('')

@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react'
+import { isStaleChunkLoadError } from '../lib/lazyWithRetry'
 
 interface Props {
   children: ReactNode
@@ -37,13 +38,20 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
+      const staleChunk = this.state.error ? isStaleChunkLoadError(this.state.error) : false
       const {
-        message = "Oups, une erreur s'est produite",
-        subMessage = 'Rechargez la page pour réessayer.',
+        message: messageProp,
+        subMessage: subMessageProp,
         onRetry,
         onBack,
         backLabel = 'Retour au site',
       } = this.props
+      const message = messageProp ?? (staleChunk ? 'Mise à jour du site' : "Oups, une erreur s'est produite")
+      const subMessage =
+        subMessageProp ??
+        (staleChunk
+          ? 'Une nouvelle version est en ligne. Recharge la page pour charger les fichiers à jour (cache du navigateur).'
+          : 'Rechargez la page pour réessayer.')
       return (
         <div
           style={{

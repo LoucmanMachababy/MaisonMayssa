@@ -13,6 +13,7 @@ interface AccessibilityContextType {
   toggleReducedMotion: () => void
   toggleLargeFocus: () => void
   setFontSize: (size: 'small' | 'medium' | 'large') => void
+  resetAccessibility: () => void
   
   // État système
   systemPreferences: {
@@ -31,21 +32,29 @@ interface AccessibilityProviderProps {
 
 export function AccessibilityProvider({ children }: AccessibilityProviderProps) {
   const systemPreferences = useAccessibilityPreferences()
+
+  const safeParseBoolean = (key: string, fallback: boolean): boolean => {
+    try {
+      const raw = localStorage.getItem(key)
+      if (raw == null) return fallback
+      const parsed = JSON.parse(raw)
+      return typeof parsed === 'boolean' ? parsed : fallback
+    } catch {
+      return fallback
+    }
+  }
   
   // États locaux avec persistance localStorage
   const [highContrast, setHighContrast] = useState(() => {
-    const saved = localStorage.getItem('a11y-high-contrast')
-    return saved ? JSON.parse(saved) : systemPreferences.prefersHighContrast
+    return safeParseBoolean('a11y-high-contrast', systemPreferences.prefersHighContrast)
   })
   
   const [reducedMotion, setReducedMotion] = useState(() => {
-    const saved = localStorage.getItem('a11y-reduced-motion')
-    return saved ? JSON.parse(saved) : systemPreferences.prefersReducedMotion
+    return safeParseBoolean('a11y-reduced-motion', systemPreferences.prefersReducedMotion)
   })
   
   const [largeFocus, setLargeFocus] = useState(() => {
-    const saved = localStorage.getItem('a11y-large-focus')
-    return saved ? JSON.parse(saved) : false
+    return safeParseBoolean('a11y-large-focus', false)
   })
   
   const [fontSize, setFontSizeState] = useState<'small' | 'medium' | 'large'>(() => {
@@ -118,18 +127,22 @@ export function AccessibilityProvider({ children }: AccessibilityProviderProps) 
         --mayssa-rose: #ffffff;
       }
       
+      .high-contrast body {
+        background-color: #ffffff !important;
+      }
+
       .high-contrast * {
-        background-color: white !important;
-        color: black !important;
-        border-color: black !important;
+        color: #111111 !important;
+        border-color: #111111 !important;
+        text-shadow: none !important;
       }
       
       .high-contrast button,
       .high-contrast .bg-mayssa-brown,
       .high-contrast .bg-mayssa-caramel {
-        background-color: black !important;
-        color: white !important;
-        border: 2px solid black !important;
+        background-color: #111111 !important;
+        color: #ffffff !important;
+        border: 2px solid #111111 !important;
       }
       
       .high-contrast a,
@@ -137,6 +150,12 @@ export function AccessibilityProvider({ children }: AccessibilityProviderProps) 
       .high-contrast .text-blue-600 {
         color: #0066cc !important;
         text-decoration: underline !important;
+      }
+
+      .high-contrast img,
+      .high-contrast video,
+      .high-contrast svg {
+        filter: contrast(1.15) saturate(0.9);
       }
 
       /* Mouvement réduit */
@@ -208,6 +227,16 @@ export function AccessibilityProvider({ children }: AccessibilityProviderProps) 
     toggleReducedMotion: () => setReducedMotion(!reducedMotion),
     toggleLargeFocus: () => setLargeFocus(!largeFocus),
     setFontSize: setFontSizeState,
+    resetAccessibility: () => {
+      setHighContrast(false)
+      setReducedMotion(false)
+      setLargeFocus(false)
+      setFontSizeState('medium')
+      localStorage.removeItem('a11y-high-contrast')
+      localStorage.removeItem('a11y-reduced-motion')
+      localStorage.removeItem('a11y-large-focus')
+      localStorage.removeItem('a11y-font-size')
+    },
     systemPreferences
   }
 
@@ -242,9 +271,27 @@ export function AccessibilityControls() {
   } = useAccessibilityContext()
 
   const [isOpen, setIsOpen] = useState(false)
+  const hasActiveAccessibilityMode = highContrast || reducedMotion || largeFocus || fontSize !== 'medium'
 
   return (
     <>
+      {hasActiveAccessibilityMode && (
+        <button
+          onClick={() => {
+            localStorage.removeItem('a11y-high-contrast')
+            localStorage.removeItem('a11y-reduced-motion')
+            localStorage.removeItem('a11y-large-focus')
+            localStorage.removeItem('a11y-font-size')
+            window.location.reload()
+          }}
+          className="fixed top-4 right-4 z-[60] px-3 py-2 rounded-lg bg-red-600 text-white text-xs font-semibold shadow-lg hover:bg-red-700"
+          aria-label="Revenir à l'affichage normal"
+          title="Revenir à l'affichage normal"
+        >
+          Affichage normal
+        </button>
+      )}
+
       {/* Bouton d'ouverture */}
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -334,6 +381,19 @@ export function AccessibilityControls() {
                 ))}
               </div>
             </div>
+
+            <button
+              onClick={() => {
+                localStorage.removeItem('a11y-high-contrast')
+                localStorage.removeItem('a11y-reduced-motion')
+                localStorage.removeItem('a11y-large-focus')
+                localStorage.removeItem('a11y-font-size')
+                window.location.reload()
+              }}
+              className="w-full mt-2 px-3 py-2 text-xs rounded-lg border border-red-300 text-red-700 bg-red-50 hover:bg-red-100 transition-colors"
+            >
+              Réinitialiser l'accessibilité
+            </button>
           </div>
 
           <div className="mt-4 pt-4 border-t border-mayssa-brown/10">

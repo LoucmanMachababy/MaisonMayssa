@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import { PRODUCTS, isCustomizableTrompeBundleBoxId, isTrompeBoxWithStoredSelection } from '../constants'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -119,6 +120,61 @@ export function getTodayYyyyMmDd(): string {
   return `${y}-${m}-${d}`
 }
 
+/** Champs minimaux pour repérer la prochaine commande « en préparation ». */
+type OrderPrepPick = {
+  status?: string
+  requestedDate?: string
+  requestedTime?: string
+  deliveryMode?: string
+}
+
+/**
+ * Date de retrait/livraison (YYYY-MM-DD) de la commande en préparation la plus proche pour le mode donné.
+ * Si aucune : date du jour (Paris).
+ */
+export function getNearestPreparationDateForDeliveryMode(
+  orders: Record<string, OrderPrepPick>,
+  mode: 'livraison' | 'retrait',
+): string {
+  const prep = Object.values(orders).filter(
+    (o) =>
+      o.status === 'en_preparation' &&
+      o.requestedDate &&
+      o.deliveryMode === mode,
+  )
+  if (prep.length === 0) return getTodayYyyyMmDd()
+  prep.sort((a, b) => {
+    const ta = `${a.requestedDate} ${a.requestedTime ?? '00:00'}`
+    const tb = `${b.requestedDate} ${b.requestedTime ?? '00:00'}`
+    return ta.localeCompare(tb)
+  })
+  return prep[0].requestedDate!
+}
+
+/**
+ * Même logique sans filtre livraison/retrait (planning global).
+ */
+export function getNearestPreparationPickupDate(orders: Record<string, OrderPrepPick>): string {
+  const prep = Object.values(orders).filter(
+    (o) => o.status === 'en_preparation' && o.requestedDate,
+  )
+  if (prep.length === 0) return getTodayYyyyMmDd()
+  prep.sort((a, b) => {
+    const ta = `${a.requestedDate} ${a.requestedTime ?? '00:00'}`
+    const tb = `${b.requestedDate} ${b.requestedTime ?? '00:00'}`
+    return ta.localeCompare(tb)
+  })
+  return prep[0].requestedDate!
+}
+
+/** Écart en jours (calendrier) entre aujourd’hui (Paris) et une date YYYY-MM-DD ; peut être négatif. */
+export function dayOffsetFromTodayToDate(targetYyyyMmDd: string): number {
+  const today = getTodayYyyyMmDd()
+  const t0 = parseDateYyyyMmDd(today).getTime()
+  const t1 = parseDateYyyyMmDd(targetYyyyMmDd).getTime()
+  return Math.round((t1 - t0) / 86400000)
+}
+
 // --- Anniversaire (pure functions, pas de dépendance Firebase) ---
 
 /** Parse YYYY-MM-DD sans décalage UTC (T12:00 évite minuit UTC = jour -1 selon fuseau). */
@@ -140,16 +196,106 @@ export function formatDateYyyyMmDdToFrench(dateYyyyMmDd: string, options?: { wee
 }
 
 /**
+ * Retire la description catalogue après le premier séparateur (em dash, en dash, ou " - ").
+ * Conserve le libellé complet si le suffixe est court (ex. « Les 7 saveurs », perso client).
+ */
+export function shortenOrderItemDisplayName(raw: string): string {
+  const trimmed = (raw ?? '').trim()
+  if (!trimmed) return raw ?? ''
+
+  const m = trimmed.match(/^(.*?)\s*(?:[—–]| - )\s*(.+)$/)
+  if (!m) return trimmed
+
+  const head = m[1].trim()
+  const tail = m[2].trim()
+  if (!head) return trimmed
+
+  if (tail.length <= 64) return trimmed
+
+  return head
+}
+
+/** ID produit catalogue sans suffixe panier (`-timestamp`, 10 chiffres ou plus). */
+export function normalizeOrderProductBaseId(productId?: string): string {
+  return (productId ?? '').replace(/-\d{10,}$/, '')
+}
+
+export type OrderItemLikeForDisplay = {
+  name: string
+  productId?: string
+  trompeDiscoverySelection?: string[]
+  sizeLabel?: string
+}
+
+/**
  * Formate le nom d'un article de commande sous la forme "Catégorie - Nom" pour les brownies,
  * cookies et layer cups. Ex: "Brownie - Spéculoos Framboise", "Cookie - El Mordjene".
- * Pour les autres catégories, retourne le nom tel quel.
+ * Sans les longues descriptions catalogue (admin, PDF, exports).
+ * Box découverte : ajoute la liste des saveurs si `trompeDiscoverySelection` est présent.
  */
-export function formatOrderItemName(item: { name: string; productId?: string }): string {
+export function formatOrderItemName(item: OrderItemLikeForDisplay): string {
+  const short = shortenOrderItemDisplayName(item.name)
   const id = item.productId ?? ''
-  if (id.startsWith('brownie-')) return `Brownie - ${item.name}`
-  if (id.startsWith('cookie-')) return `Cookie - ${item.name}`
-  if (id.startsWith('layer-')) return `Layer Cup - ${item.name}`
-  return item.name
+  const baseId = normalizeOrderProductBaseId(id)
+  let line: string
+  if (id.startsWith('brownie-')) line = `Brownie - ${short}`
+  else if (id.startsWith('cookie-')) line = `Cookie - ${short}`
+  else if (id.startsWith('layer-')) line = `Layer Cup - ${short}`
+  else line = short
+
+  const trompeIds = item.trompeDiscoverySelection ?? []
+  const looksLikeTrompePick =
+    trompeIds.length > 0 && trompeIds.every((id) => typeof id === 'string' && id.startsWith('trompe-loeil-'))
+  if (trompeIds.length && (isTrompeBoxWithStoredSelection(baseId) || looksLikeTrompePick)) {
+    const labels = trompeIds.map(
+      (tid) => PRODUCTS.find((p) => p.id === tid)?.name.replace(/^Trompe l'œil\s+/i, '').trim() ?? tid,
+    )
+    return `${line} — Saveurs : ${labels.join(', ')}`
+  }
+  return line
+}
+
+/** Libellés courts des trompe-l'œil (pour panier / récap). */
+export function trompeSelectionDisplayLabels(ids: string[]): string[] {
+  return ids.map(
+    (tid) => PRODUCTS.find((p) => p.id === tid)?.name.replace(/^Trompe l'œil\s+/i, '').trim() ?? tid,
+  )
+}
+
+/**
+ * Pour agrégations production / stock admin : une ligne « box découverte » devient une entrée par trompe-l'œil choisi.
+ */
+export function expandOrderItemForProductionAggregate(item: OrderItemLikeForDisplay & { quantity: number }): Array<{
+  aggregateKey: string
+  label: string
+  quantity: number
+}> {
+  const q = item.quantity
+  const base = normalizeOrderProductBaseId(item.productId)
+  if (item.trompeDiscoverySelection?.length && isTrompeBoxWithStoredSelection(base)) {
+    return item.trompeDiscoverySelection.map((tid) => ({
+      aggregateKey: tid,
+      label: PRODUCTS.find((p) => p.id === tid)?.name ?? tid,
+      quantity: q,
+    }))
+  }
+  if (isCustomizableTrompeBundleBoxId(base)) {
+    const bundle = PRODUCTS.find((p) => p.id === base)?.bundleProductIds
+    if (bundle?.length) {
+      return bundle.map((tid) => ({
+        aggregateKey: tid,
+        label: PRODUCTS.find((p) => p.id === tid)?.name ?? tid,
+        quantity: q,
+      }))
+    }
+  }
+  return [
+    {
+      aggregateKey: item.productId ?? item.name,
+      label: formatOrderItemName(item),
+      quantity: q,
+    },
+  ]
 }
 
 /** Vérifier si on est dans la semaine d'anniversaire (3 jours avant à 4 jours après) */

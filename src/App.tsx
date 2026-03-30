@@ -1,4 +1,5 @@
-import { useMemo, useState, useEffect, useRef, lazy, Suspense } from 'react'
+import { useMemo, useState, useEffect, useRef, useCallback, Suspense } from 'react'
+import { lazyWithRetry, clearChunkReloadFlag } from './lib/lazyWithRetry'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useActiveSession } from './hooks/useActiveSession'
@@ -13,11 +14,14 @@ import { Confetti, useConfetti } from './components/effects'
 import { OfflineIndicator } from './components/OfflineIndicator'
 import { CookieBanner } from './components/CookieBanner'
 import { EventModeModal } from './components/EventModeModal'
-import { InstagramInstructionModal } from './components/InstagramInstructionModal'
-import { SnapInstructionModal } from './components/SnapInstructionModal'
+import {
+  InstagramInstructionModal,
+  type InstagramOrderModalData,
+} from './components/InstagramInstructionModal'
+import { SnapInstructionModal, type SnapOrderModalData } from './components/SnapInstructionModal'
 import { FloatingCartBar } from './components/FloatingCartBar'
 import { PWAInstallPrompt } from './components/PWAInstallPrompt'
-const AdminPanel = lazy(() => import('./components/admin/AdminPanel').then(m => ({ default: m.AdminPanel })))
+const AdminPanel = lazyWithRetry(() => import('./components/admin/AdminPanel').then(m => ({ default: m.AdminPanel })))
 import { ResourcePreloader, defaultPreloadConfig } from './components/ResourcePreloader'
 import { AccessibilityProvider, AccessibilityControls } from './components/AccessibilityProvider'
 import { SkipLinks } from './components/SkipLinks'
@@ -25,19 +29,32 @@ import { FidelityWelcomeModal, FidelityWelcomeBanner } from './components/Fideli
 import { FidelityToast, FidelityCheckoutReminder } from './components/FidelityToast'
 import { useStock } from './hooks/useStock'
 import { useAuth } from './hooks/useAuth'
-const AuthModals = lazy(() => import('./components/auth/AuthModals').then(m => ({ default: m.AuthModals })))
-const AccountPage = lazy(() => import('./components/auth/AccountPage').then(m => ({ default: m.AccountPage })))
+const AuthModals = lazyWithRetry(() => import('./components/auth/AuthModals').then(m => ({ default: m.AuthModals })))
+const AccountPage = lazyWithRetry(() => import('./components/auth/AccountPage').then(m => ({ default: m.AccountPage })))
 import { listenDeliverySlots, reserveDeliverySlot, listenSettings } from './lib/firebase'
-import { PRODUCTS } from './constants'
+import {
+  PRODUCTS,
+  BOX_DECOUVERTE_TROMPE_PRODUCT_ID,
+  PHONE_E164,
+  DISCOVERY_BOX_TROMPE_SLOT_COUNT,
+  isCustomizableTrompeBundleBoxId,
+  getTrompeBundleSelectionSlotCount,
+  isTrompeBoxWithStoredSelection,
+} from './constants'
 import { getMinDate } from './lib/delivery'
+import {
+  getEffectiveStockForProductCard,
+  getEligibleTrompeIdsForDiscoveryBox,
+  listIndividualTrompeLoeilProducts,
+} from './lib/discoveryBox'
 // Firebase importé dynamiquement pour le reste
 // addUserPoints, createOrder, etc. sont importés via import() dans les handlers
 
 import { VisualBackground } from './components/effects/VisualBackground'
 
-const Testimonials = lazy(() => import('./components/Testimonials').then(m => ({ default: m.Testimonials })))
-const FAQSection = lazy(() => import('./components/LegalPages').then(m => ({ default: m.FAQSection })))
-const LegalPagesSections = lazy(() => import('./components/LegalPages').then(m => ({ default: m.default })))
+const Testimonials = lazyWithRetry(() => import('./components/Testimonials').then(m => ({ default: m.Testimonials })))
+const FAQSection = lazyWithRetry(() => import('./components/LegalPages').then(m => ({ default: m.FAQSection })))
+const LegalPagesSections = lazyWithRetry(() => import('./components/LegalPages').then(m => ({ default: m.default })))
 import {
   BottomNav,
   FloatingCartPreview,
@@ -50,18 +67,21 @@ import {
   VoiceSearch,
   useVoiceSearch,
 } from './components/mobile'
-const OnboardingTour = lazy(() => import('./components/mobile/OnboardingTour').then(m => ({ default: m.OnboardingTour })))
+const OnboardingTour = lazyWithRetry(() => import('./components/mobile/OnboardingTour').then(m => ({ default: m.OnboardingTour })))
 import { hapticFeedback } from './lib/haptics'
 
-const SizeSelectorModal = lazy(() => import('./components/SizeSelectorModal').then(m => ({ default: m.SizeSelectorModal })))
-const TiramisuCustomizationModal = lazy(() => import('./components/TiramisuCustomizationModal').then(m => ({ default: m.TiramisuCustomizationModal })))
-const BoxCustomizationModal = lazy(() => import('./components/BoxCustomizationModal').then(m => ({ default: m.BoxCustomizationModal })))
-const BoxFlavorsModal = lazy(() => import('./components/BoxFlavorsModal').then(m => ({ default: m.BoxFlavorsModal })))
-const ComplementarySuggestions = lazy(() => import('./components/ComplementarySuggestions').then(m => ({ default: m.ComplementarySuggestions })))
-const CommunityMapSection = lazy(() => import('./components/CommunityMapSection').then(m => ({ default: m.CommunityMapSection })))
+const SizeSelectorModal = lazyWithRetry(() => import('./components/SizeSelectorModal').then(m => ({ default: m.SizeSelectorModal })))
+const TiramisuCustomizationModal = lazyWithRetry(() => import('./components/TiramisuCustomizationModal').then(m => ({ default: m.TiramisuCustomizationModal })))
+const BoxCustomizationModal = lazyWithRetry(() => import('./components/BoxCustomizationModal').then(m => ({ default: m.BoxCustomizationModal })))
+const BoxFlavorsModal = lazyWithRetry(() => import('./components/BoxFlavorsModal').then(m => ({ default: m.BoxFlavorsModal })))
+const BoxDecouverteTrompeModal = lazyWithRetry(() =>
+  import('./components/BoxDecouverteTrompeModal').then(m => ({ default: m.BoxDecouverteTrompeModal })),
+)
+const ComplementarySuggestions = lazyWithRetry(() => import('./components/ComplementarySuggestions').then(m => ({ default: m.ComplementarySuggestions })))
+const CommunityMapSection = lazyWithRetry(() => import('./components/CommunityMapSection').then(m => ({ default: m.CommunityMapSection })))
 import { TrompeLOeilModal } from './components/TrompeLOeilModal'
 import { OrderConfirmation } from './components/OrderConfirmation'
-import { OrderRecapModal } from './components/OrderRecapModal'
+import { OrderRecapModal, type OrderRecapSendChannel } from './components/OrderRecapModal'
 import { AggregateRatingSchema } from './components/AggregateRatingSchema'
 import { OrderStatusPage } from './components/OrderStatusPage'
 import { DeliveryZoneMap } from './components/DeliveryZoneMap'
@@ -81,8 +101,10 @@ import {
   calculateDistance,
   computeDeliveryFee,
   formatDateLabel,
+  normalizeInstagramHandle,
 } from './lib/delivery'
-import { buildOrderMessage } from './lib/orderMessage'
+import { buildOrderMessage, buildShortSocialPasteMessage } from './lib/orderMessage'
+import { openWhatsAppWithPrefilledMessage } from './lib/whatsappOpen'
 import { isPreorderNotYetAvailable, isBeforeOrderCutoff } from './lib/utils'
 import {
   Sparkles,
@@ -130,13 +152,6 @@ function getPendingOrder(phone: string): PendingOrderEntry | null {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-
-/** Stock effectif d'un produit : pour un bundle, retourne le minimum des stocks de ses composants. */
-function getBundleEffectiveStock(product: { id: string; bundleProductIds?: string[] }, getStockFn: (id: string) => number | null): number | null {
-  if (!product.bundleProductIds?.length) return getStockFn(product.id)
-  const managed = product.bundleProductIds.map(id => getStockFn(id)).filter((s): s is number => s !== null)
-  return managed.length === 0 ? null : Math.min(...managed)
-}
 
 function AppRouter() {
   const [isAdmin, setIsAdmin] = useState(() => window.location.hash === '#admin')
@@ -219,13 +234,29 @@ function App() {
 
 function AppContent() {
   // Stock management (Firebase real-time)
-  const { stock: stockMap, getStock, isPreorderDay, dayNames } = useStock()
+  const { stock: stockMap, getStock, isPreorderDay, dayNames, settings } = useStock()
 
   // Client authentication
   const { user, isAuthenticated, profile } = useAuth()
 
   // Products with Firebase overrides
   const { availableProducts } = useProducts()
+
+  const getCardStock = useCallback(
+    (p: Product) =>
+      getEffectiveStockForProductCard(p, getStock, {
+        boxDecouverteExcludedIds: settings.boxDecouverteTrompeExcludedIds,
+        catalog: availableProducts,
+      }),
+    [getStock, settings.boxDecouverteTrompeExcludedIds, availableProducts],
+  )
+
+  const discoveryEligibleTrompes = useMemo(() => {
+    const ids = new Set(
+      getEligibleTrompeIdsForDiscoveryBox(availableProducts, settings.boxDecouverteTrompeExcludedIds),
+    )
+    return listIndividualTrompeLoeilProducts(availableProducts).filter((p) => ids.has(p.id))
+  }, [availableProducts, settings.boxDecouverteTrompeExcludedIds])
 
   // Refs pour accéder aux données courantes dans les timers (évite les closures stale)
   const stockMapRef = useRef(stockMap)
@@ -257,6 +288,9 @@ function AppContent() {
   })
   useEffect(() => { stockMapRef.current = stockMap }, [stockMap])
   useEffect(() => { isAuthenticatedRef.current = isAuthenticated }, [isAuthenticated])
+  useEffect(() => {
+    clearChunkReloadFlag()
+  }, [])
   useEffect(() => {
     return listenDeliverySlots(setDeliverySlots)
   }, [])
@@ -325,7 +359,14 @@ function AppContent() {
   // Mobile state
   const [isMobile, setIsMobile] = useState(false)
   const [isCartSheetOpen, setIsCartSheetOpen] = useState(false)
-  const [showRecapModal, setShowRecapModal] = useState(false)
+  const [orderRecapChannel, setOrderRecapChannel] = useState<OrderRecapSendChannel | null>(null)
+  const [orderContactIdentity, setOrderContactIdentity] = useState<OrderRecapSendChannel>('whatsapp')
+  const lastAddRef = useRef<{ id: string; at: number } | null>(null)
+  const openOrderRecap = useCallback((ch: OrderRecapSendChannel) => {
+    setOrderContactIdentity(ch)
+    setIsCartSheetOpen(false)
+    setOrderRecapChannel(ch)
+  }, [])
   const [selectedProductForDetail, setSelectedProductForDetail] = useState<Product | null>(null)
   const [promoCodeInput, setPromoCodeInput] = useState('')
   const [appliedPromo, setAppliedPromo] = useState<{ code: string; discount: number } | null>(null)
@@ -404,7 +445,7 @@ function AppContent() {
   // --- RÉSERVATION TROMPE L'ŒIL : nettoyage des réservations expirées ---
   // Utilitaire : extraire l'ID produit original (sans le suffixe -timestamp)
   const getOriginalProductId = (cartProductId: string) =>
-    cartProductId.replace(/-\d{13,}$/, '')
+    cartProductId.replace(/-\d{10,}$/, '')
 
   // Nettoyage au montage (réservations d'une session précédente)
   const mountCleanupDone = useRef(false)
@@ -430,7 +471,9 @@ function AppContent() {
           const currentStock = await fetchAll()
           for (const item of expired) {
             const origId = getOriginalProductId(item.product.id)
-            const pairs = getStockDecrementItems(origId, item.quantity, PRODUCTS)
+            const pairs = getStockDecrementItems(origId, item.quantity, PRODUCTS, {
+              trompeDiscoverySelection: item.trompeDiscoverySelection,
+            })
             for (const pair of pairs) {
               const qty = currentStock[pair.productId] ?? 0
               await updateStock(pair.productId, qty + pair.quantity)
@@ -470,7 +513,9 @@ function AppContent() {
         import('./lib/firebase').then(({ updateStock, getStockDecrementItems }) => {
           for (const item of expired) {
             const origId = getOriginalProductId(item.product.id)
-            const pairs = getStockDecrementItems(origId, item.quantity, PRODUCTS)
+            const pairs = getStockDecrementItems(origId, item.quantity, PRODUCTS, {
+              trompeDiscoverySelection: item.trompeDiscoverySelection,
+            })
             for (const pair of pairs) {
               const qty = stockMapRef.current[pair.productId] ?? 0
               updateStock(pair.productId, qty + pair.quantity)
@@ -596,9 +641,25 @@ function AppContent() {
   const [selectedProductForTiramisu, setSelectedProductForTiramisu] = useState<Product | null>(null)
   const [selectedProductForBox, setSelectedProductForBox] = useState<Product | null>(null)
   const [selectedProductForBoxFlavors, setSelectedProductForBoxFlavors] = useState<Product | null>(null)
+  const [selectedProductForDiscoveryBox, setSelectedProductForDiscoveryBox] = useState<Product | null>(null)
   const [selectedProductForTrompeLoeil, setSelectedProductForTrompeLoeil] = useState<Product | null>(null)
+
+  const trompePickerEligibleTrompes = useMemo(() => {
+    const p = selectedProductForDiscoveryBox
+    if (!p) return []
+    if (p.id === BOX_DECOUVERTE_TROMPE_PRODUCT_ID) return discoveryEligibleTrompes
+    if (isCustomizableTrompeBundleBoxId(p.id) && p.bundleProductIds?.length) {
+      const allowed = new Set(p.bundleProductIds)
+      return listIndividualTrompeLoeilProducts(availableProducts).filter((x) => allowed.has(x.id))
+    }
+    return []
+  }, [selectedProductForDiscoveryBox, discoveryEligibleTrompes, availableProducts])
+
+  const trompePickerSlotCount = selectedProductForDiscoveryBox
+    ? getTrompeBundleSelectionSlotCount(selectedProductForDiscoveryBox.id)
+    : DISCOVERY_BOX_TROMPE_SLOT_COUNT
+
   const [toasts, setToasts] = useState<Toast[]>([])
-  const [isInstagramModalOpen, setIsInstagramModalOpen] = useState(false)
   const [suggestedProducts, setSuggestedProducts] = useState<Product[]>([])
   const suggestTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
@@ -744,12 +805,26 @@ function AppContent() {
       const bPinned = (b as { pinned?: boolean }).pinned ? 1 : 0
       return bPinned - aPinned
     })
-    // 2. Trompe l'œil : tri par meilleurs avis (note moyenne puis nombre d'avis)
+    // 2. Trompe l'œil : d'abord « bientôt en rupture » (même seuils que StockBadge : 1–5),
+    //    puis tri par meilleurs avis (note moyenne puis nombre d'avis)
     if (activeCategory === "Trompe l'œil") {
       const pinnedCount = arr.filter((p) => (p as { pinned?: boolean }).pinned).length
       const trompeLoeil = arr.slice(pinnedCount)
       const rest = arr.slice(0, pinnedCount)
+      const effStock = (p: Product) => getCardStock(p)
+      const isSoonLowStock = (p: Product) => {
+        const s = effStock(p)
+        return s !== null && s >= 1 && s <= 5
+      }
       trompeLoeil.sort((a, b) => {
+        const aSoon = isSoonLowStock(a)
+        const bSoon = isSoonLowStock(b)
+        if (aSoon !== bSoon) return aSoon ? -1 : 1
+        if (aSoon && bSoon) {
+          const sa = effStock(a)!
+          const sb = effStock(b)!
+          if (sa !== sb) return sa - sb
+        }
         const aRating = getAverageRatingForProduct(a.id)
         const bRating = getAverageRatingForProduct(b.id)
         const aCount = getReviewCountForProduct(a.id)
@@ -772,7 +847,7 @@ function AppContent() {
       arr.splice(pinnedCount, 0, fraise)
     }
     return arr
-  }, [filteredProducts, activeCategory, getAverageRatingForProduct, getReviewCountForProduct])
+  }, [filteredProducts, activeCategory, getAverageRatingForProduct, getReviewCountForProduct, getCardStock])
 
   const handleAddToCart = (product: Product) => {
     if (isPreorderNotYetAvailable(product)) return
@@ -795,10 +870,25 @@ function AppContent() {
       return
     }
 
+    if (product.id === BOX_DECOUVERTE_TROMPE_PRODUCT_ID || isCustomizableTrompeBundleBoxId(product.id)) {
+      setSelectedProductForDiscoveryBox(product)
+      return
+    }
+
     // If product has sizes (like Layer Cups), open size selector modal
     if (product.sizes && product.sizes.length > 0) {
       setSelectedProductForSize(product)
       return
+    }
+
+    // Sur mobile, certains navigateurs peuvent déclencher deux événements très rapprochés
+    // pour un seul tap. On ignore un deuxième ajout sur le même produit < 350 ms.
+    if (isMobile) {
+      const now = Date.now()
+      if (lastAddRef.current && lastAddRef.current.id === product.id && now - lastAddRef.current.at < 350) {
+        return
+      }
+      lastAddRef.current = { id: product.id, at: now }
     }
 
     import('./lib/analytics').then(({ AnalyticsEvents }) => {
@@ -934,6 +1024,44 @@ function AppContent() {
     setSelectedProductForBoxFlavors(null)
   }
 
+  const handleDiscoveryBoxConfirm = (selectionIds: string[]) => {
+    if (!selectedProductForDiscoveryBox) return
+    const base = selectedProductForDiscoveryBox
+    if (base.id === BOX_DECOUVERTE_TROMPE_PRODUCT_ID) {
+      if (
+        selectionIds.length !== DISCOVERY_BOX_TROMPE_SLOT_COUNT ||
+        new Set(selectionIds).size !== DISCOVERY_BOX_TROMPE_SLOT_COUNT
+      ) {
+        return
+      }
+    } else if (isCustomizableTrompeBundleBoxId(base.id)) {
+      const n = getTrompeBundleSelectionSlotCount(base.id)
+      const allowed = new Set(base.bundleProductIds ?? [])
+      if (
+        n === 0 ||
+        selectionIds.length !== n ||
+        new Set(selectionIds).size !== n ||
+        !selectionIds.every((id) => allowed.has(id))
+      ) {
+        return
+      }
+    } else {
+      return
+    }
+    const resolveName = (id: string) =>
+      availableProducts.find((p) => p.id === id)?.name ?? PRODUCTS.find((p) => p.id === id)?.name ?? id
+    const cartProduct: Product = {
+      ...base,
+      id: `${base.id}-${Date.now()}`,
+      description: `Choix : ${selectionIds.map(resolveName).join(', ')}`,
+    }
+    setCart((current) => {
+      pendingAddToastRef.current = { message: `${base.name} ajouté au panier`, product: base }
+      return [...current, { product: cartProduct, quantity: 1, trompeDiscoverySelection: selectionIds }]
+    })
+    setSelectedProductForDiscoveryBox(null)
+  }
+
   const RESERVATION_DURATION_MS = 10 * 60 * 1000 // 10 minutes
 
   const handleTrompeLOeilConfirm = async (product: Product, quantity: number) => {
@@ -985,7 +1113,9 @@ function AppContent() {
         const origId = getOriginalProductId(item.product.id)
         const { updateStock, getStockDecrementItems } = await import('./lib/firebase')
 
-        const pairs = getStockDecrementItems(origId, item.quantity, PRODUCTS)
+        const pairs = getStockDecrementItems(origId, item.quantity, PRODUCTS, {
+          trompeDiscoverySelection: item.trompeDiscoverySelection,
+        })
         for (const pair of pairs) {
           const currentQty = getStock(pair.productId)
           if (currentQty !== null) await updateStock(pair.productId, currentQty + pair.quantity)
@@ -1002,7 +1132,9 @@ function AppContent() {
         const origId = getOriginalProductId(item.product.id)
         const { updateStock, getStockDecrementItems } = await import('./lib/firebase')
 
-        const pairs = getStockDecrementItems(origId, Math.abs(delta), PRODUCTS)
+        const pairs = getStockDecrementItems(origId, Math.abs(delta), PRODUCTS, {
+          trompeDiscoverySelection: item.trompeDiscoverySelection,
+        })
         if (delta > 0) {
           // Vérifier le stock minimum parmi tous les composants
           const minStock = pairs.reduce((min, pair) => {
@@ -1033,9 +1165,8 @@ function AppContent() {
     )
   }
 
-  const [instagramParts, setInstagramParts] = useState<string[]>([])
-  const [isSnapModalOpen, setIsSnapModalOpen] = useState(false)
-  const [snapMessage, setSnapMessage] = useState('')
+  const [instagramOrderModal, setInstagramOrderModal] = useState<InstagramOrderModalData | null>(null)
+  const [snapOrderModal, setSnapOrderModal] = useState<SnapOrderModalData | null>(null)
   const [orderConfirmation, setOrderConfirmation] = useState<{
     orderId: string
     orderNumber?: number
@@ -1052,11 +1183,18 @@ function AppContent() {
   // Détecte si ce numéro a déjà passé une commande dans les 48 dernières heures
   const [pendingOrderOverride, setPendingOrderOverride] = useState(false)
 
-  const pendingOrderInfo = useMemo(() => {
-    if (pendingOrderOverride) return null
-    return getPendingOrder(customer.phone)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customer.phone, orderConfirmation, pendingOrderOverride])
+  // Toujours relire localStorage : après Insta/Snap, `orderConfirmation` ne change pas donc un useMemo cassait l’affichage du rappel / « une autre commande ».
+  const pendingOrderInfo = pendingOrderOverride ? null : getPendingOrder(customer.phone)
+
+  const allowAnotherOrder = useCallback(() => {
+    try { localStorage.removeItem(MM_PENDING_ORDER_KEY) } catch { /* ignore */ }
+    setPendingOrderOverride(false)
+  }, [])
+
+  const recordPlacedOrder = useCallback((phone: string, orderNumber?: number) => {
+    markOrderPlaced(phone, orderNumber)
+    setPendingOrderOverride(false)
+  }, [])
 
   // Vérifie si l'admin a manuellement levé le blocage côté Firebase
   useEffect(() => {
@@ -1094,8 +1232,12 @@ function AppContent() {
     setPromoCodeInput('')
   }
 
-  const saveOrderToFirebase = async (source: 'whatsapp' | 'instagram' | 'snap'): Promise<{ orderId: string; orderNumber: number } | null> => {
-    if (cart.length === 0) return null
+  type SaveOrderResult =
+    | { ok: true; orderId: string; orderNumber: number }
+    | { ok: false; reason?: 'stock' | 'empty' }
+
+  const saveOrderToFirebase = async (source: 'whatsapp' | 'instagram' | 'snap'): Promise<SaveOrderResult> => {
+    if (cart.length === 0) return { ok: false, reason: 'empty' }
     const discount = appliedPromo?.discount ?? 0
     let referralDiscount = 0
     let referrerUid: string | null = null
@@ -1113,58 +1255,108 @@ function AppContent() {
     const donation = donationAmount ?? 0
     const orderTotal = totalAfterDiscount + deliveryFee + donation
     try {
-      const { createOrder, incrementPromoCodeUsage, applyReferralAfterOrder } = await import('./lib/firebase')
+      const {
+        createOrder,
+        incrementPromoCodeUsage,
+        applyReferralAfterOrder,
+        decrementStockBatchStrict,
+        incrementStockBatch,
+        getStockDecrementItems: getDecrItems,
+      } = await import('./lib/firebase')
       const distanceKm = customer.wantsDelivery && customer.addressCoordinates
         ? calculateDistance(customer.addressCoordinates, ANNECY_GARE)
         : undefined
 
-      const result = await createOrder({
-        items: cart.map((item) => {
-          // Inclure les personnalisations (toppings, coulis, parfums...) dans le nom pour l'admin
-          let name: string
-          if (item.product.category === 'Tiramisus' && item.product.description) {
-            name = `${item.product.name} – ${item.product.description}`
-          } else if (item.product.description) {
-            // Boxes, mini gourmandises, box fruitée, etc.
-            name = `${item.product.name} – ${item.product.description}`
-          } else {
-            name = item.product.name
-          }
-          return {
-            productId: getOriginalProductId(item.product.id),
-            name,
-            quantity: item.quantity,
-            price: item.product.price,
-          }
-        }),
-        customer: {
-          firstName: customer.firstName || 'Client',
-          lastName: customer.lastName || '',
-          phone: customer.phone || '',
-          ...(customer.email?.trim() && { email: customer.email.trim() }),
-          ...(customer.wantsDelivery && customer.address.trim() && { address: customer.address.trim() }),
-          ...(customer.wantsDelivery && customer.addressCoordinates && { addressCoordinates: customer.addressCoordinates }),
-          ...(customer.wantsDelivery && customer.deliveryInstructions?.trim() && { deliveryInstructions: customer.deliveryInstructions.trim() }),
-        },
-        total: orderTotal,
-        status: 'en_attente',
-        source,
-        deliveryMode: customer.wantsDelivery ? 'livraison' : 'retrait',
-        requestedDate: customer.date || undefined,
-        requestedTime: customer.time || undefined,
-        ...(deliveryFee > 0 && { deliveryFee }),
-        ...(distanceKm != null && { distanceKm }),
-        ...(note.trim() && note.trim() !== 'Pour le … (date, créneau, adresse)' && { clientNote: note.trim() }),
-        ...(appliedPromo && { promoCode: appliedPromo.code, discountAmount: appliedPromo.discount }),
-        ...(donation > 0 && { donationAmount: donation }),
-        ...(user?.uid && { userId: user.uid }),
-        ...(referralDiscount > 0 && referrerUid && {
-          referralCode: referralCodeInput!.trim(),
-          referralDiscountAmount: referralDiscount,
-          referrerUserId: referrerUid,
-        }),
-        createdAt: Date.now(),
+      const itemsToDecrement = cart.flatMap((item) => {
+        const isTrompe = item.product.category === "Trompe l'œil"
+        if (isTrompe && item.reservationConfirmed) return []
+        if (isTrompe && isAuthenticated && item.reservationExpiresAt) return []
+        return getDecrItems(getOriginalProductId(item.product.id), item.quantity, PRODUCTS, {
+          trompeDiscoverySelection: item.trompeDiscoverySelection,
+        }).map((d) => ({ ...d, label: item.product.name }))
       })
+
+      if (itemsToDecrement.length > 0) {
+        await decrementStockBatchStrict(itemsToDecrement)
+      }
+
+      let result: { orderId: string; orderNumber: number } | null
+      const rollbackStock = async () => {
+        if (itemsToDecrement.length === 0) return
+        await incrementStockBatch(
+          itemsToDecrement.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+        ).catch(() => {})
+      }
+      try {
+        result = await createOrder({
+          items: cart.map((item) => {
+            // Inclure les personnalisations (toppings, coulis, parfums...) dans le nom pour l'admin
+            let name: string
+            if (item.product.category === 'Tiramisus' && item.product.description) {
+              name = `${item.product.name} – ${item.product.description}`
+            } else if (item.product.description) {
+              // Boxes, mini gourmandises, box fruitée, etc.
+              name = `${item.product.name} – ${item.product.description}`
+            } else {
+              name = item.product.name
+            }
+            return {
+              productId: getOriginalProductId(item.product.id),
+              name,
+              quantity: item.quantity,
+              price: item.product.price,
+              ...(item.trompeDiscoverySelection?.length
+                ? { trompeDiscoverySelection: item.trompeDiscoverySelection }
+                : {}),
+            }
+          }),
+          customer: {
+            firstName:
+              source === 'instagram'
+                ? normalizeInstagramHandle(customer.firstName) || 'client'
+                : customer.firstName || 'Client',
+            lastName: source === 'instagram' ? '' : customer.lastName || '',
+            phone: customer.phone || '',
+            ...(customer.email?.trim() && { email: customer.email.trim() }),
+            ...(customer.wantsDelivery && customer.address.trim() && { address: customer.address.trim() }),
+            ...(customer.wantsDelivery && customer.addressCoordinates && { addressCoordinates: customer.addressCoordinates }),
+            ...(customer.wantsDelivery && customer.deliveryInstructions?.trim() && { deliveryInstructions: customer.deliveryInstructions.trim() }),
+            ...(source === 'instagram' && {
+              contactPlatform: 'instagram' as const,
+              contactHandle: normalizeInstagramHandle(customer.firstName),
+            }),
+            ...(source === 'snap' && {
+              contactPlatform: 'snap' as const,
+              contactHandle: customer.firstName.trim(),
+            }),
+          },
+          total: orderTotal,
+          status: 'en_attente',
+          source,
+          deliveryMode: customer.wantsDelivery ? 'livraison' : 'retrait',
+          requestedDate: customer.date || undefined,
+          requestedTime: customer.time || undefined,
+          ...(deliveryFee > 0 && { deliveryFee }),
+          ...(distanceKm != null && { distanceKm }),
+          ...(note.trim() && note.trim() !== 'Pour le … (date, créneau, adresse)' && { clientNote: note.trim() }),
+          ...(appliedPromo && { promoCode: appliedPromo.code, discountAmount: appliedPromo.discount }),
+          ...(donation > 0 && { donationAmount: donation }),
+          ...(user?.uid && { userId: user.uid }),
+          ...(referralDiscount > 0 && referrerUid && {
+            referralCode: referralCodeInput!.trim(),
+            referralDiscountAmount: referralDiscount,
+            referrerUserId: referrerUid,
+          }),
+          createdAt: Date.now(),
+        })
+      } catch (orderErr) {
+        await rollbackStock()
+        throw orderErr
+      }
+      if (!result) {
+        await rollbackStock()
+        return { ok: false }
+      }
       if (referralDiscount > 0 && referrerUid && user?.uid) {
         applyReferralAfterOrder(user.uid, referralCodeInput!.trim(), referrerUid).catch(console.error)
       }
@@ -1182,45 +1374,82 @@ function AppContent() {
       if (customer.wantsDelivery && customer.date && customer.time) {
         reserveDeliverySlot(customer.date, customer.time).catch(console.error)
       }
-      // Décrémenter le stock à l'envoi :
-      // - Produits classiques (brownies, cookies...) : toujours ici
-      // - Trompe-l'œil : seulement si la réservation n'a pas déjà décrémenté (non-auth)
-      const { decrementStockBatch, getStockDecrementItems: getDecrItems } = await import('./lib/firebase')
-      const itemsToDecrement = cart.flatMap((item) => {
-        const isTrompe = item.product.category === "Trompe l'œil"
-        // Trompe-l'œil déjà décrémenté via réservation (auth) → skip
-        if (isTrompe && item.reservationConfirmed) return []
-        if (isTrompe && isAuthenticated && item.reservationExpiresAt) return []
-        return getDecrItems(getOriginalProductId(item.product.id), item.quantity, PRODUCTS)
-      })
-      if (itemsToDecrement.length > 0) {
-        decrementStockBatch(itemsToDecrement).catch(console.error)
-      }
-      return result
+      return { ok: true, ...result }
     } catch (err) {
       console.error('[Firebase] Erreur sauvegarde commande:', err)
-      return null
+      const msg = err instanceof Error ? err.message : String(err)
+      if (msg.includes('Stock insuffisant')) {
+        return { ok: false, reason: 'stock' }
+      }
+      return { ok: false }
     }
   }
 
   const handleSend = async () => {
+    let whatsAppDraftTab: Window | null = null
+    const abortWhatsAppDraft = () => {
+      try {
+        if (whatsAppDraftTab && !whatsAppDraftTab.closed) whatsAppDraftTab.close()
+      } catch {
+        /* ignore */
+      }
+      whatsAppDraftTab = null
+    }
+
     if (!ordersOpen) {
       showToast('Les commandes sont fermées pour le moment.', 'error', 5000)
       return
     }
     if (getPendingOrder(customer.phone)) {
-      showToast('Vous avez déjà passé une commande. Nous vous recontactons rapidement !', 'error', 6000)
+      showToast('Une commande est déjà enregistrée pour ce numéro. Dans le panier, choisissez « Oui, une autre commande » si vous souhaitez en ajouter une.', 'error', 7000)
       return
+    }
+    try {
+      whatsAppDraftTab = window.open('about:blank', '_blank')
+    } catch {
+      whatsAppDraftTab = null
     }
     const hasNonTrompeLoeil = cart.some((item) => item.product.category !== "Trompe l'œil")
     const hasTrompeLoeil = cart.some((item) => item.product.category === "Trompe l'œil")
     const minDateForMode = customer.wantsDelivery ? deliverySchedule.minDateLivraison : deliverySchedule.minDateRetrait
     if (hasTrompeLoeil && customer.date && customer.date < minDateForMode) {
+      abortWhatsAppDraft()
       showToast(`Les précommandes trompe l'œil sont possibles à partir du ${formatDateLabel(minDateForMode)}.`, 'error', 5000)
       return
     }
     if (hasNonTrompeLoeil && !isBeforeOrderCutoff() && !ordersExplicit) {
+      abortWhatsAppDraft()
       showToast('Commandes (pâtisseries, cookies…) possibles jusqu\'à 17h. Les précommandes trompe-l\'œil restent disponibles.', 'error', 5000)
+      return
+    }
+
+    const invalidTrompeSelectionBox = cart.some((item) => {
+      const oid = getOriginalProductId(item.product.id)
+      const sel = item.trompeDiscoverySelection
+      if (oid === BOX_DECOUVERTE_TROMPE_PRODUCT_ID) {
+        return !sel || sel.length !== DISCOVERY_BOX_TROMPE_SLOT_COUNT || new Set(sel).size !== DISCOVERY_BOX_TROMPE_SLOT_COUNT
+      }
+      if (isCustomizableTrompeBundleBoxId(oid)) {
+        const p = PRODUCTS.find((x) => x.id === oid)
+        const n = getTrompeBundleSelectionSlotCount(oid)
+        const allowed = new Set(p?.bundleProductIds ?? [])
+        return (
+          !sel ||
+          n === 0 ||
+          sel.length !== n ||
+          new Set(sel).size !== n ||
+          !sel.every((id) => allowed.has(id))
+        )
+      }
+      return false
+    })
+    if (invalidTrompeSelectionBox) {
+      abortWhatsAppDraft()
+      showToast(
+        'Une box trompe-l’œil au choix est incomplète. Ouvre le panier pour sélectionner toutes les saveurs.',
+        'error',
+        8000,
+      )
       return
     }
 
@@ -1231,6 +1460,24 @@ function AppContent() {
       const referrerUid = await getReferrerByCode(referralCodeInput!.trim())
       if (referrerUid && referrerUid !== user!.uid) referralDiscountAmount = REFERRAL_DISCOUNT_EUR
     }
+
+    // --- Enregistrer la commande dans Firebase d'abord (pour obtenir l'ID + n°) ---
+    const orderResult = await saveOrderToFirebase('whatsapp')
+    if (!orderResult.ok) {
+      abortWhatsAppDraft()
+      if (orderResult.reason === 'stock') {
+        showToast(
+          'Un ou plusieurs produits ne sont plus disponibles en quantité suffisante. Mets à jour ton panier puis réessaie.',
+          'error',
+          8000,
+        )
+      } else if (orderResult.reason !== 'empty') {
+        showToast('Erreur lors de l\'enregistrement de la commande.', 'error')
+      }
+      return
+    }
+    const { orderId, orderNumber } = orderResult
+    recordPlacedOrder(customer.phone, orderNumber)
 
     const message = buildOrderMessage({
       cart,
@@ -1243,17 +1490,13 @@ function AppContent() {
       referralDiscountAmount,
       donationAmount: donationAmount ?? 0,
       dietaryPreferences: profile?.dietaryPreferences,
+      contactIdentity: 'whatsapp',
+      orderNumber,
     })
-    if (!message) return
-
-    // --- Enregistrer la commande dans Firebase d'abord (pour obtenir l'ID) ---
-    const orderResult = await saveOrderToFirebase('whatsapp')
-    if (!orderResult) {
-      showToast('Erreur lors de l\'enregistrement de la commande.', 'error')
+    if (!message) {
+      abortWhatsAppDraft()
       return
     }
-    const { orderId, orderNumber } = orderResult
-    markOrderPlaced(customer.phone, orderNumber)
 
     // --- Analytics ---
     try {
@@ -1275,17 +1518,54 @@ function AppContent() {
         lastName: customer.lastName || '',
         phone: customer.phone || '',
       },
-      items: cart.map((i) => ({
-        name: i.product.name,
-        quantity: i.quantity,
-        price: i.product.price,
-        productId: getOriginalProductId(i.product.id),
-      })),
+      items: cart.map((i) => {
+        const orig = getOriginalProductId(i.product.id)
+        let name = i.product.name
+        if (isTrompeBoxWithStoredSelection(orig) && i.trompeDiscoverySelection?.length) {
+          const labels = i.trompeDiscoverySelection.map(
+            (id) =>
+              PRODUCTS.find((p) => p.id === id)?.name.replace(/^Trompe l'œil\s+/i, '').trim() ?? id,
+          )
+          name = `${i.product.name} (${labels.join(', ')})`
+        } else if (i.product.description) {
+          name = `${i.product.name} – ${i.product.description}`
+        }
+        return {
+          name,
+          quantity: i.quantity,
+          price: i.product.price,
+          productId: orig,
+        }
+      }),
       deliveryMode: customer.wantsDelivery ? 'livraison' : 'retrait',
       requestedDate: customer.date || undefined,
       requestedTime: customer.time || undefined,
       whatsappMessage: message,
     })
+
+    const waFallback =
+      orderNumber != null
+        ? `Commande Maison Mayssa n°${orderNumber} — le message détaillé a été copié : dans WhatsApp, appuie longuement dans le champ texte puis « Coller ».`
+        : 'Commande Maison Mayssa — le message détaillé a été copié : colle-le dans WhatsApp.'
+    const { usedClipboardFallback, opened } = openWhatsAppWithPrefilledMessage(
+      PHONE_E164,
+      message,
+      waFallback,
+      whatsAppDraftTab,
+    )
+    if (usedClipboardFallback) {
+      showToast(
+        'Le texte était trop long pour le lien WhatsApp : le message complet a été copié. Colle-le dans la conversation.',
+        'info',
+        9000,
+      )
+    } else if (!opened) {
+      showToast(
+        'Autorise les pop-ups pour ce site ou utilise le bouton « Envoyer sur WhatsApp » sur l’écran de confirmation.',
+        'info',
+        8000,
+      )
+    }
 
     // --- Confirmer les réservations trompe l'oeil (le stock reste décrémenté) ---
     const trompeLOeilItems = cart.filter(
@@ -1357,7 +1637,7 @@ function AppContent() {
       return
     }
     if (getPendingOrder(customer.phone)) {
-      showToast('Vous avez déjà passé une commande. Nous vous recontactons rapidement !', 'error', 6000)
+      showToast('Une commande est déjà enregistrée pour ce numéro. Dans le panier, choisissez « Oui, une autre commande » si vous souhaitez en ajouter une.', 'error', 7000)
       return
     }
     const hasNonTrompeLoeil = cart.some((item) => item.product.category !== "Trompe l'œil")
@@ -1390,39 +1670,118 @@ function AppContent() {
       referralDiscountAmount,
       donationAmount: donationAmount ?? 0,
       dietaryPreferences: profile?.dietaryPreferences,
+      contactIdentity: 'instagram',
     })
     if (!message) return
 
     const instagramResult = await saveOrderToFirebase('instagram')
-    if (instagramResult) markOrderPlaced(customer.phone, instagramResult.orderNumber)
-
-    // Instagram DM a une limite de ~1000 caractères par message
-    const INSTAGRAM_LIMIT = 1000
-    const parts: string[] = []
-    if (message.length <= INSTAGRAM_LIMIT) {
-      parts.push(message)
-    } else {
-      const lines = message.split('\n')
-      let current = ''
-      for (const line of lines) {
-        if (current.length + line.length + 1 > INSTAGRAM_LIMIT && current.length > 0) {
-          parts.push(current.trimEnd())
-          current = ''
-        }
-        current += line + '\n'
+    if (!instagramResult.ok) {
+      if (instagramResult.reason === 'stock') {
+        showToast(
+          'Un ou plusieurs produits ne sont plus disponibles en quantité suffisante. Mets à jour ton panier puis réessaie.',
+          'error',
+          8000,
+        )
+      } else if (instagramResult.reason !== 'empty') {
+        showToast('Erreur lors de l\'enregistrement de la commande.', 'error')
       }
-      if (current.trim()) parts.push(current.trimEnd())
+      return
+    }
+    recordPlacedOrder(customer.phone, instagramResult.orderNumber)
+
+    const totalAfterDiscount = total - (appliedPromo?.discount ?? 0) - referralDiscountAmount
+    const deliveryFeeVal = computeDeliveryFee(customer, totalAfterDiscount) ?? 0
+    const donationVal = donationAmount ?? 0
+    const finalTotal = totalAfterDiscount + deliveryFeeVal + donationVal
+
+    const shortPasteMessage = buildShortSocialPasteMessage(
+      {
+        cart,
+        customer,
+        total,
+        note,
+        selectedReward,
+        isAuthenticated,
+        discountAmount: appliedPromo?.discount ?? 0,
+        referralDiscountAmount,
+        donationAmount: donationVal,
+        dietaryPreferences: profile?.dietaryPreferences,
+        orderNumber: instagramResult.orderNumber,
+        contactIdentity: 'instagram',
+      },
+      920,
+    )
+
+    const modalPayload: InstagramOrderModalData = {
+      orderNumber: instagramResult.orderNumber,
+      shortPasteMessage,
+      customer: { ...customer },
+      items: cart.map((i) => ({ ...i, product: { ...i.product } })),
+      finalTotal,
+      deliveryFee: deliveryFeeVal,
+      discountAmount: appliedPromo?.discount ?? 0,
+      donationAmount: donationVal,
     }
 
-    // Copier la première partie dans le presse-papier
-    try {
-      await navigator.clipboard.writeText(parts[0])
-    } catch { /* fallback: l'utilisateur copiera manuellement */ }
+    const trompeLOeilItemsIg = cart.filter(
+      (item) =>
+        item.product.category === "Trompe l'œil" &&
+        item.reservationExpiresAt &&
+        !item.reservationConfirmed,
+    )
+    if (trompeLOeilItemsIg.length > 0) {
+      setCart((current) =>
+        current.map((item) =>
+          item.reservationExpiresAt && !item.reservationConfirmed && item.product.category === "Trompe l'œil"
+            ? { ...item, reservationConfirmed: true }
+            : item,
+        ),
+      )
+    }
+
+    if (selectedReward && isAuthenticated && user) {
+      try {
+        const { claimReward } = await import('./lib/firebase')
+        const rewardId = await claimReward(user.uid, selectedReward.type, REWARD_COSTS[selectedReward.type])
+        if (rewardId) {
+          setSelectedReward(null)
+          showToast(`Récompense ${REWARD_LABELS[selectedReward.type]} réclamée !`, 'success', 3000)
+        }
+      } catch (error) {
+        console.error('Error claiming reward:', error)
+        showToast('Erreur lors de la réclamation de la récompense', 'error')
+      }
+    }
+
+    if (isAuthenticated && user && cart.length > 0) {
+      try {
+        const totalAfterDiscountPts = total - (appliedPromo?.discount ?? 0) - referralDiscountAmount
+        const orderTotalPts = totalAfterDiscountPts + (computeDeliveryFee(customer, totalAfterDiscountPts) || 0) + (donationAmount ?? 0)
+        const basePoints = Math.round(orderTotalPts)
+        const orderIdPts = `order_${Date.now()}`
+        const { addUserPoints } = await import('./lib/firebase')
+        await addUserPoints(user.uid, {
+          reason: 'order_points',
+          points: basePoints,
+          at: Date.now(),
+          amount: orderTotalPts,
+          orderId: orderIdPts,
+        })
+        showToast(`+${basePoints} points gagnés avec cette commande !`, 'success', 4000)
+      } catch (error) {
+        console.error('Error adding loyalty points:', error)
+      }
+    }
 
     const { removeActiveSession } = await import('./lib/firebase')
     await removeActiveSession(sessionId)
-    setInstagramParts(parts)
-    setIsInstagramModalOpen(true)
+
+    try {
+      await navigator.clipboard.writeText(shortPasteMessage)
+    } catch { /* ignore */ }
+
+    setInstagramOrderModal(modalPayload)
+    setCart([])
   }
 
   const handleSendSnap = async () => {
@@ -1431,7 +1790,7 @@ function AppContent() {
       return
     }
     if (getPendingOrder(customer.phone)) {
-      showToast('Vous avez déjà passé une commande. Nous vous recontactons rapidement !', 'error', 6000)
+      showToast('Une commande est déjà enregistrée pour ce numéro. Dans le panier, choisissez « Oui, une autre commande » si vous souhaitez en ajouter une.', 'error', 7000)
       return
     }
     const hasNonTrompeLoeil = cart.some((item) => item.product.category !== "Trompe l'œil")
@@ -1464,15 +1823,118 @@ function AppContent() {
       referralDiscountAmount: referralDiscountAmountSnap,
       donationAmount: donationAmount ?? 0,
       dietaryPreferences: profile?.dietaryPreferences,
+      contactIdentity: 'snap',
     })
     if (!message) return
 
     const snapResult = await saveOrderToFirebase('snap')
-    if (snapResult) markOrderPlaced(customer.phone, snapResult.orderNumber)
+    if (!snapResult.ok) {
+      if (snapResult.reason === 'stock') {
+        showToast(
+          'Un ou plusieurs produits ne sont plus disponibles en quantité suffisante. Mets à jour ton panier puis réessaie.',
+          'error',
+          8000,
+        )
+      } else if (snapResult.reason !== 'empty') {
+        showToast('Erreur lors de l\'enregistrement de la commande.', 'error')
+      }
+      return
+    }
+    recordPlacedOrder(customer.phone, snapResult.orderNumber)
+
+    const totalAfterDiscountSnap = total - (appliedPromo?.discount ?? 0) - referralDiscountAmountSnap
+    const deliveryFeeValSnap = computeDeliveryFee(customer, totalAfterDiscountSnap) ?? 0
+    const donationValSnap = donationAmount ?? 0
+    const finalTotalSnap = totalAfterDiscountSnap + deliveryFeeValSnap + donationValSnap
+
+    const shortPasteSnap = buildShortSocialPasteMessage(
+      {
+        cart,
+        customer,
+        total,
+        note,
+        selectedReward,
+        isAuthenticated,
+        discountAmount: appliedPromo?.discount ?? 0,
+        referralDiscountAmount: referralDiscountAmountSnap,
+        donationAmount: donationValSnap,
+        dietaryPreferences: profile?.dietaryPreferences,
+        orderNumber: snapResult.orderNumber,
+        contactIdentity: 'snap',
+      },
+      480,
+    )
+
+    const snapModalPayload: SnapOrderModalData = {
+      orderNumber: snapResult.orderNumber,
+      shortPasteMessage: shortPasteSnap,
+      customer: { ...customer },
+      items: cart.map((i) => ({ ...i, product: { ...i.product } })),
+      finalTotal: finalTotalSnap,
+      deliveryFee: deliveryFeeValSnap,
+      discountAmount: appliedPromo?.discount ?? 0,
+      donationAmount: donationValSnap,
+    }
+
+    const trompeLOeilItemsSnap = cart.filter(
+      (item) =>
+        item.product.category === "Trompe l'œil" &&
+        item.reservationExpiresAt &&
+        !item.reservationConfirmed,
+    )
+    if (trompeLOeilItemsSnap.length > 0) {
+      setCart((current) =>
+        current.map((item) =>
+          item.reservationExpiresAt && !item.reservationConfirmed && item.product.category === "Trompe l'œil"
+            ? { ...item, reservationConfirmed: true }
+            : item,
+        ),
+      )
+    }
+
+    if (selectedReward && isAuthenticated && user) {
+      try {
+        const { claimReward } = await import('./lib/firebase')
+        const rewardId = await claimReward(user.uid, selectedReward.type, REWARD_COSTS[selectedReward.type])
+        if (rewardId) {
+          setSelectedReward(null)
+          showToast(`Récompense ${REWARD_LABELS[selectedReward.type]} réclamée !`, 'success', 3000)
+        }
+      } catch (error) {
+        console.error('Error claiming reward:', error)
+        showToast('Erreur lors de la réclamation de la récompense', 'error')
+      }
+    }
+
+    if (isAuthenticated && user && cart.length > 0) {
+      try {
+        const totalAfterDiscountPts = total - (appliedPromo?.discount ?? 0) - referralDiscountAmountSnap
+        const orderTotalPts = totalAfterDiscountPts + (computeDeliveryFee(customer, totalAfterDiscountPts) || 0) + (donationAmount ?? 0)
+        const basePoints = Math.round(orderTotalPts)
+        const orderIdPts = `order_${Date.now()}`
+        const { addUserPoints } = await import('./lib/firebase')
+        await addUserPoints(user.uid, {
+          reason: 'order_points',
+          points: basePoints,
+          at: Date.now(),
+          amount: orderTotalPts,
+          orderId: orderIdPts,
+        })
+        showToast(`+${basePoints} points gagnés avec cette commande !`, 'success', 4000)
+      } catch (error) {
+        console.error('Error adding loyalty points:', error)
+      }
+    }
+
     const { removeActiveSession: removeSessionSnap } = await import('./lib/firebase')
     await removeSessionSnap(sessionId)
-    setSnapMessage(message)
-    setIsSnapModalOpen(true)
+
+    try {
+      await navigator.clipboard.writeText(shortPasteSnap)
+    } catch { /* ignore */ }
+
+    setSnapOrderModal(snapModalPayload)
+    setCart([])
   }
 
   // Page maintenance : si les commandes sont fermées, afficher une page dédiée
@@ -1716,13 +2178,13 @@ function AppContent() {
                             handleAddToCart(p)
                           }}
                           onViewDetail={setSelectedProductForDetail}
-                          stock={getBundleEffectiveStock(product, getStock)}
+                          stock={getCardStock(product)}
                           isPreorderDay={isPreorderDay}
                           dayNames={dayNames}
                           preorderOpenDate={deliverySchedule.preorderOpenDate}
                           preorderOpenTime={deliverySchedule.preorderOpenTime}
                           priority={index < 4}
-                          highlightAsNew={false}
+                          highlightAsNew={product.highlightAsNew ?? false}
                           size="large"
                         />
                       ))}
@@ -1752,13 +2214,13 @@ function AppContent() {
                           handleAddToCart(p)
                         }}
                         onViewDetail={setSelectedProductForDetail}
-                        stock={getBundleEffectiveStock(product, getStock)}
+                        stock={getCardStock(product)}
                         isPreorderDay={isPreorderDay}
                         dayNames={dayNames}
                         preorderOpenDate={deliverySchedule.preorderOpenDate}
                         preorderOpenTime={deliverySchedule.preorderOpenTime}
                         priority={index < 4}
-                        highlightAsNew={false}
+                        highlightAsNew={product.highlightAsNew ?? false}
                       />
                     ))}
                   </div>
@@ -1809,9 +2271,9 @@ function AppContent() {
                   onUpdateQuantity={handleUpdateQuantity}
                   onNoteChange={setNote}
                   onCustomerChange={setCustomer}
-                  onSend={() => setShowRecapModal(true)}
-                  onSendInstagram={handleSendInstagram}
-                  onSendSnap={handleSendSnap}
+                  onSend={() => openOrderRecap('whatsapp')}
+                  onSendInstagram={() => openOrderRecap('instagram')}
+                  onSendSnap={() => openOrderRecap('snap')}
                   onAccountClick={handleAccountClick}
                   selectedReward={selectedReward}
                   onSelectReward={setSelectedReward}
@@ -1839,6 +2301,9 @@ function AppContent() {
                   setReferralCodeInput={setReferralCodeInput}
                   mysteryFraiseDiscount={0}
                   pendingOrder={pendingOrderInfo}
+                  onAllowAnotherOrder={allowAnotherOrder}
+                  orderContactIdentity={orderContactIdentity}
+                  onOrderContactIdentityChange={setOrderContactIdentity}
                 />
               </>
             )}
@@ -2058,10 +2523,22 @@ function AppContent() {
           />
         </Suspense>
       )}
+      {selectedProductForDiscoveryBox && (
+        <Suspense fallback={null}>
+          <BoxDecouverteTrompeModal
+            product={selectedProductForDiscoveryBox}
+            eligibleTrompes={trompePickerEligibleTrompes}
+            getStock={getStock}
+            slotCount={trompePickerSlotCount}
+            onClose={() => setSelectedProductForDiscoveryBox(null)}
+            onConfirm={handleDiscoveryBoxConfirm}
+          />
+        </Suspense>
+      )}
       {/* Modal Trompe l'oeil (précommande) */}
       <TrompeLOeilModal
         product={selectedProductForTrompeLoeil}
-        stock={selectedProductForTrompeLoeil ? getBundleEffectiveStock(selectedProductForTrompeLoeil, getStock) : null}
+        stock={selectedProductForTrompeLoeil ? getCardStock(selectedProductForTrompeLoeil) : null}
         onClose={() => setSelectedProductForTrompeLoeil(null)}
         onConfirm={handleTrompeLOeilConfirm}
         preorderOpenDate={deliverySchedule.preorderOpenDate}
@@ -2088,9 +2565,9 @@ function AppContent() {
         onUpdateQuantity={handleUpdateQuantity}
         onNoteChange={setNote}
         onCustomerChange={setCustomer}
-        onSend={() => setShowRecapModal(true)}
-        onSendInstagram={handleSendInstagram}
-        onSendSnap={handleSendSnap}
+        onSend={() => openOrderRecap('whatsapp')}
+        onSendInstagram={() => openOrderRecap('instagram')}
+        onSendSnap={() => openOrderRecap('snap')}
         onAccountClick={handleAccountClick}
         selectedReward={selectedReward}
         onSelectReward={setSelectedReward}
@@ -2118,14 +2595,19 @@ function AppContent() {
         setReferralCodeInput={setReferralCodeInput}
         mysteryFraiseDiscount={0}
         pendingOrder={pendingOrderInfo}
+        onAllowAnotherOrder={allowAnotherOrder}
+        orderContactIdentity={orderContactIdentity}
+        onOrderContactIdentityChange={setOrderContactIdentity}
       />
 
       <OrderRecapModal
-        isOpen={showRecapModal}
-        onClose={() => setShowRecapModal(false)}
-        onConfirm={async () => {
-          await handleSend()
-          setShowRecapModal(false)
+        isOpen={orderRecapChannel !== null}
+        channel={orderRecapChannel ?? 'whatsapp'}
+        onClose={() => setOrderRecapChannel(null)}
+        onConfirm={async (ch) => {
+          if (ch === 'whatsapp') await handleSend()
+          else if (ch === 'instagram') await handleSendInstagram()
+          else if (ch === 'snap') await handleSendSnap()
           setIsCartSheetOpen(false)
         }}
         customer={customer}
@@ -2152,7 +2634,7 @@ function AppContent() {
       <Suspense fallback={null}>
         <ComplementarySuggestions
           products={suggestedProducts}
-          onAdd={(p) => { setSuggestedProducts([]); handleAddToCart(p) }}
+          onAdd={(p: Product) => { setSuggestedProducts([]); handleAddToCart(p) }}
           onDismiss={() => setSuggestedProducts([])}
         />
       </Suspense>
@@ -2162,23 +2644,20 @@ function AppContent() {
         product={selectedProductForDetail}
         onClose={() => setSelectedProductForDetail(null)}
         onAdd={handleAddToCart}
-        stock={selectedProductForDetail ? getBundleEffectiveStock(selectedProductForDetail, getStock) : null}
+        stock={selectedProductForDetail ? getCardStock(selectedProductForDetail) : null}
         isPreorderDay={isPreorderDay}
         dayNames={dayNames}
       />
 
       {/* Instagram instruction modal - après envoi commande via Instagram */}
       <InstagramInstructionModal
-        isOpen={isInstagramModalOpen}
-        onClose={() => setIsInstagramModalOpen(false)}
-        messageParts={instagramParts}
+        data={instagramOrderModal}
+        onClose={() => setInstagramOrderModal(null)}
       />
 
-      {/* Snap instruction modal — le client doit copier le message puis le coller sur Snapchat */}
       <SnapInstructionModal
-        isOpen={isSnapModalOpen}
-        onClose={() => setIsSnapModalOpen(false)}
-        message={snapMessage}
+        data={snapOrderModal}
+        onClose={() => setSnapOrderModal(null)}
       />
 
       {/* Écran confirmation commande (numéro, récap, PayPal, lien statut) */}

@@ -1,31 +1,35 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { Clock, Calendar, Save } from 'lucide-react'
+import { Clock, Calendar, Save, List, Timer } from 'lucide-react'
 import { updateSettings, type Settings } from '../../lib/firebase'
-import { getMinDate } from '../../lib/delivery'
+import { getMinDate, generateTimeSlotsFromWindow, normalizeTimeSlotHHmm } from '../../lib/delivery'
 
 interface AdminCreneauxTabProps {
   settings: Settings
 }
 
+type SlotMode = 'range' | 'list'
+
+const STEP_OPTIONS = [15, 30, 45, 60] as const
+
 /** Parse "18:30" ou "18:00, 19:00" en tableau de créneaux valides (HH:mm) */
 function parseSlotsInput(value: string): string[] {
   const result: string[] = []
   for (const s of value.split(/[,;\s]+/)) {
-    const t = s.trim()
-    const match = t.match(/^(\d{1,2}):(\d{2})$/)
-    if (match) {
-      const h = String(parseInt(match[1], 10)).padStart(2, '0')
-      const m = String(parseInt(match[2], 10)).padStart(2, '0')
-      result.push(`${h}:${m}`)
-    }
+    const n = normalizeTimeSlotHHmm(s.trim())
+    if (n) result.push(n)
   }
   return result
 }
 
 function formatSlotsForInput(slots: string[] | undefined): string {
   if (!slots || slots.length === 0) return ''
-  return slots.join(', ')
+  return slots.map((t) => normalizeTimeSlotHHmm(t) ?? t).join(', ')
+}
+
+function timeInputValue(hhmm: string | undefined): string {
+  const n = hhmm ? normalizeTimeSlotHHmm(hhmm) : null
+  return n ?? '10:00'
 }
 
 export function AdminCreneauxTab({ settings }: AdminCreneauxTabProps) {
@@ -43,10 +47,36 @@ export function AdminCreneauxTab({ settings }: AdminCreneauxTabProps) {
     { value: 0, label: 'Dim' },
   ]
   const [availableWeekdays, setAvailableWeekdays] = useState<number[]>(settings.availableWeekdays ?? [3, 6])
+
+  const [retraitMode, setRetraitMode] = useState<SlotMode>(settings.retraitSlotWindow ? 'range' : 'list')
+  const [retraitFrom, setRetraitFrom] = useState(timeInputValue(settings.retraitSlotWindow?.from))
+  const [retraitTo, setRetraitTo] = useState(timeInputValue(settings.retraitSlotWindow?.to))
+  const [retraitStep, setRetraitStep] = useState<number>(settings.retraitSlotWindow?.everyMinutes ?? 30)
   const [retraitInput, setRetraitInput] = useState(formatSlotsForInput(settings.retraitTimeSlots))
+
+  const [livraisonMode, setLivraisonMode] = useState<SlotMode>(settings.livraisonSlotWindow ? 'range' : 'list')
+  const [livraisonFrom, setLivraisonFrom] = useState(timeInputValue(settings.livraisonSlotWindow?.from))
+  const [livraisonTo, setLivraisonTo] = useState(timeInputValue(settings.livraisonSlotWindow?.to))
+  const [livraisonStep, setLivraisonStep] = useState<number>(settings.livraisonSlotWindow?.everyMinutes ?? 30)
+  const [livraisonOvernight, setLivraisonOvernight] = useState(settings.livraisonSlotWindow?.overnight === true)
   const [livraisonInput, setLivraisonInput] = useState(formatSlotsForInput(settings.livraisonTimeSlots))
+
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  const retraitPreview = useMemo(() => {
+    const from = normalizeTimeSlotHHmm(retraitFrom)
+    const to = normalizeTimeSlotHHmm(retraitTo)
+    if (!from || !to) return []
+    return generateTimeSlotsFromWindow(from, to, retraitStep, false)
+  }, [retraitFrom, retraitTo, retraitStep])
+
+  const livraisonPreview = useMemo(() => {
+    const from = normalizeTimeSlotHHmm(livraisonFrom)
+    const to = normalizeTimeSlotHHmm(livraisonTo)
+    if (!from || !to) return []
+    return generateTimeSlotsFromWindow(from, to, livraisonStep, livraisonOvernight)
+  }, [livraisonFrom, livraisonTo, livraisonStep, livraisonOvernight])
 
   const toggleWeekday = (day: number) => {
     setAvailableWeekdays((prev) =>
@@ -59,31 +89,118 @@ export function AdminCreneauxTab({ settings }: AdminCreneauxTabProps) {
     setFirstAvailableDateLivraison(settings.firstAvailableDateLivraison?.trim() ?? settings.firstAvailableDate?.trim() ?? today)
     setLastAvailableDate(settings.lastAvailableDate ?? '')
     setAvailableWeekdays(settings.availableWeekdays && settings.availableWeekdays.length > 0 ? settings.availableWeekdays : [3, 6])
+    setRetraitMode(settings.retraitSlotWindow ? 'range' : 'list')
+    setRetraitFrom(timeInputValue(settings.retraitSlotWindow?.from))
+    setRetraitTo(timeInputValue(settings.retraitSlotWindow?.to))
+    setRetraitStep(settings.retraitSlotWindow?.everyMinutes ?? 30)
     setRetraitInput(formatSlotsForInput(settings.retraitTimeSlots))
+    setLivraisonMode(settings.livraisonSlotWindow ? 'range' : 'list')
+    setLivraisonFrom(timeInputValue(settings.livraisonSlotWindow?.from))
+    setLivraisonTo(timeInputValue(settings.livraisonSlotWindow?.to))
+    setLivraisonStep(settings.livraisonSlotWindow?.everyMinutes ?? 30)
+    setLivraisonOvernight(settings.livraisonSlotWindow?.overnight === true)
     setLivraisonInput(formatSlotsForInput(settings.livraisonTimeSlots))
-  }, [settings.firstAvailableDateRetrait, settings.firstAvailableDateLivraison, settings.firstAvailableDate, settings.lastAvailableDate, settings.availableWeekdays, settings.retraitTimeSlots, settings.livraisonTimeSlots, today])
+  }, [
+    settings.firstAvailableDateRetrait,
+    settings.firstAvailableDateLivraison,
+    settings.firstAvailableDate,
+    settings.lastAvailableDate,
+    settings.availableWeekdays,
+    settings.retraitTimeSlots,
+    settings.livraisonTimeSlots,
+    settings.retraitSlotWindow,
+    settings.livraisonSlotWindow,
+    today,
+  ])
 
   const handleSave = async () => {
     setMessage(null)
     setSaving(true)
     try {
-      const retraitSlots = parseSlotsInput(retraitInput)
-      const livraisonSlots = parseSlotsInput(livraisonInput)
+      let retraitSlots: string[]
+      if (retraitMode === 'range') {
+        const from = normalizeTimeSlotHHmm(retraitFrom)
+        const to = normalizeTimeSlotHHmm(retraitTo)
+        if (!from || !to) {
+          setMessage({ type: 'error', text: 'Retrait : heures de début et fin invalides.' })
+          setSaving(false)
+          return
+        }
+        retraitSlots = generateTimeSlotsFromWindow(from, to, retraitStep, false)
+        if (retraitSlots.length === 0) {
+          setMessage({ type: 'error', text: 'Retrait : la fin doit être après le début (même journée).' })
+          setSaving(false)
+          return
+        }
+      } else {
+        retraitSlots = parseSlotsInput(retraitInput)
+      }
+
+      let livraisonSlots: string[]
+      if (livraisonMode === 'range') {
+        const from = normalizeTimeSlotHHmm(livraisonFrom)
+        const to = normalizeTimeSlotHHmm(livraisonTo)
+        if (!from || !to) {
+          setMessage({ type: 'error', text: 'Livraison : heures de début et fin invalides.' })
+          setSaving(false)
+          return
+        }
+        livraisonSlots = generateTimeSlotsFromWindow(from, to, livraisonStep, livraisonOvernight)
+        if (livraisonSlots.length === 0) {
+          setMessage({
+            type: 'error',
+            text: livraisonOvernight
+              ? 'Livraison : impossible de générer des créneaux. Vérifiez début / fin.'
+              : 'Livraison : la fin doit être après le début, ou cochez « Passer minuit » (ex. 20h → 2h).',
+          })
+          setSaving(false)
+          return
+        }
+      } else {
+        livraisonSlots = parseSlotsInput(livraisonInput)
+      }
+
       await updateSettings({
         firstAvailableDateRetrait: firstAvailableDateRetrait.trim() || undefined,
         firstAvailableDateLivraison: firstAvailableDateLivraison.trim() || undefined,
         lastAvailableDate: lastAvailableDate.trim() || undefined,
         availableWeekdays: availableWeekdays.length > 0 ? availableWeekdays : undefined,
-        retraitTimeSlots: retraitSlots.length > 0 ? retraitSlots : undefined,
-        livraisonTimeSlots: livraisonSlots.length > 0 ? livraisonSlots : undefined,
+        retraitTimeSlots: retraitSlots.length > 0 ? retraitSlots : retraitMode === 'list' ? null : undefined,
+        livraisonTimeSlots: livraisonSlots.length > 0 ? livraisonSlots : livraisonMode === 'list' ? null : undefined,
+        retraitSlotWindow:
+          retraitMode === 'range'
+            ? {
+                from: normalizeTimeSlotHHmm(retraitFrom)!,
+                to: normalizeTimeSlotHHmm(retraitTo)!,
+                everyMinutes: retraitStep,
+                overnight: false,
+              }
+            : null,
+        livraisonSlotWindow:
+          livraisonMode === 'range'
+            ? {
+                from: normalizeTimeSlotHHmm(livraisonFrom)!,
+                to: normalizeTimeSlotHHmm(livraisonTo)!,
+                everyMinutes: livraisonStep,
+                ...(livraisonOvernight ? { overnight: true } : {}),
+              }
+            : null,
       })
-      setMessage({ type: 'success', text: 'Créneaux enregistrés. Dates de retrait et livraison gérées séparément.' })
+      setMessage({
+        type: 'success',
+        text: `Créneaux enregistrés : ${retraitSlots.length} créneau(x) retrait, ${livraisonSlots.length} livraison. Les clients les voient tout de suite au panier.`,
+      })
     } catch (err) {
       setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Erreur enregistrement' })
     } finally {
       setSaving(false)
     }
   }
+
+  const modeBtn = (active: boolean) =>
+    `flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+      active ? 'bg-mayssa-brown text-white border-mayssa-brown' : 'bg-white border-mayssa-brown/15 text-mayssa-brown/60 hover:border-mayssa-caramel/40'
+    }`
 
   return (
     <motion.section
@@ -95,10 +212,10 @@ export function AdminCreneauxTab({ settings }: AdminCreneauxTabProps) {
       <div className="rounded-2xl bg-white p-6 shadow-sm border border-mayssa-brown/5 space-y-5">
         <h3 className="font-bold text-mayssa-brown flex items-center gap-2">
           <Clock size={18} />
-          Créneaux de réception / livraison
+          Créneaux — retrait & livraison
         </h3>
         <p className="text-xs text-mayssa-brown/60">
-          Les clients ne pourront sélectionner que les dates et créneaux définis ci-dessous.
+          Définissez soit une <strong>plage horaire</strong> (ex. 10h–15h toutes les 30 min), soit une <strong>liste précise</strong>. Les mêmes créneaux sont proposés aux clients sur le site au moment de la commande.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -114,7 +231,6 @@ export function AdminCreneauxTab({ settings }: AdminCreneauxTabProps) {
               min={today}
               className="w-full rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm border border-mayssa-brown/10 text-mayssa-brown"
             />
-            <p className="text-[10px] text-mayssa-brown/50 mt-1">À partir de cette date pour le calendrier retrait.</p>
           </div>
           <div>
             <label className="block text-xs font-medium text-mayssa-brown/70 mb-1.5 flex items-center gap-1">
@@ -128,27 +244,30 @@ export function AdminCreneauxTab({ settings }: AdminCreneauxTabProps) {
               min={today}
               className="w-full rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm border border-mayssa-brown/10 text-mayssa-brown"
             />
-            <p className="text-[10px] text-mayssa-brown/50 mt-1">À partir de cette date pour le calendrier livraison.</p>
           </div>
           <div className="sm:col-span-2">
             <label className="block text-xs font-medium text-mayssa-brown/70 mb-1.5 flex items-center gap-1">
               <Calendar size={14} />
-              Dernière date disponible (optionnel, retrait et livraison)
+              Dernière date disponible (optionnel)
             </label>
             <input
               type="date"
               value={lastAvailableDate}
               onChange={(e) => setLastAvailableDate(e.target.value)}
-              min={firstAvailableDateRetrait && firstAvailableDateLivraison ? (firstAvailableDateRetrait < firstAvailableDateLivraison ? firstAvailableDateRetrait : firstAvailableDateLivraison) : today}
+              min={
+                firstAvailableDateRetrait && firstAvailableDateLivraison
+                  ? firstAvailableDateRetrait < firstAvailableDateLivraison
+                    ? firstAvailableDateRetrait
+                    : firstAvailableDateLivraison
+                  : today
+              }
               className="w-full rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm border border-mayssa-brown/10 text-mayssa-brown max-w-xs"
             />
-            <p className="text-[10px] text-mayssa-brown/50 mt-1">Laisser vide = pas de limite.</p>
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-mayssa-brown/70 mb-1.5">Jours proposés (retrait / livraison)</label>
-          <p className="text-[10px] text-mayssa-brown/50 mb-2">Seuls ces jours apparaîtront dans le calendrier client. Décocher un jour (ex. Samedi) pour le désactiver.</p>
+          <label className="block text-xs font-medium text-mayssa-brown/70 mb-1.5">Jours proposés au calendrier client</label>
           <div className="flex flex-wrap gap-2">
             {WEEKDAYS.map(({ value, label }) => (
               <label key={value} className="flex items-center gap-1.5 cursor-pointer">
@@ -163,37 +282,169 @@ export function AdminCreneauxTab({ settings }: AdminCreneauxTabProps) {
             ))}
           </div>
         </div>
+      </div>
 
-        <div>
-          <label className="block text-xs font-medium text-mayssa-brown/70 mb-1.5">Créneaux retrait (séparés par des virgules)</label>
-          <input
-            type="text"
-            value={retraitInput}
-            onChange={(e) => setRetraitInput(e.target.value)}
-            placeholder="Ex: 18:30 ou 18:00, 18:30, 19:00"
-            className="w-full rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm border border-mayssa-brown/10 text-mayssa-brown placeholder:text-mayssa-brown/40"
-          />
-          <p className="text-[10px] text-mayssa-brown/50 mt-1">Format HH:mm. Si vide, défaut = 18:30.</p>
+      {/* Retrait */}
+      <div className="rounded-2xl bg-white p-6 shadow-sm border border-mayssa-brown/5 space-y-4">
+        <h4 className="font-bold text-mayssa-brown flex items-center gap-2 text-sm">
+          <Timer size={16} className="text-mayssa-caramel" />
+          Heures de retrait
+        </h4>
+        <div className="flex gap-2">
+          <button type="button" className={modeBtn(retraitMode === 'range')} onClick={() => setRetraitMode('range')}>
+            <Timer size={14} />
+            Plage horaire
+          </button>
+          <button type="button" className={modeBtn(retraitMode === 'list')} onClick={() => setRetraitMode('list')}>
+            <List size={14} />
+            Liste manuelle
+          </button>
         </div>
-
-        <div>
-          <label className="block text-xs font-medium text-mayssa-brown/70 mb-1.5">Créneaux livraison (séparés par des virgules)</label>
-          <input
-            type="text"
-            value={livraisonInput}
-            onChange={(e) => setLivraisonInput(e.target.value)}
-            placeholder="Ex: 20:00, 20:30, 21:00, 21:30, 22:00, 22:30, 23:00, 23:30, 00:00, 00:30, 01:00, 01:30, 02:00"
-            className="w-full rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm border border-mayssa-brown/10 text-mayssa-brown placeholder:text-mayssa-brown/40"
-          />
-          <p className="text-[10px] text-mayssa-brown/50 mt-1">Format HH:mm. Si vide, défaut = créneaux 20h–02h30.</p>
-        </div>
-
-        {message && (
-          <p className={`text-xs font-medium ${message.type === 'success' ? 'text-emerald-600' : 'text-red-500'}`}>
-            {message.text}
-          </p>
+        {retraitMode === 'range' ? (
+          <div className="space-y-3 rounded-xl border border-mayssa-brown/10 bg-mayssa-soft/30 p-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-mayssa-brown/50 mb-1">De</label>
+                <input
+                  type="time"
+                  value={retraitFrom}
+                  onChange={(e) => setRetraitFrom(e.target.value)}
+                  className="w-full rounded-xl border border-mayssa-brown/15 px-3 py-2 text-sm text-mayssa-brown bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-mayssa-brown/50 mb-1">À</label>
+                <input
+                  type="time"
+                  value={retraitTo}
+                  onChange={(e) => setRetraitTo(e.target.value)}
+                  className="w-full rounded-xl border border-mayssa-brown/15 px-3 py-2 text-sm text-mayssa-brown bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-mayssa-brown/50 mb-1">Pas</label>
+                <select
+                  value={retraitStep}
+                  onChange={(e) => setRetraitStep(Number(e.target.value))}
+                  className="w-full rounded-xl border border-mayssa-brown/15 px-3 py-2 text-sm text-mayssa-brown bg-white cursor-pointer"
+                >
+                  {STEP_OPTIONS.map((s) => (
+                    <option key={s} value={s}>
+                      Toutes les {s} min
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <p className="text-[10px] text-mayssa-brown/50">Même journée uniquement (ex. 10:00 → 15:00).</p>
+            {retraitPreview.length > 0 && (
+              <div className="rounded-lg bg-white border border-mayssa-brown/10 px-3 py-2">
+                <p className="text-[10px] font-bold text-mayssa-caramel mb-1">{retraitPreview.length} créneaux générés</p>
+                <p className="text-xs text-mayssa-brown/80 break-words">{retraitPreview.join(', ')}</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div>
+            <label className="block text-xs font-medium text-mayssa-brown/70 mb-1.5">Créneaux (séparés par des virgules)</label>
+            <input
+              type="text"
+              value={retraitInput}
+              onChange={(e) => setRetraitInput(e.target.value)}
+              placeholder="Ex: 18:30 ou 10:00, 11:00, 14:00"
+              className="w-full rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm border border-mayssa-brown/10 text-mayssa-brown placeholder:text-mayssa-brown/40"
+            />
+            <p className="text-[10px] text-mayssa-brown/50 mt-1">Si vide à l’enregistrement, le site garde le défaut (18:30) tant qu’aucune liste n’est en base.</p>
+          </div>
         )}
+      </div>
 
+      {/* Livraison */}
+      <div className="rounded-2xl bg-white p-6 shadow-sm border border-mayssa-brown/5 space-y-4">
+        <h4 className="font-bold text-mayssa-brown flex items-center gap-2 text-sm">
+          <Clock size={16} className="text-mayssa-caramel" />
+          Heures de livraison
+        </h4>
+        <div className="flex gap-2">
+          <button type="button" className={modeBtn(livraisonMode === 'range')} onClick={() => setLivraisonMode('range')}>
+            <Timer size={14} />
+            Plage horaire
+          </button>
+          <button type="button" className={modeBtn(livraisonMode === 'list')} onClick={() => setLivraisonMode('list')}>
+            <List size={14} />
+            Liste manuelle
+          </button>
+        </div>
+        {livraisonMode === 'range' ? (
+          <div className="space-y-3 rounded-xl border border-mayssa-brown/10 bg-mayssa-soft/30 p-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={livraisonOvernight}
+                onChange={(e) => setLivraisonOvernight(e.target.checked)}
+                className="rounded border-mayssa-brown/30 text-mayssa-caramel focus:ring-mayssa-caramel"
+              />
+              <span className="text-xs text-mayssa-brown">Passer minuit (ex. 20:00 → 02:00)</span>
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-mayssa-brown/50 mb-1">De</label>
+                <input
+                  type="time"
+                  value={livraisonFrom}
+                  onChange={(e) => setLivraisonFrom(e.target.value)}
+                  className="w-full rounded-xl border border-mayssa-brown/15 px-3 py-2 text-sm text-mayssa-brown bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-mayssa-brown/50 mb-1">À</label>
+                <input
+                  type="time"
+                  value={livraisonTo}
+                  onChange={(e) => setLivraisonTo(e.target.value)}
+                  className="w-full rounded-xl border border-mayssa-brown/15 px-3 py-2 text-sm text-mayssa-brown bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-mayssa-brown/50 mb-1">Pas</label>
+                <select
+                  value={livraisonStep}
+                  onChange={(e) => setLivraisonStep(Number(e.target.value))}
+                  className="w-full rounded-xl border border-mayssa-brown/15 px-3 py-2 text-sm text-mayssa-brown bg-white cursor-pointer"
+                >
+                  {STEP_OPTIONS.map((s) => (
+                    <option key={s} value={s}>
+                      Toutes les {s} min
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            {livraisonPreview.length > 0 && (
+              <div className="rounded-lg bg-white border border-mayssa-brown/10 px-3 py-2 max-h-32 overflow-y-auto">
+                <p className="text-[10px] font-bold text-mayssa-caramel mb-1">{livraisonPreview.length} créneaux générés</p>
+                <p className="text-xs text-mayssa-brown/80 break-words">{livraisonPreview.join(', ')}</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div>
+            <label className="block text-xs font-medium text-mayssa-brown/70 mb-1.5">Créneaux (séparés par des virgules)</label>
+            <input
+              type="text"
+              value={livraisonInput}
+              onChange={(e) => setLivraisonInput(e.target.value)}
+              placeholder="Ex: 20:00, 20:30, 21:00…"
+              className="w-full rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm border border-mayssa-brown/10 text-mayssa-brown placeholder:text-mayssa-brown/40"
+            />
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-2xl bg-white p-6 shadow-sm border border-mayssa-brown/5 space-y-4">
+        {message && (
+          <p className={`text-xs font-medium ${message.type === 'success' ? 'text-emerald-600' : 'text-red-500'}`}>{message.text}</p>
+        )}
         <button
           type="button"
           onClick={handleSave}

@@ -1,9 +1,17 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { jsPDF } from 'jspdf'
 import { Truck, MapPin, Phone, Calendar, Download, Filter, XCircle, MessageSquare, Package, Pencil, FileText, ArrowUpDown } from 'lucide-react'
 import { updateOrderStatus, type Order, type OrderStatus } from '../../lib/firebase'
-import { parseDateYyyyMmDd, formatOrderItemName } from '../../lib/utils'
+import {
+  parseDateYyyyMmDd,
+  formatOrderItemName,
+  getTodayYyyyMmDd,
+  getNearestPreparationDateForDeliveryMode,
+} from '../../lib/utils'
+import { formatOrderCustomerDisplayName } from '../../lib/orderCustomerDisplay'
+import { getOrderDepositAmount, getOrderRemainingToPay } from '../../lib/orderAmounts'
+import { AdminDeposit50Prompt } from './AdminDeposit50Prompt'
 
 const ORDER_STATUS_LABELS: Record<string, string> = {
   en_attente: 'En attente',
@@ -30,7 +38,7 @@ function exportRetraitsCSV(entries: [string, Order][]): void {
     const orderRef = o.orderNumber != null ? `#${o.orderNumber}` : id
     const dateStr = o.requestedDate ? parseDateYyyyMmDd(o.requestedDate).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
     const timeStr = o.requestedTime ?? ''
-    const client = [o.customer?.firstName, o.customer?.lastName].filter(Boolean).join(' ')
+    const client = formatOrderCustomerDisplayName(o)
     const phone = o.customer?.phone ?? ''
     const noteClient = (o.clientNote ?? '').replace(/"/g, '""')
     const items = (o.items ?? []).map((i) => `${i.quantity}× ${formatOrderItemName(i)}`).join(' | ')
@@ -79,7 +87,7 @@ function exportRetraitsPDF(entries: [string, Order][], dateLabel: string): void 
     lineY += 6
     doc.setFontSize(11)
     doc.setFont('helvetica', 'bold')
-    const client = [o.customer?.firstName, o.customer?.lastName].filter(Boolean).join(' ')
+    const client = formatOrderCustomerDisplayName(o)
     doc.text(client || 'Client', margin + 3, lineY)
     lineY += 7
     doc.setFont('helvetica', 'normal')
@@ -125,7 +133,7 @@ function exportLivraisonsCSV(entries: [string, Order][]): void {
     const orderRef = o.orderNumber != null ? `#${o.orderNumber}` : id
     const dateStr = o.requestedDate ? parseDateYyyyMmDd(o.requestedDate).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
     const timeStr = o.requestedTime ?? ''
-    const client = [o.customer?.firstName, o.customer?.lastName].filter(Boolean).join(' ')
+    const client = formatOrderCustomerDisplayName(o)
     const phone = o.customer?.phone ?? ''
     const adresse = (o.customer?.address ?? '').replace(/"/g, '""')
     const distanceKm = o.distanceKm != null ? o.distanceKm.toFixed(1) : ''
@@ -179,7 +187,7 @@ function exportLivraisonsPDF(entries: [string, Order][], dateLabel: string): voi
     lineY += 6
     doc.setFontSize(11)
     doc.setFont('helvetica', 'bold')
-    const client = [o.customer?.firstName, o.customer?.lastName].filter(Boolean).join(' ')
+    const client = formatOrderCustomerDisplayName(o)
     doc.text(client || 'Client', margin + 3, lineY)
     lineY += 7
 
@@ -227,17 +235,27 @@ function exportLivraisonsPDF(entries: [string, Order][], dateLabel: string): voi
   doc.save(`livraisons-maison-mayssa-${dateSuffix}.pdf`)
 }
 
-function getTodayYyyyMmDd(): string {
-  const t = new Date()
-  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`
-}
-
 export function AdminLivraisonTab({ orders, onEditOrder, mode }: AdminLivraisonTabProps) {
-  const [dateFilter, setDateFilter] = useState(getTodayYyyyMmDd)
-  const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all')
+  const [dateFilter, setDateFilter] = useState(() => getTodayYyyyMmDd())
+  const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('en_preparation')
   const [productFilter, setProductFilter] = useState<string>('')
   const [sortBy, setSortBy] = useState<'date' | 'distance' | 'client' | 'total'>('date')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+
+  /** Première hydratation Firebase, ou changement livraison/retrait : statut + date alignés sur la prochaine commande en prépa. */
+  const journalierBootRef = useRef<{ prevMode: typeof mode | null; seeded: boolean }>({ prevMode: null, seeded: false })
+
+  useEffect(() => {
+    const prev = journalierBootRef.current.prevMode
+    const modeChanged = prev !== null && prev !== mode
+    journalierBootRef.current.prevMode = mode
+    if (Object.keys(orders).length === 0) return
+    if (modeChanged) journalierBootRef.current.seeded = false
+    if (!modeChanged && journalierBootRef.current.seeded) return
+    setStatusFilter('en_preparation')
+    setDateFilter(getNearestPreparationDateForDeliveryMode(orders, mode))
+    journalierBootRef.current.seeded = true
+  }, [orders, mode])
 
   const deliveryOrders = useMemo(() => {
     const entries = Object.entries(orders)
@@ -275,8 +293,8 @@ export function AdminLivraisonTab({ orders, onEditOrder, mode }: AdminLivraisonT
           const distB = b.distanceKm ?? 999
           cmp = distA - distB
         } else if (sortBy === 'client') {
-          const nameA = `${a.customer?.firstName ?? ''} ${a.customer?.lastName ?? ''}`.toLowerCase()
-          const nameB = `${b.customer?.firstName ?? ''} ${b.customer?.lastName ?? ''}`.toLowerCase()
+          const nameA = formatOrderCustomerDisplayName(a).toLowerCase()
+          const nameB = formatOrderCustomerDisplayName(b).toLowerCase()
           cmp = nameA.localeCompare(nameB)
         } else {
           cmp = (a.total ?? 0) - (b.total ?? 0)
@@ -322,8 +340,8 @@ export function AdminLivraisonTab({ orders, onEditOrder, mode }: AdminLivraisonT
           const distB = b.distanceKm ?? 999
           cmp = distA - distB
         } else if (sortBy === 'client') {
-          const nameA = `${a.customer?.firstName ?? ''} ${a.customer?.lastName ?? ''}`.toLowerCase()
-          const nameB = `${b.customer?.firstName ?? ''} ${b.customer?.lastName ?? ''}`.toLowerCase()
+          const nameA = formatOrderCustomerDisplayName(a).toLowerCase()
+          const nameB = formatOrderCustomerDisplayName(b).toLowerCase()
           cmp = nameA.localeCompare(nameB)
         } else {
           cmp = (a.total ?? 0) - (b.total ?? 0)
@@ -347,9 +365,9 @@ export function AdminLivraisonTab({ orders, onEditOrder, mode }: AdminLivraisonT
   const hasFilters = !!dateFilter || (!!statusFilter && statusFilter !== 'all') || !!productFilter
 
   const clearFilters = () => {
-    setDateFilter('')
-    setStatusFilter('all')
     setProductFilter('')
+    setStatusFilter('en_preparation')
+    setDateFilter(getNearestPreparationDateForDeliveryMode(orders, mode))
   }
 
   // Liste de tous les produits distincts présents dans les commandes affichées (toutes dates/statuts)
@@ -524,7 +542,7 @@ export function AdminLivraisonTab({ orders, onEditOrder, mode }: AdminLivraisonT
                     Commande {order.orderNumber != null ? `#${order.orderNumber}` : `#${id.slice(-8)}`}
                   </p>
                   <p className="text-sm font-bold text-mayssa-brown">
-                    {order.customer?.firstName} {order.customer?.lastName}
+                    {formatOrderCustomerDisplayName(order)}
                   </p>
                   {order.customer?.phone && (
                     <a
@@ -639,11 +657,29 @@ export function AdminLivraisonTab({ orders, onEditOrder, mode }: AdminLivraisonT
                   </div>
                 )}
                 <div className="border-t border-mayssa-brown/10 pt-1 mt-1 flex justify-between">
-                  <span className="text-xs font-bold text-mayssa-brown">Total</span>
+                  <span className="text-xs font-bold text-mayssa-brown">Total TTC</span>
                   <span className="text-sm font-bold text-mayssa-caramel">
                     {(order.total ?? 0).toFixed(2).replace('.', ',')} €
                   </span>
                 </div>
+                {getOrderDepositAmount(order) > 0 && (
+                  <div className="flex items-center justify-between text-xs pt-1 border-t border-mayssa-brown/10">
+                    <span className="text-mayssa-brown/70">Acompte versé</span>
+                    <span className="font-bold text-mayssa-brown">
+                      −{getOrderDepositAmount(order).toFixed(2).replace('.', ',')} €
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between text-xs pt-1 font-bold text-amber-800 border-t border-mayssa-brown/10">
+                  <span>Reste à régler</span>
+                  <span className="font-numeric text-sm">
+                    {getOrderRemainingToPay(order).toFixed(2).replace('.', ',')} €
+                  </span>
+                </div>
+              </div>
+
+              <div className="mb-3">
+                <AdminDeposit50Prompt orderId={id} order={order} variant="light" />
               </div>
 
               {/* Actions */}

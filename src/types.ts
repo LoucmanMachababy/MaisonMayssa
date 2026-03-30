@@ -25,7 +25,7 @@ export type ProductSize = {
     price: number
 }
 
-export type ProductBadge = 'best-seller' | 'nouveau' | 'coup-de-coeur' | 'populaire'
+export type ProductBadge = 'best-seller' | 'nouveau' | 'nouveaute' | 'coup-de-coeur' | 'populaire'
 
 export type Product = {
     id: string
@@ -41,6 +41,10 @@ export type Product = {
     sizes?: ProductSize[]
     /** Badges affichés sur la carte (Best seller, Nouveau, etc.) */
     badges?: ProductBadge[]
+    /** true = affiché en premier dans la catégorie (sauf si l’admin définit autrement dans Firebase) */
+    pinned?: boolean
+    /** Cadre doré / dégradé « mise en avant nouveauté » sur la carte produit */
+    highlightAsNew?: boolean
     /** Si défini, produit en précommande (disponible à partir de availableFrom, à récupérer sous daysToPickup j après préco.) */
     preorder?: ProductPreorder
     /** IDs des produits individuels contenus dans ce bundle. Si défini, décrémenter le stock de chaque composant à l'achat. */
@@ -54,6 +58,8 @@ export type CartItem = {
     reservationExpiresAt?: number
     /** True une fois la commande envoyée (le timer ne libère plus le stock) */
     reservationConfirmed?: boolean
+    /** Box découverte + boxes bundle trompes : les productId choisis (décrément stock à la commande) */
+    trompeDiscoverySelection?: string[]
 }
 
 export type Coordinates = {
@@ -85,7 +91,8 @@ export type ProductOverride = {
     image?: string
     /** Galerie d'images (ne pas écraser si absent — on garde celles du produit de base) */
     images?: string[]
-    badges?: ProductBadge[]
+    /** null = supprimer l’override Firebase (revenir aux badges du catalogue) */
+    badges?: ProductBadge[] | null
     sizes?: ProductSize[]
     /** false = rupture de stock */
     available?: boolean
@@ -95,6 +102,8 @@ export type ProductOverride = {
     isCustom?: boolean
     /** true = produit épinglé en haut de la liste */
     pinned?: boolean
+    /** Cadre doré « nouveauté » (boutique) — pilotable depuis l’admin avec le badge Nouveauté */
+    highlightAsNew?: boolean
 }
 
 export type ProductOverrideMap = Record<string, ProductOverride>

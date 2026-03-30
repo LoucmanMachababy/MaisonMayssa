@@ -1,10 +1,12 @@
 import { useState, useMemo } from 'react'
 import { X, Minus, Plus, Trash2, Truck, MapPin, Search, ChevronDown, ChevronUp, Printer } from 'lucide-react'
-import { updateOrder, updateStock, isTrompeLoeilProductId, releaseDeliverySlot, reserveDeliverySlot, type Order, type OrderItem, type DeliveryMode, type StockMap } from '../../lib/firebase'
+import { updateOrder, updateStock, isTrompeLoeilProductId, releaseDeliverySlot, reserveDeliverySlot, type Order, type OrderItem, type DeliveryMode, type StockMap, type OrderUpdate } from '../../lib/firebase'
 import { formatOrderItemName } from '../../lib/utils'
+import { normalizeInstagramHandle } from '../../lib/delivery'
 import { printOrderSlip } from '../../lib/orderPrint'
 import type { ProductWithAvailability } from '../../hooks/useProducts'
 import type { ProductCategory } from '../../types'
+import { DEPOSIT_50_PERCENT_MIN_TOTAL_EUR } from '../../lib/orderAmounts'
 
 const ALL_CATEGORIES: ProductCategory[] = [
   "Trompe l'œil", 'Mini Gourmandises', 'Brownies', 'Cookies', 'Layer Cups', 'Boxes', 'Tiramisus',
@@ -20,8 +22,20 @@ interface AdminEditOrderModalProps {
 }
 
 export function AdminEditOrderModal({ orderId, order, stock, allProducts, onClose, onSaved }: AdminEditOrderModalProps) {
-  const [firstName, setFirstName] = useState(order.customer?.firstName ?? '')
-  const [lastName, setLastName] = useState(order.customer?.lastName ?? '')
+  const isInstagramClient =
+    order.source === 'instagram' || order.customer?.contactPlatform === 'instagram'
+  const isSnapClient = order.source === 'snap' || order.customer?.contactPlatform === 'snap'
+  const isSocialClient = isInstagramClient || isSnapClient
+
+  const [firstName, setFirstName] = useState(
+    () => (isSocialClient ? '' : order.customer?.firstName ?? ''),
+  )
+  const [lastName, setLastName] = useState(
+    () => (isSocialClient ? '' : order.customer?.lastName ?? ''),
+  )
+  const [socialHandle, setSocialHandle] = useState(() =>
+    (isSocialClient ? (order.customer?.contactHandle ?? order.customer?.firstName ?? '') : '').trim(),
+  )
   const [phone, setPhone] = useState(order.customer?.phone ?? '')
   const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>(order.deliveryMode ?? 'retrait')
   const [address, setAddress] = useState(order.customer?.address ?? '')
@@ -40,12 +54,79 @@ export function AdminEditOrderModal({ orderId, order, stock, allProducts, onClos
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [manualTotal, setManualTotal] = useState<string>('')
+  const [depositInput, setDepositInput] = useState<string>(() =>
+    order.depositAmount != null && order.depositAmount > 0 ? String(order.depositAmount) : '',
+  )
 
   const itemsTotal = useMemo(
     () => items.reduce((s, i) => s + i.price * i.quantity, 0),
     [items]
   )
   const total = itemsTotal + (deliveryMode === 'livraison' ? deliveryFee : 0)
+  const displayOrderTotal = useMemo(() => {
+    if (manualTotal.trim() && !Number.isNaN(parseFloat(manualTotal.replace(',', '.')))) {
+      return Math.max(0, parseFloat(manualTotal.replace(',', '.')))
+    }
+    return total
+  }, [manualTotal, total])
+  const parsedDepositPreview = useMemo(() => {
+    const raw = depositInput.trim().replace(',', '.')
+    if (!raw) return 0
+    const v = parseFloat(raw)
+    return Number.isNaN(v) || v < 0 ? 0 : Math.round(v * 100) / 100
+  }, [depositInput])
+  const depositEffectivePreview = Math.min(parsedDepositPreview, displayOrderTotal)
+  const remainingPreview = Math.max(0, Math.round((displayOrderTotal - depositEffectivePreview) * 100) / 100)
+  const suggested50Modal = useMemo(() => {
+    if (displayOrderTotal < DEPOSIT_50_PERCENT_MIN_TOTAL_EUR) return null
+    return Math.round(displayOrderTotal * 0.5 * 100) / 100
+  }, [displayOrderTotal])
+
+  const buildCustomerForSave = (): Order['customer'] => {
+    const base = order.customer ?? { firstName: '', lastName: '', phone: '' }
+    const email = base.email?.trim() ? { email: base.email.trim() } : {}
+    const addr = deliveryMode === 'livraison' && address.trim() ? { address: address.trim() } : {}
+    const di = base.deliveryInstructions?.trim() ? { deliveryInstructions: base.deliveryInstructions.trim() } : {}
+    const coords = base.addressCoordinates != null ? { addressCoordinates: base.addressCoordinates } : {}
+
+    if (isInstagramClient) {
+      const h = normalizeInstagramHandle(socialHandle)
+      return {
+        firstName: h,
+        lastName: '',
+        phone: phone.trim(),
+        contactPlatform: 'instagram',
+        contactHandle: h,
+        ...email,
+        ...addr,
+        ...di,
+        ...coords,
+      }
+    }
+    if (isSnapClient) {
+      const s = socialHandle.trim()
+      return {
+        firstName: s,
+        lastName: '',
+        phone: phone.trim(),
+        contactPlatform: 'snap',
+        contactHandle: s,
+        ...email,
+        ...addr,
+        ...di,
+        ...coords,
+      }
+    }
+    return {
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      phone: phone.trim(),
+      ...email,
+      ...addr,
+      ...di,
+      ...coords,
+    }
+  }
 
   const updateItemQuantity = (index: number, delta: number) => {
     setItems((prev) => {
@@ -113,8 +194,13 @@ export function AdminEditOrderModal({ orderId, order, stock, allProducts, onClos
 
   const handleSubmit = async () => {
     setError('')
-    if (!firstName.trim() || !lastName.trim() || !phone.trim()) {
-      setError('Remplissez les infos client')
+    if (isSocialClient) {
+      if (!socialHandle.trim()) {
+        setError(isInstagramClient ? 'Compte Instagram requis' : 'Pseudo Snapchat requis')
+        return
+      }
+    } else if (!firstName.trim() || !lastName.trim() || !phone.trim()) {
+      setError('Remplissez le prénom, le nom et le téléphone')
       return
     }
     if (deliveryMode === 'livraison' && !address.trim()) {
@@ -178,27 +264,30 @@ export function AdminEditOrderModal({ orderId, order, stock, allProducts, onClos
         reserveDeliverySlot(requestedDate, requestedTime).catch(console.error)
       }
 
-      const finalTotal = manualTotal.trim() && !isNaN(parseFloat(manualTotal))
-        ? parseFloat(manualTotal)
+      const finalTotal = manualTotal.trim() && !Number.isNaN(parseFloat(manualTotal.replace(',', '.')))
+        ? Math.max(0, parseFloat(manualTotal.replace(',', '.')))
         : total
 
-      await updateOrder(orderId, {
-        customer: {
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          phone: phone.trim(),
-          ...(deliveryMode === 'livraison' && address.trim() && { address: address.trim() }),
-        },
+      const depRaw = depositInput.trim().replace(',', '.')
+      const depParsed = depRaw === '' || Number.isNaN(parseFloat(depRaw)) ? 0 : parseFloat(depRaw)
+      const depositAmount =
+        depParsed > 0 ? Math.min(finalTotal, Math.round(depParsed * 100) / 100) : null
+
+      const payload: OrderUpdate = {
+        customer: buildCustomerForSave(),
         items,
         total: finalTotal,
         deliveryMode,
-        ...(deliveryMode === 'livraison' ? (deliveryFee > 0 ? { deliveryFee } : { deliveryFee: undefined }) : { deliveryFee: undefined }),
+        ...(deliveryMode === 'livraison' ? { deliveryFee: deliveryFee } : { deliveryFee: undefined }),
         requestedDate: requestedDate || undefined,
         requestedTime: requestedTime || undefined,
         clientNote: clientNote.trim() || undefined,
         adminNote: adminNote.trim() || undefined,
         excludeTrompeLoeilStock,
-      })
+        depositAmount: depositAmount ?? null,
+      }
+
+      await updateOrder(orderId, payload)
 
       onSaved()
       onClose()
@@ -221,17 +310,27 @@ export function AdminEditOrderModal({ orderId, order, stock, allProducts, onClos
             <button
               type="button"
               onClick={() => {
+                const printTotal =
+                  manualTotal.trim() && !Number.isNaN(parseFloat(manualTotal.replace(',', '.')))
+                    ? Math.max(0, parseFloat(manualTotal.replace(',', '.')))
+                    : total
+                const depRawP = depositInput.trim().replace(',', '.')
+                const depP =
+                  depRawP === '' || Number.isNaN(parseFloat(depRawP))
+                    ? 0
+                    : Math.min(printTotal, Math.round(parseFloat(depRawP) * 100) / 100)
                 const currentOrder: Order = {
                   ...order,
-                  customer: { firstName, lastName, phone, ...(address && { address }) },
+                  customer: buildCustomerForSave(),
                   deliveryMode,
                   requestedDate: requestedDate || order.requestedDate,
                   requestedTime: requestedTime || order.requestedTime,
                   items,
-                  total,
+                  total: printTotal,
                   deliveryFee: deliveryMode === 'livraison' ? deliveryFee : 0,
                   clientNote: clientNote || undefined,
                   adminNote: adminNote || undefined,
+                  ...(depP > 0 ? { depositAmount: depP } : {}),
                 }
                 printOrderSlip(currentOrder, orderId)
               }}
@@ -250,29 +349,55 @@ export function AdminEditOrderModal({ orderId, order, stock, allProducts, onClos
           {/* Client */}
           <div>
             <label className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60 mb-2 block">Client</label>
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                type="text"
-                placeholder="Prénom"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                className="rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm text-mayssa-brown border border-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
-              />
-              <input
-                type="text"
-                placeholder="Nom"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                className="rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm text-mayssa-brown border border-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
-              />
-            </div>
-            <input
-              type="tel"
-              placeholder="Téléphone"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="mt-2 w-full rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm text-mayssa-brown border border-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
-            />
+            {isSocialClient && (
+              <p className="text-[10px] text-mayssa-brown/50 mb-2">
+                Commande {isInstagramClient ? 'Instagram' : 'Snapchat'} — le pseudo remplace nom / prénom.
+              </p>
+            )}
+            {isSocialClient ? (
+              <>
+                <input
+                  type="text"
+                  placeholder={isInstagramClient ? '@ ou pseudo Instagram' : 'Pseudo Snapchat'}
+                  value={socialHandle}
+                  onChange={(e) => setSocialHandle(e.target.value)}
+                  className="w-full rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm text-mayssa-brown border border-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
+                />
+                <input
+                  type="tel"
+                  placeholder="Téléphone"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="mt-2 w-full rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm text-mayssa-brown border border-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
+                />
+              </>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    placeholder="Prénom"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    className="rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm text-mayssa-brown border border-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Nom"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    className="rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm text-mayssa-brown border border-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
+                  />
+                </div>
+                <input
+                  type="tel"
+                  placeholder="Téléphone"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="mt-2 w-full rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm text-mayssa-brown border border-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
+                />
+              </>
+            )}
           </div>
 
           {/* Mode */}
@@ -343,9 +468,14 @@ export function AdminEditOrderModal({ orderId, order, stock, allProducts, onClos
                     min={0}
                     step={0.5}
                     placeholder="Autre"
-                    value={[0, 3, 5, 7, 10].includes(deliveryFee) ? '' : deliveryFee}
+                    value={deliveryFee}
                     onChange={(e) => {
-                      const v = parseFloat(e.target.value)
+                      const raw = e.target.value
+                      if (raw === '') {
+                        setDeliveryFee(0)
+                        return
+                      }
+                      const v = parseFloat(raw.replace(',', '.'))
                       setDeliveryFee(isNaN(v) || v < 0 ? 0 : Math.round(v * 100) / 100)
                     }}
                     className="w-20 rounded-xl border border-mayssa-brown/10 px-2 py-2 text-xs font-bold text-mayssa-brown bg-white focus:outline-none focus:ring-2 focus:ring-mayssa-caramel [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
@@ -382,7 +512,9 @@ export function AdminEditOrderModal({ orderId, order, stock, allProducts, onClos
               {items.map((item, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-mayssa-brown truncate">{formatOrderItemName(item)}</p>
+                    <p className="text-xs font-medium text-mayssa-brown break-words leading-snug">
+                      {formatOrderItemName(item)}
+                    </p>
                     <p className="text-[10px] text-mayssa-brown/50">
                       {(item.price * item.quantity).toFixed(2).replace('.', ',')} €
                     </p>
@@ -532,6 +664,67 @@ export function AdminEditOrderModal({ orderId, order, stock, allProducts, onClos
             {manualTotal && !isNaN(parseFloat(manualTotal)) && (
               <p className="text-[10px] text-amber-600">
                 Total modifié : {parseFloat(manualTotal).toFixed(2)} € (calculé : {total.toFixed(2)} €)
+              </p>
+            )}
+          </div>
+
+          {/* Acompte */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">
+              Acompte versé (€)
+            </label>
+            <p className="text-[10px] text-mayssa-brown/50 leading-snug">
+              Montant libre : 50 %, total déjà payé, partiel… Plafonné au total TTC.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="number"
+                min={0}
+                step={0.01}
+                value={depositInput}
+                onChange={(e) => setDepositInput(e.target.value)}
+                placeholder="0 — laisser vide si aucun"
+                className="flex-1 min-w-[120px] rounded-xl border border-mayssa-brown/10 px-3 py-2 text-sm font-bold text-mayssa-brown bg-mayssa-soft/50 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+              {suggested50Modal != null && (
+                <button
+                  type="button"
+                  onClick={() => setDepositInput(String(suggested50Modal))}
+                  className="px-2.5 py-2 rounded-xl text-[10px] font-bold border border-mayssa-brown/20 text-mayssa-brown hover:bg-mayssa-soft transition-colors cursor-pointer whitespace-nowrap"
+                  title={`Acompte 50 % : ${suggested50Modal.toFixed(2)} €`}
+                >
+                  Remplir 50 %
+                </button>
+              )}
+              {depositInput.trim() !== '' && (
+                <button
+                  type="button"
+                  onClick={() => setDepositInput('')}
+                  className="text-[10px] text-mayssa-brown/50 hover:text-red-400 cursor-pointer whitespace-nowrap"
+                >
+                  Effacer
+                </button>
+              )}
+            </div>
+            <div className="rounded-xl bg-mayssa-soft/40 border border-mayssa-brown/10 px-3 py-2 space-y-1">
+              <div className="flex justify-between text-xs text-mayssa-brown">
+                <span>Total TTC</span>
+                <span className="font-bold">{displayOrderTotal.toFixed(2).replace('.', ',')} €</span>
+              </div>
+              {depositEffectivePreview > 0 && (
+                <div className="flex justify-between text-xs text-mayssa-brown/80">
+                  <span>Acompte</span>
+                  <span className="font-bold">−{depositEffectivePreview.toFixed(2).replace('.', ',')} €</span>
+                </div>
+              )}
+              <div className="flex justify-between text-xs font-bold text-mayssa-caramel pt-1 border-t border-mayssa-brown/10">
+                <span>Reste à régler</span>
+                <span>{remainingPreview.toFixed(2).replace('.', ',')} €</span>
+              </div>
+            </div>
+            {parsedDepositPreview > displayOrderTotal && (
+              <p className="text-[10px] text-amber-600">
+                L&apos;acompte est plafonné au total ({displayOrderTotal.toFixed(2)} €).
               </p>
             )}
           </div>

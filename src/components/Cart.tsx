@@ -3,8 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ShoppingBag, Minus, Plus, MessageCircle, User, Phone, Mail, MapPin, Truck, Calendar, Clock, Star, Gift, Instagram, Tag, Heart } from 'lucide-react'
 import { SnapIcon } from './SnapIcon'
 import type { CartItem, CustomerInfo } from '../types'
-import { cn, isBeforeOrderCutoff, isBeforeFirstPickupDate } from '../lib/utils'
-import { FIRST_PICKUP_DATE_CLASSIC, FIRST_PICKUP_DATE_CLASSIC_LABEL, DELIVERY_SLOT_MAX_CAPACITY } from '../constants'
+import { cn, isBeforeOrderCutoff, isBeforeFirstPickupDate, normalizeOrderProductBaseId, trompeSelectionDisplayLabels } from '../lib/utils'
+import { FIRST_PICKUP_DATE_CLASSIC, FIRST_PICKUP_DATE_CLASSIC_LABEL, DELIVERY_SLOT_MAX_CAPACITY, isTrompeBoxWithStoredSelection } from '../constants'
 import { ReservationTimer } from './ReservationTimer'
 import { useAuth } from '../hooks/useAuth'
 import { REWARD_COSTS, REWARD_LABELS } from '../lib/rewards'
@@ -22,6 +22,7 @@ import {
     formatDateLabel,
     validateCustomer,
     computeDeliveryFee,
+    normalizeInstagramHandle,
 } from '../lib/delivery'
 
 interface CartProps {
@@ -76,8 +77,13 @@ interface CartProps {
     setReferralCodeInput?: (v: string) => void
     /** Réduction 10 % gagnée en trouvant le trompe l'oeil mystère (Fraise) */
     mysteryFraiseDiscount?: number
-    /** Si défini, le client a déjà passé une commande récente → on bloque */
+    /** Si défini, le client a déjà passé une commande récente → message + choix autre commande */
     pendingOrder?: { orderNumber?: number; placedAt: number } | null
+    /** Lève le rappel local (48 h) pour permettre une nouvelle commande avec le même numéro */
+    onAllowAnotherOrder?: () => void
+    /** Canal pour libellés identité (nom/prénom vs pseudo Insta/Snap) */
+    orderContactIdentity?: 'whatsapp' | 'instagram' | 'snap'
+    onOrderContactIdentityChange?: (v: 'whatsapp' | 'instagram' | 'snap') => void
 }
 
 export function Cart({
@@ -119,7 +125,15 @@ export function Cart({
     setReferralCodeInput,
     mysteryFraiseDiscount = 0,
     pendingOrder = null,
+    onAllowAnotherOrder,
+    orderContactIdentity = 'whatsapp',
+    onOrderContactIdentityChange,
 }: CartProps) {
+    const [dismissSecondOrderPrompt, setDismissSecondOrderPrompt] = useState(false)
+    useEffect(() => {
+        setDismissSecondOrderPrompt(false)
+    }, [pendingOrder?.placedAt])
+
     const hasItems = items.length > 0
     const itemCount = items.reduce((sum, item) => sum + item.quantity, 0)
     const { isAuthenticated, profile } = useAuth()
@@ -213,7 +227,17 @@ export function Cart({
       }
     }, [useDateSelect, selectableDates, customer.date])
 
-    const validationErrors = useMemo(() => validateCustomer(customer), [customer])
+    const handleContactIdentityChange = (v: 'whatsapp' | 'instagram' | 'snap') => {
+        if (v === 'instagram' || v === 'snap') {
+            onCustomerChange({ ...customer, lastName: '' })
+        }
+        onOrderContactIdentityChange?.(v)
+    }
+
+    const validationErrors = useMemo(
+        () => validateCustomer(customer, { identityMode: orderContactIdentity }),
+        [customer, orderContactIdentity],
+    )
     // Show error only for fields the user has interacted with
     const showError = (field: keyof typeof customer) =>
         touched[field] && validationErrors[field as keyof CustomerInfo]
@@ -300,6 +324,19 @@ export function Cart({
                                                         {item.product.description}
                                                     </p>
                                                 )}
+                                                {(() => {
+                                                    const baseId = normalizeOrderProductBaseId(item.product.id)
+                                                    const sel = item.trompeDiscoverySelection
+                                                    if (!sel?.length || !isTrompeBoxWithStoredSelection(baseId)) return null
+                                                    const labels = trompeSelectionDisplayLabels(sel)
+                                                    return (
+                                                        <ul className="mt-1.5 text-[10px] text-mayssa-brown/55 space-y-0.5 list-disc list-inside">
+                                                            {labels.map((label, idx) => (
+                                                                <li key={`${sel[idx]}-${idx}`}>{label}</li>
+                                                            ))}
+                                                        </ul>
+                                                    )
+                                                })()}
                                                 <div className="flex items-center gap-3 mt-2">
                                                     <p className="text-xs text-mayssa-brown/60">
                                                         {item.product.price.toFixed(2).replace('.', ',')} €
@@ -472,6 +509,38 @@ export function Cart({
                             Informations de livraison
                         </p>
 
+                        <div className="space-y-2">
+                            <p className="text-[10px] font-semibold text-mayssa-brown/70">Tu finalises par</p>
+                            <div className="flex flex-wrap gap-2">
+                                {(['whatsapp', 'instagram', 'snap'] as const).map((id) => (
+                                    <button
+                                        key={id}
+                                        type="button"
+                                        onClick={() => handleContactIdentityChange(id)}
+                                        className={cn(
+                                            'inline-flex items-center gap-1.5 rounded-2xl px-3 py-2 text-[10px] font-bold uppercase tracking-wider border transition-all cursor-pointer',
+                                            orderContactIdentity === id
+                                                ? 'bg-mayssa-brown text-mayssa-gold border-mayssa-brown shadow-sm'
+                                                : 'bg-white/70 text-mayssa-brown/75 border-mayssa-brown/15 hover:border-mayssa-gold/40',
+                                        )}
+                                    >
+                                        {id === 'whatsapp' && <MessageCircle size={14} />}
+                                        {id === 'instagram' && <Instagram size={14} />}
+                                        {id === 'snap' && <SnapIcon size={14} />}
+                                        {id === 'whatsapp' ? 'WhatsApp' : id === 'instagram' ? 'Instagram' : 'Snapchat'}
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-[10px] text-mayssa-brown/55 leading-relaxed">
+                                {orderContactIdentity === 'whatsapp'
+                                    ? 'Nom et prénom pour te recontacter.'
+                                    : orderContactIdentity === 'instagram'
+                                      ? 'Ton @ Instagram (pseudo du compte, pas ton nom ni prénom) — pour te retrouver en DM.'
+                                      : 'Pseudo Snapchat pour t’envoyer la commande.'}
+                            </p>
+                        </div>
+
+                        {orderContactIdentity === 'whatsapp' ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-1.5">
                                 <div className={cn(
@@ -508,6 +577,43 @@ export function Cart({
                                 {showError('lastName') && <p className="text-[10px] text-red-500 pl-4">{validationErrors.lastName}</p>}
                             </div>
                         </div>
+                        ) : (
+                        <div className="space-y-1.5">
+                            <div className={cn(
+                                "flex items-center gap-3 rounded-2xl bg-white/60 backdrop-blur-md px-4 py-3.5 transition-all shadow-sm border",
+                                showError('firstName') ? "border-red-300 ring-1 ring-red-300" : "border-mayssa-brown/10 focus-within:ring-1 focus-within:ring-mayssa-gold focus-within:border-mayssa-gold"
+                            )}>
+                                {orderContactIdentity === 'instagram' ? (
+                                    <Instagram size={18} className="text-mayssa-gold flex-shrink-0" />
+                                ) : (
+                                    <SnapIcon size={18} className="text-mayssa-gold flex-shrink-0" />
+                                )}
+                                <input
+                                    value={customer.firstName}
+                                    onChange={(e) => onCustomerChange({ ...customer, firstName: e.target.value })}
+                                    onBlur={() => {
+                                        markTouched('firstName')
+                                        if (orderContactIdentity === 'instagram') {
+                                            const n = normalizeInstagramHandle(customer.firstName)
+                                            if (n !== customer.firstName) onCustomerChange({ ...customer, firstName: n })
+                                        }
+                                    }}
+                                    placeholder={
+                                        orderContactIdentity === 'instagram'
+                                            ? '@pseudo Instagram *'
+                                            : "Nom d'utilisateur Snapchat *"
+                                    }
+                                    aria-label={
+                                        orderContactIdentity === 'instagram'
+                                            ? "Nom d'utilisateur Instagram"
+                                            : "Nom d'utilisateur Snapchat"
+                                    }
+                                    className="w-full bg-transparent text-sm font-semibold text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
+                                />
+                            </div>
+                            {showError('firstName') && <p className="text-[10px] text-red-500 pl-4">{validationErrors.firstName}</p>}
+                        </div>
+                        )}
 
                         <div className="space-y-1.5">
                             <div className={cn(
@@ -830,19 +936,42 @@ export function Cart({
 
                             <div className="space-y-3 pt-4">
                                 {pendingOrder ? (
-                                    /* ── Blocage double-commande ── */
+                                    /* ── Commande reçue + option 2e commande ── */
                                     <div className="max-w-md mx-auto rounded-3xl bg-[#E8F3E8] border border-[#A3C7A3] p-6 text-center space-y-4 shadow-xl backdrop-blur-md">
                                         <div className="text-5xl drop-shadow-md">✨</div>
                                         <div className="space-y-1.5">
                                             <p className="text-base font-bold text-[#2D5A2D] uppercase tracking-widest">
-                                                Commande validée{pendingOrder.orderNumber ? ` (n°${pendingOrder.orderNumber})` : ''} !
+                                                Votre commande a bien été reçue{pendingOrder.orderNumber ? ` (n°${pendingOrder.orderNumber})` : ''} !
                                             </p>
-                                            <p className="text-xs text-[#2D5A2D]/80 leading-relaxed max-w-[250px] mx-auto">
-                                                Nous avons bien reçu votre commande et elle est en cours de traitement. Nous vous recontacterons rapidement pour confirmer.
+                                            <p className="text-xs text-[#2D5A2D]/80 leading-relaxed max-w-[280px] mx-auto">
+                                                Nous la traitons et nous vous recontacterons rapidement pour confirmer.
                                             </p>
                                         </div>
+                                        {!dismissSecondOrderPrompt && onAllowAnotherOrder ? (
+                                            <div className="space-y-3 pt-1">
+                                                <p className="text-xs font-semibold text-[#2D5A2D]">
+                                                    Souhaitez-vous passer une autre commande ?
+                                                </p>
+                                                <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setDismissSecondOrderPrompt(true)}
+                                                        className="py-2.5 px-4 rounded-xl border-2 border-[#2D5A2D]/30 text-[11px] font-bold uppercase tracking-wider text-[#2D5A2D] hover:bg-[#2D5A2D]/5 transition-all cursor-pointer"
+                                                    >
+                                                        Non, merci
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onAllowAnotherOrder()}
+                                                        className="py-2.5 px-4 rounded-xl bg-[#2D5A2D] text-white text-[11px] font-bold uppercase tracking-wider shadow-md hover:bg-[#244a24] transition-all cursor-pointer"
+                                                    >
+                                                        Oui, une autre commande
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : null}
                                         <p className="text-[10px] text-[#2D5A2D]/50 italic">
-                                            Ce message disparaîtra dans 48 h.
+                                            Ce rappel disparaît automatiquement au bout de 48 h.
                                         </p>
                                     </div>
                                 ) : (

@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { Package } from 'lucide-react'
 import type { Order } from '../../lib/firebase'
+import { formatOrderCustomerDisplayName } from '../../lib/orderCustomerDisplay'
 
 const SUBSCRIPTION_PRODUCT_ID = 'abonnement-box-mois'
 
@@ -46,7 +47,7 @@ export function AdminSubscribersTab({ orders }: AdminSubscribersTabProps) {
               >
                 <div>
                   <p className="font-medium text-sm text-mayssa-brown">
-                    {order.customer?.firstName} {order.customer?.lastName}
+                    {formatOrderCustomerDisplayName(order)}
                   </p>
                   <p className="text-xs text-mayssa-brown/60">
                     {order.customer?.phone}

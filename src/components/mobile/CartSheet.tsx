@@ -3,8 +3,8 @@ import { motion, AnimatePresence, useDragControls } from 'framer-motion'
 import { X, Minus, Plus, Trash2, ShoppingBag, MessageCircle, User, Phone, Mail, MapPin, Truck, Calendar, Clock, Star, Gift, Instagram, Tag, Heart } from 'lucide-react'
 import { SnapIcon } from '../SnapIcon'
 import { hapticFeedback } from '../../lib/haptics'
-import { cn, isBeforeOrderCutoff, isBeforeFirstPickupDate } from '../../lib/utils'
-import { FIRST_PICKUP_DATE_CLASSIC, FIRST_PICKUP_DATE_CLASSIC_LABEL, DELIVERY_SLOT_MAX_CAPACITY } from '../../constants'
+import { cn, isBeforeOrderCutoff, isBeforeFirstPickupDate, normalizeOrderProductBaseId, trompeSelectionDisplayLabels } from '../../lib/utils'
+import { FIRST_PICKUP_DATE_CLASSIC, FIRST_PICKUP_DATE_CLASSIC_LABEL, DELIVERY_SLOT_MAX_CAPACITY, isTrompeBoxWithStoredSelection } from '../../constants'
 import { AddressAutocomplete } from '../AddressAutocomplete'
 import { ReservationTimer } from '../ReservationTimer'
 import { useAuth } from '../../hooks/useAuth'
@@ -24,6 +24,7 @@ import {
   formatDateLabel,
   validateCustomer,
   computeDeliveryFee,
+  normalizeInstagramHandle,
 } from '../../lib/delivery'
 
 interface CartSheetProps {
@@ -67,6 +68,9 @@ interface CartSheetProps {
   setReferralCodeInput?: (v: string) => void
   mysteryFraiseDiscount?: number
   pendingOrder?: { orderNumber?: number; placedAt: number } | null
+  onAllowAnotherOrder?: () => void
+  orderContactIdentity?: 'whatsapp' | 'instagram' | 'snap'
+  onOrderContactIdentityChange?: (v: 'whatsapp' | 'instagram' | 'snap') => void
 }
 
 export function CartSheet({
@@ -109,7 +113,15 @@ export function CartSheet({
   setReferralCodeInput,
   mysteryFraiseDiscount = 0,
   pendingOrder = null,
+  onAllowAnotherOrder,
+  orderContactIdentity = 'whatsapp',
+  onOrderContactIdentityChange,
 }: CartSheetProps) {
+  const [dismissSecondOrderPrompt, setDismissSecondOrderPrompt] = useState(false)
+  useEffect(() => {
+    setDismissSecondOrderPrompt(false)
+  }, [pendingOrder?.placedAt])
+
   const dragControls = useDragControls()
   const sheetRef = useRef<HTMLDivElement>(null)
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0)
@@ -222,7 +234,17 @@ export function CartSheet({
     }
   }, [customer.wantsDelivery, customer.date, customer.time, deliverySlots, allTimeSlots])
 
-  const validationErrors = useMemo(() => validateCustomer(customer), [customer])
+  const handleContactIdentityChange = (v: 'whatsapp' | 'instagram' | 'snap') => {
+    if (v === 'instagram' || v === 'snap') {
+      onCustomerChange({ ...customer, lastName: '' })
+    }
+    onOrderContactIdentityChange?.(v)
+  }
+
+  const validationErrors = useMemo(
+    () => validateCustomer(customer, { identityMode: orderContactIdentity }),
+    [customer, orderContactIdentity],
+  )
   const showError = (field: keyof typeof customer) =>
     touched[field] && validationErrors[field as keyof CustomerInfo]
 
@@ -328,6 +350,19 @@ export function CartSheet({
                         {item.product.description ? (
                           <p className="text-[10px] text-mayssa-brown/65 truncate">{item.product.description}</p>
                         ) : null}
+                        {(() => {
+                          const baseId = normalizeOrderProductBaseId(item.product.id)
+                          const sel = item.trompeDiscoverySelection
+                          if (!sel?.length || !isTrompeBoxWithStoredSelection(baseId)) return null
+                          const labels = trompeSelectionDisplayLabels(sel)
+                          return (
+                            <ul className="mt-1 text-[9px] text-mayssa-brown/55 space-y-0.5 list-disc list-inside max-h-20 overflow-y-auto">
+                              {labels.map((label, idx) => (
+                                <li key={`${sel[idx]}-${idx}`}>{label}</li>
+                              ))}
+                            </ul>
+                          )
+                        })()}
                         <div className="flex items-center justify-between mt-1.5">
                           <span className="font-bold text-sm text-mayssa-caramel">
                             {(item.product.price * item.quantity).toFixed(2).replace('.', ',')} €
@@ -378,6 +413,30 @@ export function CartSheet({
                 <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/75">
                   Tes informations *
                 </p>
+                <div className="space-y-2">
+                  <p className="text-[9px] font-semibold text-mayssa-brown/70">Tu finalises par</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(['whatsapp', 'instagram', 'snap'] as const).map((id) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => { hapticFeedback('light'); handleContactIdentityChange(id) }}
+                        className={cn(
+                          'inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide border transition-all',
+                          orderContactIdentity === id
+                            ? 'bg-mayssa-brown text-mayssa-gold border-mayssa-brown'
+                            : 'bg-white/80 text-mayssa-brown/75 border-mayssa-brown/10',
+                        )}
+                      >
+                        {id === 'whatsapp' && <MessageCircle size={12} />}
+                        {id === 'instagram' && <Instagram size={12} />}
+                        {id === 'snap' && <SnapIcon size={12} />}
+                        {id === 'whatsapp' ? 'WA' : id === 'instagram' ? 'Insta' : 'Snap'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {orderContactIdentity === 'whatsapp' ? (
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", showError('firstName') ? "ring-red-300" : "ring-mayssa-brown/10")}>
@@ -408,6 +467,40 @@ export function CartSheet({
                     {showError('lastName') && <p className="text-[9px] text-red-400 pl-3 mt-0.5">{validationErrors.lastName}</p>}
                   </div>
                 </div>
+                ) : (
+                <div>
+                  <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", showError('firstName') ? "ring-red-300" : "ring-mayssa-brown/10")}>
+                    {orderContactIdentity === 'instagram' ? (
+                      <Instagram size={14} className="text-mayssa-caramel flex-shrink-0" />
+                    ) : (
+                      <SnapIcon size={14} className="text-mayssa-caramel flex-shrink-0" />
+                    )}
+                    <input
+                      value={customer.firstName}
+                      onChange={(e) => onCustomerChange({ ...customer, firstName: e.target.value })}
+                      onBlur={() => {
+                        markTouched('firstName')
+                        if (orderContactIdentity === 'instagram') {
+                          const n = normalizeInstagramHandle(customer.firstName)
+                          if (n !== customer.firstName) onCustomerChange({ ...customer, firstName: n })
+                        }
+                      }}
+                      placeholder={
+                        orderContactIdentity === 'instagram'
+                          ? '@pseudo Instagram *'
+                          : "Nom d'utilisateur Snapchat"
+                      }
+                      aria-label={
+                        orderContactIdentity === 'instagram'
+                          ? "Nom d'utilisateur Instagram"
+                          : "Nom d'utilisateur Snapchat"
+                      }
+                      className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
+                    />
+                  </div>
+                  {showError('firstName') && <p className="text-[9px] text-red-400 pl-3 mt-0.5">{validationErrors.firstName}</p>}
+                </div>
+                )}
                 <div>
                   <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", showError('phone') ? "ring-red-300" : "ring-mayssa-brown/10")}>
                     <Phone size={14} className="text-mayssa-caramel flex-shrink-0" />
@@ -843,13 +936,39 @@ export function CartSheet({
               </div>
 
               {pendingOrder ? (
-                <div className="rounded-2xl bg-emerald-50 border-2 border-emerald-200 p-4 text-center space-y-2">
+                <div className="rounded-2xl bg-emerald-50 border-2 border-emerald-200 p-4 text-center space-y-3">
                   <div className="text-3xl">✅</div>
                   <p className="text-sm font-bold text-emerald-800">
-                    Commande déjà reçue{pendingOrder.orderNumber ? ` (n°${pendingOrder.orderNumber})` : ''} !
+                    Votre commande a bien été reçue{pendingOrder.orderNumber ? ` (n°${pendingOrder.orderNumber})` : ''} !
                   </p>
                   <p className="text-xs text-emerald-700 leading-relaxed">
-                    Nous avons bien reçu votre commande. Nous vous recontacterons rapidement pour confirmer. Merci ! 🙏
+                    Nous la traitons et nous vous recontacterons rapidement pour confirmer. Merci ! 🙏
+                  </p>
+                  {!dismissSecondOrderPrompt && onAllowAnotherOrder ? (
+                    <div className="space-y-2 pt-1">
+                      <p className="text-xs font-semibold text-emerald-900">
+                        Souhaitez-vous passer une autre commande ?
+                      </p>
+                      <div className="flex flex-col gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onAllowAnotherOrder()}
+                          className="w-full py-3 rounded-xl bg-emerald-800 text-white text-xs font-bold uppercase tracking-wider shadow-md active:scale-[0.98] transition-transform cursor-pointer"
+                        >
+                          Oui, une autre commande
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDismissSecondOrderPrompt(true)}
+                          className="w-full py-2.5 rounded-xl border border-emerald-700/40 text-emerald-900 text-[11px] font-bold uppercase tracking-wider cursor-pointer"
+                        >
+                          Non, merci
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                  <p className="text-[9px] text-emerald-600/70 italic">
+                    Ce rappel disparaît au bout de 48 h.
                   </p>
                 </div>
               ) : (

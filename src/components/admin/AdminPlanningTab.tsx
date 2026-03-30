@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
@@ -6,10 +6,20 @@ import {
   MessageCircle, Star, Pencil, Package, MessageSquare,
   ClipboardList, LockOpen,
 } from 'lucide-react'
-import { updateOrderStatus, updateOrder, releaseDeliverySlot, reserveDeliverySlot, releaseOrderBlock, type Order, type OrderStatus } from '../../lib/firebase'
-import { formatOrderItemName } from '../../lib/utils'
+import { updateOrderStatus, updateOrder, releaseDeliverySlot, reserveDeliverySlot, releaseOrderBlock, isTrompeLoeilProductId, type Order, type OrderStatus } from '../../lib/firebase'
+import {
+  formatOrderItemName,
+  getTodayYyyyMmDd,
+  getNearestPreparationPickupDate,
+  dayOffsetFromTodayToDate,
+} from '../../lib/utils'
 import { hapticFeedback } from '../../lib/haptics'
+import { buildWhatsAppChatHref } from '../../lib/whatsappOpen'
 import type { OrderItem } from '../../lib/firebase'
+import { BOX_DECOUVERTE_TROMPE_PRODUCT_ID, PRODUCTS } from '../../constants'
+import { formatOrderCustomerDisplayName } from '../../lib/orderCustomerDisplay'
+import { getOrderDepositAmount, getOrderRemainingToPay } from '../../lib/orderAmounts'
+import { AdminDeposit50Prompt } from './AdminDeposit50Prompt'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -60,22 +70,7 @@ function buildReviewMessage(order: Order): string {
   )
 }
 
-function getTodayStr(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
 // ─── Production list ─────────────────────────────────────────────────────────
-
-const BOX_TROMPE_LOEIL_LABELS = [
-  "Trompe l'oeil Mangue",
-  "Trompe l'oeil Citron",
-  "Trompe l'oeil Pistache",
-  "Trompe l'oeil Passion",
-  "Trompe l'oeil Framboise",
-  "Trompe l'oeil Cacahuète",
-  "Trompe l'oeil Fraise",
-]
 
 const DONE_STATUSES = ['validee', 'livree', 'pret'] as const
 
@@ -96,19 +91,47 @@ function getProductionList(
   }
   const labelToSortKey = new Map<string, string>()
   const ordersToUse = filterStatus ? dayOrders.filter(([, o]) => filterStatus(o.status ?? '')) : dayOrders
+  const discoveryBase = BOX_DECOUVERTE_TROMPE_PRODUCT_ID.toLowerCase()
+  const flavorLabel = (trompeId: string): string => PRODUCTS.find((x) => x.id === trompeId)?.name ?? trompeId
+
   for (const [, order] of ordersToUse) {
     for (const item of order.items ?? []) {
-      const productId = (item.productId ?? '').toLowerCase()
-      if (productId === 'box-trompe-loeil') {
-        for (const trompeLabel of BOX_TROMPE_LOEIL_LABELS) {
-          quantityByLabel.set(trompeLabel, (quantityByLabel.get(trompeLabel) ?? 0) + item.quantity)
-          if (!labelToSortKey.has(trompeLabel)) labelToSortKey.set(trompeLabel, '0-trompe')
+      const rawPid = (item.productId ?? '').replace(/-\d{10,}$/, '').toLowerCase()
+      if (rawPid === discoveryBase) {
+        const sel = item.trompeDiscoverySelection
+        if (sel?.length) {
+          for (const tid of sel) {
+            const label = flavorLabel(tid)
+            quantityByLabel.set(label, (quantityByLabel.get(label) ?? 0) + item.quantity)
+            if (!labelToSortKey.has(label)) labelToSortKey.set(label, '0-trompe')
+          }
+        } else {
+          const label = formatOrderItemName(item)
+          quantityByLabel.set(label, (quantityByLabel.get(label) ?? 0) + item.quantity)
+          if (!labelToSortKey.has(label)) labelToSortKey.set(label, '0-trompe')
         }
         continue
       }
-      const baseName = formatOrderItemName(item)
-      const detail = item.sizeLabel ? ` — ${item.sizeLabel}` : ''
-      const label = baseName + detail
+      const basePid = (item.productId ?? '').replace(/-\d{10,}$/, '').toLowerCase()
+      if (basePid === 'box-trompe-loeil' || basePid === 'box-fruitee' || basePid === 'box-de-tout') {
+        const sel = item.trompeDiscoverySelection
+        const fallbackIds = PRODUCTS.find((p) => p.id === basePid)?.bundleProductIds ?? []
+        const ids = sel?.length ? sel : fallbackIds
+        for (const tid of ids) {
+          const label = flavorLabel(tid)
+          quantityByLabel.set(label, (quantityByLabel.get(label) ?? 0) + item.quantity)
+          if (!labelToSortKey.has(label)) labelToSortKey.set(label, '0-trompe')
+        }
+        continue
+      }
+      const productIdLower = (item.productId ?? '').toLowerCase()
+      const baseName = isTrompeLoeilProductId(productIdLower)
+        ? (PRODUCTS.find((p) => p.id === productIdLower.replace(/-\d{10,}$/, ''))?.name ?? formatOrderItemName(item))
+        : formatOrderItemName(item)
+      // Parenthèses pour éviter de confondre avec les descriptions catalogue après tiret (—/–)
+      const detail = item.sizeLabel ? ` (${item.sizeLabel})` : ''
+      const rawLabel = baseName + detail
+      const label = rawLabel.split(/\s*[—–]\s*/)[0]?.trim() || rawLabel
       quantityByLabel.set(label, (quantityByLabel.get(label) ?? 0) + item.quantity)
       if (!labelToSortKey.has(label)) labelToSortKey.set(label, sortKeyForLabel(item))
     }
@@ -152,17 +175,26 @@ interface AdminPlanningTabProps {
 
 export function AdminPlanningTab({ orders, onEditOrder }: AdminPlanningTabProps) {
   const [dayOffset, setDayOffset] = useState(0)
+  const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('en_preparation')
   const [search, setSearch] = useState('')
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set())
   const [productionOpen, setProductionOpen] = useState<Set<string>>(new Set())
 
-  const todayStr = getTodayStr()
+  const planningDetailBootRef = useRef(false)
+  useEffect(() => {
+    if (planningDetailBootRef.current) return
+    if (Object.keys(orders).length === 0) return
+    setDayOffset(dayOffsetFromTodayToDate(getNearestPreparationPickupDate(orders)))
+    planningDetailBootRef.current = true
+  }, [orders])
+
+  const todayStr = getTodayYyyyMmDd()
   const searchLower = search.trim().toLowerCase()
 
   const matchesSearch = (o: Order) =>
     !searchLower ||
-    (o.customer?.firstName ?? '').toLowerCase().includes(searchLower) ||
-    (o.customer?.lastName ?? '').toLowerCase().includes(searchLower) ||
+    formatOrderCustomerDisplayName(o).toLowerCase().includes(searchLower) ||
+    (o.customer?.contactHandle ?? '').toLowerCase().includes(searchLower) ||
     (o.customer?.phone ?? '').includes(searchLower)
 
   // Génère 10 jours à partir de l'offset
@@ -175,12 +207,13 @@ export function AdminPlanningTab({ orders, onEditOrder }: AdminPlanningTabProps)
       const label = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
       const dayOrders = Object.entries(orders)
         .filter(([, o]) => o.requestedDate === dateStr && o.status !== 'refusee' && matchesSearch(o))
+        .filter(([, o]) => statusFilter === 'all' || o.status === statusFilter)
         .sort(([, a], [, b]) => (a.requestedTime ?? '00:00').localeCompare(b.requestedTime ?? '00:00'))
       result.push({ dateStr, label, dayOrders })
     }
     return result
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orders, dayOffset, searchLower])
+  }, [orders, dayOffset, searchLower, statusFilter])
 
   const totalOrders = days.reduce((s, d) => s + d.dayOrders.length, 0)
   const totalCA = days.reduce((s, d) => s + d.dayOrders.reduce((ss, [, o]) => ss + (o.total ?? 0), 0), 0)
@@ -265,6 +298,31 @@ export function AdminPlanningTab({ orders, onEditOrder }: AdminPlanningTabProps)
             <X size={18} />
           </button>
         )}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/45">Statut</span>
+        {([
+          { v: 'all' as const, l: 'Toutes' },
+          { v: 'en_attente' as const, l: 'Attente' },
+          { v: 'en_preparation' as const, l: 'Prépa' },
+          { v: 'pret' as const, l: 'Prête' },
+          { v: 'livree' as const, l: 'Livrée' },
+          { v: 'validee' as const, l: 'Validée' },
+        ]).map(({ v, l }) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => setStatusFilter(v)}
+            className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+              statusFilter === v
+                ? 'bg-mayssa-brown text-white shadow-sm'
+                : 'bg-white border border-mayssa-brown/12 text-mayssa-brown/65 hover:bg-mayssa-soft/60'
+            }`}
+          >
+            {l}
+          </button>
+        ))}
       </div>
 
       {/* ── KPIs ── */}
@@ -513,7 +571,7 @@ function OrderCard({ orderId, order, onEdit, onDateTimeChange }: OrderCardProps)
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
           <p className="text-base font-bold text-mayssa-brown leading-tight">
-            {order.customer?.firstName} {order.customer?.lastName}
+            {formatOrderCustomerDisplayName(order)}
           </p>
           {order.customer?.phone && (
             <a
@@ -526,9 +584,15 @@ function OrderCard({ orderId, order, onEdit, onDateTimeChange }: OrderCardProps)
           )}
         </div>
         <div className="text-right flex-shrink-0">
-          <p className="text-lg font-display font-bold text-mayssa-caramel">
+          <p className="text-[10px] font-bold text-mayssa-brown/45 uppercase tracking-wide">Total TTC</p>
+          <p className="text-lg font-display font-bold text-mayssa-caramel leading-tight">
             {(order.total ?? 0).toFixed(2).replace('.', ',')} €
           </p>
+          {getOrderDepositAmount(order) > 0 && (
+            <p className="text-[10px] font-bold text-amber-800 mt-0.5">
+              Reste {(getOrderRemainingToPay(order).toFixed(2).replace('.', ','))} €
+            </p>
+          )}
           {isDelivery && (order.deliveryFee ?? 0) > 0 && (
             <p className="text-[10px] text-mayssa-brown/40">dont {(order.deliveryFee ?? 0).toFixed(2)} € livr.</p>
           )}
@@ -596,6 +660,28 @@ function OrderCard({ orderId, order, onEdit, onDateTimeChange }: OrderCardProps)
             <span>+{(order.deliveryFee ?? 0).toFixed(2).replace('.', ',')} €</span>
           </div>
         )}
+        <div className="flex items-center justify-between text-xs pt-1.5 mt-1.5 border-t border-mayssa-brown/10">
+          <span className="font-bold text-mayssa-brown">Total TTC</span>
+          <span className="font-bold text-mayssa-caramel">{(order.total ?? 0).toFixed(2).replace('.', ',')} €</span>
+        </div>
+        {getOrderDepositAmount(order) > 0 && (
+          <div className="flex items-center justify-between text-xs pt-1 border-t border-mayssa-brown/10 text-mayssa-brown/80">
+            <span>Acompte versé</span>
+            <span className="font-bold text-mayssa-brown">
+              −{getOrderDepositAmount(order).toFixed(2).replace('.', ',')} €
+            </span>
+          </div>
+        )}
+        <div className="flex items-center justify-between text-xs pt-1 font-bold text-amber-800 border-t border-mayssa-brown/10">
+          <span>Reste à régler</span>
+          <span className="font-numeric text-sm">
+            {getOrderRemainingToPay(order).toFixed(2).replace('.', ',')} €
+          </span>
+        </div>
+      </div>
+
+      <div className="mb-3">
+        <AdminDeposit50Prompt orderId={orderId} order={order} variant="light" />
       </div>
 
       {/* Note client */}
@@ -612,7 +698,7 @@ function OrderCard({ orderId, order, onEdit, onDateTimeChange }: OrderCardProps)
         {order.customer?.phone && (
           <>
             <a
-              href={`https://wa.me/${phoneToWhatsApp(order.customer.phone)}?text=${encodeURIComponent(buildConfirmationMessage(order))}`}
+              href={buildWhatsAppChatHref(phoneToWhatsApp(order.customer.phone), buildConfirmationMessage(order))}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-sky-500 text-white text-xs font-bold hover:bg-sky-600 transition-colors"
@@ -622,7 +708,7 @@ function OrderCard({ orderId, order, onEdit, onDateTimeChange }: OrderCardProps)
               Confirmée
             </a>
             <a
-              href={`https://wa.me/${phoneToWhatsApp(order.customer.phone)}?text=${encodeURIComponent(buildReadyMessage(order))}`}
+              href={buildWhatsAppChatHref(phoneToWhatsApp(order.customer.phone), buildReadyMessage(order))}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition-colors"
@@ -633,7 +719,7 @@ function OrderCard({ orderId, order, onEdit, onDateTimeChange }: OrderCardProps)
             </a>
             {isDone && (
               <a
-                href={`https://wa.me/${phoneToWhatsApp(order.customer.phone)}?text=${encodeURIComponent(buildReviewMessage(order))}`}
+                href={buildWhatsAppChatHref(phoneToWhatsApp(order.customer.phone), buildReviewMessage(order))}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-400 text-white text-xs font-bold hover:bg-amber-500 transition-colors"
@@ -644,7 +730,7 @@ function OrderCard({ orderId, order, onEdit, onDateTimeChange }: OrderCardProps)
               </a>
             )}
             <a
-              href={`https://wa.me/${phoneToWhatsApp(order.customer.phone)}`}
+              href={buildWhatsAppChatHref(phoneToWhatsApp(order.customer.phone), '')}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-green-100 text-green-700 text-xs font-bold hover:bg-green-200 transition-colors"

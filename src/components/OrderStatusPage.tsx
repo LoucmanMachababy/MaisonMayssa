@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Package, ChefHat, CheckCircle2, Truck, XCircle } from 'lucide-react'
 import { listenOrder, type Order, type OrderStatus } from '../lib/firebase'
+import { getOrderDepositAmount, getOrderRemainingToPay } from '../lib/orderAmounts'
+import { formatOrderItemName } from '../lib/utils'
 
 /** Libellés alignés sur le dashboard admin (À valider / Historique) */
 const STATUS_CONFIG: Record<OrderStatus, { label: string; subtitle?: string; icon: typeof Package; color: string }> = {
@@ -67,6 +69,12 @@ export function OrderStatusPage({ orderId, onBack }: OrderStatusPageProps) {
   const config = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.en_attente
   const Icon = config.icon
 
+  const itemsSubtotal = (order.items ?? []).reduce((s, it) => s + (it.price ?? 0) * (it.quantity ?? 0), 0)
+  const delivery = (order.deliveryMode === 'livraison' ? (order.deliveryFee ?? 0) : 0)
+  const expectedTotal = itemsSubtotal + delivery
+  const adjustment = Math.round(((order.total ?? 0) - expectedTotal) * 100) / 100
+  const hasAdjustment = Math.abs(adjustment) >= 0.01
+
   const dateStr = order.createdAt
     ? new Date(order.createdAt).toLocaleDateString('fr-FR', {
         weekday: 'long',
@@ -120,7 +128,7 @@ export function OrderStatusPage({ orderId, onBack }: OrderStatusPageProps) {
               <ul className="space-y-1 text-sm text-mayssa-brown">
                 {order.items.map((item, i) => (
                   <li key={i} className="flex justify-between">
-                    <span>{item.quantity}× {item.name}</span>
+                    <span>{item.quantity}× {formatOrderItemName(item)}</span>
                     <span>{(item.price * item.quantity).toFixed(2).replace('.', ',')} €</span>
                   </li>
                 ))}
@@ -130,9 +138,25 @@ export function OrderStatusPage({ orderId, onBack }: OrderStatusPageProps) {
                     <span>+{order.deliveryFee.toFixed(2).replace('.', ',')} €</span>
                   </li>
                 )}
+                {hasAdjustment && (
+                  <li className="flex justify-between text-mayssa-brown/70">
+                    <span>{adjustment < 0 ? 'Remise' : 'Ajustement'}</span>
+                    <span>{adjustment < 0 ? '' : '+'}{adjustment.toFixed(2).replace('.', ',')} €</span>
+                  </li>
+                )}
                 <li className="flex justify-between font-bold pt-2">
-                  <span>Total</span>
+                  <span>Total TTC</span>
                   <span className="text-mayssa-caramel">{(order.total ?? 0).toFixed(2).replace('.', ',')} €</span>
+                </li>
+                {getOrderDepositAmount(order) > 0 && (
+                  <li className="flex justify-between text-sm text-mayssa-brown/80 pt-1">
+                    <span>Acompte versé</span>
+                    <span>−{getOrderDepositAmount(order).toFixed(2).replace('.', ',')} €</span>
+                  </li>
+                )}
+                <li className="flex justify-between font-bold pt-2 border-t border-mayssa-brown/10 text-amber-800">
+                  <span>Reste à régler</span>
+                  <span className="font-numeric">{getOrderRemainingToPay(order).toFixed(2).replace('.', ',')} €</span>
                 </li>
               </ul>
             </div>

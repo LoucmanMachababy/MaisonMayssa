@@ -37,6 +37,71 @@ export function generateTimeSlots(wantsDelivery: boolean): string[] {
   return slots
 }
 
+const HH_MM_RE = /^(\d{1,2}):(\d{2})$/
+
+/** Normalise "9:5" → "09:05" */
+export function normalizeTimeSlotHHmm(raw: string): string | null {
+  const m = raw.trim().match(HH_MM_RE)
+  if (!m) return null
+  const h = parseInt(m[1], 10)
+  const min = parseInt(m[2], 10)
+  if (h > 23 || min > 59) return null
+  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`
+}
+
+function toMinutesFromMidnight(hhmm: string): number | null {
+  const n = normalizeTimeSlotHHmm(hhmm)
+  if (!n) return null
+  const [h, mm] = n.split(':').map(Number)
+  return (h ?? 0) * 60 + (mm ?? 0)
+}
+
+function minutesToHHmm(total: number): string {
+  const m = ((total % (24 * 60)) + 24 * 60) % (24 * 60)
+  const h = Math.floor(m / 60)
+  const min = m % 60
+  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`
+}
+
+/**
+ * Génère des créneaux HH:mm entre deux heures, avec un pas en minutes.
+ * - Même jour : `overnight === false` et début &lt; fin (ex. 10:00 → 15:00, pas 30).
+ * - Passer minuit : `overnight === true` (ex. 20:00 → 02:00 pour la livraison).
+ */
+export function generateTimeSlotsFromWindow(
+  from: string,
+  to: string,
+  everyMinutes: number,
+  overnight: boolean,
+): string[] {
+  const start = toMinutesFromMidnight(from)
+  const end = toMinutesFromMidnight(to)
+  if (start === null || end === null) return []
+  const step = Math.max(5, Math.min(180, Math.round(everyMinutes)))
+  const day = 24 * 60
+  const seen = new Set<number>()
+
+  if (!overnight) {
+    if (start > end) return []
+    for (let t = start; t <= end; t += step) seen.add(t)
+  } else {
+    if (start === end) {
+      seen.add(start)
+    } else {
+      for (let t = start; t < day; t += step) seen.add(t)
+      for (let t = 0; t <= end; t += step) seen.add(t)
+    }
+  }
+
+  const mins = [...seen]
+  if (overnight && start !== end) {
+    const evening = mins.filter((m) => m >= start).sort((a, b) => a - b)
+    const morning = mins.filter((m) => m < start).sort((a, b) => a - b)
+    return [...evening, ...morning].map(minutesToHHmm)
+  }
+  return mins.sort((a, b) => a - b).map(minutesToHHmm)
+}
+
 // ── Date minimum (aujourd'hui à Paris) ────────────────────────────
 export function getMinDate(): string {
   const rtf = new Intl.DateTimeFormat('fr-CA', {
@@ -104,11 +169,43 @@ export function formatDateLabel(ymd: string): string {
 // ── Validation client ─────────────────────────────────────────────
 const PHONE_REGEX = /^(\+33|0)[1-9](\d{2}){4}$/
 
-export function validateCustomer(customer: CustomerInfo): Partial<Record<keyof CustomerInfo, string>> {
-  const errors: Partial<Record<keyof CustomerInfo, string>> = {}
+/** Pseudo Instagram sans @, espaces retirés (règles IG : 1–30 car., lettres, chiffres, . et _). */
+const INSTAGRAM_USERNAME_RE = /^[a-zA-Z0-9._]{1,30}$/
 
-  if (!customer.firstName.trim()) errors.firstName = 'Le prénom est requis'
-  if (!customer.lastName.trim()) errors.lastName = 'Le nom est requis'
+export function normalizeInstagramHandle(raw: string): string {
+  return raw.trim().replace(/^@+/, '').replace(/\s+/g, '')
+}
+
+export function isValidInstagramUsernameHandle(raw: string): boolean {
+  const h = normalizeInstagramHandle(raw)
+  if (!h) return false
+  if (h.includes('..')) return false
+  if (h.startsWith('.') || h.endsWith('.')) return false
+  return INSTAGRAM_USERNAME_RE.test(h)
+}
+
+export function validateCustomer(
+  customer: CustomerInfo,
+  options?: { identityMode?: 'whatsapp' | 'instagram' | 'snap' },
+): Partial<Record<keyof CustomerInfo, string>> {
+  const errors: Partial<Record<keyof CustomerInfo, string>> = {}
+  const identityMode = options?.identityMode ?? 'whatsapp'
+
+  if (identityMode === 'whatsapp') {
+    if (!customer.firstName.trim()) errors.firstName = 'Le prénom est requis'
+    if (!customer.lastName.trim()) errors.lastName = 'Le nom est requis'
+  } else if (identityMode === 'instagram') {
+    if (!customer.firstName.trim()) {
+      errors.firstName = 'Ton @ Instagram est requis (pseudo, pas ton nom)'
+    } else if (!isValidInstagramUsernameHandle(customer.firstName)) {
+      errors.firstName =
+        'Pseudo Instagram invalide (lettres, chiffres, point et underscore ; 1 à 30 caractères)'
+    }
+  } else if (identityMode === 'snap') {
+    if (!customer.firstName.trim()) {
+      errors.firstName = "Le nom d'utilisateur Snapchat est requis"
+    }
+  }
   if (!customer.phone.trim()) {
     errors.phone = 'Le téléphone est requis'
   } else if (!PHONE_REGEX.test(customer.phone.replace(/\s/g, ''))) {

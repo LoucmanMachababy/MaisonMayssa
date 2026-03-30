@@ -4,6 +4,8 @@ import {
   validateCustomer,
   computeDeliveryFee,
   generateTimeSlots,
+  generateTimeSlotsFromWindow,
+  normalizeTimeSlotHHmm,
   ANNECY_GARE,
   FREE_DELIVERY_THRESHOLD,
   DELIVERY_FEE,
@@ -106,5 +108,31 @@ describe('generateTimeSlots', () => {
     const slots = generateTimeSlots(true)
     expect(slots).toContain('00:00')
     expect(slots).toContain('02:00')
+  })
+})
+
+describe('normalizeTimeSlotHHmm', () => {
+  it('normalise les heures', () => {
+    expect(normalizeTimeSlotHHmm('9:05')).toBe('09:05')
+    expect(normalizeTimeSlotHHmm('18:30')).toBe('18:30')
+    expect(normalizeTimeSlotHHmm('invalid')).toBe(null)
+  })
+})
+
+describe('generateTimeSlotsFromWindow', () => {
+  it('génère une plage même jour', () => {
+    const s = generateTimeSlotsFromWindow('10:00', '11:00', 30, false)
+    expect(s).toEqual(['10:00', '10:30', '11:00'])
+  })
+
+  it('retourne [] si fin avant début (sans overnight)', () => {
+    expect(generateTimeSlotsFromWindow('15:00', '10:00', 30, false)).toEqual([])
+  })
+
+  it('traverse minuit', () => {
+    const s = generateTimeSlotsFromWindow('23:00', '01:00', 60, true)
+    expect(s[0]).toBe('23:00')
+    expect(s).toContain('00:00')
+    expect(s).toContain('01:00')
   })
 })

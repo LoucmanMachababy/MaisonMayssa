@@ -27,9 +27,16 @@ export function useProducts() {
     // 1. Merge static products with their overrides
     const merged: ProductWithAvailability[] = PRODUCTS.map(p => {
       const override = overrides[p.id]
-      if (!override) return { ...p, available: true }
+      if (!override) return { ...p, available: true, pinned: p.pinned ?? false } as ProductWithAvailability
       const { isCustom: _, ...overrideFields } = override
-      const mergedProduct = { ...p, ...overrideFields, available: override.available !== false, pinned: override.pinned ?? false } as ProductWithAvailability
+      const mergedProduct = {
+        ...p,
+        ...overrideFields,
+        available: override.available !== false,
+        pinned: override.pinned ?? p.pinned ?? false,
+        highlightAsNew:
+          override.highlightAsNew != null ? Boolean(override.highlightAsNew) : (p.highlightAsNew ?? false),
+      } as ProductWithAvailability
       if (p.images?.length) {
         if (!overrideFields.images?.length || overrideFields.images.length < p.images.length) {
           mergedProduct.images = p.images
@@ -49,11 +56,12 @@ export function useProducts() {
           category: override.category,
           description: override.description,
           image: override.image,
-          badges: override.badges,
+          badges: override.badges == null ? undefined : override.badges,
           sizes: override.sizes,
           originalPrice: override.originalPrice,
           available: override.available !== false,
           pinned: override.pinned ?? false,
+          highlightAsNew: override.highlightAsNew != null ? Boolean(override.highlightAsNew) : false,
         })
       }
     }
