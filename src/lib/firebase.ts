@@ -1,3 +1,5 @@
+import { BOX_DECOUVERTE_TROMPE_PRODUCT_ID, PRODUCTS } from '../constants'
+import { listIndividualTrompeLoeilProducts } from './discoveryBox'
 import { initializeApp } from 'firebase/app'
 import { getDatabase, ref, onValue, set, get, push, update, remove, runTransaction, connectDatabaseEmulator, onDisconnect } from 'firebase/database'
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from 'firebase/auth'
@@ -180,6 +182,15 @@ export async function deleteProductOverride(productId: string) {
 /** Ouverture de précommande : un jour (0=dim… 6=sam) et une heure à partir de laquelle on peut commander (HH:mm, "00:00" = toute la journée) */
 export type PreorderOpening = { day: number; fromTime: string }
 
+/** Plage horaire admin (retrait / livraison) — sert à préremplir l’UI ; les créneaux effectifs sont dans retraitTimeSlots / livraisonTimeSlots */
+export type TimeSlotWindow = {
+  from: string
+  to: string
+  everyMinutes: number
+  /** Livraison : ex. 20:00 → 02:00 le lendemain */
+  overnight?: boolean
+}
+
 export type Settings = {
   preorderDays: number[]
   /** Horaires d'ouverture des précommandes trompe-l'œil (ex. samedi 00:00, mercredi 12:00). Si absent, on utilise preorderDays avec 00:00. */
@@ -201,6 +212,10 @@ export type Settings = {
   retraitTimeSlots?: string[]
   /** Créneaux horaires proposés pour la livraison (ex. ["20:00","20:30",...]). Si absent = défaut (20h-02h30). */
   livraisonTimeSlots?: string[]
+  /** Dernière plage « retrait » définie dans l’admin (optionnel). */
+  retraitSlotWindow?: TimeSlotWindow
+  /** Dernière plage « livraison » définie dans l’admin (optionnel). */
+  livraisonSlotWindow?: TimeSlotWindow
   /** Message global affiché en bannière sur le site. Vide = pas de bannière. */
   globalMessage?: string
   /** Si true, le message global est affiché. Si false ou absent = pas de bannière. */
@@ -219,6 +234,11 @@ export type Settings = {
   eventModeMessage?: string
   /** URL de l'affiche (image) affichée aux clients en mode événement. */
   eventModePosterUrl?: string
+  /**
+   * Trompe-l'œil unitaires à retirer du choix client pour la box découverte (réglé depuis Catalogue → Modifier la box).
+   * Tableau vide = aucune exclusion.
+   */
+  boxDecouverteTrompeExcludedIds?: string[]
 }
 
 const DEFAULT_PREORDER_OPENINGS: PreorderOpening[] = [
@@ -322,6 +342,19 @@ function mergeSettings(val: unknown): Settings {
   const livraisonTimeSlots = Array.isArray(raw.livraisonTimeSlots) && (raw.livraisonTimeSlots as string[]).length > 0
     ? (raw.livraisonTimeSlots as string[]).filter((t): t is string => typeof t === 'string' && /^\d{1,2}:\d{2}$/.test(t))
     : undefined
+  const parseSlotWindow = (v: unknown): TimeSlotWindow | undefined => {
+    if (!v || typeof v !== 'object') return undefined
+    const o = v as Record<string, unknown>
+    const from = typeof o.from === 'string' && /^\d{1,2}:\d{2}$/.test(o.from.trim()) ? o.from.trim() : null
+    const to = typeof o.to === 'string' && /^\d{1,2}:\d{2}$/.test(o.to.trim()) ? o.to.trim() : null
+    const every = typeof o.everyMinutes === 'number' && Number.isFinite(o.everyMinutes) ? o.everyMinutes : Number(o.everyMinutes)
+    const everyMinutes = typeof every === 'number' && every >= 5 && every <= 180 ? every : null
+    if (!from || !to || everyMinutes === null) return undefined
+    const overnight = o.overnight === true
+    return { from, to, everyMinutes, ...(overnight ? { overnight: true } : {}) }
+  }
+  const retraitSlotWindow = parseSlotWindow(raw.retraitSlotWindow)
+  const livraisonSlotWindow = parseSlotWindow(raw.livraisonSlotWindow)
   const pickupDates = Array.isArray(raw.pickupDates) && (raw.pickupDates as string[]).length > 0
     ? (raw.pickupDates as string[]).filter((d): d is string => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d))
     : undefined
@@ -331,6 +364,21 @@ function mergeSettings(val: unknown): Settings {
   const eventModeEnabled = raw.eventModeEnabled === true ? true : undefined
   const eventModeMessage = typeof raw.eventModeMessage === 'string' ? raw.eventModeMessage : undefined
   const eventModePosterUrl = typeof raw.eventModePosterUrl === 'string' ? raw.eventModePosterUrl : undefined
+  const allTrompeCatalogIds = new Set(
+    listIndividualTrompeLoeilProducts(PRODUCTS).map((p) => p.id),
+  )
+  let boxDecouverteTrompeExcludedIds: string[] = []
+  if (Object.prototype.hasOwnProperty.call(raw, 'boxDecouverteTrompeAllowedIds')) {
+    const allowedArr = Array.isArray(raw.boxDecouverteTrompeAllowedIds)
+      ? (raw.boxDecouverteTrompeAllowedIds as unknown[]).filter((x): x is string => typeof x === 'string')
+      : []
+    const allowedSet = new Set(allowedArr.filter((id) => allTrompeCatalogIds.has(id)))
+    boxDecouverteTrompeExcludedIds = [...allTrompeCatalogIds].filter((id) => !allowedSet.has(id))
+  } else if (Array.isArray(raw.boxDecouverteTrompeExcludedIds)) {
+    boxDecouverteTrompeExcludedIds = (raw.boxDecouverteTrompeExcludedIds as unknown[]).filter(
+      (x): x is string => typeof x === 'string' && allTrompeCatalogIds.has(x),
+    )
+  }
   return {
     preorderDays,
     preorderOpenings,
@@ -343,6 +391,8 @@ function mergeSettings(val: unknown): Settings {
     ...(availableWeekdays && availableWeekdays.length > 0 && { availableWeekdays }),
     ...(retraitTimeSlots && retraitTimeSlots.length > 0 && { retraitTimeSlots }),
     ...(livraisonTimeSlots && livraisonTimeSlots.length > 0 && { livraisonTimeSlots }),
+    ...(retraitSlotWindow && { retraitSlotWindow }),
+    ...(livraisonSlotWindow && { livraisonSlotWindow }),
     ...(pickupDates && pickupDates.length > 0 && { pickupDates }),
     ...(preorderOpenDate && { preorderOpenDate }),
     ...(preorderOpenTime && { preorderOpenTime }),
@@ -352,6 +402,7 @@ function mergeSettings(val: unknown): Settings {
     eventModeEnabled,
     eventModeMessage,
     eventModePosterUrl,
+    boxDecouverteTrompeExcludedIds,
   }
 }
 
@@ -361,9 +412,23 @@ export function listenSettings(callback: (settings: Settings) => void) {
   })
 }
 
-export async function updateSettings(settings: Partial<Settings>) {
+/** Mise à jour partielle ; `null` sur les créneaux / fenêtres efface la clé côté Firebase. */
+export type SettingsUpdate = Omit<
+  Partial<Settings>,
+  'retraitTimeSlots' | 'livraisonTimeSlots' | 'retraitSlotWindow' | 'livraisonSlotWindow'
+> & {
+  retraitTimeSlots?: string[] | null
+  livraisonTimeSlots?: string[] | null
+  retraitSlotWindow?: TimeSlotWindow | null
+  livraisonSlotWindow?: TimeSlotWindow | null
+}
+
+export async function updateSettings(settings: SettingsUpdate) {
   const current = await get(settingsRef)
   const merged = { ...(current.val() || {}), ...settings } as Record<string, unknown>
+  if ('boxDecouverteTrompeExcludedIds' in settings) {
+    delete merged.boxDecouverteTrompeAllowedIds
+  }
   await set(settingsRef, stripUndefined(merged))
 }
 
@@ -374,6 +439,8 @@ export type OrderItem = {
   quantity: number
   price: number
   sizeLabel?: string
+  /** Box découverte : IDs des 5 trompe-l'œil choisis */
+  trompeDiscoverySelection?: string[]
 }
 
 export type OrderStatus = 'en_attente' | 'en_preparation' | 'pret' | 'livree' | 'validee' | 'refusee'
@@ -384,6 +451,12 @@ export type OrderCustomer = {
   firstName: string
   lastName: string
   phone: string
+  /**
+   * Pour les commandes hors-site Snap/Instagram : identifiant du client (pseudo).
+   * On garde `phone` vide dans ce cas pour éviter les liens WhatsApp incorrects.
+   */
+  contactPlatform?: 'snap' | 'instagram'
+  contactHandle?: string
   /** Email pour envoi du récap et des notifications (optionnel) */
   email?: string
   address?: string
@@ -453,13 +526,26 @@ export function isTrompeLoeilProductId(productId: string): boolean {
 export function getStockDecrementItems(
   productId: string,
   quantity: number,
-  products: { id: string; bundleProductIds?: string[] }[]
+  products: { id: string; bundleProductIds?: string[] }[],
+  options?: { trompeDiscoverySelection?: string[] },
 ): { productId: string; quantity: number }[] {
-  const product = products.find((p) => p.id === productId)
+  const baseId = productId.replace(/-\d{13,}$/, '')
+  if (
+    baseId === BOX_DECOUVERTE_TROMPE_PRODUCT_ID &&
+    options?.trompeDiscoverySelection &&
+    options.trompeDiscoverySelection.length > 0
+  ) {
+    const counts: Record<string, number> = {}
+    for (const tid of options.trompeDiscoverySelection) {
+      counts[tid] = (counts[tid] ?? 0) + quantity
+    }
+    return Object.entries(counts).map(([pid, q]) => ({ productId: pid, quantity: q }))
+  }
+  const product = products.find((p) => p.id === baseId)
   if (product?.bundleProductIds && product.bundleProductIds.length > 0) {
     return product.bundleProductIds.map((id) => ({ productId: id, quantity }))
   }
-  return [{ productId, quantity }]
+  return [{ productId: baseId, quantity }]
 }
 
 // --- Codes promo ---
@@ -787,10 +873,15 @@ export async function createOffSiteOrder(order: Omit<Order, 'id' | 'createdAt' |
 // Décrémenter le stock pour plusieurs items (commande hors-site)
 export async function decrementStockBatch(items: { productId: string; quantity: number }[]): Promise<void> {
   const currentStock = await getStock()
-  const updates: Record<string, number> = {}
+  const byId = new Map<string, number>()
   for (const item of items) {
-    if (item.productId in currentStock) {
-      updates[`stock/${item.productId}`] = Math.max(0, (currentStock[item.productId] ?? 0) - item.quantity)
+    if (!item.productId || item.quantity <= 0) continue
+    byId.set(item.productId, (byId.get(item.productId) ?? 0) + item.quantity)
+  }
+  const updates: Record<string, number> = {}
+  for (const [productId, qty] of byId) {
+    if (productId in currentStock) {
+      updates[`stock/${productId}`] = Math.max(0, (currentStock[productId] ?? 0) - qty)
     }
   }
   if (Object.keys(updates).length > 0) {

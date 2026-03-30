@@ -1,6 +1,6 @@
 // import removed to resolve lint
 import { motion } from 'framer-motion'
-import { Plus, ShoppingCart, Calendar, Star, CalendarClock, Info } from 'lucide-react'
+import { Plus, ShoppingCart, Calendar, Star, CalendarClock, Info, Pin } from 'lucide-react'
 import type { Product } from '../types'
 import { use3DTilt } from '../hooks/use3DTilt'
 import { useReviews } from '../hooks/useReviews'
@@ -88,7 +88,8 @@ export function ProductCard({ product, onAdd, onViewDetail, stock = null, isPreo
                 isUnavailable && onViewDetail && "cursor-pointer",
                 isUnavailable && !onViewDetail && "cursor-default opacity-80 grayscale-[0.3]",
                 !isUnavailable && "cursor-pointer hover:-translate-y-3 hover:shadow-2xl hover:bg-white/60 active:scale-[0.98] premium-border",
-                highlightAsNew && "ring-2 ring-mayssa-gold/40 bg-gradient-to-br from-mayssa-gold/5 via-white/40 to-white/40"
+                highlightAsNew &&
+                    "ring-2 ring-mayssa-gold/55 bg-gradient-to-br from-mayssa-gold/[0.08] via-white/40 to-amber-50/30 shadow-[0_0_28px_-8px_rgba(201,162,39,0.45)]"
             )}
         >
             <div className="absolute inset-0 gold-gradient opacity-0 group-hover:opacity-[0.02] transition-opacity duration-1000 pointer-events-none" />
@@ -128,6 +129,14 @@ export function ProductCard({ product, onAdd, onViewDetail, stock = null, isPreo
                 )}>
                     {product.badges?.length ? (
                         <ProductBadges badges={product.badges} variant="card" />
+                    ) : null}
+                    {product.pinned ? (
+                        <div
+                            className="absolute top-2 right-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-mayssa-gold/95 text-white shadow-lg border border-white/60"
+                            title="À la une"
+                        >
+                            <Pin size={14} className="-rotate-12" fill="currentColor" aria-hidden />
+                        </div>
                     ) : null}
                     {product.image ? (
                         <BlurImage

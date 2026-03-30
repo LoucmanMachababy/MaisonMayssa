@@ -58,6 +58,7 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [phone, setPhone] = useState('')
+  const [contactHandle, setContactHandle] = useState('')
   const [cart, setCart] = useState<CartEntry[]>([])
   const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>('retrait')
   const [address, setAddress] = useState('')
@@ -204,7 +205,10 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
   const handleSubmit = async () => {
     setError('')
     if (!source) { setError('Choisissez une source'); return }
-    if (!firstName.trim() || !lastName.trim() || !phone.trim()) { setError('Remplissez les infos client'); return }
+    if (!firstName.trim() || !lastName.trim()) { setError('Remplissez les infos client'); return }
+    const needsPhone = source === 'whatsapp'
+    if (needsPhone && !phone.trim()) { setError('Le téléphone est obligatoire pour WhatsApp'); return }
+    if (!needsPhone && !contactHandle.trim()) { setError(source === 'snap' ? 'Le pseudo Snapchat est obligatoire' : 'Le pseudo Instagram est obligatoire'); return }
     if (cart.length === 0) { setError('Ajoutez au moins un produit'); return }
     if (deliveryMode === 'livraison' && !address.trim()) { setError('L\'adresse est obligatoire pour une livraison'); return }
 
@@ -212,7 +216,11 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
     try {
       const items: OrderItem[] = cart.map(entry => {
         const baseName = entry.sizeLabel ? `${entry.product.name} (${entry.sizeLabel})` : entry.product.name
-        const name = entry.product.description ? `${baseName} — ${entry.product.description}` : baseName
+        // Ne pas coller la description catalogue (trompe-l'œil, etc.) : elle alourdit l'affichage admin.
+        // On garde la description uniquement pour les lignes personnalisées (tiramisu / box parfums) : id = ...-<timestamp>.
+        const isCustomLine = /-\d{10,}$/.test(entry.product.id)
+        const name =
+          entry.product.description && isCustomLine ? `${baseName} — ${entry.product.description}` : baseName
         return {
           productId: entry.product.id,
           name,
@@ -227,7 +235,8 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
         customer: {
           firstName: firstName.trim(),
           lastName: lastName.trim(),
-          phone: phone.trim(),
+          phone: needsPhone ? phone.trim() : '',
+          ...(!needsPhone && { contactPlatform: source === 'snap' ? 'snap' : 'instagram', contactHandle: contactHandle.trim() }),
           ...(presetClient?.email?.trim() && { email: presetClient.email.trim() }),
           ...(deliveryMode === 'livraison' && address.trim() && { address: address.trim() }),
         },
@@ -340,13 +349,23 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
                 className="rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm text-mayssa-brown border border-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
               />
             </div>
-            <input
-              type="tel"
-              placeholder="Téléphone"
-              value={phone}
-              onChange={e => setPhone(e.target.value)}
-              className="mt-2 w-full rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm text-mayssa-brown border border-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
-            />
+            {source === 'whatsapp' || !source ? (
+              <input
+                type="tel"
+                placeholder="Téléphone (WhatsApp)"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                className="mt-2 w-full rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm text-mayssa-brown border border-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
+              />
+            ) : (
+              <input
+                type="text"
+                placeholder={source === 'snap' ? 'Pseudo Snapchat' : 'Pseudo Instagram'}
+                value={contactHandle}
+                onChange={e => setContactHandle(e.target.value)}
+                className="mt-2 w-full rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm text-mayssa-brown border border-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
+              />
+            )}
           </div>
 
           {/* Produits */}

@@ -21,7 +21,14 @@ import {
 } from '../../lib/firebase'
 import type { OrderItem } from '../../lib/firebase'
 import type { ProductOverrideMap } from '../../types'
-import { parseDateYyyyMmDd, formatOrderItemName } from '../../lib/utils'
+import {
+  parseDateYyyyMmDd,
+  formatOrderItemName,
+  getNearestPreparationPickupDate,
+  dayOffsetFromTodayToDate,
+  expandOrderItemForProductionAggregate,
+  normalizeOrderProductBaseId,
+} from '../../lib/utils'
 import { hapticFeedback } from '../../lib/haptics'
 import { exportSingleOrderPDF } from '../../lib/orderPrint'
 import type { User } from 'firebase/auth'
@@ -38,7 +45,7 @@ import { AdminSessionsTab } from './AdminSessionsTab'
 import { AdminSubscribersTab } from './AdminSubscribersTab'
 import { AdminCommunityTab } from './AdminCommunityTab'
 import { AdminOffSiteOrderForm } from './AdminOffSiteOrderForm'
-import { PRODUCTS } from '../../constants'
+import { PRODUCTS, BOX_DECOUVERTE_TROMPE_PRODUCT_ID } from '../../constants'
 import { AdminEditOrderModal } from './AdminEditOrderModal'
 import { AdminEditReviewModal } from './AdminEditReviewModal'
 import { AdminClientProfileModal } from './AdminClientProfileModal'
@@ -464,10 +471,10 @@ function Dashboard({ user }: { user: User }) {
     order: Order
     isDuplicate: boolean
   } | null>(null)
-  /** Planning : dates pour lesquelles le bloc "À produire" est replié (cliquer pour afficher/masquer) */
-  const [planningProductionOpen, setPlanningProductionOpen] = useState<Set<string>>(new Set())
-  /** Planning : production cumulée visible */
-  const [planningCumulOpen, setPlanningCumulOpen] = useState(false)
+  /** Planning : dates pour lesquelles le bloc "À produire" est replié (vide = tout ouvert par défaut) */
+  const [planningProductionCollapsed, setPlanningProductionCollapsed] = useState<Set<string>>(new Set())
+  /** Planning : production cumulée — liste détaillée (KPI toujours visibles en dessous) */
+  const [planningCumulOpen, setPlanningCumulOpen] = useState(true)
   /** Planning : bitmask des jours sélectionnés pour la prod cumulée (bit i = jour i du planning). Défaut 0b011 = auj+demain. */
   const [planningCumulDays, setPlanningCumulDays] = useState(0b0000011)
   /** Planning : jours repliés en mode "rideau" (dateStr) */
@@ -477,6 +484,8 @@ function Dashboard({ user }: { user: User }) {
   const bulkValidateRef = useRef<HTMLDivElement>(null)
   /** Décalage en jours pour la fenêtre de planning (0 = aujourd'hui, -10 = 10 jours en arrière) */
   const [planningDayOffset, setPlanningDayOffset] = useState(0)
+  /** Filtre statut sur le planning calendrier (défaut : en préparation) */
+  const [planningOrderStatusFilter, setPlanningOrderStatusFilter] = useState<OrderStatus | 'all'>('en_preparation')
   const [eventPosterUploading, setEventPosterUploading] = useState(false)
   /** Dates sélectionnées pour l'onglet Production (Set vide = aujourd'hui par défaut) */
   const [productionDates, setProductionDates] = useState<Set<string>>(new Set([]))
@@ -667,7 +676,9 @@ function Dashboard({ user }: { user: User }) {
     // Restaurer le stock de tous les produits décrémentés à la commande.
     // Pour les trompe-l'œil : skip si excludeTrompeLoeilStock=true (hors-site sans déduction)
     for (const item of order.items) {
-      const pairs = getStockDecrementItems(item.productId ?? '', item.quantity ?? 1, PRODUCTS)
+      const pairs = getStockDecrementItems(item.productId ?? '', item.quantity ?? 1, PRODUCTS, {
+        trompeDiscoverySelection: item.trompeDiscoverySelection,
+      })
       for (const pair of pairs) {
         const isTrompe = isTrompeLoeilProductId(pair.productId)
         if (isTrompe && order.excludeTrompeLoeilStock === true) continue
@@ -767,14 +778,15 @@ function Dashboard({ user }: { user: User }) {
   const today = new Date().getDay()
   const isPreorderDay = isPreorderOpenNow(openings)
 
-  // Filtre par recherche (nom, téléphone) et dates
+  // Filtre par recherche (nom, téléphone, pseudo) et dates
   const matchesSearch = (o: Order) => {
     if (!searchQuery.trim()) return true
     const q = searchQuery.trim().toLowerCase()
     const name = `${o.customer?.firstName ?? ''} ${o.customer?.lastName ?? ''}`.toLowerCase()
     const phone = (o.customer?.phone ?? '').replace(/\s/g, '')
+    const handle = (o.customer?.contactHandle ?? '').toLowerCase()
     const qClean = q.replace(/\s/g, '')
-    return name.includes(q) || phone.includes(qClean)
+    return name.includes(q) || phone.includes(qClean) || handle.includes(q)
   }
   const matchesDateRange = (o: Order) => {
     const ts = o.createdAt
@@ -802,6 +814,37 @@ function Dashboard({ user }: { user: User }) {
     t.setDate(t.getDate() + 1)
     return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`
   }, [])
+
+  const planningCalendarActive = tab === 'planning' || (tab === 'historique' && historiqueMode === 'calendrier')
+  const prevPlanningCalendarActiveRef = useRef(false)
+  const planningCalendarPendingOffsetRef = useRef(false)
+
+  useEffect(() => {
+    const wasActive = prevPlanningCalendarActiveRef.current
+    prevPlanningCalendarActiveRef.current = planningCalendarActive
+
+    if (!planningCalendarActive) {
+      planningCalendarPendingOffsetRef.current = false
+      return
+    }
+
+    if (!wasActive) {
+      setPlanningOrderStatusFilter('en_preparation')
+      planningCalendarPendingOffsetRef.current = true
+      if (Object.keys(orders).length > 0) {
+        const target = getNearestPreparationPickupDate(orders)
+        setPlanningDayOffset(dayOffsetFromTodayToDate(target))
+        planningCalendarPendingOffsetRef.current = false
+      }
+      return
+    }
+
+    if (planningCalendarPendingOffsetRef.current && Object.keys(orders).length > 0) {
+      const target = getNearestPreparationPickupDate(orders)
+      setPlanningDayOffset(dayOffsetFromTodayToDate(target))
+      planningCalendarPendingOffsetRef.current = false
+    }
+  }, [planningCalendarActive, orders])
 
   // Commandes à valider (toutes en_attente, toutes sources)
   const ordersToValidate = Object.entries(orders)
@@ -907,7 +950,9 @@ function Dashboard({ user }: { user: User }) {
     if ((historiqueVue === 'a_traiter' || historiqueVue === 'a_faire') && trompeLoeilFilter) {
       result = result.filter(([, o]) =>
         o.items?.some((item) => {
-          const pairs = getStockDecrementItems(item.productId ?? '', item.quantity ?? 1, PRODUCTS)
+          const pairs = getStockDecrementItems(item.productId ?? '', item.quantity ?? 1, PRODUCTS, {
+            trompeDiscoverySelection: item.trompeDiscoverySelection,
+          })
           return pairs.some((pair) => {
             if (!isTrompeLoeilProductId(pair.productId)) return false
             const component = PRODUCTS.find(p => p.id === pair.productId)
@@ -934,7 +979,9 @@ function Dashboard({ user }: { user: User }) {
       }
 
       for (const item of order.items ?? []) {
-        const pairs = getStockDecrementItems(item.productId ?? '', item.quantity ?? 1, PRODUCTS)
+        const pairs = getStockDecrementItems(item.productId ?? '', item.quantity ?? 1, PRODUCTS, {
+          trompeDiscoverySelection: item.trompeDiscoverySelection,
+        })
         for (const pair of pairs) {
           if (!isTrompeLoeilProductId(pair.productId)) continue
           const component = PRODUCTS.find(p => p.id === pair.productId)
@@ -1047,8 +1094,14 @@ function Dashboard({ user }: { user: User }) {
     const counts: Record<string, { name: string; qty: number; ca: number }> = {}
     for (const order of caOrders) {
       for (const item of order.items ?? []) {
-        const key = item.name || item.productId || 'Inconnu'
-        if (!counts[key]) counts[key] = { name: key.length > 25 ? key.slice(0, 22) + '…' : key, qty: 0, ca: 0 }
+        const base = normalizeOrderProductBaseId(item.productId)
+        const key =
+          base === BOX_DECOUVERTE_TROMPE_PRODUCT_ID && item.trompeDiscoverySelection?.length
+            ? `${base}:${[...item.trompeDiscoverySelection].sort().join(',')}`
+            : base || item.productId || item.name || 'Inconnu'
+        const display = formatOrderItemName(item)
+        const short = display.length > 25 ? display.slice(0, 22) + '…' : display
+        if (!counts[key]) counts[key] = { name: short, qty: 0, ca: 0 }
         counts[key].qty += item.quantity
         counts[key].ca += item.price * item.quantity
       }
@@ -1076,8 +1129,14 @@ function Dashboard({ user }: { user: User }) {
     const counts: Record<string, { name: string; qty: number }> = {}
     for (const order of ordersMois) {
       for (const item of order.items ?? []) {
-        const key = item.name || item.productId || 'Inconnu'
-        if (!counts[key]) counts[key] = { name: key.length > 20 ? key.slice(0, 17) + '…' : key, qty: 0 }
+        const base = normalizeOrderProductBaseId(item.productId)
+        const key =
+          base === BOX_DECOUVERTE_TROMPE_PRODUCT_ID && item.trompeDiscoverySelection?.length
+            ? `${base}:${[...item.trompeDiscoverySelection].sort().join(',')}`
+            : base || item.productId || item.name || 'Inconnu'
+        const display = formatOrderItemName(item)
+        const short = display.length > 20 ? display.slice(0, 17) + '…' : display
+        if (!counts[key]) counts[key] = { name: short, qty: 0 }
         counts[key].qty += item.quantity
       }
     }
@@ -1113,11 +1172,12 @@ function Dashboard({ user }: { user: User }) {
     const map: Record<string, { ca: number; qty: number }> = {}
     for (const order of caOrders) {
       for (const item of order.items ?? []) {
-        const id = item.productId ?? ''
+        const id = (item.productId ?? '').toLowerCase()
+        const baseLower = normalizeOrderProductBaseId(item.productId).toLowerCase()
         const cat = id.startsWith('brownie-') ? 'Brownies'
           : id.startsWith('cookie-') ? 'Cookies'
           : id.startsWith('layer-') ? 'Layer Cups'
-          : id.startsWith('trompe-loeil-') || id === 'box-trompe-loeil' || id === 'box-fruitee' || id === 'box-de-tout' ? "Trompe l'œil"
+          : id.startsWith('trompe-loeil-') || id === 'box-trompe-loeil' || id === 'box-fruitee' || id === 'box-de-tout' || baseLower === BOX_DECOUVERTE_TROMPE_PRODUCT_ID ? "Trompe l'œil"
           : id.startsWith('tiramisu-') ? 'Tiramisus'
           : id.includes('box') || id.includes('mini') ? 'Boxes'
           : 'Autres'
@@ -1869,9 +1929,12 @@ function Dashboard({ user }: { user: User }) {
                     for (const [, o] of ordersPourPrepDate) {
                       if (o.status === 'refusee') continue
                       for (const item of o.items ?? []) {
-                        const key = item.productId ?? item.name
-                        if (!prodMap[key]) prodMap[key] = { name: formatOrderItemName(item), qty: 0 }
-                        prodMap[key].qty += item.quantity
+                        const q = item.quantity ?? 1
+                        for (const row of expandOrderItemForProductionAggregate({ ...item, quantity: q })) {
+                          const key = row.aggregateKey
+                          if (!prodMap[key]) prodMap[key] = { name: row.label, qty: 0 }
+                          prodMap[key].qty += row.quantity
+                        }
                       }
                     }
                     const prodList = Object.values(prodMap).sort((a, b) => b.qty - a.qty)
@@ -2029,7 +2092,7 @@ function Dashboard({ user }: { user: User }) {
                   <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-mayssa-brown/40" />
                   <input
                     type="text"
-                    placeholder="Nom ou téléphone..."
+                    placeholder="Nom, téléphone ou pseudo..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-mayssa-brown/10 text-xs text-mayssa-brown bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel focus:border-transparent"
@@ -2259,18 +2322,20 @@ function Dashboard({ user }: { user: User }) {
                           {orderSource === 'snap' ? 'Snap' : orderSource === 'instagram' ? 'Insta' : orderSource === 'whatsapp' ? 'WhatsApp' : 'Site'}
                         </span>
                       </div>
-                      {order.customer?.phone && (
+                      {(order.customer?.phone || order.customer?.contactHandle) && (
                         <div className="flex items-center gap-2 mt-0.5">
                           <p className="text-[10px] text-mayssa-brown/50 flex items-center gap-1">
                             <Phone size={10} />
-                            {order.customer.phone}
+                            {order.customer.phone || (order.customer.contactPlatform ? `${order.customer.contactPlatform === 'snap' ? 'snap' : 'insta'}: ${order.customer.contactHandle}` : order.customer.contactHandle)}
                           </p>
-                          <AdminWhatsAppDropdown order={order} variant="compact" darkMode={isDark} />
+                          {(orderSource === 'whatsapp' && order.customer?.phone) && (
+                            <AdminWhatsAppDropdown order={order} variant="compact" darkMode={isDark} />
+                          )}
                           <button
                             type="button"
-                            onClick={() => { navigator.clipboard.writeText(order.customer!.phone!); }}
+                            onClick={() => { navigator.clipboard.writeText((order.customer?.phone || order.customer?.contactHandle || '').toString()); }}
                             className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-mayssa-brown/10 text-mayssa-brown text-[9px] font-bold hover:bg-mayssa-brown/20 transition-colors cursor-pointer"
-                            title="Copier le numéro"
+                            title={order.customer?.phone ? 'Copier le numéro' : 'Copier le pseudo'}
                           >
                             <Copy size={10} />
                             Copier
@@ -2390,9 +2455,9 @@ function Dashboard({ user }: { user: User }) {
                       <Download size={14} />
                       PDF
                     </button>
-                    {order.customer?.phone && (
-                        <AdminWhatsAppDropdown order={order} variant="full" darkMode={isDark} />
-                      )}
+                    {(orderSource === 'whatsapp' && order.customer?.phone) && (
+                      <AdminWhatsAppDropdown order={order} variant="full" darkMode={isDark} />
+                    )}
                     <button
                       onClick={() => setEditingOrderId(id)}
                       className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-mayssa-brown/10 text-mayssa-brown text-xs font-bold hover:bg-mayssa-brown/20 transition-colors cursor-pointer"
@@ -2638,7 +2703,7 @@ function Dashboard({ user }: { user: User }) {
                   <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-mayssa-brown/40" />
                   <input
                     type="text"
-                    placeholder="Nom ou téléphone..."
+                    placeholder="Nom, téléphone ou pseudo..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-mayssa-brown/10 text-xs text-mayssa-brown bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
@@ -2815,27 +2880,29 @@ function Dashboard({ user }: { user: User }) {
                               {orderSource === 'snap' ? 'Snap' : orderSource === 'instagram' ? 'Insta' : orderSource === 'whatsapp' ? 'WhatsApp' : 'Site'}
                             </span>
                           </div>
-                          {order.customer?.phone && (
+                          {(order.customer?.phone || order.customer?.contactHandle) && (
                             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                               <p className="text-[10px] text-mayssa-brown/50 flex items-center gap-1">
                                 <Phone size={10} />
-                                {order.customer.phone}
+                                {order.customer.phone || (order.customer.contactPlatform ? `${order.customer.contactPlatform === 'snap' ? 'snap' : 'insta'}: ${order.customer.contactHandle}` : order.customer.contactHandle)}
                               </p>
-                              <a
-                                href={`https://wa.me/${phoneToWhatsApp(order.customer.phone)}`}
-                                target="_blank"
-                                rel="noreferrer noopener"
-                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-green-500 text-white text-[9px] font-bold hover:bg-green-600 transition-colors"
-                                title="Ouvrir WhatsApp"
-                              >
-                                <MessageCircle size={10} />
-                                WhatsApp
-                              </a>
+                              {(orderSource === 'whatsapp' && order.customer?.phone) && (
+                                <a
+                                  href={`https://wa.me/${phoneToWhatsApp(order.customer.phone)}`}
+                                  target="_blank"
+                                  rel="noreferrer noopener"
+                                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-green-500 text-white text-[9px] font-bold hover:bg-green-600 transition-colors"
+                                  title="Ouvrir WhatsApp"
+                                >
+                                  <MessageCircle size={10} />
+                                  WhatsApp
+                                </a>
+                              )}
                               <button
                                 type="button"
-                                onClick={() => { navigator.clipboard.writeText(order.customer!.phone!); }}
+                                onClick={() => { navigator.clipboard.writeText((order.customer?.phone || order.customer?.contactHandle || '').toString()); }}
                                 className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-mayssa-brown/10 text-mayssa-brown text-[9px] font-bold hover:bg-mayssa-brown/20 transition-colors cursor-pointer"
-                                title="Copier le numéro"
+                                title={order.customer?.phone ? 'Copier le numéro' : 'Copier le pseudo'}
                               >
                                 <Copy size={10} />
                                 Copier
@@ -2914,7 +2981,7 @@ function Dashboard({ user }: { user: User }) {
                         {order.items?.map((item, i) => (
                           <div key={i} className="flex items-center justify-between text-xs">
                             <span className="text-mayssa-brown">
-                              {item.quantity}× {formatOrderItemName(item)}
+                            {item.quantity}× {formatOrderItemName(item)}
                             </span>
                             <span className="font-bold text-mayssa-brown">
                               {(item.price * item.quantity).toFixed(2).replace('.', ',')} €
@@ -2973,7 +3040,7 @@ function Dashboard({ user }: { user: User }) {
                           <Download size={14} />
                           PDF
                         </button>
-                        {order.customer?.phone && (() => {
+                        {(orderSource === 'whatsapp' && order.customer?.phone) && (() => {
                           const prenom = order.customer?.firstName ?? ''
                           const ref = order.orderNumber ? `#${order.orderNumber}` : ''
                           const msgs: Record<string, string> = {
@@ -3555,10 +3622,20 @@ function Dashboard({ user }: { user: User }) {
                 </button>
               ))}
             </div>
-            {catalogueSection === 'stock' && <AdminStockTab allProducts={allProducts} stock={stock} />}
+            {catalogueSection === 'stock' && (
+              <AdminStockTab
+                allProducts={allProducts}
+                stock={stock}
+                boxDecouverteTrompeExcludedIds={settings.boxDecouverteTrompeExcludedIds ?? []}
+              />
+            )}
             {catalogueSection === 'produits' && (
               <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
-                <AdminProductsTab allProducts={allProducts} overrides={productOverrides} />
+                <AdminProductsTab
+                  allProducts={allProducts}
+                  overrides={productOverrides}
+                  boxDecouverteTrompeExcludedIds={settings.boxDecouverteTrompeExcludedIds ?? []}
+                />
               </motion.div>
             )}
             {catalogueSection === 'promos' && <AdminPromosTab promoCodes={promoCodes} />}
@@ -3572,7 +3649,11 @@ function Dashboard({ user }: { user: User }) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2 }}
           >
-            <AdminStockTab allProducts={allProducts} stock={stock} />
+            <AdminStockTab
+              allProducts={allProducts}
+              stock={stock}
+              boxDecouverteTrompeExcludedIds={settings.boxDecouverteTrompeExcludedIds ?? []}
+            />
           </motion.div>
         )}
 
@@ -4160,7 +4241,11 @@ function Dashboard({ user }: { user: User }) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2 }}
           >
-            <AdminProductsTab allProducts={allProducts} overrides={productOverrides} />
+            <AdminProductsTab
+              allProducts={allProducts}
+              overrides={productOverrides}
+              boxDecouverteTrompeExcludedIds={settings.boxDecouverteTrompeExcludedIds ?? []}
+            />
           </motion.div>
         )}
 
@@ -4272,18 +4357,28 @@ function Dashboard({ user }: { user: User }) {
             })
           }
 
-          // Agrégation multi-dates
-          const productionMap = new Map<string, { name: string; quantity: number; orders: number }>()
+          // Agrégation multi-dates (box découverte → une ligne par trompe + libellés catalogue)
+          const productionMap = new Map<string, { aggregateKey: string; name: string; quantity: number; orders: number }>()
           let totalOrders = 0
           for (const [, order] of Object.entries(orders)) {
             if (order.status === 'refusee' || order.status === 'livree' || order.status === 'validee' || order.status === 'pret') continue
             if (!order.requestedDate || !selectedDates.has(order.requestedDate)) continue
             totalOrders++
             for (const item of order.items ?? []) {
-              const key = item.name || item.productId || 'Inconnu'
-              const existing = productionMap.get(key)
-              if (existing) { existing.quantity += item.quantity ?? 1; existing.orders++ }
-              else { productionMap.set(key, { name: key, quantity: item.quantity ?? 1, orders: 1 }) }
+              const lineQty = item.quantity ?? 1
+              const rows = expandOrderItemForProductionAggregate({ ...item, quantity: lineQty })
+              rows.forEach((row) => {
+                const aggKey = row.aggregateKey
+                const existing = productionMap.get(aggKey)
+                // +1 par ligne parente : chaque saveur d’une box reçoit le même nombre de « cmd » que de boîtes concernées
+                const orderDelta = 1
+                if (existing) {
+                  existing.quantity += row.quantity
+                  existing.orders += orderDelta
+                } else {
+                  productionMap.set(aggKey, { aggregateKey: aggKey, name: row.label, quantity: row.quantity, orders: orderDelta })
+                }
+              })
             }
           }
           const productionList = Array.from(productionMap.values()).sort((a, b) => b.quantity - a.quantity)
@@ -4451,7 +4546,7 @@ function Dashboard({ user }: { user: User }) {
                           doc.setTextColor(60, 40, 20)
                           doc.text(item.name, 20, y)
                           doc.setTextColor(150, 120, 90)
-                          doc.text(String(item.orders), 148, y, { align: 'right' })
+                          doc.text(item.orders > 0 ? String(item.orders) : '—', 148, y, { align: 'right' })
                           doc.setFont('helvetica', 'bold')
                           doc.setTextColor(196, 154, 108)
                           doc.setFontSize(11)
@@ -4500,12 +4595,12 @@ function Dashboard({ user }: { user: User }) {
                   <div className="space-y-2">
                     {productionList.map((item) => (
                       <div
-                        key={item.name}
+                        key={item.aggregateKey}
                         className="flex items-center justify-between p-3 rounded-xl bg-mayssa-soft/30 border border-mayssa-brown/5"
                       >
                         <span className="text-sm font-semibold text-mayssa-brown">{item.name}</span>
                         <div className="flex items-center gap-3">
-                          <span className="text-[10px] text-mayssa-brown/40">{item.orders} cmd</span>
+                          <span className="text-[10px] text-mayssa-brown/40">{item.orders > 0 ? `${item.orders} cmd` : '—'}</span>
                           <span className="text-xl font-display font-bold text-mayssa-caramel w-10 text-right">{item.quantity}</span>
                         </div>
                       </div>
@@ -4572,42 +4667,52 @@ function Dashboard({ user }: { user: User }) {
           const DONE_STATUSES = ['validee', 'livree', 'pret'] as const
 
           /** Box Trompe l'œil = 1 de chaque saveur ; on décompose en trompes l'œil individuels pour le calcul */
+          const getCanonicalTrompeLabel = (productId: string): string => {
+            return PRODUCTS.find((p) => p.id === productId)?.name ?? productId
+          }
+
           const BOX_TROMPE_LOEIL_LABELS = [
-            "Trompe l'oeil Mangue",
-            "Trompe l'oeil Citron",
-            "Trompe l'oeil Pistache",
-            "Trompe l'oeil Passion",
-            "Trompe l'oeil Framboise",
-            "Trompe l'oeil Cacahuète",
-            "Trompe l'oeil Fraise",
-          ]
+            'trompe-loeil-mangue',
+            'trompe-loeil-citron',
+            'trompe-loeil-pistache',
+            'trompe-loeil-passion',
+            'trompe-loeil-framboise',
+            'trompe-loeil-cacahuete',
+            'trompe-loeil-fraise',
+          ].map(getCanonicalTrompeLabel)
+
           const BOX_FRUITEE_LABELS = [
-            "Trompe l'oeil Mangue",
-            "Trompe l'oeil Citron",
-            "Trompe l'oeil Passion",
-            "Trompe l'oeil Framboise",
-            "Trompe l'oeil Fraise",
-            "Trompe l'oeil Myrtille",
-          ]
+            'trompe-loeil-mangue',
+            'trompe-loeil-citron',
+            'trompe-loeil-passion',
+            'trompe-loeil-framboise',
+            'trompe-loeil-fraise',
+            'trompe-loeil-myrtille',
+          ].map(getCanonicalTrompeLabel)
+
           const BOX_DE_TOUT_LABELS = [
-            "Trompe l'oeil Mangue",
-            "Trompe l'oeil Citron",
-            "Trompe l'oeil Pistache",
-            "Trompe l'oeil Passion",
-            "Trompe l'oeil Framboise",
-            "Trompe l'oeil Cacahuète",
-            "Trompe l'oeil Fraise",
-            "Trompe l'oeil Myrtille",
-            "Trompe l'oeil Café",
-            "Trompe l'œil Gousse de Vanille",
-            "Trompe l'œil Popcorn",
-          ]
+            'trompe-loeil-mangue',
+            'trompe-loeil-citron',
+            'trompe-loeil-pistache',
+            'trompe-loeil-passion',
+            'trompe-loeil-framboise',
+            'trompe-loeil-cacahuete',
+            'trompe-loeil-fraise',
+            'trompe-loeil-myrtille',
+            'trompe-loeil-cafe',
+            'trompe-loeil-vanille',
+            'trompe-loeil-popcorn',
+            'trompe-loeil-pecan',
+          ].map(getCanonicalTrompeLabel)
 
           /** Agrège les lignes de commandes en liste "à produire" : libellé détaillé → quantité (optionnel filtre par statut). La box trompe l'œil est décomposée en 7 trompes l'œil. */
           const getProductionList = (dayOrders: [string, Order][], filterStatus?: (s: string) => boolean): { label: string; quantity: number; sortKey: string }[] => {
             const quantityByLabel = new Map<string, number>()
             const sortKeyForLabel = (item: OrderItem): string => {
-              const id = (item.productId ?? '').toLowerCase()
+              const raw = item.productId ?? ''
+              const id = raw.toLowerCase()
+              const base = normalizeOrderProductBaseId(raw).toLowerCase()
+              if (base === BOX_DECOUVERTE_TROMPE_PRODUCT_ID.toLowerCase()) return '0-trompe'
               if (id.includes('trompe-loeil') || id === 'box-trompe-loeil' || id === 'box-fruitee' || id === 'box-de-tout') return '0-trompe'
               if (id.includes('box') || id.includes('mini-box')) return '1-box'
               if (id.startsWith('brownie-')) return '2-brownie'
@@ -4620,6 +4725,22 @@ function Dashboard({ user }: { user: User }) {
             const ordersToUse = filterStatus ? dayOrders.filter(([, o]) => filterStatus(o.status ?? '')) : dayOrders
             for (const [, order] of ordersToUse) {
               for (const item of order.items ?? []) {
+                const basePid = normalizeOrderProductBaseId(item.productId ?? '').toLowerCase()
+                if (basePid === BOX_DECOUVERTE_TROMPE_PRODUCT_ID.toLowerCase()) {
+                  const sel = item.trompeDiscoverySelection
+                  if (sel?.length) {
+                    for (const tid of sel) {
+                      const trompeLabel = PRODUCTS.find((p) => p.id === tid)?.name ?? tid
+                      quantityByLabel.set(trompeLabel, (quantityByLabel.get(trompeLabel) ?? 0) + item.quantity)
+                      if (!labelToSortKey.has(trompeLabel)) labelToSortKey.set(trompeLabel, '0-trompe')
+                    }
+                  } else {
+                    const label = formatOrderItemName(item)
+                    quantityByLabel.set(label, (quantityByLabel.get(label) ?? 0) + item.quantity)
+                    if (!labelToSortKey.has(label)) labelToSortKey.set(label, '0-trompe')
+                  }
+                  continue
+                }
                 const productId = (item.productId ?? '').toLowerCase()
                 if (productId === 'box-trompe-loeil') {
                   for (const trompeLabel of BOX_TROMPE_LOEIL_LABELS) {
@@ -4642,9 +4763,14 @@ function Dashboard({ user }: { user: User }) {
                   }
                   continue
                 }
-                const baseName = formatOrderItemName(item)
-                const detail = item.sizeLabel ? ` — ${item.sizeLabel}` : ''
-                const label = baseName + detail
+                const baseName = isTrompeLoeilProductId(productId)
+                  ? (PRODUCTS.find((p) => p.id === productId)?.name ?? formatOrderItemName(item))
+                  : formatOrderItemName(item)
+                // On met le "sizeLabel" entre parenthèses pour pouvoir tronquer les descriptions catalogue
+                // qui arrivent souvent après un tiret (—/–) sans perdre l'info de format.
+                const detail = !isTrompeLoeilProductId(productId) && item.sizeLabel ? ` (${item.sizeLabel})` : ''
+                const rawLabel = baseName + detail
+                const label = rawLabel.split(/\s*[—–]\s*/)[0]?.trim() || rawLabel
                 quantityByLabel.set(label, (quantityByLabel.get(label) ?? 0) + item.quantity)
                 if (!labelToSortKey.has(label)) labelToSortKey.set(label, sortKeyForLabel(item))
               }
@@ -4679,6 +4805,7 @@ function Dashboard({ user }: { user: User }) {
             const dayName = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' })
             const dayOrders = Object.entries(orders)
               .filter(([, o]) => o.requestedDate === dateStr && o.status !== 'refusee' && matchesPlanningSearch(o))
+              .filter(([, o]) => planningOrderStatusFilter === 'all' || o.status === planningOrderStatusFilter)
               .sort(([, a], [, b]) => (a.requestedTime ?? '00:00').localeCompare(b.requestedTime ?? '00:00'))
             days.push({ dateStr, label: dayName, dayOrders })
           }
@@ -4697,7 +4824,7 @@ function Dashboard({ user }: { user: User }) {
               <div className="flex items-center gap-2 bg-white rounded-2xl p-2 shadow-sm border border-mayssa-brown/5">
                 <button
                   type="button"
-                  onClick={() => { setPlanningDayOffset((o) => o - 10); setPlanningDaysCollapsed(new Set()); setPlanningProductionOpen(new Set()) }}
+                  onClick={() => { setPlanningDayOffset((o) => o - 10); setPlanningDaysCollapsed(new Set()); setPlanningProductionCollapsed(new Set()) }}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-mayssa-brown/70 hover:bg-mayssa-soft hover:text-mayssa-brown transition-colors cursor-pointer flex-shrink-0"
                   title="Reculer de 10 jours"
                 >
@@ -4708,7 +4835,7 @@ function Dashboard({ user }: { user: User }) {
                   {!windowContainsToday && (
                     <button
                       type="button"
-                      onClick={() => { setPlanningDayOffset(0); setPlanningDaysCollapsed(new Set()); setPlanningProductionOpen(new Set()) }}
+                      onClick={() => { setPlanningDayOffset(0); setPlanningDaysCollapsed(new Set()); setPlanningProductionCollapsed(new Set()) }}
                       className="text-[10px] font-bold text-mayssa-caramel hover:text-mayssa-brown uppercase tracking-wider transition-colors cursor-pointer px-2 py-1 rounded-lg bg-mayssa-caramel/10 hover:bg-mayssa-caramel/20"
                     >
                       ↩ Aujourd'hui
@@ -4723,7 +4850,7 @@ function Dashboard({ user }: { user: User }) {
                 </div>
                 <button
                   type="button"
-                  onClick={() => { setPlanningDayOffset((o) => o + 10); setPlanningDaysCollapsed(new Set()); setPlanningProductionOpen(new Set()) }}
+                  onClick={() => { setPlanningDayOffset((o) => o + 10); setPlanningDaysCollapsed(new Set()); setPlanningProductionCollapsed(new Set()) }}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-mayssa-brown/70 hover:bg-mayssa-soft hover:text-mayssa-brown transition-colors cursor-pointer flex-shrink-0"
                   title="Avancer de 10 jours"
                 >
@@ -4753,6 +4880,32 @@ function Dashboard({ user }: { user: User }) {
                     <X size={18} />
                   </button>
                 )}
+              </div>
+
+              {/* Filtre statut (défaut : en préparation à l’ouverture) */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/45">Statut</span>
+                {([
+                  { v: 'all' as const, l: 'Toutes' },
+                  { v: 'en_attente' as const, l: 'Attente' },
+                  { v: 'en_preparation' as const, l: 'Prépa' },
+                  { v: 'pret' as const, l: 'Prête' },
+                  { v: 'livree' as const, l: 'Livrée' },
+                  { v: 'validee' as const, l: 'Validée' },
+                ]).map(({ v, l }) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setPlanningOrderStatusFilter(v)}
+                    className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+                      planningOrderStatusFilter === v
+                        ? 'bg-mayssa-brown text-white shadow-sm'
+                        : 'bg-white border border-mayssa-brown/12 text-mayssa-brown/65 hover:bg-mayssa-soft/60'
+                    }`}
+                  >
+                    {l}
+                  </button>
+                ))}
               </div>
 
               {/* KPIs période */}
@@ -4818,6 +4971,8 @@ function Dashboard({ user }: { user: User }) {
 
                 const cumulOrders = days.filter((_, i) => isDaySelected(i)).flatMap((d) => d.dayOrders)
                 const cumulList = getProductionWithRestant(cumulOrders)
+                const cumulOrderCount = cumulOrders.length
+                const cumulPieceCount = cumulList.reduce((s, r) => s + r.total, 0)
                 const selectedLabels = days.filter((_, i) => isDaySelected(i)).map((d) => {
                   const origIdx = days.indexOf(d)
                   return shortLabel(d.dateStr, origIdx)
@@ -4837,7 +4992,7 @@ function Dashboard({ user }: { user: User }) {
                           Prod. cumulée
                         </span>
                         <span className="text-[10px] text-mayssa-brown/40 truncate">
-                          {selectedLabels.join(' + ')} · {cumulList.length} ligne{cumulList.length !== 1 ? 's' : ''}
+                          {selectedLabels.join(' + ')} · détail ci-dessous
                         </span>
                         {planningCumulOpen ? <ChevronUp size={15} className="text-mayssa-brown/50 flex-shrink-0 ml-auto" /> : <ChevronDown size={15} className="text-mayssa-brown/50 flex-shrink-0 ml-auto" />}
                       </button>
@@ -4917,6 +5072,22 @@ function Dashboard({ user }: { user: User }) {
                       })}
                     </div>
 
+                    {/* Chiffres clés — toujours visibles */}
+                    <div className="grid grid-cols-3 gap-2 px-4 py-3 bg-gradient-to-b from-mayssa-caramel/8 to-white border-b border-mayssa-brown/5">
+                      <div className="text-center rounded-xl bg-white/90 border border-mayssa-brown/10 px-2 py-2 shadow-sm">
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-mayssa-brown/45">Commandes</p>
+                        <p className="text-2xl sm:text-3xl font-display font-bold text-mayssa-brown tabular-nums leading-tight">{cumulOrderCount}</p>
+                      </div>
+                      <div className="text-center rounded-xl bg-white/90 border border-mayssa-brown/10 px-2 py-2 shadow-sm">
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-mayssa-brown/45">Lignes prod.</p>
+                        <p className="text-2xl sm:text-3xl font-display font-bold text-mayssa-caramel tabular-nums leading-tight">{cumulList.length}</p>
+                      </div>
+                      <div className="text-center rounded-xl bg-white/90 border border-mayssa-brown/10 px-2 py-2 shadow-sm">
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-mayssa-brown/45">Pièces</p>
+                        <p className="text-2xl sm:text-3xl font-display font-bold text-mayssa-brown tabular-nums leading-tight">{cumulPieceCount}</p>
+                      </div>
+                    </div>
+
                     {/* Liste de production */}
                     {planningCumulOpen && (
                       <div className="px-4 py-3">
@@ -4980,11 +5151,12 @@ function Dashboard({ user }: { user: User }) {
                           </span>
                           {isToday && <span className="text-[9px] font-bold uppercase tracking-wider bg-mayssa-caramel text-white px-1.5 py-0.5 rounded">Aujourd'hui</span>}
                         </div>
-                        <div className="flex items-center gap-3 text-[10px] text-mayssa-brown/50 font-bold">
+                        <div className="flex items-center gap-3">
                           {dayOrders.length > 0 && (
                             <>
-                              <span>{dayOrders.length} cmd</span>
-                              <span className="text-mayssa-caramel">{dayCA.toFixed(2).replace('.', ',')} €</span>
+                              <span className="text-lg font-display font-bold tabular-nums text-mayssa-brown">{dayOrders.length}</span>
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/40">cmd</span>
+                              <span className="text-lg font-display font-bold tabular-nums text-mayssa-caramel">{dayCA.toFixed(2).replace('.', ',')} €</span>
                             </>
                           )}
                           {isDayCollapsed
@@ -5009,9 +5181,9 @@ function Dashboard({ user }: { user: User }) {
                       {/* À produire ce jour : total + reste à faire (ouvrir / masquer) */}
                       {dayOrders.length > 0 && (() => {
                         const productionList = getProductionWithRestant(dayOrders)
-                        const isProductionOpen = planningProductionOpen.has(dateStr)
+                        const isProductionOpen = !planningProductionCollapsed.has(dateStr)
                         const toggleProduction = () => {
-                          setPlanningProductionOpen((prev) => {
+                          setPlanningProductionCollapsed((prev) => {
                             const next = new Set(prev)
                             if (next.has(dateStr)) next.delete(dateStr)
                             else next.add(dateStr)
@@ -5027,9 +5199,10 @@ function Dashboard({ user }: { user: User }) {
                               aria-expanded={isProductionOpen}
                               aria-label={isProductionOpen ? 'Masquer la production du jour' : 'Afficher la production du jour'}
                             >
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60">À produire ce jour</p>
-                                <span className="text-[9px] text-mayssa-brown/40">({productionList.length} lignes)</span>
+                                <span className="text-lg font-display font-bold tabular-nums text-mayssa-caramel">{productionList.length}</span>
+                                <span className="text-[9px] text-mayssa-brown/40">lignes</span>
                               </div>
                               {isProductionOpen ? <ChevronUp size={16} className="text-mayssa-brown/50" /> : <ChevronDown size={16} className="text-mayssa-brown/50" />}
                             </button>
@@ -5061,13 +5234,14 @@ function Dashboard({ user }: { user: User }) {
                       ) : (
                         <div className="divide-y divide-mayssa-brown/5">
                           {dayOrders.map(([id, order]) => {
+                            const orderSource = order.source ?? 'site'
                             const SRC: Record<string, { label: string; bg: string; text: string; border: string }> = {
                               whatsapp:  { label: 'WA',    bg: 'bg-green-100',  text: 'text-green-700',  border: 'border-l-green-400' },
                               snap:      { label: 'Snap',  bg: 'bg-yellow-100', text: 'text-yellow-700', border: 'border-l-yellow-400' },
                               instagram: { label: 'Insta', bg: 'bg-pink-100',   text: 'text-pink-700',   border: 'border-l-pink-500' },
                               site:      { label: 'Site',  bg: 'bg-slate-100',  text: 'text-slate-500',  border: 'border-l-slate-300' },
                             }
-                            const src = SRC[order.source ?? 'site'] ?? SRC.site
+                            const src = SRC[orderSource] ?? SRC.site
                             return (
                             <div
                               key={id}
@@ -5188,7 +5362,7 @@ function Dashboard({ user }: { user: User }) {
                                     </div>
                                   )
                                 })()}
-                                {order.customer?.phone && (() => {
+                                {(orderSource === 'whatsapp' && order.customer?.phone) && (() => {
                                   const phone = phoneToWhatsApp(order.customer.phone)
                                   const isDone = order.status === 'validee' || order.status === 'livree'
                                   return (

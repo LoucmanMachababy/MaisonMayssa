@@ -1,4 +1,4 @@
-import { Award, Heart, Flame } from 'lucide-react'
+import { Award, Heart, Flame, Sparkles } from 'lucide-react'
 import type { ProductBadge } from '../types'
 
 const LOGO_BADGE_URL = '/logo.webp'
@@ -16,6 +16,12 @@ const BADGE_CONFIG: Record<
     label: 'Nouveau',
     useLogo: true,
     className: 'bg-mayssa-caramel/95 text-white shadow-lg shadow-mayssa-caramel/30',
+  },
+  nouveaute: {
+    label: 'Nouveauté',
+    icon: Sparkles,
+    className:
+      'bg-gradient-to-r from-amber-600/95 via-mayssa-gold/95 to-amber-600/95 text-white shadow-lg shadow-amber-700/35 ring-1 ring-white/40',
   },
   'coup-de-coeur': {
     label: 'Coup de cœur',

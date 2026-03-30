@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, useMotionValue, useTransform, useSpring } from 'framer-motion'
 import type { PanInfo } from 'framer-motion'
-import { Plus, Check, ShoppingBag, Calendar, ChevronRight, Star, CalendarClock, Info } from 'lucide-react'
+import { Plus, Check, ShoppingBag, Calendar, ChevronRight, Star, CalendarClock, Info, Pin } from 'lucide-react'
 import type { Product } from '../../types'
 import { useReviews } from '../../hooks/useReviews'
 import { hapticFeedback } from '../../lib/haptics'
@@ -137,7 +137,13 @@ export function SwipeableProductCard({ product, onAdd, onTap, onViewDetail, stoc
   }
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl shadow-lg ${highlightAsNew ? 'ring-2 ring-amber-400/90 ring-offset-2 ring-offset-amber-50/80 shadow-amber-200/20' : ''}`}>
+    <div
+      className={`relative overflow-hidden rounded-2xl shadow-lg ${
+        highlightAsNew
+          ? 'ring-2 ring-mayssa-gold/70 ring-offset-2 ring-offset-amber-50/90 shadow-[0_0_24px_-6px_rgba(201,162,39,0.4)]'
+          : ''
+      }`}
+    >
       {/* Enhanced background action indicators */}
       <motion.div
         className="absolute inset-0"
@@ -181,7 +187,9 @@ export function SwipeableProductCard({ product, onAdd, onTap, onViewDetail, stoc
         onDragEnd={handleDragEnd}
         onTap={handleTap}
         style={{ x: springX }}
-        className={`relative backdrop-blur-md rounded-2xl p-4 shadow-xl border touch-pan-y cursor-pointer ${highlightAsNew ? 'bg-amber-50/95 border-amber-200/50' : 'bg-white/90 border-white/20'}`}
+        className={`relative backdrop-blur-md rounded-2xl p-4 shadow-xl border touch-pan-y cursor-pointer ${
+          highlightAsNew ? 'bg-gradient-to-br from-mayssa-gold/[0.07] to-white/95 border-mayssa-gold/35' : 'bg-white/90 border-white/20'
+        }`}
         animate={isAdded ? { 
           scale: [1, 1.02, 1],
           boxShadow: [
@@ -197,6 +205,14 @@ export function SwipeableProductCard({ product, onAdd, onTap, onViewDetail, stoc
           <div className={`relative w-28 h-28 sm:w-32 sm:h-32 flex-shrink-0 overflow-hidden rounded-xl ${isTrompeLoeil ? 'border-2 border-mayssa-brown/20 bg-mayssa-brown/5 ring-1 ring-mayssa-brown/10' : 'bg-mayssa-cream/50'}`}>
             {product.badges?.length ? (
               <ProductBadges badges={product.badges} variant="compact" />
+            ) : null}
+            {product.pinned ? (
+              <div
+                className="absolute top-1 right-1 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-mayssa-gold/95 text-white shadow-md border border-white/50"
+                title="À la une"
+              >
+                <Pin size={11} className="-rotate-12" fill="currentColor" aria-hidden />
+              </div>
             ) : null}
             {product.image ? (
               <BlurImage

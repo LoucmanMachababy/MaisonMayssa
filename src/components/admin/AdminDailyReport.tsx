@@ -4,7 +4,7 @@ import { X, FileText, Download, CheckCircle, Clock, Truck, MapPin, Package, Mess
 import { jsPDF } from 'jspdf'
 import { cn } from '../../lib/utils'
 import type { Order } from '../../lib/firebase'
-import { parseDateYyyyMmDd, formatOrderItemName } from '../../lib/utils'
+import { parseDateYyyyMmDd, formatOrderItemName, expandOrderItemForProductionAggregate } from '../../lib/utils'
 
 interface AdminDailyReportProps {
   orders: Record<string, Order>
@@ -38,14 +38,17 @@ export function AdminDailyReport({ orders, isOpen, onClose }: AdminDailyReportPr
     livrees: reportOrders.filter(([, o]) => ['livree', 'validee'].includes(o.status)).length,
   }
 
-  // Production recap: sum all items
+  // Production recap: sum all items (box découverte → une ligne par trompe choisi)
   const productionMap: Record<string, { name: string; qty: number }> = {}
   for (const [, o] of reportOrders) {
     if (o.status === 'refusee') continue
     for (const item of o.items ?? []) {
-      const key = item.productId ?? item.name
-      if (!productionMap[key]) productionMap[key] = { name: formatOrderItemName(item), qty: 0 }
-      productionMap[key].qty += item.quantity
+      const q = item.quantity ?? 1
+      for (const row of expandOrderItemForProductionAggregate({ ...item, quantity: q })) {
+        const key = row.aggregateKey
+        if (!productionMap[key]) productionMap[key] = { name: row.label, qty: 0 }
+        productionMap[key].qty += row.quantity
+      }
     }
   }
   const productionList = Object.values(productionMap).sort((a, b) => b.qty - a.qty)

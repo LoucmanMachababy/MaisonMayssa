@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
@@ -7,9 +7,15 @@ import {
   ClipboardList, LockOpen,
 } from 'lucide-react'
 import { updateOrderStatus, updateOrder, releaseDeliverySlot, reserveDeliverySlot, releaseOrderBlock, type Order, type OrderStatus } from '../../lib/firebase'
-import { formatOrderItemName } from '../../lib/utils'
+import {
+  formatOrderItemName,
+  getTodayYyyyMmDd,
+  getNearestPreparationPickupDate,
+  dayOffsetFromTodayToDate,
+} from '../../lib/utils'
 import { hapticFeedback } from '../../lib/haptics'
 import type { OrderItem } from '../../lib/firebase'
+import { BOX_DECOUVERTE_TROMPE_PRODUCT_ID, PRODUCTS } from '../../constants'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -60,11 +66,6 @@ function buildReviewMessage(order: Order): string {
   )
 }
 
-function getTodayStr(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
 // ─── Production list ─────────────────────────────────────────────────────────
 
 const BOX_TROMPE_LOEIL_LABELS = [
@@ -96,8 +97,27 @@ function getProductionList(
   }
   const labelToSortKey = new Map<string, string>()
   const ordersToUse = filterStatus ? dayOrders.filter(([, o]) => filterStatus(o.status ?? '')) : dayOrders
+  const discoveryBase = BOX_DECOUVERTE_TROMPE_PRODUCT_ID.toLowerCase()
+  const flavorLabel = (trompeId: string): string => PRODUCTS.find((x) => x.id === trompeId)?.name ?? trompeId
+
   for (const [, order] of ordersToUse) {
     for (const item of order.items ?? []) {
+      const rawPid = (item.productId ?? '').replace(/-\d{13,}$/, '').toLowerCase()
+      if (rawPid === discoveryBase) {
+        const sel = item.trompeDiscoverySelection
+        if (sel?.length) {
+          for (const tid of sel) {
+            const label = flavorLabel(tid)
+            quantityByLabel.set(label, (quantityByLabel.get(label) ?? 0) + item.quantity)
+            if (!labelToSortKey.has(label)) labelToSortKey.set(label, '0-trompe')
+          }
+        } else {
+          const label = formatOrderItemName(item)
+          quantityByLabel.set(label, (quantityByLabel.get(label) ?? 0) + item.quantity)
+          if (!labelToSortKey.has(label)) labelToSortKey.set(label, '0-trompe')
+        }
+        continue
+      }
       const productId = (item.productId ?? '').toLowerCase()
       if (productId === 'box-trompe-loeil') {
         for (const trompeLabel of BOX_TROMPE_LOEIL_LABELS) {
@@ -107,8 +127,10 @@ function getProductionList(
         continue
       }
       const baseName = formatOrderItemName(item)
-      const detail = item.sizeLabel ? ` — ${item.sizeLabel}` : ''
-      const label = baseName + detail
+      // Parenthèses pour éviter de confondre avec les descriptions catalogue après tiret (—/–)
+      const detail = item.sizeLabel ? ` (${item.sizeLabel})` : ''
+      const rawLabel = baseName + detail
+      const label = rawLabel.split(/\s*[—–]\s*/)[0]?.trim() || rawLabel
       quantityByLabel.set(label, (quantityByLabel.get(label) ?? 0) + item.quantity)
       if (!labelToSortKey.has(label)) labelToSortKey.set(label, sortKeyForLabel(item))
     }
@@ -152,11 +174,20 @@ interface AdminPlanningTabProps {
 
 export function AdminPlanningTab({ orders, onEditOrder }: AdminPlanningTabProps) {
   const [dayOffset, setDayOffset] = useState(0)
+  const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('en_preparation')
   const [search, setSearch] = useState('')
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set())
   const [productionOpen, setProductionOpen] = useState<Set<string>>(new Set())
 
-  const todayStr = getTodayStr()
+  const planningDetailBootRef = useRef(false)
+  useEffect(() => {
+    if (planningDetailBootRef.current) return
+    if (Object.keys(orders).length === 0) return
+    setDayOffset(dayOffsetFromTodayToDate(getNearestPreparationPickupDate(orders)))
+    planningDetailBootRef.current = true
+  }, [orders])
+
+  const todayStr = getTodayYyyyMmDd()
   const searchLower = search.trim().toLowerCase()
 
   const matchesSearch = (o: Order) =>
@@ -175,12 +206,13 @@ export function AdminPlanningTab({ orders, onEditOrder }: AdminPlanningTabProps)
       const label = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
       const dayOrders = Object.entries(orders)
         .filter(([, o]) => o.requestedDate === dateStr && o.status !== 'refusee' && matchesSearch(o))
+        .filter(([, o]) => statusFilter === 'all' || o.status === statusFilter)
         .sort(([, a], [, b]) => (a.requestedTime ?? '00:00').localeCompare(b.requestedTime ?? '00:00'))
       result.push({ dateStr, label, dayOrders })
     }
     return result
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orders, dayOffset, searchLower])
+  }, [orders, dayOffset, searchLower, statusFilter])
 
   const totalOrders = days.reduce((s, d) => s + d.dayOrders.length, 0)
   const totalCA = days.reduce((s, d) => s + d.dayOrders.reduce((ss, [, o]) => ss + (o.total ?? 0), 0), 0)
@@ -265,6 +297,31 @@ export function AdminPlanningTab({ orders, onEditOrder }: AdminPlanningTabProps)
             <X size={18} />
           </button>
         )}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/45">Statut</span>
+        {([
+          { v: 'all' as const, l: 'Toutes' },
+          { v: 'en_attente' as const, l: 'Attente' },
+          { v: 'en_preparation' as const, l: 'Prépa' },
+          { v: 'pret' as const, l: 'Prête' },
+          { v: 'livree' as const, l: 'Livrée' },
+          { v: 'validee' as const, l: 'Validée' },
+        ]).map(({ v, l }) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => setStatusFilter(v)}
+            className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+              statusFilter === v
+                ? 'bg-mayssa-brown text-white shadow-sm'
+                : 'bg-white border border-mayssa-brown/12 text-mayssa-brown/65 hover:bg-mayssa-soft/60'
+            }`}
+          >
+            {l}
+          </button>
+        ))}
       </div>
 
       {/* ── KPIs ── */}

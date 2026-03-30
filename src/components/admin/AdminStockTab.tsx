@@ -1,6 +1,12 @@
-import { useState, useMemo } from 'react'
-import { Minus, Plus, ChevronDown, ChevronUp, Infinity, X, ArrowDownAZ } from 'lucide-react'
+import { useState, useMemo, useCallback } from 'react'
+import { Minus, Plus, ChevronDown, ChevronUp, Infinity, X, ArrowDownAZ, Package } from 'lucide-react'
 import { updateStock, initializeStock, removeStockTracking, type StockMap } from '../../lib/firebase'
+import { getBundleEffectiveStock } from '../../lib/bundleStock'
+import {
+  getEffectiveStockForProductCard,
+  getEligibleTrompeIdsForDiscoveryBox,
+} from '../../lib/discoveryBox'
+import { BOX_DECOUVERTE_TROMPE_PRODUCT_ID } from '../../constants'
 import type { ProductWithAvailability } from '../../hooks/useProducts'
 import type { ProductCategory } from '../../types'
 
@@ -13,13 +19,57 @@ type SortOption = 'name-asc' | 'name-desc' | 'stock-asc' | 'stock-desc'
 interface AdminStockTabProps {
   allProducts: ProductWithAvailability[]
   stock: StockMap
+  /** Exclusions box découverte (réglages, même source que Catalogue → box). */
+  boxDecouverteTrompeExcludedIds?: string[]
 }
 
-export function AdminStockTab({ allProducts, stock }: AdminStockTabProps) {
+export function AdminStockTab({ allProducts, stock, boxDecouverteTrompeExcludedIds = [] }: AdminStockTabProps) {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(["Trompe l'œil"]))
   const [saving, setSaving] = useState<string | null>(null)
   const [initQty, setInitQty] = useState<Record<string, string>>({})
   const [sortBy, setSortBy] = useState<SortOption>('stock-desc')
+
+  /** Même logique que le site client (useStock) : clé absente = non suivi */
+  const getStockForBundle = useCallback(
+    (id: string): number | null => (id in stock ? stock[id] : null),
+    [stock],
+  )
+
+  const stockQtyForSort = useCallback(
+    (p: ProductWithAvailability): number => {
+      if (p.id === BOX_DECOUVERTE_TROMPE_PRODUCT_ID) {
+        return (
+          getEffectiveStockForProductCard(p, getStockForBundle, {
+            boxDecouverteExcludedIds: boxDecouverteTrompeExcludedIds,
+            catalog: allProducts,
+          }) ?? 0
+        )
+      }
+      if (p.bundleProductIds?.length) {
+        return getBundleEffectiveStock(p, getStockForBundle) ?? 0
+      }
+      return stock[p.id] ?? 0
+    },
+    [stock, getStockForBundle, boxDecouverteTrompeExcludedIds, allProducts],
+  )
+
+  const isTrackedForUi = useCallback(
+    (p: ProductWithAvailability): boolean => {
+      if (p.id === BOX_DECOUVERTE_TROMPE_PRODUCT_ID) {
+        return (
+          getEffectiveStockForProductCard(p, getStockForBundle, {
+            boxDecouverteExcludedIds: boxDecouverteTrompeExcludedIds,
+            catalog: allProducts,
+          }) !== null
+        )
+      }
+      if (p.bundleProductIds?.length) {
+        return getBundleEffectiveStock(p, getStockForBundle) !== null
+      }
+      return p.id in stock
+    },
+    [stock, getStockForBundle, boxDecouverteTrompeExcludedIds, allProducts],
+  )
 
   const productsByCategory = useMemo(() => {
     const grouped: Record<string, ProductWithAvailability[]> = {}
@@ -84,15 +134,15 @@ export function AdminStockTab({ allProducts, stock }: AdminStockTabProps) {
   }
 
   const getTrackedCount = (cat: string) => {
-    return (productsByCategory[cat] ?? []).filter(p => p.id in stock).length
+    return (productsByCategory[cat] ?? []).filter(isTrackedForUi).length
   }
 
   const sortProducts = (products: ProductWithAvailability[]): ProductWithAvailability[] => {
     const sorted = [...products]
     if (sortBy === 'name-asc') return sorted.sort((a, b) => a.name.localeCompare(b.name))
     if (sortBy === 'name-desc') return sorted.sort((a, b) => b.name.localeCompare(a.name))
-    if (sortBy === 'stock-asc') return sorted.sort((a, b) => (stock[a.id] ?? 0) - (stock[b.id] ?? 0))
-    if (sortBy === 'stock-desc') return sorted.sort((a, b) => (stock[b.id] ?? 0) - (stock[a.id] ?? 0))
+    if (sortBy === 'stock-asc') return sorted.sort((a, b) => stockQtyForSort(a) - stockQtyForSort(b))
+    if (sortBy === 'stock-desc') return sorted.sort((a, b) => stockQtyForSort(b) - stockQtyForSort(a))
     return sorted
   }
 
@@ -162,6 +212,137 @@ export function AdminStockTab({ allProducts, stock }: AdminStockTabProps) {
                 )}
 
                 {sortProducts(products).map(product => {
+                  if (product.id === BOX_DECOUVERTE_TROMPE_PRODUCT_ID) {
+                    const effective = getEffectiveStockForProductCard(product, getStockForBundle, {
+                      boxDecouverteExcludedIds: boxDecouverteTrompeExcludedIds,
+                      catalog: allProducts,
+                    })
+                    const bundleKnown = effective !== null
+                    const eligibleIds = getEligibleTrompeIdsForDiscoveryBox(allProducts, boxDecouverteTrompeExcludedIds)
+                    return (
+                      <div
+                        key={product.id}
+                        className={`rounded-xl p-3 border transition-all ${
+                          bundleKnown && effective === 0
+                            ? 'bg-red-50 border-red-200'
+                            : bundleKnown && effective <= 5
+                              ? 'bg-orange-50/60 border-orange-200'
+                              : 'bg-violet-50/50 border-violet-200/70'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2 min-w-0">
+                          <Package size={14} className="text-mayssa-brown/45 shrink-0 mt-0.5" aria-hidden />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-mayssa-brown truncate">{product.name}</p>
+                            <p className="text-[9px] font-semibold text-mayssa-brown/45 uppercase tracking-wide mt-0.5">
+                              Box découverte — 5 saveurs distinctes par box (simulation stock)
+                            </p>
+                            {bundleKnown ? (
+                              <p
+                                className={`text-[10px] font-bold mt-1 ${
+                                  effective === 0
+                                    ? 'text-red-500'
+                                    : effective <= 5
+                                      ? 'text-orange-500'
+                                      : 'text-emerald-600'
+                                }`}
+                              >
+                                {effective === 0 ? 'Rupture' : `${effective} box(s) (effectif)`}
+                              </p>
+                            ) : (
+                              <p className="text-[10px] text-mayssa-brown/45 mt-1">
+                                Au moins une saveur non suivie : pas de plafond chiffré pour la box.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="mt-2 pt-2 border-t border-mayssa-brown/10 space-y-0.5">
+                          {eligibleIds.map((pid) => {
+                            const comp = allProducts.find((ap) => ap.id === pid)
+                            const qty = pid in stock ? stock[pid] : null
+                            const label = comp?.name ?? pid
+                            return (
+                              <div key={pid} className="flex justify-between gap-2 text-[9px] text-mayssa-brown/70">
+                                <span className="truncate">{label}</span>
+                                <span
+                                  className={`font-bold shrink-0 ${
+                                    qty === null ? 'text-mayssa-brown/35' : qty === 0 ? 'text-red-500' : qty <= 5 ? 'text-orange-600' : 'text-emerald-600'
+                                  }`}
+                                >
+                                  {qty === null ? 'non suivi' : qty}
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  }
+
+                  const bundleIds = product.bundleProductIds
+                  if (bundleIds?.length) {
+                    const effective = getBundleEffectiveStock(product, getStockForBundle)
+                    const bundleKnown = effective !== null
+                    return (
+                      <div
+                        key={product.id}
+                        className={`rounded-xl p-3 border transition-all ${
+                          bundleKnown && effective === 0
+                            ? 'bg-red-50 border-red-200'
+                            : bundleKnown && effective <= 5
+                              ? 'bg-orange-50/60 border-orange-200'
+                              : 'bg-violet-50/50 border-violet-200/70'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2 min-w-0">
+                          <Package size={14} className="text-mayssa-brown/45 shrink-0 mt-0.5" aria-hidden />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-mayssa-brown truncate">{product.name}</p>
+                            <p className="text-[9px] font-semibold text-mayssa-brown/45 uppercase tracking-wide mt-0.5">
+                              Box — stock temps réel (même calcul que le site)
+                            </p>
+                            {bundleKnown ? (
+                              <p
+                                className={`text-[10px] font-bold mt-1 ${
+                                  effective === 0
+                                    ? 'text-red-500'
+                                    : effective <= 5
+                                      ? 'text-orange-500'
+                                      : 'text-emerald-600'
+                                }`}
+                              >
+                                {effective === 0 ? 'Rupture' : `${effective} en stock (effectif)`}
+                              </p>
+                            ) : (
+                              <p className="text-[10px] text-mayssa-brown/45 mt-1">
+                                Active le suivi sur les parfums listés ci-dessous pour voir l’effectif de la box.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="mt-2 pt-2 border-t border-mayssa-brown/10 space-y-0.5">
+                          {bundleIds.map((pid) => {
+                            const comp = allProducts.find((ap) => ap.id === pid)
+                            const qty = pid in stock ? stock[pid] : null
+                            const label = comp?.name ?? pid
+                            return (
+                              <div key={pid} className="flex justify-between gap-2 text-[9px] text-mayssa-brown/70">
+                                <span className="truncate">{label}</span>
+                                <span
+                                  className={`font-bold shrink-0 ${
+                                    qty === null ? 'text-mayssa-brown/35' : qty === 0 ? 'text-red-500' : qty <= 5 ? 'text-orange-600' : 'text-emerald-600'
+                                  }`}
+                                >
+                                  {qty === null ? 'non suivi' : qty}
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  }
+
                   const isTracked = product.id in stock
                   const qty = stock[product.id] ?? 0
                   const isSaving = saving === product.id

@@ -4,7 +4,7 @@ import {
   X, User, Phone, MapPin, Star, ShoppingBag, Calendar, Cake, MessageCircle,
   Clock, Mail, Plus, Minus, Loader2
 } from 'lucide-react'
-import { cn } from '../../lib/utils'
+import { cn, formatOrderItemName } from '../../lib/utils'
 import {
   adminAddPoints, adminRemovePoints, type UserProfile, type Order
 } from '../../lib/firebase'
@@ -25,15 +25,6 @@ function phoneToWhatsApp(phone: string): string {
   if (digits.startsWith('33') && digits.length >= 11) return digits
   if (digits.startsWith('0') && digits.length >= 10) return '33' + digits.slice(1)
   return '33' + digits
-}
-
-function formatClientOrderItemName(name?: string): string {
-  // La Firebase stocke parfois `name` avec des infos optionnelles ajoutées via ` — ...`
-  // (ex: Base/Coulis/Flavor Description). Pour l'écran "commandes clients", on ne garde
-  // que le nom produit principal.
-  const raw = (name ?? '').trim()
-  if (!raw) return 'Article'
-  return raw.split(' — ')[0].trim() || raw
 }
 
 const TIER_CONFIG: Record<string, { label: string; color: string; bg: string; icon: string }> = {
@@ -246,7 +237,7 @@ export function AdminClientProfileModal({ uid, profile, orders, onClose, onNewOr
                   clientOrders.map(([id, order]) => {
                     const date = order.createdAt ? new Date(order.createdAt) : null
                     const items = (order.items ?? [])
-                      .map(i => `${i.quantity}× ${formatClientOrderItemName(i.name)}`)
+                      .map(i => `${i.quantity}× ${formatOrderItemName(i)}`)
                       .join(', ')
                     return (
                       <div key={id} className="bg-mayssa-soft/30 rounded-xl p-3 border border-mayssa-brown/5">

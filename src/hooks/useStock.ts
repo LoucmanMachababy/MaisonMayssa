@@ -3,7 +3,11 @@ import { isPreorderOpenNow, type StockMap, type Settings, type PreorderOpening }
 
 export function useStock() {
   const [stock, setStock] = useState<StockMap>({})
-  const [settings, setSettings] = useState<Settings>({ preorderDays: [3, 6], preorderMessage: '' })
+  const [settings, setSettings] = useState<Settings>({
+    preorderDays: [3, 6],
+    preorderMessage: '',
+    boxDecouverteTrompeExcludedIds: [],
+  })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {

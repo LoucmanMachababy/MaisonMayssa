@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { CheckCircle2, MessageSquare, CreditCard, Copy, Star } from 'lucide-react'
 import { PAYPAL_ME_USER, PHONE_E164 } from '../constants'
 import { getReviewByOrderId } from '../lib/firebase'
+import { formatOrderItemName } from '../lib/utils'
 import { ReviewForm, type OrderItemForReview } from './ReviewForm'
 
 export type OrderConfirmationData = {
@@ -45,8 +46,11 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
   }
 
   const displayOrderRef = data.orderNumber != null ? `#${data.orderNumber}` : data.orderId
+
   const copyPaypalNote = () => {
-    const note = `Commande ${displayOrderRef} - ${data.customer.firstName} ${data.customer.lastName}\n${data.items.map(i => `${i.quantity}× ${i.name}`).join(', ')}\nTotal: ${finalTotal.toFixed(2)} €`
+    // Dans le récap client, on évite d'afficher les descriptions optionnelles,
+    // pour ne garder que "quantité + nom du produit".
+    const note = `Commande ${displayOrderRef} - ${data.customer.firstName} ${data.customer.lastName}\n${data.items.map(i => `${i.quantity}× ${formatOrderItemName(i)}`).join(', ')}\nTotal: ${finalTotal.toFixed(2)} €`
     navigator.clipboard.writeText(note)
   }
 
@@ -76,7 +80,7 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
             <div className="space-y-1.5 text-sm text-mayssa-brown">
               {data.items.map((item, i) => (
                 <div key={i} className="flex justify-between">
-                  <span>{item.quantity}× {item.name}</span>
+                  <span>{item.quantity}× {formatOrderItemName(item)}</span>
                   <span className="font-medium">{(item.price * item.quantity).toFixed(2).replace('.', ',')} €</span>
                 </div>
               ))}

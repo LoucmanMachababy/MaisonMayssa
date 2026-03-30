@@ -15,6 +15,10 @@ export const DELIVERY_SLOT_MAX_CAPACITY = 5
 /** ID du trompe-l'œil mystère (Fraise) — le premier qui trouve a 10 % dessus */
 export const MYSTERY_TROMPE_LOEIL_ID = 'trompe-loeil-fraise'
 
+/** Box « découverte » : 5 trompe-l'œil au choix (exclusions gérées dans l’admin + Firebase). */
+export const BOX_DECOUVERTE_TROMPE_PRODUCT_ID = 'box-decouverte-trompe-5'
+export const DISCOVERY_BOX_TROMPE_SLOT_COUNT = 5
+
 /** Précommande trompe-l'œil : à récupérer sous 3 j après préco. Dispo gérée par Firebase (jours + stock). */
 const TROMPE_LOEIL_PREORDER = { availableFrom: '2026-02-13', daysToPickup: 3 }
 
@@ -177,6 +181,30 @@ export const PRODUCTS: Product[] = [
         preorder: TROMPE_LOEIL_PREORDER,
     },
     {
+        id: 'trompe-loeil-pecan',
+        name: "Trompe l'œil Noix de pécan",
+        description: 'Praliné noix de pécan, caramel beurre salé, ganache onctueuse, biscuit moelleux, coque chocolat.',
+        price: 7,
+        originalPrice: 8.5,
+        category: "Trompe l'œil",
+        image: '/noix-de-pecan.webp',
+        badges: ['nouveau'],
+        preorder: TROMPE_LOEIL_PREORDER,
+    },
+    {
+        id: 'trompe-loeil-grappe-banane',
+        name: "Trompe l'œil Grappe de Banane",
+        description: 'Coulis banane, morceaux de banane, crème vanille, coque chocolat blanc.',
+        price: 6,
+        originalPrice: 7.5,
+        category: "Trompe l'œil",
+        image: '/trompe-loeil-grappe-de-banane.webp',
+        badges: ['nouveaute'],
+        preorder: TROMPE_LOEIL_PREORDER,
+        pinned: true,
+        highlightAsNew: true,
+    },
+    {
         id: 'box-fruitee',
         name: '🍓 Box Fruitée',
         description: 'Mangue, Citron, Passion, Framboise, Fraise, Myrtille — 6 trompe-l\'œil fruités.',
@@ -195,9 +223,21 @@ export const PRODUCTS: Product[] = [
         ],
     },
     {
+        id: BOX_DECOUVERTE_TROMPE_PRODUCT_ID,
+        name: "Box découverte — 5 trompe-l'œil au choix",
+        description:
+            'Composez votre box : 5 trompe-l’œil différents parmi les saveurs proposées (selon disponibilité et carte du moment).',
+        price: 40,
+        originalPrice: 42.5,
+        category: "Trompe l'œil",
+        image: '/Boxe-trompeloeil.webp',
+        badges: ['nouveau'],
+        preorder: TROMPE_LOEIL_PREORDER,
+    },
+    {
         id: 'box-de-tout',
         name: "La box de tout",
-        description: "La totalité des trompe-l'œil (11) pour 90 euros.",
+        description: "La totalité des trompe-l'œil (12), dont la noix de pécan, pour 90 euros.",
         price: 90,
         category: "Trompe l'œil",
         image: '/Boxe2.webp',
@@ -215,6 +255,7 @@ export const PRODUCTS: Product[] = [
             'trompe-loeil-cafe',
             'trompe-loeil-vanille',
             'trompe-loeil-popcorn',
+            'trompe-loeil-pecan',
         ],
     },
 

@@ -7,7 +7,12 @@ import {
   calculateDistance,
 } from './delivery'
 import { formatDateYyyyMmDdToFrench, isBeforeFirstPickupDate } from './utils'
-import { FIRST_PICKUP_DATE_CLASSIC, FIRST_PICKUP_DATE_CLASSIC_LABEL } from '../constants'
+import {
+  FIRST_PICKUP_DATE_CLASSIC,
+  FIRST_PICKUP_DATE_CLASSIC_LABEL,
+  BOX_DECOUVERTE_TROMPE_PRODUCT_ID,
+  PRODUCTS,
+} from '../constants'
 import { REWARD_LABELS } from './rewards'
 
 export type BuildOrderMessageParams = {
@@ -25,6 +30,10 @@ export type BuildOrderMessageParams = {
   donationAmount?: number
   /** Allergies / préférences alimentaires (profil) */
   dietaryPreferences?: string
+  /** Libellés identité : WhatsApp = nom/prénom, Insta/Snap = pseudo */
+  contactIdentity?: 'whatsapp' | 'instagram' | 'snap'
+  /** Après enregistrement Firebase — affiché dans le message client */
+  orderNumber?: number
 }
 
 function getTrompeLOeilPickupLabel(): string {
@@ -39,11 +48,23 @@ function getTrompeLOeilPickupLabel(): string {
 const stripEmoji = (s: string) =>
   s.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '').replace(/\s+/g, ' ').trim()
 
+function baseProductIdFromCart(cartProductId: string): string {
+  return cartProductId.replace(/-\d{13,}$/, '')
+}
+
+function trompeFlavorShortName(productId: string): string {
+  const n = PRODUCTS.find((p) => p.id === productId)?.name ?? productId
+  return stripEmoji(n.replace(/^Trompe l'œil\s+/i, '').trim())
+}
+
 function getOrderLineLabel(item: CartItem, pickupDateLabel?: string): string {
   const p = item.product
   const name = stripEmoji(p.name)
   const cat = p.category
   const trompeLabel = pickupDateLabel ?? getTrompeLOeilPickupLabel()
+  if (baseProductIdFromCart(p.id) === BOX_DECOUVERTE_TROMPE_PRODUCT_ID) {
+    return `🎨 ${name} (PRÉCOMMANDE – récupération ${trompeLabel})`
+  }
   if (cat === "Trompe l'œil") return `🎨 ${name} (PRÉCOMMANDE – récupération ${trompeLabel})`
   if (cat === 'Tiramisus') {
     const base = p.description ?? ''
@@ -58,7 +79,20 @@ function getOrderLineLabel(item: CartItem, pickupDateLabel?: string): string {
 }
 
 export function buildOrderMessage(params: BuildOrderMessageParams): string {
-  const { cart, customer, total, note, selectedReward, isAuthenticated, discountAmount = 0, referralDiscountAmount = 0, donationAmount = 0, dietaryPreferences } = params
+  const {
+    cart,
+    customer,
+    total,
+    note,
+    selectedReward,
+    isAuthenticated,
+    discountAmount = 0,
+    referralDiscountAmount = 0,
+    donationAmount = 0,
+    dietaryPreferences,
+    contactIdentity = 'whatsapp',
+    orderNumber,
+  } = params
   if (cart.length === 0) return ''
 
   const totalAfterDiscount = Math.max(0, total - discountAmount - referralDiscountAmount)
@@ -83,9 +117,18 @@ export function buildOrderMessage(params: BuildOrderMessageParams): string {
   const lines: string[] = []
 
   lines.push('Bonjour Maison Mayssa', '', "Je souhaiterais passer une commande, voici les détails :", '')
+  if (orderNumber != null) {
+    lines.push(`Référence commande (site) : *n°${orderNumber}*`, '')
+  }
   lines.push('*INFORMATIONS CLIENT*', '')
-  lines.push(`Nom : ${customer.lastName || '[à compléter]'}`)
-  lines.push(`Prénom : ${customer.firstName || '[à compléter]'}`)
+  if (contactIdentity === 'instagram') {
+    lines.push(`Nom d'utilisateur Instagram : ${customer.firstName || '[à compléter]'}`)
+  } else if (contactIdentity === 'snap') {
+    lines.push(`Nom d'utilisateur Snapchat : ${customer.firstName || '[à compléter]'}`)
+  } else {
+    lines.push(`Nom : ${customer.lastName || '[à compléter]'}`)
+    lines.push(`Prénom : ${customer.firstName || '[à compléter]'}`)
+  }
   lines.push(`Téléphone : ${customer.phone || '[à compléter]'}`)
   lines.push(`Mode : ${modeTexte}`)
 
@@ -123,6 +166,12 @@ export function buildOrderMessage(params: BuildOrderMessageParams): string {
     const totalPrice = (item.product.price * item.quantity).toFixed(2).replace('.', ',')
     const qty = item.quantity > 1 ? `${item.quantity}× ` : ''
     lines.push(`${index + 1}. ${qty}${label} → ${totalPrice} €`)
+    const sel = item.trompeDiscoverySelection
+    if (baseProductIdFromCart(item.product.id) === BOX_DECOUVERTE_TROMPE_PRODUCT_ID && sel?.length) {
+      sel.forEach((tid, i) => {
+        lines.push(`   ${i + 1}. ${trompeFlavorShortName(tid)}`)
+      })
+    }
     lines.push('')
   })
 
@@ -191,4 +240,100 @@ export function buildOrderMessage(params: BuildOrderMessageParams): string {
   lines.push('— Site de précommande Maison Mayssa (WhatsApp uniquement)')
 
   return lines.join('\n')
+}
+
+export type ShortSocialPasteParams = BuildOrderMessageParams & {
+  orderNumber: number
+}
+
+/** Message court à coller sur Snap / Instagram (détail complet déjà enregistré côté boutique). */
+export function buildShortSocialPasteMessage(
+  params: ShortSocialPasteParams,
+  maxLength = 560,
+): string {
+  const {
+    cart,
+    customer,
+    total,
+    orderNumber,
+    discountAmount = 0,
+    referralDiscountAmount = 0,
+    donationAmount = 0,
+    contactIdentity = 'whatsapp',
+  } = params
+  if (cart.length === 0) return ''
+
+  const totalAfterDiscount = Math.max(0, total - discountAmount - referralDiscountAmount)
+  const distanceFromAnnecy = calculateDistance(customer.addressCoordinates, ANNECY_GARE)
+  const isWithinDeliveryZone = distanceFromAnnecy !== null && distanceFromAnnecy <= DELIVERY_RADIUS_KM
+
+  let deliveryFee = 0
+  let deliveryStatus: 'free' | 'paid' | 'to_define' = 'free'
+  if (customer.wantsDelivery) {
+    if (!customer.addressCoordinates || !isWithinDeliveryZone) {
+      deliveryStatus = 'to_define'
+    } else if (totalAfterDiscount < FREE_DELIVERY_THRESHOLD) {
+      deliveryFee = DELIVERY_FEE
+      deliveryStatus = 'paid'
+    }
+  }
+
+  const finalTotal = totalAfterDiscount + deliveryFee + donationAmount
+  const modeTexte = customer.wantsDelivery ? 'Livraison' : 'Retrait'
+  const datePart = customer.date ? formatDateYyyyMmDdToFrench(customer.date) : 'date à confirmer'
+  const timePart = customer.time || 'heure à confirmer'
+  const livraisonNote =
+    customer.wantsDelivery && deliveryStatus === 'to_define'
+      ? ' (livraison hors zone, tarif à confirmer)'
+      : ''
+
+  const pseudo =
+    contactIdentity === 'instagram'
+      ? `Instagram : @${(customer.firstName || '').replace(/^@/, '')}`
+      : contactIdentity === 'snap'
+        ? `Snap : ${customer.firstName || ''}`
+        : `${customer.firstName || ''} ${customer.lastName || ''}`.trim()
+  const header =
+    `Commande n°${orderNumber} — Maison Mayssa\n` +
+    `${pseudo} · ${customer.phone || '—'}\n` +
+    `${modeTexte}${livraisonNote} · ${datePart} · ${timePart}\n`
+
+  const itemBits = cart.flatMap((i) => {
+    const baseId = i.product.id.replace(/-\d{13,}$/, '')
+    if (baseId === BOX_DECOUVERTE_TROMPE_PRODUCT_ID && i.trompeDiscoverySelection?.length) {
+      const flavors = i.trompeDiscoverySelection.map((tid) => trompeFlavorShortName(tid)).join(', ')
+      return [`${i.quantity}× Box découverte (${flavors})`]
+    }
+    return [`${i.quantity}× ${stripEmoji(i.product.name)}`]
+  })
+  const footer =
+    `\nTotal : ${finalTotal.toFixed(2).replace('.', ',')} €` +
+    (discountAmount > 0 ? ` (promo -${discountAmount.toFixed(2).replace('.', ',')} €)` : '') +
+    `\nMerci — tout est enregistré de mon côté.`
+
+  const buildItemsLine = (showCount: number): string => {
+    if (showCount <= 0) {
+      return `Articles : ${itemBits.length} article(s) (détail enregistré côté boutique)`
+    }
+    const n = Math.min(showCount, itemBits.length)
+    const shown = itemBits.slice(0, n)
+    const hidden = itemBits.length - n
+    if (hidden > 0) return `Articles : ${shown.join(', ')} (+${hidden} autre(s))`
+    return `Articles : ${shown.join(', ')}`
+  }
+
+  for (let show = itemBits.length; show >= 0; show -= 1) {
+    const text = `${header}${buildItemsLine(show)}${footer}`
+    if (text.length <= maxLength) return text
+  }
+
+  const compactHeader =
+    `Cmd n°${orderNumber} — ${pseudo} · ${customer.phone || ''}\n` +
+    `${modeTexte} · ${datePart} · ${timePart}\n`
+  const first = itemBits[0] ?? 'commande'
+  const extra = itemBits.length > 1 ? ` (+${itemBits.length - 1})` : ''
+  const room = maxLength - compactHeader.length - footer.length - 12 - extra.length
+  const trimmed =
+    first.length > Math.max(room, 12) ? `${first.slice(0, Math.max(room - 1, 12))}…` : first
+  return `${compactHeader}Articles : ${trimmed}${extra}${footer}`.slice(0, maxLength)
 }

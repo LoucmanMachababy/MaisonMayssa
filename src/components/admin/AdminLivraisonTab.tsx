@@ -1,9 +1,14 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { jsPDF } from 'jspdf'
 import { Truck, MapPin, Phone, Calendar, Download, Filter, XCircle, MessageSquare, Package, Pencil, FileText, ArrowUpDown } from 'lucide-react'
 import { updateOrderStatus, type Order, type OrderStatus } from '../../lib/firebase'
-import { parseDateYyyyMmDd, formatOrderItemName } from '../../lib/utils'
+import {
+  parseDateYyyyMmDd,
+  formatOrderItemName,
+  getTodayYyyyMmDd,
+  getNearestPreparationDateForDeliveryMode,
+} from '../../lib/utils'
 
 const ORDER_STATUS_LABELS: Record<string, string> = {
   en_attente: 'En attente',
@@ -227,17 +232,27 @@ function exportLivraisonsPDF(entries: [string, Order][], dateLabel: string): voi
   doc.save(`livraisons-maison-mayssa-${dateSuffix}.pdf`)
 }
 
-function getTodayYyyyMmDd(): string {
-  const t = new Date()
-  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`
-}
-
 export function AdminLivraisonTab({ orders, onEditOrder, mode }: AdminLivraisonTabProps) {
-  const [dateFilter, setDateFilter] = useState(getTodayYyyyMmDd)
-  const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all')
+  const [dateFilter, setDateFilter] = useState(() => getTodayYyyyMmDd())
+  const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('en_preparation')
   const [productFilter, setProductFilter] = useState<string>('')
   const [sortBy, setSortBy] = useState<'date' | 'distance' | 'client' | 'total'>('date')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+
+  /** Première hydratation Firebase, ou changement livraison/retrait : statut + date alignés sur la prochaine commande en prépa. */
+  const journalierBootRef = useRef<{ prevMode: typeof mode | null; seeded: boolean }>({ prevMode: null, seeded: false })
+
+  useEffect(() => {
+    const prev = journalierBootRef.current.prevMode
+    const modeChanged = prev !== null && prev !== mode
+    journalierBootRef.current.prevMode = mode
+    if (Object.keys(orders).length === 0) return
+    if (modeChanged) journalierBootRef.current.seeded = false
+    if (!modeChanged && journalierBootRef.current.seeded) return
+    setStatusFilter('en_preparation')
+    setDateFilter(getNearestPreparationDateForDeliveryMode(orders, mode))
+    journalierBootRef.current.seeded = true
+  }, [orders, mode])
 
   const deliveryOrders = useMemo(() => {
     const entries = Object.entries(orders)
@@ -347,9 +362,9 @@ export function AdminLivraisonTab({ orders, onEditOrder, mode }: AdminLivraisonT
   const hasFilters = !!dateFilter || (!!statusFilter && statusFilter !== 'all') || !!productFilter
 
   const clearFilters = () => {
-    setDateFilter('')
-    setStatusFilter('all')
     setProductFilter('')
+    setStatusFilter('en_preparation')
+    setDateFilter(getNearestPreparationDateForDeliveryMode(orders, mode))
   }
 
   // Liste de tous les produits distincts présents dans les commandes affichées (toutes dates/statuts)
