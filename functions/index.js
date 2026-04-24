@@ -2,8 +2,12 @@
  * Cloud Functions Maison Mayssa
  * - À la création d'une commande : email récap au client + email alerte à l'admin
  * - Quand l'admin valide la commande : email au client pour noter la commande
+ * - Quand le stock d'un produit remonte de 0 : email aux inscrits notifyWhenAvailable
+ * - Callable admin : envoi en masse d'emails "avis Google" aux clients validés/livrés
  *
- * Envoi d'emails via Resend (gratuit 3000/mois).
+ * Envoi d'emails via Resend (gratuit 3000/mois, 5 req/sec).
+ * Rate-limiting : sendEmailBatch() envoie par chunks de 4/sec,
+ * sendEmailWithRetry() retente 1× sur 429.
  * Config : RESEND_API_KEY, ADMIN_EMAIL, SITE_URL (optionnel)
  */
 
@@ -42,6 +46,49 @@ async function sendEmail({ to, subject, html, from }) {
     const err = await res.text()
     throw new Error(`Resend error ${res.status}: ${err}`)
   }
+}
+
+/** Sleep asynchrone */
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+/**
+ * sendEmail + 1 retry avec delay 2s sur erreur 429 (rate-limit Resend).
+ * Absorbe les pics temporaires (ex: cascade de triggers onOrderUpdated).
+ */
+async function sendEmailWithRetry(msg, retried = false) {
+  try {
+    await sendEmail(msg)
+  } catch (err) {
+    const is429 = err && typeof err.message === 'string' && err.message.includes('Resend error 429')
+    if (is429 && !retried) {
+      await sleep(2000)
+      return sendEmailWithRetry(msg, true)
+    }
+    throw err
+  }
+}
+
+/**
+ * Envoie un batch d'emails en respectant la limite Resend (5 req/sec).
+ * Chunks de 4 emails par seconde (marge sous 5/s) avec delay 1.1s entre chunks.
+ * @param {Array<{to: string|string[], subject: string, html: string, from?: string}>} batch
+ * @returns {Promise<{sent: number, failed: number}>}
+ */
+async function sendEmailBatch(batch) {
+  let sent = 0
+  let failed = 0
+  const CHUNK_SIZE = 4
+  const CHUNK_DELAY_MS = 1100
+  for (let i = 0; i < batch.length; i += CHUNK_SIZE) {
+    const chunk = batch.slice(i, i + CHUNK_SIZE)
+    const results = await Promise.allSettled(chunk.map((msg) => sendEmailWithRetry(msg)))
+    for (const r of results) {
+      if (r.status === 'fulfilled') sent++
+      else failed++
+    }
+    if (i + CHUNK_SIZE < batch.length) await sleep(CHUNK_DELAY_MS)
+  }
+  return { sent, failed }
 }
 
 function escapeHtml(s) {
@@ -130,7 +177,7 @@ export const onOrderCreated = onValueCreated(
 
     if (order.customer?.email?.trim()) {
       promises.push(
-        sendEmail({
+        sendEmailWithRetry({
           to: order.customer.email.trim(),
           subject: `Commande ${orderNumber != null ? `#${orderNumber}` : orderId} enregistrée – Maison Mayssa`,
           html: htmlRecap,
@@ -140,7 +187,7 @@ export const onOrderCreated = onValueCreated(
 
     if (adminEmails.length > 0) {
       promises.push(
-        sendEmail({
+        sendEmailWithRetry({
           to: adminEmails,
           subject: `Nouvelle commande ${orderNumber != null ? `#${orderNumber}` : orderId} – Maison Mayssa`,
           html: htmlAdmin,
@@ -208,27 +255,28 @@ export const sendBulkGoogleReviewEmails = onCall(
     const ordersSnap = await db.ref('orders').once('value')
     const orders = ordersSnap.val() || {}
 
-    const emailsSent = new Set()
-    const promises = []
+    const seenEmails = new Set()
+    const batch = []
 
     for (const order of Object.values(orders)) {
       if (!['validee', 'livree'].includes(order.status)) continue
       const email = order.customer?.email?.trim()
-      if (!email || emailsSent.has(email.toLowerCase())) continue
-      emailsSent.add(email.toLowerCase())
+      if (!email) continue
+      const normalized = email.toLowerCase()
+      if (seenEmails.has(normalized)) continue
+      seenEmails.add(normalized)
 
       const customerName = order.customer?.firstName || ''
-      promises.push(
-        sendEmail({
-          to: email,
-          subject: 'Votre avis nous aide beaucoup ⭐ – Maison Mayssa',
-          html: buildGoogleReviewEmailHtml(customerName),
-        }).catch((err) => console.error(`[sendBulkGoogleReviewEmails] ${email}:`, err))
-      )
+      batch.push({
+        to: email,
+        subject: 'Votre avis nous aide beaucoup ⭐ – Maison Mayssa',
+        html: buildGoogleReviewEmailHtml(customerName),
+      })
     }
 
-    await Promise.all(promises)
-    return { sent: emailsSent.size }
+    const { sent, failed } = await sendEmailBatch(batch)
+    console.log(`[sendBulkGoogleReviewEmails] ${sent} sent, ${failed} failed (out of ${batch.length})`)
+    return { sent, failed }
   }
 )
 
@@ -250,10 +298,87 @@ export const onOrderUpdated = onValueUpdated(
     const customerName = [after.customer?.firstName, after.customer?.lastName].filter(Boolean).join(' ')
     const reviewUrl = `${site}/#/commande/${orderId}`
 
-    await sendEmail({
+    await sendEmailWithRetry({
       to: email,
       subject: `Ta commande a été validée – Dis-nous ce que tu en penses !`,
       html: buildReviewRequestHtml(orderNumber, orderId, customerName, reviewUrl),
     }).catch((err) => console.error('[onOrderUpdated] email avis:', err))
+  }
+)
+
+/** Email client : produit à nouveau disponible */
+function buildRestockEmailHtml(productName, productUrl) {
+  return `
+<!DOCTYPE html>
+<html><body style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:16px;background:#fffdf9;">
+  <div style="text-align:center;padding:24px 0 16px;">
+    <h1 style="color:#5b3a29;font-size:22px;margin:0;">Maison Mayssa</h1>
+    <p style="color:#b8860b;margin:4px 0 0;font-size:13px;">Pâtisserie artisanale</p>
+  </div>
+  <div style="background:white;border-radius:16px;padding:24px;border:1px solid #f0e6d3;">
+    <h2 style="color:#5b3a29;margin-top:0;">Bonne nouvelle 🎉</h2>
+    <p style="color:#444;line-height:1.6;">
+      <strong>${escapeHtml(productName)}</strong> est à nouveau disponible.
+    </p>
+    <p style="color:#444;line-height:1.6;">
+      Tu t'étais inscrit pour être prévenu — c'est le moment de commander !
+    </p>
+    <div style="text-align:center;margin:28px 0;">
+      <a href="${escapeHtml(productUrl)}" style="display:inline-block;background:#b8860b;color:white;padding:14px 32px;text-decoration:none;border-radius:12px;font-weight:bold;font-size:16px;">Commander maintenant</a>
+    </div>
+    <p style="color:#666;font-size:12px;">Dépêche-toi, les stocks partent vite.</p>
+  </div>
+  <p style="text-align:center;color:#aaa;font-size:12px;margin-top:16px;">À bientôt,<br/>Maison Mayssa</p>
+</body></html>`
+}
+
+/**
+ * Trigger : stock d'un produit remonte de 0 → email aux inscrits notifyWhenAvailable.
+ * Ne déclenche que sur transition stock ≤ 0 → stock > 0 pour éviter spam.
+ * Supprime les entries après envoi (succès ou échec) pour éviter boucle infinie.
+ */
+export const onStockAvailable = onValueUpdated(
+  { ref: 'stock/{productId}', region: 'europe-west1' },
+  async (event) => {
+    const productId = event.params.productId
+    const before = event.data.before.val()
+    const after = event.data.after.val()
+    const beforeNum = typeof before === 'number' ? before : 0
+    const afterNum = typeof after === 'number' ? after : 0
+    if (beforeNum > 0 || afterNum <= 0) return
+
+    const snap = await db.ref('notifyWhenAvailable').once('value')
+    const entries = snap.val() || {}
+    const matching = Object.entries(entries).filter(([, e]) => e && e.productId === productId)
+    if (matching.length === 0) return
+
+    const productName = matching[0][1].productName || 'Un produit'
+    const site = SITE_URL.value()
+    const productUrl = `${site}/#la-carte`
+
+    // Dédoublon par email, collecter tous les IDs pour suppression
+    const byEmail = new Map()
+    for (const [id, entry] of matching) {
+      const email = entry.email?.trim().toLowerCase()
+      if (!email) continue
+      if (!byEmail.has(email)) byEmail.set(email, { ids: [] })
+      byEmail.get(email).ids.push(id)
+    }
+
+    const batch = Array.from(byEmail.keys()).map((email) => ({
+      to: email,
+      subject: `${productName} est de nouveau disponible – Maison Mayssa`,
+      html: buildRestockEmailHtml(productName, productUrl),
+    }))
+
+    const { sent, failed } = await sendEmailBatch(batch)
+    console.log(`[onStockAvailable] ${productId}: ${sent} sent, ${failed} failed`)
+
+    // Supprimer les entries notifiées (succès OU échec) pour éviter re-envoi
+    const removals = {}
+    for (const { ids } of byEmail.values()) {
+      for (const id of ids) removals[`notifyWhenAvailable/${id}`] = null
+    }
+    await db.ref().update(removals)
   }
 )
