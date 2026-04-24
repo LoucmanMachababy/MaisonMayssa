@@ -4,6 +4,8 @@
  * - Quand l'admin valide la commande : email au client pour noter la commande
  * - Quand le stock d'un produit remonte de 0 : email aux inscrits notifyWhenAvailable
  * - Callable admin : envoi en masse d'emails "avis Google" aux clients validés/livrés
+ * - createOrder : création commande serveur (anti-double-commande + stock atomic)
+ * - setAdminClaim : attribution Custom Claim admin (one-shot)
  *
  * Envoi d'emails via Resend (gratuit 3000/mois, 5 req/sec).
  * Rate-limiting : sendEmailBatch() envoie par chunks de 4/sec,
@@ -12,7 +14,7 @@
  */
 
 import { onValueCreated, onValueUpdated } from 'firebase-functions/v2/database'
-import { onCall } from 'firebase-functions/v2/https'
+import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { defineString } from 'firebase-functions/params'
 import admin from 'firebase-admin'
 
@@ -380,5 +382,229 @@ export const onStockAvailable = onValueUpdated(
       for (const id of ids) removals[`notifyWhenAvailable/${id}`] = null
     }
     await db.ref().update(removals)
+  }
+)
+
+// ============================================================================
+// createOrder — création commande via serveur (anti-double-commande + stock atomic)
+// ============================================================================
+
+const ADMIN_EMAIL_HARDCODED = 'roumayssaghazi213@gmail.com'
+const DOUBLE_ORDER_BLOCK_MS = 48 * 60 * 60 * 1000
+
+function normalizePhone(raw) {
+  return String(raw || '').replace(/\D/g, '')
+}
+
+function validateOrderInput(data) {
+  if (!data || typeof data !== 'object') {
+    throw new HttpsError('invalid-argument', 'Requête invalide')
+  }
+  if (!Array.isArray(data.items) || data.items.length === 0) {
+    throw new HttpsError('invalid-argument', 'Panier vide')
+  }
+  for (const it of data.items) {
+    if (!it || typeof it !== 'object') {
+      throw new HttpsError('invalid-argument', 'Item invalide')
+    }
+    if (!it.productId || typeof it.productId !== 'string') {
+      throw new HttpsError('invalid-argument', 'productId manquant')
+    }
+    if (!Number.isFinite(it.quantity) || it.quantity < 1 || it.quantity > 100) {
+      throw new HttpsError('invalid-argument', 'quantité invalide')
+    }
+    if (!Number.isFinite(it.price) || it.price < 0 || it.price > 10000) {
+      throw new HttpsError('invalid-argument', 'prix invalide')
+    }
+    if (typeof it.name !== 'string' || !it.name.trim()) {
+      throw new HttpsError('invalid-argument', 'nom article manquant')
+    }
+  }
+  if (!data.customer || typeof data.customer !== 'object') {
+    throw new HttpsError('invalid-argument', 'customer manquant')
+  }
+  if (!data.customer.phone || typeof data.customer.phone !== 'string') {
+    throw new HttpsError('invalid-argument', 'téléphone manquant')
+  }
+  if (!Number.isFinite(data.total) || data.total < 0 || data.total > 100000) {
+    throw new HttpsError('invalid-argument', 'total invalide')
+  }
+  if (data.status !== 'en_attente') {
+    throw new HttpsError('invalid-argument', 'status initial doit être en_attente')
+  }
+  if (data.source && !['site', 'whatsapp', 'instagram', 'snap'].includes(data.source)) {
+    throw new HttpsError('invalid-argument', 'source invalide')
+  }
+  if (data.deliveryMode && !['livraison', 'retrait'].includes(data.deliveryMode)) {
+    throw new HttpsError('invalid-argument', 'deliveryMode invalide')
+  }
+}
+
+async function checkDoubleOrder(phone) {
+  const normalized = normalizePhone(phone)
+  if (!normalized) return
+  const since = Date.now() - DOUBLE_ORDER_BLOCK_MS
+  const snap = await db
+    .ref('orders')
+    .orderByChild('createdAt')
+    .startAt(since)
+    .once('value')
+  const orders = snap.val() || {}
+  for (const o of Object.values(orders)) {
+    if (!o || typeof o !== 'object') continue
+    if (o.status === 'refusee') continue
+    if (normalizePhone(o.customer?.phone) === normalized) {
+      throw new HttpsError(
+        'already-exists',
+        'Une commande récente est déjà enregistrée pour ce numéro (< 48h). Contactez-nous pour en passer une autre.'
+      )
+    }
+  }
+}
+
+/**
+ * Décrémente le stock atomiquement (runTransaction par produit), rollback complet
+ * si l'un des produits n'a pas assez de stock.
+ */
+async function decrementStockAtomic(items) {
+  // Agréger quantités par productId (au cas où un productId apparaît plusieurs fois)
+  const decrements = {}
+  for (const it of items) {
+    decrements[it.productId] = (decrements[it.productId] || 0) + it.quantity
+  }
+  const attempted = []
+  for (const [productId, qty] of Object.entries(decrements)) {
+    const stockRef = db.ref(`stock/${productId}`)
+    const result = await stockRef.transaction((current) => {
+      if (current == null) return // produit non-tracké : on ne bloque pas
+      if (current < qty) return // abort → pas assez de stock
+      return current - qty
+    })
+    const commitFailed = !result.committed
+    const abortedBecauseStock =
+      result.committed && result.snapshot.val() == null && decrements[productId] > 0
+    if (commitFailed || abortedBecauseStock) {
+      // Rollback complet de ce qui a été décrémenté
+      for (const [pid, q] of attempted) {
+        await db
+          .ref(`stock/${pid}`)
+          .transaction((c) => (c ?? 0) + q)
+          .catch(() => {})
+      }
+      throw new HttpsError(
+        'failed-precondition',
+        `Stock insuffisant pour ${productId}`
+      )
+    }
+    // Enregistrer pour rollback éventuel (seulement si le produit était tracké)
+    if (result.snapshot.val() != null) {
+      attempted.push([productId, qty])
+    }
+  }
+}
+
+/**
+ * Callable : crée une commande côté serveur.
+ * - Valide la structure d'entrée
+ * - Anti-double-commande 48h par numéro de téléphone
+ * - Décrémente le stock atomiquement avec rollback
+ * - Incrémente counters/orderNumber
+ * - Crée la commande
+ * - Best-effort post-ops : réservation slot livraison + incrément promo usage
+ *
+ * Retour : { orderId, orderNumber }
+ */
+export const createOrder = onCall(
+  { region: 'europe-west1' },
+  async (request) => {
+    const data = request.data
+    validateOrderInput(data)
+
+    await checkDoubleOrder(data.customer.phone)
+
+    // Stock (bloquant avec rollback)
+    await decrementStockAtomic(data.items)
+
+    // Counter orderNumber
+    const counterRef = db.ref('counters/orderNumber')
+    const counterRes = await counterRef.transaction((c) => (c ?? 0) + 1)
+    if (!counterRes.committed) {
+      // Rollback stock avant de throw
+      const decrements = {}
+      for (const it of data.items) {
+        decrements[it.productId] = (decrements[it.productId] || 0) + it.quantity
+      }
+      for (const [pid, q] of Object.entries(decrements)) {
+        await db.ref(`stock/${pid}`).transaction((c) => (c ?? 0) + q).catch(() => {})
+      }
+      throw new HttpsError('internal', 'Compteur indisponible')
+    }
+    const orderNumber = counterRes.snapshot.val()
+
+    const userId = request.auth?.uid
+
+    // Construire l'Order final (copie des champs validés + métadonnées)
+    const order = {
+      ...data,
+      orderNumber,
+      createdAt: Date.now(),
+      ...(userId ? { userId } : {}),
+    }
+
+    const newRef = db.ref('orders').push()
+    await newRef.set(order)
+    const orderId = newRef.key
+
+    // Best-effort post-création (n'échoue pas la commande)
+    const postOps = []
+    if (
+      data.deliveryMode === 'livraison' &&
+      data.requestedDate &&
+      data.requestedTime
+    ) {
+      const slotRef = db.ref(
+        `deliverySlots/${data.requestedDate}/${data.requestedTime}`
+      )
+      postOps.push(
+        slotRef
+          .transaction((c) => (c ?? 0) + 1)
+          .catch((e) => console.error('[createOrder] reserveDeliverySlot:', e))
+      )
+    }
+    if (data.promoCode) {
+      const promoKey = String(data.promoCode).toUpperCase()
+      postOps.push(
+        db
+          .ref(`promoCodes/${promoKey}/usedCount`)
+          .transaction((c) => (c ?? 0) + 1)
+          .catch((e) => console.error('[createOrder] incrementPromoCodeUsage:', e))
+      )
+    }
+    await Promise.allSettled(postOps)
+
+    console.log(`[createOrder] order ${orderId} (#${orderNumber}) created for ${data.customer.phone}`)
+    return { orderId, orderNumber }
+  }
+)
+
+// ============================================================================
+// setAdminClaim — one-shot : attribue le Custom Claim admin à un UID
+// Seul l'email hardcodé peut déclencher cette CF (bootstrap).
+// ============================================================================
+
+export const setAdminClaim = onCall(
+  { region: 'europe-west1' },
+  async (request) => {
+    const callerEmail = request.auth?.token?.email
+    if (callerEmail !== ADMIN_EMAIL_HARDCODED) {
+      throw new HttpsError('permission-denied', 'admin only')
+    }
+    const targetUid = request.data?.uid
+    if (!targetUid || typeof targetUid !== 'string') {
+      throw new HttpsError('invalid-argument', 'uid manquant')
+    }
+    await admin.auth().setCustomUserClaims(targetUid, { admin: true })
+    console.log(`[setAdminClaim] admin=true set on uid=${targetUid} by ${callerEmail}`)
+    return { success: true, uid: targetUid }
   }
 )
