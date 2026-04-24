@@ -372,18 +372,18 @@ export function CartSheet({
                               type="button"
                               onClick={() => { hapticFeedback('light'); onUpdateQuantity(item.product.id, item.quantity - 1) }}
                               aria-label={item.quantity === 1 ? `Supprimer ${item.product.name}` : `Réduire ${item.product.name}`}
-                              className="flex h-6 w-6 items-center justify-center rounded-md bg-mayssa-cream text-mayssa-brown cursor-pointer"
+                              className="flex h-10 w-10 items-center justify-center rounded-md bg-mayssa-cream text-mayssa-brown cursor-pointer"
                             >
-                              {item.quantity === 1 ? <Trash2 size={12} /> : <Minus size={12} />}
+                              {item.quantity === 1 ? <Trash2 size={14} /> : <Minus size={14} />}
                             </button>
-                            <span className="w-5 text-center font-bold text-xs">{item.quantity}</span>
+                            <span className="w-6 text-center font-bold text-sm">{item.quantity}</span>
                             <button
                               type="button"
                               onClick={() => { hapticFeedback('light'); onUpdateQuantity(item.product.id, item.quantity + 1) }}
                               aria-label={`Ajouter ${item.product.name}`}
-                              className="flex h-6 w-6 items-center justify-center rounded-md bg-mayssa-brown text-mayssa-cream cursor-pointer"
+                              className="flex h-10 w-10 items-center justify-center rounded-md bg-mayssa-brown text-mayssa-cream cursor-pointer"
                             >
-                              <Plus size={12} />
+                              <Plus size={14} />
                             </button>
                           </div>
                         </div>

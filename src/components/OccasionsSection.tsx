@@ -81,7 +81,7 @@ export function OccasionsSection() {
               <a
                 href={`https://wa.me/${PHONE_E164}?text=${encodeURIComponent(occ.message)}`}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 onClick={() => hapticFeedback('medium')}
                 className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-3 text-sm font-bold text-white shadow-lg transition-all hover:bg-[#20bd5a] hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
               >

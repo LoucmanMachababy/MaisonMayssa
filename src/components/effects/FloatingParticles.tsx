@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 
 interface Particle {
   id: number
@@ -13,13 +13,14 @@ interface Particle {
 export function FloatingParticles() {
   const [particles, setParticles] = useState<Particle[]>([])
   const [isMobile, setIsMobile] = useState(false)
+  const prefersReducedMotion = useReducedMotion()
 
   useEffect(() => {
     const mobile = window.innerWidth < 768
     setIsMobile(mobile)
 
-    // Sur mobile : pas de particules (économie CPU/batterie)
-    if (mobile) return
+    // Sur mobile ou reduced-motion : pas de particules
+    if (mobile || prefersReducedMotion) return
 
     const newParticles: Particle[] = Array.from({ length: 12 }, (_, i) => ({
       id: i,
@@ -30,10 +31,10 @@ export function FloatingParticles() {
       delay: Math.random() * 5,
     }))
     setParticles(newParticles)
-  }, [])
+  }, [prefersReducedMotion])
 
-  // Pas de particules sur mobile
-  if (isMobile) return null
+  // Pas de particules sur mobile ou si l'utilisateur préfère réduire les animations
+  if (isMobile || prefersReducedMotion) return null
 
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
