@@ -63,7 +63,7 @@ export function Footer() {
                                 <a
                                     href={`https://wa.me/${PHONE_E164}?text=${encodeURIComponent('Bonjour, je souhaite commander.')}`}
                                     target="_blank"
-                                    rel="noreferrer"
+                                    rel="noopener noreferrer"
                                     onClick={() => hapticFeedback('light')}
                                     className="text-sm text-mayssa-soft/70 hover:text-mayssa-gold transition-all hover:translate-x-1 cursor-pointer inline-flex items-center gap-2 group"
                                 >
@@ -82,7 +82,14 @@ export function Footer() {
                         <ul className="space-y-5 font-light">
                             <li className="flex items-start gap-3 text-sm text-mayssa-soft/70">
                                 <MapPin size={18} strokeWidth={1.5} className="shrink-0 text-mayssa-gold mt-0.5" />
-                                <span>Annecy et alentours (74)<br/>Maison Mayssa France</span>
+                                <a
+                                    href="https://www.google.com/maps/search/?api=1&query=Maison+Mayssa+Annecy"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="hover:text-mayssa-gold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mayssa-gold/50 rounded-sm"
+                                >
+                                    Annecy et alentours (74)<br/>Maison Mayssa France
+                                </a>
                             </li>
                             <li className="flex items-start gap-3 text-sm text-mayssa-soft/70">
                                 <Clock size={18} strokeWidth={1.5} className="shrink-0 text-mayssa-gold mt-0.5" />
@@ -93,7 +100,7 @@ export function Footer() {
                             </li>
                             <li className="flex items-start gap-3 text-sm text-mayssa-soft/70">
                                 <Phone size={18} strokeWidth={1.5} className="shrink-0 text-mayssa-gold mt-0.5" />
-                                <a href={`https://wa.me/${PHONE_E164}`} target="_blank" rel="noreferrer" onClick={() => hapticFeedback('light')} className="hover:text-mayssa-gold transition-colors cursor-pointer">06 19 87 10 05</a>
+                                <a href={`https://wa.me/${PHONE_E164}`} target="_blank" rel="noopener noreferrer" onClick={() => hapticFeedback('light')} className="hover:text-mayssa-gold transition-colors cursor-pointer">06 19 87 10 05</a>
                             </li>
                         </ul>
                     </div>
@@ -157,7 +164,7 @@ function SocialIcon({ href, icon, label }: { href: string; icon: React.ReactNode
         <a
             href={href}
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
             onClick={() => hapticFeedback('light')}
             className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/5 border border-white/10 text-mayssa-gold transition-all hover:-translate-y-1 hover:bg-mayssa-gold hover:text-mayssa-brown active:scale-95 cursor-pointer backdrop-blur-sm"
             aria-label={label}

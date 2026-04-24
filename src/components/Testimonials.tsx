@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { Quote, Star, Link2 } from 'lucide-react'
 import { useReviews } from '../hooks/useReviews'
 import { PublicReviewForm } from './PublicReviewForm'
+import { ReviewSchema } from './ReviewSchema'
 import { hapticFeedback } from '../lib/haptics'
 
 const FALLBACK_TESTIMONIALS = [
@@ -44,6 +45,7 @@ export function Testimonials() {
       transition={{ duration: 0.5, ease: 'easeOut' }}
       className="mt-12 sm:mt-16 md:mt-24 scroll-mt-24"
     >
+      <ReviewSchema />
       <div className="section-shell bg-white/80 border border-mayssa-brown/5">
         <div className="text-center mb-8 sm:mb-10">
           <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-mayssa-caramel">

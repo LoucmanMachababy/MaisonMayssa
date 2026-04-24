@@ -299,7 +299,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
                 const element = document.getElementById(targetId)
                 if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' })
             }}
-            className="text-[11px] uppercase tracking-[0.3em] font-black text-mayssa-brown/70 hover:text-mayssa-gold transition-all duration-500 relative group"
+            className="text-[11px] uppercase tracking-[0.3em] font-black text-mayssa-brown/80 hover:text-mayssa-gold transition-all duration-500 relative group"
         >
             {children}
             <span className="absolute -bottom-1.5 left-1/2 w-0 h-[1.5px] gold-gradient transition-all duration-500 group-hover:w-full group-hover:left-0" />

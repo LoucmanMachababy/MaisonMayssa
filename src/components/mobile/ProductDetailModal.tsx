@@ -178,7 +178,7 @@ export function ProductDetailModal({ product, onClose, onAdd, stock = null, isPr
                           type="button"
                           onClick={goToPrevImage}
                           className="absolute left-2 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-mayssa-brown text-white shadow-xl hover:bg-mayssa-brown/90 transition-colors cursor-pointer border-2 border-white"
-                          aria-label="Image précédente"
+                          aria-label={`Image précédente de ${product.name}`}
                         >
                           <ChevronLeft size={24} />
                         </button>
@@ -186,7 +186,7 @@ export function ProductDetailModal({ product, onClose, onAdd, stock = null, isPr
                           type="button"
                           onClick={goToNextImage}
                           className="absolute right-2 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-mayssa-brown text-white shadow-xl hover:bg-mayssa-brown/90 transition-colors cursor-pointer border-2 border-white"
-                          aria-label="Image suivante"
+                          aria-label={`Image suivante de ${product.name}`}
                         >
                           <ChevronRight size={24} />
                         </button>
@@ -203,6 +203,8 @@ export function ProductDetailModal({ product, onClose, onAdd, stock = null, isPr
                           key={i}
                           type="button"
                           onClick={() => { setSelectedImageIndex(i); hapticFeedback('light') }}
+                          aria-label={`Voir l'image ${i + 1} sur ${images.length} de ${product.name}`}
+                          aria-current={i === selectedImageIndex ? 'true' : undefined}
                           className={`overflow-hidden rounded-lg transition-all cursor-pointer border-2 ${
                             i === selectedImageIndex
                               ? 'border-mayssa-brown ring-2 ring-mayssa-gold/50 ring-offset-2'
@@ -228,6 +230,7 @@ export function ProductDetailModal({ product, onClose, onAdd, stock = null, isPr
                 <h2 className="text-2xl font-display font-bold text-mayssa-brown">{product.name}</h2>
                 <button
                   onClick={() => { hapticFeedback('light'); onClose() }}
+                  aria-label={`Fermer les détails de ${product.name}`}
                   className="flex h-10 w-10 items-center justify-center rounded-full bg-mayssa-brown/5 text-mayssa-brown hover:bg-mayssa-brown hover:text-white transition-colors cursor-pointer"
                 >
                   <X size={20} />
@@ -309,6 +312,7 @@ export function ProductDetailModal({ product, onClose, onAdd, stock = null, isPr
           <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-4 bg-gradient-to-b from-black/50 to-transparent">
             <button
               onClick={() => { hapticFeedback('light'); onClose() }}
+              aria-label={`Fermer les détails de ${product.name}`}
               className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm text-white cursor-pointer"
             >
               <X size={20} />
@@ -316,6 +320,8 @@ export function ProductDetailModal({ product, onClose, onAdd, stock = null, isPr
             <div className="flex gap-2">
               <button
                 onClick={toggleZoom}
+                aria-label={isZoomed ? 'Dézoomer l\'image' : 'Zoomer sur l\'image'}
+                aria-pressed={isZoomed}
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm text-white cursor-pointer"
               >
                 {isZoomed ? <ZoomOut size={20} /> : <ZoomIn size={20} />}
@@ -345,7 +351,7 @@ export function ProductDetailModal({ product, onClose, onAdd, stock = null, isPr
                       type="button"
                       onClick={goToPrevImage}
                       className="absolute left-4 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-mayssa-brown text-white shadow-xl cursor-pointer border-2 border-white"
-                      aria-label="Image précédente"
+                      aria-label={`Image précédente de ${product.name}`}
                     >
                       <ChevronLeft size={26} />
                     </button>
@@ -353,7 +359,7 @@ export function ProductDetailModal({ product, onClose, onAdd, stock = null, isPr
                       type="button"
                       onClick={goToNextImage}
                       className="absolute right-4 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-mayssa-brown text-white shadow-xl cursor-pointer border-2 border-white"
-                      aria-label="Image suivante"
+                      aria-label={`Image suivante de ${product.name}`}
                     >
                       <ChevronRight size={26} />
                     </button>
