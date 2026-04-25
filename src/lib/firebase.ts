@@ -107,6 +107,26 @@ export async function sendBulkGoogleReviewEmails(): Promise<{ sent: number }> {
   return res.data
 }
 
+/**
+ * Crée une commande via la Cloud Function serveur (valide stock, anti-double-commande
+ * 48h, counter monotone, slot livraison, promo usedCount). Retourne orderId + orderNumber.
+ *
+ * Appelée uniquement quand VITE_USE_CF_ORDER=true (flag de bascule).
+ * Erreurs possibles (via HttpsError) :
+ *  - 'failed-precondition' : stock insuffisant (message contient "Stock insuffisant")
+ *  - 'already-exists' : commande récente < 48h même numéro
+ *  - 'invalid-argument' : payload invalide
+ *  - 'internal' : erreur serveur
+ */
+export async function createOrderViaCF(
+  order: Omit<Order, 'id' | 'orderNumber' | 'createdAt'>
+): Promise<{ orderId: string; orderNumber: number }> {
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable<typeof order, { orderId: string; orderNumber: number }>(functions, 'createOrder')
+  const res = await fn(order)
+  return res.data
+}
+
 /** Soumettre la réponse au mystère (Fraise). Retourne { success, winner?, alreadyRevealed?, error? } */
 export async function submitMysteryGuess(guess: string): Promise<{
   success: boolean

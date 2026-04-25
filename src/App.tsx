@@ -1234,7 +1234,7 @@ function AppContent() {
 
   type SaveOrderResult =
     | { ok: true; orderId: string; orderNumber: number }
-    | { ok: false; reason?: 'stock' | 'empty' }
+    | { ok: false; reason?: 'stock' | 'empty' | 'duplicate' }
 
   const saveOrderToFirebase = async (source: 'whatsapp' | 'instagram' | 'snap'): Promise<SaveOrderResult> => {
     if (cart.length === 0) return { ok: false, reason: 'empty' }
@@ -1254,9 +1254,14 @@ function AppContent() {
     const deliveryFee = computeDeliveryFee(customer, totalAfterDiscount) ?? 0
     const donation = donationAmount ?? 0
     const orderTotal = totalAfterDiscount + deliveryFee + donation
+    // Flag env : si true, la création passe par la CF serveur (valide stock,
+    // anti-double-commande 48h, counter, slot, promo). Sinon, flow direct ancien.
+    const USE_CF_ORDER = import.meta.env.VITE_USE_CF_ORDER === 'true'
+
     try {
       const {
         createOrder,
+        createOrderViaCF,
         incrementPromoCodeUsage,
         applyReferralAfterOrder,
         decrementStockBatchStrict,
@@ -1267,6 +1272,87 @@ function AppContent() {
         ? calculateDistance(customer.addressCoordinates, ANNECY_GARE)
         : undefined
 
+      // Construction du payload (commun aux deux flows)
+      const orderPayload = {
+        items: cart.map((item) => {
+          // Inclure les personnalisations (toppings, coulis, parfums...) dans le nom pour l'admin
+          let name: string
+          if (item.product.category === 'Tiramisus' && item.product.description) {
+            name = `${item.product.name} – ${item.product.description}`
+          } else if (item.product.description) {
+            // Boxes, mini gourmandises, box fruitée, etc.
+            name = `${item.product.name} – ${item.product.description}`
+          } else {
+            name = item.product.name
+          }
+          return {
+            productId: getOriginalProductId(item.product.id),
+            name,
+            quantity: item.quantity,
+            price: item.product.price,
+            ...(item.trompeDiscoverySelection?.length
+              ? { trompeDiscoverySelection: item.trompeDiscoverySelection }
+              : {}),
+          }
+        }),
+        customer: {
+          firstName:
+            source === 'instagram'
+              ? normalizeInstagramHandle(customer.firstName) || 'client'
+              : customer.firstName || 'Client',
+          lastName: source === 'instagram' ? '' : customer.lastName || '',
+          phone: customer.phone || '',
+          ...(customer.email?.trim() && { email: customer.email.trim() }),
+          ...(customer.wantsDelivery && customer.address.trim() && { address: customer.address.trim() }),
+          ...(customer.wantsDelivery && customer.addressCoordinates && { addressCoordinates: customer.addressCoordinates }),
+          ...(customer.wantsDelivery && customer.deliveryInstructions?.trim() && { deliveryInstructions: customer.deliveryInstructions.trim() }),
+          ...(source === 'instagram' && {
+            contactPlatform: 'instagram' as const,
+            contactHandle: normalizeInstagramHandle(customer.firstName),
+          }),
+          ...(source === 'snap' && {
+            contactPlatform: 'snap' as const,
+            contactHandle: customer.firstName.trim(),
+          }),
+        },
+        total: orderTotal,
+        status: 'en_attente' as const,
+        source,
+        deliveryMode: customer.wantsDelivery ? 'livraison' as const : 'retrait' as const,
+        requestedDate: customer.date || undefined,
+        requestedTime: customer.time || undefined,
+        ...(deliveryFee > 0 && { deliveryFee }),
+        ...(distanceKm != null && { distanceKm }),
+        ...(note.trim() && note.trim() !== 'Pour le … (date, créneau, adresse)' && { clientNote: note.trim() }),
+        ...(appliedPromo && { promoCode: appliedPromo.code, discountAmount: appliedPromo.discount }),
+        ...(donation > 0 && { donationAmount: donation }),
+        ...(user?.uid && { userId: user.uid }),
+        ...(referralDiscount > 0 && referrerUid && {
+          referralCode: referralCodeInput!.trim(),
+          referralDiscountAmount: referralDiscount,
+          referrerUserId: referrerUid,
+        }),
+      }
+
+      // --- Flow CF (stock + counter + slot + promo gérés serveur) ---
+      if (USE_CF_ORDER) {
+        const result = await createOrderViaCF(orderPayload)
+        // Post-ops qui restent côté client (non critiques, user-connecté uniquement)
+        if (referralDiscount > 0 && referrerUid && user?.uid) {
+          applyReferralAfterOrder(user.uid, referralCodeInput!.trim(), referrerUid).catch(console.error)
+        }
+        if (user?.uid) {
+          const { updateUserOrderStats } = await import('./lib/firebase')
+          updateUserOrderStats(user.uid, {
+            hasTrompeLoeil: cart.some((item) => item.product.category === "Trompe l'œil"),
+            hasDonation: donation > 0,
+            hasPromo: !!appliedPromo,
+          }).catch(console.error)
+        }
+        return { ok: true, ...result }
+      }
+
+      // --- Flow direct (ancien) : stock côté client + createOrder direct ---
       const itemsToDecrement = cart.flatMap((item) => {
         const isTrompe = item.product.category === "Trompe l'œil"
         if (isTrompe && item.reservationConfirmed) return []
@@ -1288,67 +1374,7 @@ function AppContent() {
         ).catch(() => {})
       }
       try {
-        result = await createOrder({
-          items: cart.map((item) => {
-            // Inclure les personnalisations (toppings, coulis, parfums...) dans le nom pour l'admin
-            let name: string
-            if (item.product.category === 'Tiramisus' && item.product.description) {
-              name = `${item.product.name} – ${item.product.description}`
-            } else if (item.product.description) {
-              // Boxes, mini gourmandises, box fruitée, etc.
-              name = `${item.product.name} – ${item.product.description}`
-            } else {
-              name = item.product.name
-            }
-            return {
-              productId: getOriginalProductId(item.product.id),
-              name,
-              quantity: item.quantity,
-              price: item.product.price,
-              ...(item.trompeDiscoverySelection?.length
-                ? { trompeDiscoverySelection: item.trompeDiscoverySelection }
-                : {}),
-            }
-          }),
-          customer: {
-            firstName:
-              source === 'instagram'
-                ? normalizeInstagramHandle(customer.firstName) || 'client'
-                : customer.firstName || 'Client',
-            lastName: source === 'instagram' ? '' : customer.lastName || '',
-            phone: customer.phone || '',
-            ...(customer.email?.trim() && { email: customer.email.trim() }),
-            ...(customer.wantsDelivery && customer.address.trim() && { address: customer.address.trim() }),
-            ...(customer.wantsDelivery && customer.addressCoordinates && { addressCoordinates: customer.addressCoordinates }),
-            ...(customer.wantsDelivery && customer.deliveryInstructions?.trim() && { deliveryInstructions: customer.deliveryInstructions.trim() }),
-            ...(source === 'instagram' && {
-              contactPlatform: 'instagram' as const,
-              contactHandle: normalizeInstagramHandle(customer.firstName),
-            }),
-            ...(source === 'snap' && {
-              contactPlatform: 'snap' as const,
-              contactHandle: customer.firstName.trim(),
-            }),
-          },
-          total: orderTotal,
-          status: 'en_attente',
-          source,
-          deliveryMode: customer.wantsDelivery ? 'livraison' : 'retrait',
-          requestedDate: customer.date || undefined,
-          requestedTime: customer.time || undefined,
-          ...(deliveryFee > 0 && { deliveryFee }),
-          ...(distanceKm != null && { distanceKm }),
-          ...(note.trim() && note.trim() !== 'Pour le … (date, créneau, adresse)' && { clientNote: note.trim() }),
-          ...(appliedPromo && { promoCode: appliedPromo.code, discountAmount: appliedPromo.discount }),
-          ...(donation > 0 && { donationAmount: donation }),
-          ...(user?.uid && { userId: user.uid }),
-          ...(referralDiscount > 0 && referrerUid && {
-            referralCode: referralCodeInput!.trim(),
-            referralDiscountAmount: referralDiscount,
-            referrerUserId: referrerUid,
-          }),
-          createdAt: Date.now(),
-        })
+        result = await createOrder({ ...orderPayload, createdAt: Date.now() })
       } catch (orderErr) {
         await rollbackStock()
         throw orderErr
@@ -1377,7 +1403,15 @@ function AppContent() {
       return { ok: true, ...result }
     } catch (err) {
       console.error('[Firebase] Erreur sauvegarde commande:', err)
+      // Mapping des erreurs CF (HttpsError) vers les reasons UI
+      const errCode = (err as { code?: string })?.code
       const msg = err instanceof Error ? err.message : String(err)
+      if (errCode === 'functions/failed-precondition' && msg.includes('Stock insuffisant')) {
+        return { ok: false, reason: 'stock' }
+      }
+      if (errCode === 'functions/already-exists') {
+        return { ok: false, reason: 'duplicate' }
+      }
       if (msg.includes('Stock insuffisant')) {
         return { ok: false, reason: 'stock' }
       }
@@ -1468,6 +1502,12 @@ function AppContent() {
       if (orderResult.reason === 'stock') {
         showToast(
           'Un ou plusieurs produits ne sont plus disponibles en quantité suffisante. Mets à jour ton panier puis réessaie.',
+          'error',
+          8000,
+        )
+      } else if (orderResult.reason === 'duplicate') {
+        showToast(
+          'Une commande récente est déjà enregistrée pour ce numéro (< 48h). Contacte-nous pour en passer une autre.',
           'error',
           8000,
         )
@@ -1682,6 +1722,12 @@ function AppContent() {
           'error',
           8000,
         )
+      } else if (instagramResult.reason === 'duplicate') {
+        showToast(
+          'Une commande récente est déjà enregistrée pour ce numéro (< 48h). Contacte-nous pour en passer une autre.',
+          'error',
+          8000,
+        )
       } else if (instagramResult.reason !== 'empty') {
         showToast('Erreur lors de l\'enregistrement de la commande.', 'error')
       }
@@ -1832,6 +1878,12 @@ function AppContent() {
       if (snapResult.reason === 'stock') {
         showToast(
           'Un ou plusieurs produits ne sont plus disponibles en quantité suffisante. Mets à jour ton panier puis réessaie.',
+          'error',
+          8000,
+        )
+      } else if (snapResult.reason === 'duplicate') {
+        showToast(
+          'Une commande récente est déjà enregistrée pour ce numéro (< 48h). Contacte-nous pour en passer une autre.',
           'error',
           8000,
         )
