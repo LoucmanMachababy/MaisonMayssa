@@ -465,6 +465,10 @@ async function checkDoubleOrder(phone) {
 /**
  * Décrémente le stock atomiquement (runTransaction par produit), rollback complet
  * si l'un des produits n'a pas assez de stock.
+ *
+ * Comportement aligné sur decrementStockBatchStrict côté site :
+ *  - Produit non-tracké (stock/productId absent) → skip silencieux
+ *  - Produit tracké mais stock < qty → throw HttpsError + rollback
  */
 async function decrementStockAtomic(items) {
   // Agréger quantités par productId (au cas où un productId apparaît plusieurs fois)
@@ -472,18 +476,25 @@ async function decrementStockAtomic(items) {
   for (const it of items) {
     decrements[it.productId] = (decrements[it.productId] || 0) + it.quantity
   }
+  // Pour chaque produit, 3 cas possibles :
+  //  - wasUntracked=true : stock initial null/undefined → rien à faire, pas de rollback
+  //  - wasInsufficient=true : stock < qty → abort + rollback
+  //  - sinon : décrément réussi → push dans attempted pour rollback éventuel
   const attempted = []
   for (const [productId, qty] of Object.entries(decrements)) {
     const stockRef = db.ref(`stock/${productId}`)
+    let wasUntracked = false
     const result = await stockRef.transaction((current) => {
-      if (current == null) return // produit non-tracké : on ne bloque pas
+      if (current == null) {
+        wasUntracked = true
+        return // produit non-tracké : on ne touche rien
+      }
       if (current < qty) return // abort → pas assez de stock
       return current - qty
     })
+    if (wasUntracked) continue // rien à faire, pas tracké
     const commitFailed = !result.committed
-    const abortedBecauseStock =
-      result.committed && result.snapshot.val() == null && decrements[productId] > 0
-    if (commitFailed || abortedBecauseStock) {
+    if (commitFailed) {
       // Rollback complet de ce qui a été décrémenté
       for (const [pid, q] of attempted) {
         await db
@@ -496,10 +507,7 @@ async function decrementStockAtomic(items) {
         `Stock insuffisant pour ${productId}`
       )
     }
-    // Enregistrer pour rollback éventuel (seulement si le produit était tracké)
-    if (result.snapshot.val() != null) {
-      attempted.push([productId, qty])
-    }
+    attempted.push([productId, qty])
   }
 }
 
