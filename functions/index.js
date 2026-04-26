@@ -463,6 +463,60 @@ async function checkDoubleOrder(phone) {
 }
 
 /**
+ * Bundles → saveurs individuelles (miroir de PRODUCTS[].bundleProductIds côté site).
+ * Les `box-*` n'ont pas de stock propre : leur stock = stock des composants.
+ */
+const BUNDLE_PRODUCT_IDS = {
+  'box-trompe-loeil': [
+    'trompe-loeil-mangue', 'trompe-loeil-citron', 'trompe-loeil-pistache',
+    'trompe-loeil-passion', 'trompe-loeil-framboise', 'trompe-loeil-cacahuete',
+    'trompe-loeil-fraise',
+  ],
+  'box-fruitee': [
+    'trompe-loeil-mangue', 'trompe-loeil-passion', 'trompe-loeil-fraise',
+    'trompe-loeil-framboise', 'trompe-loeil-myrtille', 'trompe-loeil-citron',
+    'trompe-loeil-grappe-banane',
+  ],
+  'box-de-tout': [
+    'trompe-loeil-mangue', 'trompe-loeil-citron', 'trompe-loeil-pistache',
+    'trompe-loeil-passion', 'trompe-loeil-framboise', 'trompe-loeil-cacahuete',
+    'trompe-loeil-fraise', 'trompe-loeil-myrtille', 'trompe-loeil-cafe',
+    'trompe-loeil-vanille', 'trompe-loeil-popcorn', 'trompe-loeil-pecan',
+    'trompe-loeil-amande', 'trompe-loeil-cabosse',
+  ],
+}
+
+const BOX_DECOUVERTE_TROMPE = 'box-decouverte-trompe-5'
+
+/**
+ * Transforme les items de commande en décréments de stock réels.
+ *  - Si l'item a trompeDiscoverySelection (box-decouverte-trompe-5 ou box-fruitee etc.)
+ *    → décrémente chaque saveur choisie × quantity
+ *  - Sinon si l'item est un bundle connu (box-trompe-loeil, box-de-tout sans choix)
+ *    → décrémente toutes les saveurs du bundle × quantity
+ *  - Sinon → décrémente le productId tel quel × quantity
+ */
+function expandItemsForStock(items) {
+  const out = []
+  for (const it of items) {
+    const baseId = String(it.productId || '').replace(/-\d{10,}$/, '')
+    const qty = it.quantity
+    const sel = Array.isArray(it.trompeDiscoverySelection) ? it.trompeDiscoverySelection : null
+    if (sel && sel.length > 0) {
+      for (const sid of sel) out.push({ productId: sid, quantity: qty })
+      continue
+    }
+    const bundle = BUNDLE_PRODUCT_IDS[baseId]
+    if (bundle) {
+      for (const bid of bundle) out.push({ productId: bid, quantity: qty })
+      continue
+    }
+    out.push({ productId: baseId, quantity: qty })
+  }
+  return out
+}
+
+/**
  * Décrémente le stock atomiquement (runTransaction par produit), rollback complet
  * si l'un des produits n'a pas assez de stock.
  *
@@ -530,8 +584,11 @@ export const createOrder = onCall(
 
     await checkDoubleOrder(data.customer.phone)
 
+    // Décomposer les bundles/boxes en saveurs individuelles pour le stock
+    const stockItems = expandItemsForStock(data.items)
+
     // Stock (bloquant avec rollback)
-    await decrementStockAtomic(data.items)
+    await decrementStockAtomic(stockItems)
 
     // Counter orderNumber
     const counterRef = db.ref('counters/orderNumber')
@@ -539,7 +596,7 @@ export const createOrder = onCall(
     if (!counterRes.committed) {
       // Rollback stock avant de throw
       const decrements = {}
-      for (const it of data.items) {
+      for (const it of stockItems) {
         decrements[it.productId] = (decrements[it.productId] || 0) + it.quantity
       }
       for (const [pid, q] of Object.entries(decrements)) {
