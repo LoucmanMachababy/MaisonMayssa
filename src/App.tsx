@@ -55,6 +55,10 @@ import { VisualBackground } from './components/effects/VisualBackground'
 const Testimonials = lazyWithRetry(() => import('./components/Testimonials').then(m => ({ default: m.Testimonials })))
 const FAQSection = lazyWithRetry(() => import('./components/LegalPages').then(m => ({ default: m.FAQSection })))
 const LegalPagesSections = lazyWithRetry(() => import('./components/LegalPages').then(m => ({ default: m.default })))
+const SEOAnnecySection = lazyWithRetry(() => import('./components/SEOAnnecySection').then(m => ({ default: m.SEOAnnecySection })))
+const AboutPage = lazyWithRetry(() => import('./pages/AboutPage').then(m => ({ default: m.AboutPage })))
+const FAQPage = lazyWithRetry(() => import('./pages/FAQPage').then(m => ({ default: m.FAQPage })))
+const NotFoundPage = lazyWithRetry(() => import('./pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })))
 import {
   BottomNav,
   FloatingCartPreview,
@@ -153,11 +157,20 @@ function getPendingOrder(phone: string): PendingOrderEntry | null {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+const PATH_LOADING_FALLBACK = (
+  <div className="min-h-screen bg-mayssa-soft flex items-center justify-center">
+    <span className="text-mayssa-brown/60">Chargement...</span>
+  </div>
+)
+
 function AppRouter() {
   const [isAdmin, setIsAdmin] = useState(() => window.location.hash === '#admin')
   const [isLegal, setIsLegal] = useState(() => window.location.hash === '#legal')
   const [orderStatusId, setOrderStatusId] = useState<string | null>(null)
   const [adminRetryKey, setAdminRetryKey] = useState(0)
+  // Pathname routing (nouveau — pour /a-propos, /faq, 404).
+  // Hash routing (#admin, #legal, #/commande/xxx) reste actif en parallèle.
+  const [pathname, setPathname] = useState<string>(() => window.location.pathname)
 
   useEffect(() => {
     const handler = () => {
@@ -166,6 +179,7 @@ function AppRouter() {
       setIsLegal(hash === '#legal')
       const match = hash.match(/^#\/commande\/([a-zA-Z0-9_-]+)$/)
       setOrderStatusId(match ? match[1] : null)
+      setPathname(window.location.pathname)
     }
     handler()
     window.addEventListener('hashchange', handler)
@@ -175,6 +189,33 @@ function AppRouter() {
       window.removeEventListener('popstate', handler)
     }
   }, [])
+
+  // Routes pathname : seulement quand pas de hash actif (sinon le hash prime pour rétrocompat)
+  const hasActiveHash = isAdmin || isLegal || orderStatusId !== null
+  if (!hasActiveHash) {
+    if (pathname === '/a-propos' || pathname === '/a-propos/') {
+      return (
+        <Suspense fallback={PATH_LOADING_FALLBACK}>
+          <AboutPage />
+        </Suspense>
+      )
+    }
+    if (pathname === '/faq' || pathname === '/faq/') {
+      return (
+        <Suspense fallback={PATH_LOADING_FALLBACK}>
+          <FAQPage />
+        </Suspense>
+      )
+    }
+    // Tout pathname non reconnu (hors '/' racine) → 404
+    if (pathname !== '/' && pathname !== '') {
+      return (
+        <Suspense fallback={PATH_LOADING_FALLBACK}>
+          <NotFoundPage />
+        </Suspense>
+      )
+    }
+  }
 
   if (isAdmin) {
     return (
@@ -2523,6 +2564,7 @@ function AppContent() {
         {/* Comment ça marche / Click & Collect */}
 
         <Suspense fallback={null}>
+          <SEOAnnecySection />
           <FAQSection />
           <CommunityMapSection />
         </Suspense>

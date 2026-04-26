@@ -58,7 +58,7 @@ export function Footer() {
                     <div>
                         <h3 className="mb-6 font-display text-lg font-medium text-mayssa-gold tracking-wide">Liens Utiles</h3>
                         <ul className="space-y-4 font-light">
-                            <li><FooterLink href="#la-carte">La Carte</FooterLink></li>
+                            <li><FooterLink href="/#la-carte">La Carte</FooterLink></li>
                             <li>
                                 <a
                                     href={`https://wa.me/${PHONE_E164}?text=${encodeURIComponent('Bonjour, je souhaite commander.')}`}
@@ -71,8 +71,23 @@ export function Footer() {
                                     Commander sur WhatsApp
                                 </a>
                             </li>
-                            <li><FooterLink href="#avis">Témoignages</FooterLink></li>
-                            <li><FooterLink href="#faq">Questions Fréquentes</FooterLink></li>
+                            <li>
+                                <a
+                                    href="/a-propos"
+                                    className="text-sm text-mayssa-soft/70 hover:text-mayssa-gold transition-all hover:translate-x-1 cursor-pointer inline-flex items-center gap-2 group"
+                                >
+                                    À propos
+                                </a>
+                            </li>
+                            <li>
+                                <a
+                                    href="/faq"
+                                    className="text-sm text-mayssa-soft/70 hover:text-mayssa-gold transition-all hover:translate-x-1 cursor-pointer inline-flex items-center gap-2 group"
+                                >
+                                    Questions Fréquentes
+                                </a>
+                            </li>
+                            <li><FooterLink href="/#avis">Témoignages</FooterLink></li>
                         </ul>
                     </div>
 

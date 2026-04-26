@@ -1,12 +1,5 @@
 import { motion } from 'framer-motion'
-
-const FAQ_ITEMS = [
-  { q: 'Comment passer commande ?', a: 'Remplis ton panier sur le site, choisis retrait ou livraison, puis clique sur « Envoyer sur WhatsApp ». Le message est pré-rempli : il te suffit de l\'envoyer pour confirmer. Commande par WhatsApp uniquement.' },
-  { q: 'Quels sont les horaires de retrait et livraison ?', a: 'Service de 18h30 à 2h du matin. Livraison sur Annecy et alentours. Retrait possible sur place.' },
-  { q: 'Comment se passe le paiement ?', a: 'Tu peux régler par PayPal (lien proposé après la commande) ou à la livraison / au retrait. Aucun paiement en ligne obligatoire.' },
-  { q: "C'est quoi la précommande ?", a: "Trompe-l'œil : tu passes ta commande et tu récupères ton gâteau environ 3 jours après (délai de préparation). La date exacte est indiquée dans le formulaire selon les disponibilités. Pâtisseries, cookies, boxes et le reste sont disponibles en permanence (pas de délai fixe)." },
-  { q: 'Livraison offerte ?', a: "Oui, dès 50 € d'achat sur la zone habituelle (rayon d'environ 5 km depuis Annecy). Sinon forfait 5 €. Pour les secteurs plus éloignés, nous contacter par WhatsApp." },
-]
+import { FAQ_ITEMS_HOME } from '../lib/faqItems'
 
 export function FAQSection() {
   return (
@@ -21,12 +14,20 @@ export function FAQSection() {
         Questions fréquentes
       </h2>
       <dl className="space-y-4">
-        {FAQ_ITEMS.map((item, i) => (
+        {FAQ_ITEMS_HOME.map((item, i) => (
           <div key={i} className="border-b border-mayssa-brown/10 pb-4 last:border-0">
             <dt className="text-sm font-bold text-mayssa-brown mb-1">{item.q}</dt>
             <dd className="text-sm text-mayssa-brown/80 leading-relaxed">{item.a}</dd>
           </div>
         ))}
+        <div className="pt-2 text-center">
+          <a
+            href="/faq"
+            className="inline-block text-sm font-bold text-mayssa-caramel hover:text-mayssa-brown transition-colors"
+          >
+            Voir toutes les questions →
+          </a>
+        </div>
       </dl>
     </motion.section>
   )
