@@ -92,6 +92,8 @@ import { TrompeLOeilModal } from './components/TrompeLOeilModal'
 import { OrderConfirmation } from './components/OrderConfirmation'
 import { OrderRecapModal, type OrderRecapSendChannel } from './components/OrderRecapModal'
 import { AggregateRatingSchema } from './components/AggregateRatingSchema'
+import { HomeFAQSchema } from './components/HomeFAQSchema'
+import { HomeHelmet } from './components/HomeHelmet'
 import { OrderStatusPage } from './components/OrderStatusPage'
 import { DeliveryZoneMap } from './components/DeliveryZoneMap'
 import { REWARD_COSTS, REWARD_LABELS } from './lib/rewards'
@@ -2609,6 +2611,8 @@ function AppContent() {
           <CommunityMapSection />
         </Suspense>
         <AggregateRatingSchema />
+        <HomeFAQSchema />
+        <HomeHelmet />
         <Footer />
         <Suspense fallback={null}>
           <Testimonials />
