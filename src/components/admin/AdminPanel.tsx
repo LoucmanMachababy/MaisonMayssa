@@ -388,6 +388,7 @@ function exportReviewsToCSV(reviewsMap: Record<string, Review>): void {
 export function AdminPanel() {
   const [user, setUser] = useState<User | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
 
   useEffect(() => {
     return onAuthChange((u) => {
@@ -396,7 +397,30 @@ export function AdminPanel() {
     })
   }, [])
 
-  if (authLoading) {
+  useEffect(() => {
+    let cancelled = false
+    if (!user) {
+      setIsAdmin(null)
+      return
+    }
+    // Belt & braces : accepte Custom Claim `admin: true` OU email hardcodé
+    // Fallback email conservé pendant la migration pour zéro downtime
+    user.getIdTokenResult()
+      .then((tokenResult) => {
+        if (cancelled) return
+        const hasAdminClaim = tokenResult.claims.admin === true
+        const hasAdminEmail = user.email === 'roumayssaghazi213@gmail.com'
+        setIsAdmin(hasAdminClaim || hasAdminEmail)
+      })
+      .catch(() => {
+        if (cancelled) return
+        // Si le token ne se charge pas, fallback sur email seul
+        setIsAdmin(user.email === 'roumayssaghazi213@gmail.com')
+      })
+    return () => { cancelled = true }
+  }, [user])
+
+  if (authLoading || (user && isAdmin === null)) {
     return (
       <div className="min-h-screen bg-mayssa-soft flex items-center justify-center">
         <RefreshCw size={32} className="text-mayssa-caramel animate-spin" />
@@ -405,9 +429,7 @@ export function AdminPanel() {
   }
 
   if (!user) return <LoginForm />
-  if (user.email !== 'roumayssaghazi213@gmail.com') {
-    return <UnauthorizedAccess />
-  }
+  if (!isAdmin) return <UnauthorizedAccess />
   return <Dashboard user={user} />
 }
 
