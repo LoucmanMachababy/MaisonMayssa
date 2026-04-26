@@ -25,7 +25,7 @@ export function Footer() {
             <div className="absolute top-0 right-1/4 -mt-32 w-96 h-96 bg-mayssa-gold/10 rounded-full blur-[120px] pointer-events-none" />
             
             <div className="relative z-10 w-full px-6 sm:px-8 lg:px-12">
-                <div className="grid grid-cols-1 gap-12 sm:gap-14 md:gap-16 md:grid-cols-2 lg:grid-cols-4">
+                <div className="grid grid-cols-1 gap-12 sm:gap-14 md:gap-16 md:grid-cols-2 lg:grid-cols-5">
                     {/* Brand Column */}
                     <div className="space-y-6">
                         <div className="flex items-center gap-4">
@@ -125,6 +125,38 @@ export function Footer() {
                         <h3 className="mb-6 font-display text-lg font-medium text-mayssa-gold tracking-wide">Livraison</h3>
                         <p className="text-sm text-mayssa-soft/80 font-light">Livraison offerte dès 50 € d&apos;achat sur Annecy et alentours.</p>
                         <p className="text-xs text-mayssa-soft/50 font-light leading-relaxed mt-2">Forfait de 5 € pour les commandes inférieures à 50 €.</p>
+                    </div>
+
+                    {/* Nos univers — pages piliers SEO */}
+                    <div>
+                        <h3 className="mb-6 font-display text-lg font-medium text-mayssa-gold tracking-wide">Nos univers</h3>
+                        <ul className="space-y-3 font-light">
+                            <li>
+                                <a href="/trompe-loeil-annecy" className="text-sm text-mayssa-soft/70 hover:text-mayssa-gold transition-all hover:translate-x-1 cursor-pointer inline-block">
+                                    Trompe-l&apos;œil Annecy
+                                </a>
+                            </li>
+                            <li>
+                                <a href="/brownies-annecy" className="text-sm text-mayssa-soft/70 hover:text-mayssa-gold transition-all hover:translate-x-1 cursor-pointer inline-block">
+                                    Brownies Annecy
+                                </a>
+                            </li>
+                            <li>
+                                <a href="/cookies-annecy" className="text-sm text-mayssa-soft/70 hover:text-mayssa-gold transition-all hover:translate-x-1 cursor-pointer inline-block">
+                                    Cookies Annecy
+                                </a>
+                            </li>
+                            <li>
+                                <a href="/patisserie-anniversaire-annecy" className="text-sm text-mayssa-soft/70 hover:text-mayssa-gold transition-all hover:translate-x-1 cursor-pointer inline-block">
+                                    Anniversaire Annecy
+                                </a>
+                            </li>
+                            <li>
+                                <a href="/cadeau-gourmand-annecy" className="text-sm text-mayssa-soft/70 hover:text-mayssa-gold transition-all hover:translate-x-1 cursor-pointer inline-block">
+                                    Cadeau gourmand Annecy
+                                </a>
+                            </li>
+                        </ul>
                     </div>
                 </div>
 

@@ -59,6 +59,11 @@ const SEOAnnecySection = lazyWithRetry(() => import('./components/SEOAnnecySecti
 const AboutPage = lazyWithRetry(() => import('./pages/AboutPage').then(m => ({ default: m.AboutPage })))
 const FAQPage = lazyWithRetry(() => import('./pages/FAQPage').then(m => ({ default: m.FAQPage })))
 const NotFoundPage = lazyWithRetry(() => import('./pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })))
+const TrompeLoeilAnnecyPage = lazyWithRetry(() => import('./pages/TrompeLoeilAnnecyPage').then(m => ({ default: m.TrompeLoeilAnnecyPage })))
+const BrowniesAnnecyPage = lazyWithRetry(() => import('./pages/BrowniesAnnecyPage').then(m => ({ default: m.BrowniesAnnecyPage })))
+const CookiesAnnecyPage = lazyWithRetry(() => import('./pages/CookiesAnnecyPage').then(m => ({ default: m.CookiesAnnecyPage })))
+const PatisserieAnniversaireAnnecyPage = lazyWithRetry(() => import('./pages/PatisserieAnniversaireAnnecyPage').then(m => ({ default: m.PatisserieAnniversaireAnnecyPage })))
+const CadeauGourmandAnnecyPage = lazyWithRetry(() => import('./pages/CadeauGourmandAnnecyPage').then(m => ({ default: m.CadeauGourmandAnnecyPage })))
 import {
   BottomNav,
   FloatingCartPreview,
@@ -204,6 +209,41 @@ function AppRouter() {
       return (
         <Suspense fallback={PATH_LOADING_FALLBACK}>
           <FAQPage />
+        </Suspense>
+      )
+    }
+    if (pathname === '/trompe-loeil-annecy' || pathname === '/trompe-loeil-annecy/') {
+      return (
+        <Suspense fallback={PATH_LOADING_FALLBACK}>
+          <TrompeLoeilAnnecyPage />
+        </Suspense>
+      )
+    }
+    if (pathname === '/brownies-annecy' || pathname === '/brownies-annecy/') {
+      return (
+        <Suspense fallback={PATH_LOADING_FALLBACK}>
+          <BrowniesAnnecyPage />
+        </Suspense>
+      )
+    }
+    if (pathname === '/cookies-annecy' || pathname === '/cookies-annecy/') {
+      return (
+        <Suspense fallback={PATH_LOADING_FALLBACK}>
+          <CookiesAnnecyPage />
+        </Suspense>
+      )
+    }
+    if (pathname === '/patisserie-anniversaire-annecy' || pathname === '/patisserie-anniversaire-annecy/') {
+      return (
+        <Suspense fallback={PATH_LOADING_FALLBACK}>
+          <PatisserieAnniversaireAnnecyPage />
+        </Suspense>
+      )
+    }
+    if (pathname === '/cadeau-gourmand-annecy' || pathname === '/cadeau-gourmand-annecy/') {
+      return (
+        <Suspense fallback={PATH_LOADING_FALLBACK}>
+          <CadeauGourmandAnnecyPage />
         </Suspense>
       )
     }
