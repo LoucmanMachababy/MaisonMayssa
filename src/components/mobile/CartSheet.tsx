@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { motion, AnimatePresence, useDragControls } from 'framer-motion'
-import { X, Minus, Plus, Trash2, ShoppingBag, MessageCircle, User, Phone, Mail, MapPin, Truck, Calendar, Clock, Star, Gift, Instagram, Tag, Heart } from 'lucide-react'
+import { motion, AnimatePresence, useDragControls, useReducedMotion } from 'framer-motion'
+import { X, Minus, Plus, Trash2, ShoppingBag, MessageCircle, User, Phone, Mail, MapPin, Truck, Calendar, Clock, Star, Gift, Instagram, Tag, Heart, ChevronDown, ChevronLeft, ChevronRight, Check } from 'lucide-react'
 import { SnapIcon } from '../SnapIcon'
 import { hapticFeedback } from '../../lib/haptics'
 import { cn, isBeforeOrderCutoff, isBeforeFirstPickupDate, normalizeOrderProductBaseId, trompeSelectionDisplayLabels } from '../../lib/utils'
@@ -73,6 +73,8 @@ interface CartSheetProps {
   onOrderContactIdentityChange?: (v: 'whatsapp' | 'instagram' | 'snap') => void
 }
 
+type WizardStep = 1 | 2 | 3
+
 export function CartSheet({
   isOpen,
   onClose,
@@ -122,11 +124,22 @@ export function CartSheet({
     setDismissSecondOrderPrompt(false)
   }, [pendingOrder?.placedAt])
 
+  // --- Wizard state ---
+  const [currentStep, setCurrentStep] = useState<WizardStep>(1)
+  const [showOptions, setShowOptions] = useState(false)
+  // Reset le wizard quand la sheet se ferme ou se rouvre
+  useEffect(() => {
+    if (!isOpen) {
+      setCurrentStep(1)
+    }
+  }, [isOpen])
+
   const dragControls = useDragControls()
   const sheetRef = useRef<HTMLDivElement>(null)
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0)
   const hasItems = items.length > 0
   const { isAuthenticated, profile } = useAuth()
+  const prefersReducedMotion = useReducedMotion()
 
   useFocusTrap(sheetRef, isOpen, onClose)
 
@@ -158,10 +171,10 @@ export function CartSheet({
   const deliveryFee = useMemo(() => computeDeliveryFee(customer, totalAfterDiscount), [customer, totalAfterDiscount])
   const finalTotal = totalAfterDiscount + (deliveryFee ?? 0) + donationAmount
 
-  // Calcul des points de fidélité
+  // Points de fidélité
   const pointsToEarn = Math.round(finalTotal) // 1 € = 1 point
-  const availableRewards = isAuthenticated && profile 
-    ? Object.entries(REWARD_COSTS).filter(([_, cost]) => profile.loyalty.points >= cost)
+  const availableRewards = isAuthenticated && profile
+    ? Object.entries(REWARD_COSTS).filter(([, cost]) => profile.loyalty.points >= cost)
     : []
 
   const allTimeSlots = useMemo(() => {
@@ -186,14 +199,12 @@ export function CartSheet({
     ? (customer.wantsDelivery ? minDateLivraison : minDateRetrait)
     : (minDateProp && minDateProp.trim() ? minDateProp : getMinDate())
   const maxDate = maxDateProp && maxDateProp.trim() ? maxDateProp : undefined
-  // Précommandes ouvertes si la date+heure d'ouverture est passée (ou si pas configurée)
   const preorderIsOpen = useMemo(() => {
     if (!preorderOpenDate) return true
     const now = new Date()
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     if (preorderOpenDate > todayStr) return false
     if (preorderOpenDate < todayStr) return true
-    // Même jour → vérifier l'heure
     const [h, m] = (preorderOpenTime ?? '00:00').split(':').map(Number)
     return now.getHours() * 60 + now.getMinutes() >= (h ?? 0) * 60 + (m ?? 0)
   }, [preorderOpenDate, preorderOpenTime])
@@ -201,10 +212,8 @@ export function CartSheet({
     () => getSelectableDates(minDate, maxDate, availableWeekdays, pickupDates, preorderIsOpen),
     [minDate, maxDate, availableWeekdays, pickupDates, preorderIsOpen],
   )
-  // Si des dates de récupération sont configurées mais les précommandes pas encore ouvertes → bloquer
   const pickupDatesMode = !!(pickupDates && pickupDates.length > 0)
   const useDateSelect = selectableDates.length > 0
-  // Message d'attente : afficher quand les précommandes sont configurées mais pas encore ouvertes
   const openingLabel = useMemo(() => {
     if (!pickupDatesMode || useDateSelect || !preorderOpenDate) return null
     const dateLabel = formatDateLabel(preorderOpenDate)
@@ -217,6 +226,7 @@ export function CartSheet({
     if (useDateSelect && selectableDates.length > 0 && (!customer.date || !selectableDates.includes(customer.date))) {
       onCustomerChange({ ...customer, date: selectableDates[0], time: '' })
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [useDateSelect, selectableDates, customer.date])
 
   useEffect(() => {
@@ -232,6 +242,7 @@ export function CartSheet({
         onCustomerChange({ ...customer, time: '' })
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customer.wantsDelivery, customer.date, customer.time, deliverySlots, allTimeSlots])
 
   const handleContactIdentityChange = (v: 'whatsapp' | 'instagram' | 'snap') => {
@@ -261,429 +272,169 @@ export function CartSheet({
     !trompeLoeilBeforeMinDate &&
     (!hasNonTrompeLoeil || !orderCutoffPassed || ordersExplicit)
 
-  const handleDragEnd = (_: any, info: { velocity: { y: number }; offset: { y: number } }) => {
+  // --- Wizard step validation ---
+  const canAdvanceFromStep1 = hasItems
+  const canAdvanceFromStep2 = hasItems && isCustomerValid
+  const canAdvanceFromStep = (step: WizardStep) =>
+    step === 1 ? canAdvanceFromStep1 : step === 2 ? canAdvanceFromStep2 : canSend
+
+  const goToStep = (step: WizardStep) => {
+    hapticFeedback('light')
+    setCurrentStep(step)
+  }
+
+  const goNext = () => {
+    if (!canAdvanceFromStep(currentStep)) {
+      hapticFeedback('warning')
+      // Si étape 2 : forcer l'affichage des erreurs (mark all as touched)
+      if (currentStep === 2) {
+        setTouched({ firstName: true, lastName: true, phone: true, address: true, date: true, time: true })
+      }
+      return
+    }
+    hapticFeedback('light')
+    if (currentStep < 3) setCurrentStep((s) => (s + 1) as WizardStep)
+  }
+
+  const goBack = () => {
+    if (currentStep === 1) return
+    hapticFeedback('light')
+    setCurrentStep((s) => (s - 1) as WizardStep)
+  }
+
+  const handleDragEnd = (_: unknown, info: { velocity: { y: number }; offset: { y: number } }) => {
     if (info.velocity.y > 500 || info.offset.y > 200) {
       hapticFeedback('light')
       onClose()
     }
   }
 
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          {/* Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm md:hidden cursor-pointer"
-          />
+  // Step labels
+  const stepLabels: Record<WizardStep, string> = {
+    1: 'Panier',
+    2: 'Infos',
+    3: 'Récap',
+  }
 
-          {/* Sheet */}
-          <motion.div
-            ref={sheetRef}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Panier"
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            drag="y"
-            dragControls={dragControls}
-            dragListener={false}
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={{ top: 0, bottom: 0.5 }}
-            onDragEnd={handleDragEnd}
-            className="fixed bottom-0 left-0 right-0 z-50 h-[90vh] rounded-t-3xl bg-mayssa-cream shadow-2xl md:hidden flex flex-col"
-          >
-            {/* Drag handle */}
-            <div
-              className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing flex-shrink-0"
-              onPointerDown={(e) => dragControls.start(e)}
-            >
-              <div className="w-12 h-1.5 rounded-full bg-mayssa-brown/20" />
-            </div>
+  // Motion variants pour transitions horizontales (ou fade si reduced-motion)
+  const stepTransition = prefersReducedMotion
+    ? { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 }, transition: { duration: 0.15 } }
+    : { initial: { opacity: 0, x: 40 }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: -40 }, transition: { duration: 0.25, ease: 'easeOut' as const } }
 
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 pb-3 border-b border-mayssa-brown/10 flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <ShoppingBag size={20} className="text-mayssa-brown" />
-                  {itemCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-mayssa-caramel text-[9px] font-bold text-white">
-                      {itemCount}
-                    </span>
-                  )}
-                </div>
-                <h2 className="font-bold text-lg text-mayssa-brown">Ma Commande</h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => { hapticFeedback('light'); onClose() }}
-                aria-label="Fermer le panier"
-                className="flex h-9 w-9 items-center justify-center rounded-xl bg-mayssa-brown/5 text-mayssa-brown/75 cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-              {/* Cart Items */}
-              {hasItems ? (
-                <div className="space-y-2">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/75">
-                    Articles ({itemCount})
-                  </p>
-                  {items.map((item) => (
-                    <div key={item.product.id} className="flex gap-3 p-2.5 rounded-xl bg-white/80">
-                      {item.product.image && (
-                        <div className="w-14 h-14 flex-shrink-0 rounded-lg overflow-hidden">
-                          <img src={item.product.image} alt={item.product.name} width={56} height={56} loading="lazy" decoding="async" className="w-full h-full object-cover" />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-xs text-mayssa-brown truncate">{item.product.name}</h3>
-                        {item.product.description ? (
-                          <p className="text-[10px] text-mayssa-brown/65 truncate">{item.product.description}</p>
-                        ) : null}
-                        {(() => {
-                          const baseId = normalizeOrderProductBaseId(item.product.id)
-                          const sel = item.trompeDiscoverySelection
-                          if (!sel?.length || !isTrompeBoxWithStoredSelection(baseId)) return null
-                          const labels = trompeSelectionDisplayLabels(sel)
-                          return (
-                            <ul className="mt-1 text-[9px] text-mayssa-brown/55 space-y-0.5 list-disc list-inside max-h-20 overflow-y-auto">
-                              {labels.map((label, idx) => (
-                                <li key={`${sel[idx]}-${idx}`}>{label}</li>
-                              ))}
-                            </ul>
-                          )
-                        })()}
-                        <div className="flex items-center justify-between mt-1.5">
-                          <span className="font-bold text-sm text-mayssa-caramel">
-                            {(item.product.price * item.quantity).toFixed(2).replace('.', ',')} €
-                          </span>
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => { hapticFeedback('light'); onUpdateQuantity(item.product.id, item.quantity - 1) }}
-                              aria-label={item.quantity === 1 ? `Supprimer ${item.product.name}` : `Réduire ${item.product.name}`}
-                              className="flex h-10 w-10 items-center justify-center rounded-md bg-mayssa-cream text-mayssa-brown cursor-pointer"
-                            >
-                              {item.quantity === 1 ? <Trash2 size={14} /> : <Minus size={14} />}
-                            </button>
-                            <span className="w-6 text-center font-bold text-sm">{item.quantity}</span>
-                            <button
-                              type="button"
-                              onClick={() => { hapticFeedback('light'); onUpdateQuantity(item.product.id, item.quantity + 1) }}
-                              aria-label={`Ajouter ${item.product.name}`}
-                              className="flex h-10 w-10 items-center justify-center rounded-md bg-mayssa-brown text-mayssa-cream cursor-pointer"
-                            >
-                              <Plus size={14} />
-                            </button>
-                          </div>
-                        </div>
-                        {item.reservationExpiresAt && (
-                          <div className="mt-1">
-                            <ReservationTimer
-                              expiresAt={item.reservationExpiresAt}
-                              confirmed={item.reservationConfirmed}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-mayssa-brown/5 mb-3">
-                    <ShoppingBag size={28} className="text-mayssa-brown/30" />
-                  </div>
-                  <p className="text-mayssa-brown/75 font-medium text-sm">Ton panier est vide</p>
+  // ============================================================================
+  // STEP 1 — Panier (items + total + toggle options)
+  // ============================================================================
+  const renderStep1 = () => (
+    <motion.div key="step1" {...stepTransition} className="space-y-4">
+      {/* Cart Items */}
+      {hasItems ? (
+        <div className="space-y-2">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/75">
+            Articles ({itemCount})
+          </p>
+          {items.map((item) => (
+            <div key={item.product.id} className="flex gap-3 p-2.5 rounded-xl bg-white/80">
+              {item.product.image && (
+                <div className="w-14 h-14 flex-shrink-0 rounded-lg overflow-hidden">
+                  <img src={item.product.image} alt={item.product.name} width={56} height={56} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                 </div>
               )}
-
-              {/* Customer Info */}
-              <div className="space-y-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/75">
-                  Tes informations *
-                </p>
-                <div className="space-y-2">
-                  <p className="text-[9px] font-semibold text-mayssa-brown/70">Tu finalises par</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {(['whatsapp', 'instagram', 'snap'] as const).map((id) => (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => { hapticFeedback('light'); handleContactIdentityChange(id) }}
-                        className={cn(
-                          'inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide border transition-all',
-                          orderContactIdentity === id
-                            ? 'bg-mayssa-brown text-mayssa-gold border-mayssa-brown'
-                            : 'bg-white/80 text-mayssa-brown/75 border-mayssa-brown/10',
-                        )}
-                      >
-                        {id === 'whatsapp' && <MessageCircle size={12} />}
-                        {id === 'instagram' && <Instagram size={12} />}
-                        {id === 'snap' && <SnapIcon size={12} />}
-                        {id === 'whatsapp' ? 'WA' : id === 'instagram' ? 'Insta' : 'Snap'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {orderContactIdentity === 'whatsapp' ? (
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", showError('firstName') ? "ring-red-300" : "ring-mayssa-brown/10")}>
-                      <User size={14} className="text-mayssa-caramel flex-shrink-0" />
-                      <input
-                        value={customer.firstName}
-                        onChange={(e) => onCustomerChange({ ...customer, firstName: e.target.value })}
-                        onBlur={() => markTouched('firstName')}
-                        placeholder="Prénom"
-                        aria-label="Prénom"
-                        className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
-                      />
-                    </div>
-                    {showError('firstName') && <p className="text-[9px] text-red-400 pl-3 mt-0.5">{validationErrors.firstName}</p>}
-                  </div>
-                  <div>
-                    <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", showError('lastName') ? "ring-red-300" : "ring-mayssa-brown/10")}>
-                      <User size={14} className="text-mayssa-caramel flex-shrink-0" />
-                      <input
-                        value={customer.lastName}
-                        onChange={(e) => onCustomerChange({ ...customer, lastName: e.target.value })}
-                        onBlur={() => markTouched('lastName')}
-                        placeholder="Nom"
-                        aria-label="Nom"
-                        className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
-                      />
-                    </div>
-                    {showError('lastName') && <p className="text-[9px] text-red-400 pl-3 mt-0.5">{validationErrors.lastName}</p>}
-                  </div>
-                </div>
-                ) : (
-                <div>
-                  <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", showError('firstName') ? "ring-red-300" : "ring-mayssa-brown/10")}>
-                    {orderContactIdentity === 'instagram' ? (
-                      <Instagram size={14} className="text-mayssa-caramel flex-shrink-0" />
-                    ) : (
-                      <SnapIcon size={14} className="text-mayssa-caramel flex-shrink-0" />
-                    )}
-                    <input
-                      value={customer.firstName}
-                      onChange={(e) => onCustomerChange({ ...customer, firstName: e.target.value })}
-                      onBlur={() => {
-                        markTouched('firstName')
-                        if (orderContactIdentity === 'instagram') {
-                          const n = normalizeInstagramHandle(customer.firstName)
-                          if (n !== customer.firstName) onCustomerChange({ ...customer, firstName: n })
-                        }
-                      }}
-                      placeholder={
-                        orderContactIdentity === 'instagram'
-                          ? '@pseudo Instagram *'
-                          : "Nom d'utilisateur Snapchat"
-                      }
-                      aria-label={
-                        orderContactIdentity === 'instagram'
-                          ? "Nom d'utilisateur Instagram"
-                          : "Nom d'utilisateur Snapchat"
-                      }
-                      className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
-                    />
-                  </div>
-                  {showError('firstName') && <p className="text-[9px] text-red-400 pl-3 mt-0.5">{validationErrors.firstName}</p>}
-                </div>
-                )}
-                <div>
-                  <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", showError('phone') ? "ring-red-300" : "ring-mayssa-brown/10")}>
-                    <Phone size={14} className="text-mayssa-caramel flex-shrink-0" />
-                    <input
-                      type="tel"
-                      value={customer.phone}
-                      onChange={(e) => {
-                        let value = e.target.value.replace(/\s/g, '')
-                        if (value.length > 2) value = value.match(/.{1,2}/g)?.join(' ') || value
-                        onCustomerChange({ ...customer, phone: value })
-                      }}
-                      onBlur={() => markTouched('phone')}
-                      placeholder="Téléphone"
-                      aria-label="Téléphone"
-                      className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
-                    />
-                  </div>
-                  {showError('phone') && <p className="text-[9px] text-red-400 pl-3 mt-0.5">{validationErrors.phone}</p>}
-                </div>
-                <div>
-                  <div className="flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1 ring-mayssa-brown/10">
-                    <Mail size={14} className="text-mayssa-caramel flex-shrink-0" aria-hidden />
-                    <input
-                      type="email"
-                      value={customer.email ?? ''}
-                      onChange={(e) => onCustomerChange({ ...customer, email: e.target.value.trim() || undefined })}
-                      placeholder="Email (récap + notif)"
-                      aria-label="Email pour récap et notifications"
-                      className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
-                    />
-                  </div>
-                  <p className="text-[9px] text-mayssa-brown/50 pl-3 mt-0.5">Optionnel</p>
-                </div>
-              </div>
-
-              {/* Delivery Mode */}
-              <div className="space-y-2">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/75">
-                  Mode de récupération
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => { hapticFeedback('light'); onCustomerChange({ ...customer, wantsDelivery: false }) }}
-                    aria-label="Choisir retrait sur place"
-                    className={cn(
-                      "flex flex-col items-center justify-center gap-1 rounded-xl p-3 text-xs font-bold transition-all cursor-pointer",
-                      !customer.wantsDelivery
-                        ? "bg-mayssa-brown text-mayssa-cream shadow-lg"
-                        : "bg-white/80 text-mayssa-brown ring-1 ring-mayssa-brown/10"
-                    )}
-                  >
-                    <MapPin size={18} />
-                    <span>Retrait</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { hapticFeedback('light'); onCustomerChange({ ...customer, wantsDelivery: true }) }}
-                    aria-label="Choisir livraison"
-                    className={cn(
-                      "flex flex-col items-center justify-center gap-1 rounded-xl p-3 text-xs font-bold transition-all cursor-pointer",
-                      customer.wantsDelivery
-                        ? "bg-mayssa-caramel text-white shadow-lg"
-                        : "bg-white/80 text-mayssa-brown ring-1 ring-mayssa-brown/10"
-                    )}
-                  >
-                    <Truck size={18} />
-                    <span>Livraison</span>
-                  </button>
-                </div>
-
-                {customer.wantsDelivery && (
-                  <div>
-                    <div className={cn("rounded-xl bg-white/80 px-3 py-2.5 ring-1", validationErrors.address ? "ring-red-300" : "ring-mayssa-caramel/30")}>
-                      <AddressAutocomplete
-                        value={customer.address}
-                        onChange={(address, coordinates) => onCustomerChange({ ...customer, address, addressCoordinates: coordinates })}
-                        placeholder="Tape ton adresse..."
-                        ariaLabel="Adresse de livraison"
-                      />
-                    </div>
-                    {isAuthenticated && profile?.address && customer.address === profile.address && (
-                      <p className="mt-1.5 text-[10px] text-emerald-600 bg-emerald-50 rounded-lg px-2 py-1 flex items-center gap-1">
-                        <MapPin size={10} />
-                        Adresse pré-remplie depuis ton profil
-                      </p>
-                    )}
-                    <div className="mt-2">
-                      <label id="cart-sheet-delivery-instructions-label" className="block text-[9px] font-medium text-mayssa-brown/70 mb-0.5">Instructions livreur</label>
-                      <input
-                        id="cart-sheet-delivery-instructions"
-                        type="text"
-                        value={customer.deliveryInstructions ?? ''}
-                        onChange={(e) => onCustomerChange({ ...customer, deliveryInstructions: e.target.value })}
-                        placeholder="Code, étage, sonner 2 fois…"
-                        aria-labelledby="cart-sheet-delivery-instructions-label"
-                        className="w-full rounded-lg bg-white/80 px-2.5 py-1.5 text-xs text-mayssa-brown placeholder:text-mayssa-brown/40 ring-1 ring-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel/30"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Date & Time */}
-              <div className="space-y-2">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/75">
-                  Date et heure *
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", validationErrors.date ? "ring-red-300" : "ring-mayssa-brown/10")}>
-                    <Calendar size={14} className="text-mayssa-caramel flex-shrink-0" />
-                    {useDateSelect ? (
-                      <select
-                        value={selectableDates.includes(customer.date) ? customer.date : selectableDates[0] ?? ''}
-                        onChange={(e) => onCustomerChange({ ...customer, date: e.target.value, time: '' })}
-                        className="w-full bg-transparent text-xs font-medium text-mayssa-brown focus:outline-none cursor-pointer"
-                        aria-label="Date de retrait ou livraison"
-                      >
-                        <option value="">Choisir une date</option>
-                        {selectableDates.map((d) => (
-                          <option key={d} value={d}>{formatDateLabel(d)}</option>
-                        ))}
-                      </select>
-                    ) : pickupDatesMode ? (
-                      <span className="text-xs text-mayssa-brown/50 italic">
-                        {openingLabel ?? 'Aucune date disponible'}
-                      </span>
-                    ) : (
-                      <input
-                        type="date"
-                        min={minDate}
-                        max={maxDate}
-                        value={customer.date}
-                        onChange={(e) => onCustomerChange({ ...customer, date: e.target.value })}
-                        className="w-full bg-transparent text-xs font-medium text-mayssa-brown focus:outline-none"
-                        aria-label="Date de retrait ou livraison"
-                      />
-                    )}
-                  </div>
-                  <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", validationErrors.time ? "ring-red-300" : "ring-mayssa-brown/10")}>
-                    <Clock size={14} className="text-mayssa-caramel flex-shrink-0" aria-hidden="true" />
-                    <select
-                      value={customer.time}
-                      onChange={(e) => onCustomerChange({ ...customer, time: e.target.value })}
-                      className="w-full bg-transparent text-xs font-medium text-mayssa-brown focus:outline-none cursor-pointer"
-                      aria-label="Heure de retrait ou livraison"
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-xs text-mayssa-brown truncate">{item.product.name}</h3>
+                {item.product.description ? (
+                  <p className="text-[10px] text-mayssa-brown/65 truncate">{item.product.description}</p>
+                ) : null}
+                {(() => {
+                  const baseId = normalizeOrderProductBaseId(item.product.id)
+                  const sel = item.trompeDiscoverySelection
+                  if (!sel?.length || !isTrompeBoxWithStoredSelection(baseId)) return null
+                  const labels = trompeSelectionDisplayLabels(sel)
+                  return (
+                    <ul className="mt-1 text-[9px] text-mayssa-brown/55 space-y-0.5 list-disc list-inside max-h-20 overflow-y-auto">
+                      {labels.map((label, idx) => (
+                        <li key={`${sel[idx]}-${idx}`}>{label}</li>
+                      ))}
+                    </ul>
+                  )
+                })()}
+                <div className="flex items-center justify-between mt-1.5">
+                  <span className="font-bold text-sm text-mayssa-caramel">
+                    {(item.product.price * item.quantity).toFixed(2).replace('.', ',')} €
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => { hapticFeedback('light'); onUpdateQuantity(item.product.id, item.quantity - 1) }}
+                      aria-label={item.quantity === 1 ? `Supprimer ${item.product.name}` : `Réduire ${item.product.name}`}
+                      className="flex h-10 w-10 items-center justify-center rounded-md bg-mayssa-cream text-mayssa-brown cursor-pointer"
                     >
-                      <option value="">Heure</option>
-                      {allTimeSlots.map((time) => {
-                        const full = isSlotFull(time)
-                        const placesLeft = getPlacesLeft(time)
-                        return (
-                          <option key={time} value={time} disabled={full}>
-                            {time}{full ? ' — Complet' : placesLeft < DELIVERY_SLOT_MAX_CAPACITY ? ` — Plus que ${placesLeft} place${placesLeft > 1 ? 's' : ''}` : ''}
-                          </option>
-                        )
-                      })}
-                    </select>
+                      {item.quantity === 1 ? <Trash2 size={14} /> : <Minus size={14} />}
+                    </button>
+                    <span className="w-6 text-center font-bold text-sm">{item.quantity}</span>
+                    <button
+                      type="button"
+                      onClick={() => { hapticFeedback('light'); onUpdateQuantity(item.product.id, item.quantity + 1) }}
+                      aria-label={`Ajouter ${item.product.name}`}
+                      className="flex h-10 w-10 items-center justify-center rounded-md bg-mayssa-brown text-mayssa-cream cursor-pointer"
+                    >
+                      <Plus size={14} />
+                    </button>
                   </div>
                 </div>
-                <p className="text-[9px] text-mayssa-brown/65">
-                  {customer.wantsDelivery ? 'Livraison 20h - 2h' : 'Retrait 18h30 - 2h'}
-                </p>
-                {customer.wantsDelivery && customer.date && timeSlots.length === 0 && (
-                  <p className="text-[10px] text-amber-600 bg-amber-50 rounded-lg px-2 py-1.5">
-                    Plus de créneaux disponibles pour cette date en livraison. Choisissez une autre date ou heure.
-                  </p>
+                {item.reservationExpiresAt && (
+                  <div className="mt-1">
+                    <ReservationTimer
+                      expiresAt={item.reservationExpiresAt}
+                      confirmed={item.reservationConfirmed}
+                    />
+                  </div>
                 )}
               </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-mayssa-brown/5 mb-3">
+            <ShoppingBag size={32} className="text-mayssa-brown/30" />
+          </div>
+          <p className="text-mayssa-brown/75 font-medium text-sm">Ton panier est vide</p>
+          <p className="text-mayssa-brown/50 text-xs mt-1">Ajoute des articles pour continuer</p>
+        </div>
+      )}
 
-              {/* Notes */}
-              <div className="space-y-2">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/75">
-                  Notes (optionnel)
-                </p>
-                <textarea
-                  value={note}
-                  onChange={(e) => onNoteChange(e.target.value)}
-                  placeholder="Allergies, instructions..."
-                  className="w-full min-h-[60px] resize-none rounded-xl bg-white/80 p-3 text-xs text-mayssa-brown ring-1 ring-mayssa-brown/10 focus:outline-none focus:ring-mayssa-caramel/50"
-                />
-              </div>
+      {/* Sous-total simple */}
+      {hasItems && (
+        <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-mayssa-cream/40 border border-mayssa-brown/10">
+          <span className="text-xs font-medium text-mayssa-brown/80">Sous-total</span>
+          <span className="text-base font-bold text-mayssa-brown">
+            {total.toFixed(2).replace('.', ',')} €
+          </span>
+        </div>
+      )}
 
+      {/* Toggle "Plus d'options" */}
+      {hasItems && (setPromoCodeInput != null || setDonationAmount != null || isAuthenticated) && (
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={() => { hapticFeedback('light'); setShowOptions((s) => !s) }}
+            aria-expanded={showOptions}
+            aria-controls="cart-more-options"
+            className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-white/60 border border-mayssa-brown/10 text-xs font-bold text-mayssa-brown cursor-pointer"
+          >
+            <span className="flex items-center gap-2">
+              <Tag size={14} className="text-mayssa-caramel" />
+              Plus d'options{appliedPromo ? ' (promo appliqué)' : donationAmount > 0 ? ` (don ${donationAmount}€)` : selectedReward ? ' (récompense)' : ''}
+            </span>
+            <ChevronDown
+              size={16}
+              className={cn('transition-transform', showOptions && 'rotate-180')}
+            />
+          </button>
+
+          {showOptions && (
+            <div id="cart-more-options" className="space-y-3 pl-2 border-l-2 border-mayssa-caramel/20">
               {/* Code promo */}
               {setPromoCodeInput != null && onApplyPromo != null && onClearPromo != null && (
                 <div className="space-y-2">
@@ -782,10 +533,9 @@ export function CartSheet({
 
               {/* Points & Récompenses */}
               {isAuthenticated && profile && hasItems && (
-                <div className="space-y-3">
-                  {/* Points à gagner */}
+                <div className="space-y-2">
                   <div className="bg-mayssa-caramel/10 rounded-xl p-3">
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Star size={14} className="text-mayssa-caramel" />
                         <span className="text-xs font-medium text-mayssa-brown">
@@ -798,7 +548,6 @@ export function CartSheet({
                     </div>
                   </div>
 
-                  {/* Récompenses disponibles */}
                   {availableRewards.length > 0 && (
                     <div className="space-y-2">
                       <p className="text-xs font-medium text-mayssa-brown/80">Récompenses disponibles :</p>
@@ -875,187 +624,756 @@ export function CartSheet({
                   </button>
                 </div>
               )}
+            </div>
+          )}
+        </div>
+      )}
+    </motion.div>
+  )
 
-              <p className="text-[9px] text-mayssa-brown/75 text-center flex items-center justify-center gap-1">
-                <MessageCircle size={12} />
-                Commande via WhatsApp, Instagram ou Snapchat.
+  // ============================================================================
+  // STEP 2 — Infos (mode, adresse, date/heure, identité, tel, email, note)
+  // ============================================================================
+  const renderStep2 = () => (
+    <motion.div key="step2" {...stepTransition} className="space-y-4">
+      {/* Delivery Mode */}
+      <div className="space-y-2">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/75">
+          Mode de récupération
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => { hapticFeedback('light'); onCustomerChange({ ...customer, wantsDelivery: false }) }}
+            aria-label="Choisir retrait sur place"
+            className={cn(
+              "flex flex-col items-center justify-center gap-1 rounded-xl p-3 text-xs font-bold transition-all cursor-pointer",
+              !customer.wantsDelivery
+                ? "bg-mayssa-brown text-mayssa-cream shadow-lg"
+                : "bg-white/80 text-mayssa-brown ring-1 ring-mayssa-brown/10"
+            )}
+          >
+            <MapPin size={18} />
+            <span>Retrait</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => { hapticFeedback('light'); onCustomerChange({ ...customer, wantsDelivery: true }) }}
+            aria-label="Choisir livraison"
+            className={cn(
+              "flex flex-col items-center justify-center gap-1 rounded-xl p-3 text-xs font-bold transition-all cursor-pointer",
+              customer.wantsDelivery
+                ? "bg-mayssa-caramel text-white shadow-lg"
+                : "bg-white/80 text-mayssa-brown ring-1 ring-mayssa-brown/10"
+            )}
+          >
+            <Truck size={18} />
+            <span>Livraison</span>
+          </button>
+        </div>
+
+        {customer.wantsDelivery && (
+          <div>
+            <div className={cn("rounded-xl bg-white/80 px-3 py-2.5 ring-1", showError('address') ? "ring-red-300" : "ring-mayssa-caramel/30")}>
+              <AddressAutocomplete
+                value={customer.address}
+                onChange={(address, coordinates) => onCustomerChange({ ...customer, address, addressCoordinates: coordinates })}
+                placeholder="Tape ton adresse..."
+                ariaLabel="Adresse de livraison"
+              />
+            </div>
+            {showError('address') && <p className="text-[9px] text-red-400 pl-3 mt-0.5">{validationErrors.address}</p>}
+            {isAuthenticated && profile?.address && customer.address === profile.address && (
+              <p className="mt-1.5 text-[10px] text-emerald-600 bg-emerald-50 rounded-lg px-2 py-1 flex items-center gap-1">
+                <MapPin size={10} />
+                Adresse pré-remplie depuis ton profil
               </p>
-              <div className="mt-1 rounded-xl bg-mayssa-soft/60 border border-mayssa-brown/10 px-3 py-2.5 text-[9px] text-mayssa-brown/80 space-y-1">
-                <p className="font-semibold text-[10px] text-mayssa-brown text-center">
-                  Comment se passe la commande ?
-                </p>
-                <p><span className="font-semibold">1.</span> Je remplis mon panier sur le site.</p>
-                <p><span className="font-semibold">2.</span> J&apos;envoie ma commande sur WhatsApp (ou Insta / Snap).</p>
-                <p><span className="font-semibold">3.</span> Maison Mayssa me confirme la commande et l&apos;heure.</p>
-                <p><span className="font-semibold">4.</span> Paiement à la livraison / au retrait ou via PayPal.</p>
+            )}
+            <div className="mt-2">
+              <label id="cart-sheet-delivery-instructions-label" className="block text-[9px] font-medium text-mayssa-brown/70 mb-0.5">Instructions livreur</label>
+              <input
+                id="cart-sheet-delivery-instructions"
+                type="text"
+                value={customer.deliveryInstructions ?? ''}
+                onChange={(e) => onCustomerChange({ ...customer, deliveryInstructions: e.target.value })}
+                placeholder="Code, étage, sonner 2 fois…"
+                aria-labelledby="cart-sheet-delivery-instructions-label"
+                className="w-full rounded-lg bg-white/80 px-2.5 py-1.5 text-xs text-mayssa-brown placeholder:text-mayssa-brown/40 ring-1 ring-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel/30"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Date & Time */}
+      <div className="space-y-2">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/75">
+          Date et heure *
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", showError('date') ? "ring-red-300" : "ring-mayssa-brown/10")}>
+            <Calendar size={14} className="text-mayssa-caramel flex-shrink-0" />
+            {useDateSelect ? (
+              <select
+                value={selectableDates.includes(customer.date) ? customer.date : selectableDates[0] ?? ''}
+                onChange={(e) => { markTouched('date'); onCustomerChange({ ...customer, date: e.target.value, time: '' }) }}
+                className="w-full bg-transparent text-xs font-medium text-mayssa-brown focus:outline-none cursor-pointer"
+                aria-label="Date de retrait ou livraison"
+              >
+                <option value="">Choisir une date</option>
+                {selectableDates.map((d) => (
+                  <option key={d} value={d}>{formatDateLabel(d)}</option>
+                ))}
+              </select>
+            ) : pickupDatesMode ? (
+              <span className="text-xs text-mayssa-brown/50 italic">
+                {openingLabel ?? 'Aucune date disponible'}
+              </span>
+            ) : (
+              <input
+                type="date"
+                min={minDate}
+                max={maxDate}
+                value={customer.date}
+                onChange={(e) => { markTouched('date'); onCustomerChange({ ...customer, date: e.target.value }) }}
+                className="w-full bg-transparent text-xs font-medium text-mayssa-brown focus:outline-none"
+                aria-label="Date de retrait ou livraison"
+              />
+            )}
+          </div>
+          <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", showError('time') ? "ring-red-300" : "ring-mayssa-brown/10")}>
+            <Clock size={14} className="text-mayssa-caramel flex-shrink-0" aria-hidden="true" />
+            <select
+              value={customer.time}
+              onChange={(e) => { markTouched('time'); onCustomerChange({ ...customer, time: e.target.value }) }}
+              className="w-full bg-transparent text-xs font-medium text-mayssa-brown focus:outline-none cursor-pointer"
+              aria-label="Heure de retrait ou livraison"
+            >
+              <option value="">Heure</option>
+              {allTimeSlots.map((time) => {
+                const full = isSlotFull(time)
+                const placesLeft = getPlacesLeft(time)
+                return (
+                  <option key={time} value={time} disabled={full}>
+                    {time}{full ? ' — Complet' : placesLeft < DELIVERY_SLOT_MAX_CAPACITY ? ` — Plus que ${placesLeft} place${placesLeft > 1 ? 's' : ''}` : ''}
+                  </option>
+                )
+              })}
+            </select>
+          </div>
+        </div>
+        <p className="text-[9px] text-mayssa-brown/65">
+          {customer.wantsDelivery ? 'Livraison 20h - 2h' : 'Retrait 18h30 - 2h'}
+        </p>
+        {customer.wantsDelivery && customer.date && timeSlots.length === 0 && (
+          <p className="text-[10px] text-amber-600 bg-amber-50 rounded-lg px-2 py-1.5">
+            Plus de créneaux disponibles pour cette date en livraison. Choisissez une autre date ou heure.
+          </p>
+        )}
+      </div>
+
+      {/* Customer Info — identité + contact */}
+      <div className="space-y-3">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/75">
+          Tes informations *
+        </p>
+        <div className="space-y-2">
+          <p className="text-[9px] font-semibold text-mayssa-brown/70">Tu finalises par</p>
+          <div className="flex flex-wrap gap-1.5">
+            {(['whatsapp', 'instagram', 'snap'] as const).map((id) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => { hapticFeedback('light'); handleContactIdentityChange(id) }}
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide border transition-all',
+                  orderContactIdentity === id
+                    ? 'bg-mayssa-brown text-mayssa-gold border-mayssa-brown'
+                    : 'bg-white/80 text-mayssa-brown/75 border-mayssa-brown/10',
+                )}
+              >
+                {id === 'whatsapp' && <MessageCircle size={12} />}
+                {id === 'instagram' && <Instagram size={12} />}
+                {id === 'snap' && <SnapIcon size={12} />}
+                {id === 'whatsapp' ? 'WA' : id === 'instagram' ? 'Insta' : 'Snap'}
+              </button>
+            ))}
+          </div>
+        </div>
+        {orderContactIdentity === 'whatsapp' ? (
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", showError('firstName') ? "ring-red-300" : "ring-mayssa-brown/10")}>
+                <User size={14} className="text-mayssa-caramel flex-shrink-0" />
+                <input
+                  value={customer.firstName}
+                  onChange={(e) => onCustomerChange({ ...customer, firstName: e.target.value })}
+                  onBlur={() => markTouched('firstName')}
+                  placeholder="Prénom"
+                  aria-label="Prénom"
+                  className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
+                />
               </div>
-              {hasNonTrompeLoeil && isClassicPreorderPhase && (
-                <p className="text-[10px] text-mayssa-brown/80 text-center bg-mayssa-cream/80 rounded-lg px-2 py-1.5 border border-mayssa-caramel/30">
-                  Précommandes — récup. à partir du {FIRST_PICKUP_DATE_CLASSIC_LABEL}.
-                </p>
+              {showError('firstName') && <p className="text-[9px] text-red-400 pl-3 mt-0.5">{validationErrors.firstName}</p>}
+            </div>
+            <div>
+              <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", showError('lastName') ? "ring-red-300" : "ring-mayssa-brown/10")}>
+                <User size={14} className="text-mayssa-caramel flex-shrink-0" />
+                <input
+                  value={customer.lastName}
+                  onChange={(e) => onCustomerChange({ ...customer, lastName: e.target.value })}
+                  onBlur={() => markTouched('lastName')}
+                  placeholder="Nom"
+                  aria-label="Nom"
+                  className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
+                />
+              </div>
+              {showError('lastName') && <p className="text-[9px] text-red-400 pl-3 mt-0.5">{validationErrors.lastName}</p>}
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", showError('firstName') ? "ring-red-300" : "ring-mayssa-brown/10")}>
+              {orderContactIdentity === 'instagram' ? (
+                <Instagram size={14} className="text-mayssa-caramel flex-shrink-0" />
+              ) : (
+                <SnapIcon size={14} className="text-mayssa-caramel flex-shrink-0" />
               )}
-              {orderCutoffPassed && hasNonTrompeLoeil && (
-                <p className="text-[10px] text-amber-700 text-center bg-amber-50 rounded-lg px-2 py-1.5 border border-amber-200">
-                  Commandes (pâtisseries, cookies…) jusqu&apos;à 17h. Trompe-l&apos;œil toujours dispo.
-                </p>
+              <input
+                value={customer.firstName}
+                onChange={(e) => onCustomerChange({ ...customer, firstName: e.target.value })}
+                onBlur={() => {
+                  markTouched('firstName')
+                  if (orderContactIdentity === 'instagram') {
+                    const n = normalizeInstagramHandle(customer.firstName)
+                    if (n !== customer.firstName) onCustomerChange({ ...customer, firstName: n })
+                  }
+                }}
+                placeholder={
+                  orderContactIdentity === 'instagram'
+                    ? '@pseudo Instagram *'
+                    : "Nom d'utilisateur Snapchat"
+                }
+                aria-label={
+                  orderContactIdentity === 'instagram'
+                    ? "Nom d'utilisateur Instagram"
+                    : "Nom d'utilisateur Snapchat"
+                }
+                className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
+              />
+            </div>
+            {showError('firstName') && <p className="text-[9px] text-red-400 pl-3 mt-0.5">{validationErrors.firstName}</p>}
+          </div>
+        )}
+        <div>
+          <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", showError('phone') ? "ring-red-300" : "ring-mayssa-brown/10")}>
+            <Phone size={14} className="text-mayssa-caramel flex-shrink-0" />
+            <input
+              type="tel"
+              value={customer.phone}
+              onChange={(e) => {
+                let value = e.target.value.replace(/\s/g, '')
+                if (value.length > 2) value = value.match(/.{1,2}/g)?.join(' ') || value
+                onCustomerChange({ ...customer, phone: value })
+              }}
+              onBlur={() => markTouched('phone')}
+              placeholder="Téléphone"
+              aria-label="Téléphone"
+              className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
+            />
+          </div>
+          {showError('phone') && <p className="text-[9px] text-red-400 pl-3 mt-0.5">{validationErrors.phone}</p>}
+        </div>
+        <div>
+          <div className="flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1 ring-mayssa-brown/10">
+            <Mail size={14} className="text-mayssa-caramel flex-shrink-0" aria-hidden />
+            <input
+              type="email"
+              value={customer.email ?? ''}
+              onChange={(e) => onCustomerChange({ ...customer, email: e.target.value.trim() || undefined })}
+              placeholder="Email (récap + notif)"
+              aria-label="Email pour récap et notifications"
+              className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
+            />
+          </div>
+          <p className="text-[9px] text-mayssa-brown/50 pl-3 mt-0.5">Optionnel</p>
+        </div>
+      </div>
+
+      {/* Notes */}
+      <div className="space-y-2">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/75">
+          Notes (optionnel)
+        </p>
+        <textarea
+          value={note}
+          onChange={(e) => onNoteChange(e.target.value)}
+          placeholder="Allergies, instructions..."
+          className="w-full min-h-[60px] resize-none rounded-xl bg-white/80 p-3 text-xs text-mayssa-brown ring-1 ring-mayssa-brown/10 focus:outline-none focus:ring-mayssa-caramel/50"
+        />
+      </div>
+    </motion.div>
+  )
+
+  // ============================================================================
+  // STEP 3 — Récap & Envoi
+  // ============================================================================
+  const renderStep3 = () => (
+    <motion.div key="step3" {...stepTransition} className="space-y-4">
+      {/* Récap items */}
+      <div className="space-y-2">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/75">
+          Ta commande ({itemCount} article{itemCount > 1 ? 's' : ''})
+        </p>
+        <div className="space-y-1.5 rounded-xl bg-white/80 p-3 max-h-44 overflow-y-auto">
+          {items.map((item) => (
+            <div key={item.product.id} className="flex justify-between items-center text-xs">
+              <span className="flex-1 truncate pr-2">
+                <span className="font-semibold text-mayssa-brown">{item.quantity}×</span>{' '}
+                <span className="text-mayssa-brown/80">{item.product.name}</span>
+              </span>
+              <span className="font-bold text-mayssa-caramel shrink-0">
+                {(item.product.price * item.quantity).toFixed(2).replace('.', ',')} €
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Récap infos client */}
+      <div className="space-y-2">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/75">
+          Récapitulatif
+        </p>
+        <div className="rounded-xl bg-white/80 p-3 space-y-2 text-xs">
+          <div className="flex items-start gap-2">
+            {customer.wantsDelivery ? <Truck size={12} className="text-mayssa-caramel mt-0.5 shrink-0" /> : <MapPin size={12} className="text-mayssa-caramel mt-0.5 shrink-0" />}
+            <div className="flex-1">
+              <p className="font-bold text-mayssa-brown">{customer.wantsDelivery ? 'Livraison' : 'Retrait sur place'}</p>
+              {customer.wantsDelivery && customer.address && (
+                <p className="text-mayssa-brown/70 text-[11px]">{customer.address}</p>
               )}
-              {trompeLoeilBeforeMinDate && (
-                <p className="text-[10px] text-amber-700 text-center bg-amber-50 rounded-lg px-2 py-1.5 border border-amber-200">
-                  Les précommandes trompe l&apos;œil sont possibles à partir du {formatDateLabel(minDate)}.
-                </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <Calendar size={12} className="text-mayssa-caramel mt-0.5 shrink-0" />
+            <p className="text-mayssa-brown/80">
+              {customer.date ? formatDateLabel(customer.date) : '—'}
+              {customer.time && ` · ${customer.time}`}
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            {orderContactIdentity === 'instagram' ? <Instagram size={12} className="text-mayssa-caramel mt-0.5 shrink-0" /> : orderContactIdentity === 'snap' ? <SnapIcon size={12} className="text-mayssa-caramel mt-0.5 shrink-0" /> : <MessageCircle size={12} className="text-mayssa-caramel mt-0.5 shrink-0" />}
+            <p className="text-mayssa-brown/80">
+              {orderContactIdentity === 'whatsapp' ? `${customer.firstName} ${customer.lastName}` : customer.firstName}
+              {customer.phone && ` · ${customer.phone}`}
+            </p>
+          </div>
+          {note && note.trim() && (
+            <div className="flex items-start gap-2 pt-1 border-t border-mayssa-brown/10">
+              <span className="text-mayssa-brown/70 text-[11px] italic">Note : {note}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Totaux détaillés */}
+      <div className="rounded-xl bg-mayssa-cream/40 border border-mayssa-brown/10 p-3 space-y-1 text-xs">
+        <div className="flex justify-between text-mayssa-brown/80">
+          <span>Sous-total</span>
+          <span>{total.toFixed(2).replace('.', ',')} €</span>
+        </div>
+        {appliedPromo && appliedPromo.discount > 0 && (
+          <div className="flex justify-between text-emerald-600">
+            <span>Promo {appliedPromo.code}</span>
+            <span>-{appliedPromo.discount.toFixed(2).replace('.', ',')} €</span>
+          </div>
+        )}
+        {mysteryFraiseDiscount > 0 && (
+          <div className="flex justify-between text-amber-600">
+            <span>Mystère Fraise</span>
+            <span>-{mysteryFraiseDiscount.toFixed(2).replace('.', ',')} €</span>
+          </div>
+        )}
+        {customer.wantsDelivery && deliveryFee !== null && deliveryFee > 0 && (
+          <div className="flex justify-between text-mayssa-brown/70">
+            <span>Livraison</span>
+            <span>+{DELIVERY_FEE.toFixed(2).replace('.', ',')} €</span>
+          </div>
+        )}
+        {donationAmount > 0 && (
+          <div className="flex justify-between text-mayssa-rose">
+            <span>Don au projet</span>
+            <span>+{donationAmount.toFixed(2).replace('.', ',')} €</span>
+          </div>
+        )}
+        <div className="flex justify-between text-base font-bold text-mayssa-brown pt-1.5 border-t border-mayssa-brown/10 mt-1">
+          <span>Total</span>
+          <span>{finalTotal.toFixed(2).replace('.', ',')} €</span>
+        </div>
+      </div>
+
+      {/* Messages infos */}
+      {customer.wantsDelivery && totalAfterDiscount > 0 && totalAfterDiscount < FREE_DELIVERY_THRESHOLD && isWithinDeliveryZone && (
+        <p className="text-center text-[10px] font-semibold text-mayssa-caramel bg-mayssa-caramel/10 rounded-lg py-1.5">
+          Plus que {(FREE_DELIVERY_THRESHOLD - totalAfterDiscount).toFixed(2).replace('.', ',')} € pour la livraison offerte !
+        </p>
+      )}
+
+      <div className="rounded-xl bg-mayssa-soft/60 border border-mayssa-brown/10 px-3 py-2.5 text-[9px] text-mayssa-brown/80 space-y-1">
+        <p className="font-semibold text-[10px] text-mayssa-brown text-center">
+          Comment se passe la commande ?
+        </p>
+        <p><span className="font-semibold">1.</span> Tu envoies ta commande sur WhatsApp (ou Insta / Snap).</p>
+        <p><span className="font-semibold">2.</span> Maison Mayssa te confirme la commande et l&apos;heure.</p>
+        <p><span className="font-semibold">3.</span> Paiement à la livraison / au retrait ou via PayPal.</p>
+      </div>
+
+      {hasNonTrompeLoeil && isClassicPreorderPhase && (
+        <p className="text-[10px] text-mayssa-brown/80 text-center bg-mayssa-cream/80 rounded-lg px-2 py-1.5 border border-mayssa-caramel/30">
+          Précommandes — récup. à partir du {FIRST_PICKUP_DATE_CLASSIC_LABEL}.
+        </p>
+      )}
+      {orderCutoffPassed && hasNonTrompeLoeil && (
+        <p className="text-[10px] text-amber-700 text-center bg-amber-50 rounded-lg px-2 py-1.5 border border-amber-200">
+          Commandes (pâtisseries, cookies…) jusqu&apos;à 17h. Trompe-l&apos;œil toujours dispo.
+        </p>
+      )}
+      {trompeLoeilBeforeMinDate && (
+        <p className="text-[10px] text-amber-700 text-center bg-amber-50 rounded-lg px-2 py-1.5 border border-amber-200">
+          Les précommandes trompe l&apos;œil sont possibles à partir du {formatDateLabel(minDate)}.
+        </p>
+      )}
+    </motion.div>
+  )
+
+  // ============================================================================
+  // Step Indicator (progress bar)
+  // ============================================================================
+  const renderStepIndicator = () => (
+    <div className="flex items-center gap-2 px-4 py-3 border-b border-mayssa-brown/10 flex-shrink-0">
+      {([1, 2, 3] as const).map((step, idx) => {
+        const isActive = step === currentStep
+        const isCompleted = step < currentStep
+        const isClickable = step < currentStep
+        return (
+          <div key={step} className="flex items-center flex-1">
+            <button
+              type="button"
+              onClick={() => { if (isClickable) goToStep(step) }}
+              disabled={!isClickable}
+              aria-label={`Étape ${step} : ${stepLabels[step]}${isActive ? ' (actuelle)' : isCompleted ? ' (complétée)' : ''}`}
+              aria-current={isActive ? 'step' : undefined}
+              className={cn(
+                'flex items-center gap-1.5 transition-all',
+                isClickable && 'cursor-pointer'
               )}
+            >
+              <div
+                className={cn(
+                  'flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold transition-colors flex-shrink-0',
+                  isActive && 'bg-mayssa-brown text-mayssa-cream ring-2 ring-mayssa-gold ring-offset-2 ring-offset-mayssa-cream',
+                  isCompleted && 'bg-mayssa-caramel text-white',
+                  !isActive && !isCompleted && 'bg-mayssa-brown/10 text-mayssa-brown/40',
+                )}
+              >
+                {isCompleted ? <Check size={12} /> : step}
+              </div>
+              <span
+                className={cn(
+                  'text-[10px] font-bold uppercase tracking-wider transition-colors whitespace-nowrap',
+                  isActive && 'text-mayssa-brown',
+                  isCompleted && 'text-mayssa-caramel',
+                  !isActive && !isCompleted && 'text-mayssa-brown/40',
+                )}
+              >
+                {stepLabels[step]}
+              </span>
+            </button>
+            {idx < 2 && (
+              <div className={cn(
+                'flex-1 h-0.5 mx-1.5 rounded-full transition-colors',
+                step < currentStep ? 'bg-mayssa-caramel' : 'bg-mayssa-brown/10',
+              )} />
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+
+  // ============================================================================
+  // Footer — Back + Next / boutons d'envoi à l'étape 3
+  // ============================================================================
+  const renderFooter = () => {
+    // Cas commande récente : afficher le bloc "commande en attente"
+    if (pendingOrder) {
+      return (
+        <div className="flex-shrink-0 border-t border-mayssa-brown/10 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-white/50 backdrop-blur-sm">
+          <div className="rounded-2xl bg-emerald-50 border-2 border-emerald-200 p-4 text-center space-y-3">
+            <div className="text-3xl">✅</div>
+            <p className="text-sm font-bold text-emerald-800">
+              Votre commande a bien été reçue{pendingOrder.orderNumber ? ` (n°${pendingOrder.orderNumber})` : ''} !
+            </p>
+            <p className="text-xs text-emerald-700 leading-relaxed">
+              Nous la traitons et nous vous recontacterons rapidement pour confirmer. Merci ! 🙏
+            </p>
+            {!dismissSecondOrderPrompt && onAllowAnotherOrder ? (
+              <div className="space-y-2 pt-1">
+                <p className="text-xs font-semibold text-emerald-900">
+                  Souhaitez-vous passer une autre commande ?
+                </p>
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onAllowAnotherOrder()}
+                    className="w-full py-3 rounded-xl bg-emerald-800 text-white text-xs font-bold uppercase tracking-wider shadow-md active:scale-[0.98] transition-transform cursor-pointer"
+                  >
+                    Oui, une autre commande
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDismissSecondOrderPrompt(true)}
+                    className="w-full py-2.5 rounded-xl border border-emerald-700/40 text-emerald-900 text-[11px] font-bold uppercase tracking-wider cursor-pointer"
+                  >
+                    Non, merci
+                  </button>
+                </div>
+              </div>
+            ) : null}
+            <p className="text-[9px] text-emerald-600/70 italic">
+              Ce rappel disparaît au bout de 48 h.
+            </p>
+          </div>
+        </div>
+      )
+    }
+
+    // Étape 3 : boutons d'envoi multi-canal
+    if (currentStep === 3) {
+      return (
+        <div className="flex-shrink-0 border-t border-mayssa-brown/10 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-white/50 backdrop-blur-sm space-y-2">
+          <motion.button
+            type="button"
+            whileTap={{ scale: 0.98 }}
+            onClick={() => {
+              if (canSend) {
+                hapticFeedback('success')
+                onSend()
+              } else {
+                hapticFeedback('warning')
+              }
+            }}
+            disabled={!canSend}
+            aria-label={hasItems && canSend ? 'Envoyer la commande sur WhatsApp' : hasItems ? 'Complète tes infos pour envoyer' : 'Panier vide'}
+            className={cn(
+              "w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base shadow-xl transition-all cursor-pointer",
+              canSend
+                ? "bg-[#25D366] text-white hover:bg-[#20bd5a]"
+                : "bg-mayssa-brown/30 text-mayssa-cream/70"
+            )}
+          >
+            <MessageCircle size={18} aria-hidden="true" />
+            {hasItems
+              ? canSend
+                ? 'Envoyer sur WhatsApp'
+                : ordersOpen === false
+                  ? 'Commandes fermées'
+                  : trompeLoeilBeforeMinDate
+                    ? `À partir du ${formatDateLabel(minDate)}`
+                    : orderCutoffPassed && hasNonTrompeLoeil
+                      ? "Jusqu'à 17h"
+                      : 'Complète tes infos'
+              : 'Panier vide'}
+          </motion.button>
+
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={goBack}
+              aria-label="Revenir à l'étape précédente"
+              className="flex items-center justify-center gap-1 py-3 rounded-xl font-bold text-[11px] text-mayssa-brown/70 bg-white/60 ring-1 ring-mayssa-brown/10 cursor-pointer"
+            >
+              <ChevronLeft size={14} />
+              Retour
+            </button>
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.98 }}
+              onClick={() => {
+                if (canSend) {
+                  hapticFeedback('success')
+                  onSendInstagram()
+                  onClose()
+                }
+              }}
+              disabled={!canSend}
+              aria-label={canSend ? 'Envoyer la commande sur Instagram' : 'Complète tes infos pour envoyer'}
+              className={cn(
+                "flex items-center justify-center gap-1 py-3 rounded-xl font-bold text-[11px] shadow-lg transition-all cursor-pointer",
+                canSend
+                  ? "bg-gradient-to-r from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white"
+                  : "bg-mayssa-brown/20 text-mayssa-cream/70"
+              )}
+            >
+              <Instagram size={14} aria-hidden="true" />
+              Insta
+            </motion.button>
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.98 }}
+              onClick={() => {
+                if (canSend) {
+                  hapticFeedback('success')
+                  onSendSnap()
+                  onClose()
+                }
+              }}
+              disabled={!canSend}
+              aria-label={canSend ? 'Envoyer la commande sur Snapchat' : 'Complète tes infos pour envoyer'}
+              className={cn(
+                "flex items-center justify-center gap-1 py-3 rounded-xl font-bold text-[11px] shadow-lg transition-all cursor-pointer",
+                canSend
+                  ? "bg-[#FFFC00] text-black"
+                  : "bg-mayssa-brown/20 text-mayssa-cream/70"
+              )}
+            >
+              <SnapIcon size={14} aria-hidden="true" />
+              Snap
+            </motion.button>
+          </div>
+        </div>
+      )
+    }
+
+    // Étape 1 ou 2 : bouton Retour (si 2) + Continuer
+    const canAdvance = canAdvanceFromStep(currentStep)
+    const nextLabel =
+      currentStep === 1
+        ? 'Continuer'
+        : currentStep === 2
+          ? 'Voir le récap'
+          : 'Envoyer'
+    return (
+      <div className="flex-shrink-0 border-t border-mayssa-brown/10 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-white/50 backdrop-blur-sm">
+        {/* Total compact affiché à l'étape 1 et 2 */}
+        {hasItems && (
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs text-mayssa-brown/75">Total</span>
+            <span className="text-lg font-bold text-mayssa-brown">
+              {finalTotal.toFixed(2).replace('.', ',')} €
+            </span>
+          </div>
+        )}
+        <div className={cn('grid gap-2', currentStep === 2 ? 'grid-cols-[auto_1fr]' : 'grid-cols-1')}>
+          {currentStep === 2 && (
+            <button
+              type="button"
+              onClick={goBack}
+              aria-label="Revenir à l'étape précédente"
+              className="flex items-center justify-center gap-1 px-4 py-4 rounded-2xl font-bold text-xs text-mayssa-brown/70 bg-white/60 ring-1 ring-mayssa-brown/10 cursor-pointer"
+            >
+              <ChevronLeft size={14} />
+              Retour
+            </button>
+          )}
+          <motion.button
+            type="button"
+            whileTap={{ scale: 0.98 }}
+            onClick={goNext}
+            disabled={!canAdvance}
+            aria-label={nextLabel}
+            className={cn(
+              'w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base shadow-xl transition-all cursor-pointer',
+              canAdvance
+                ? 'bg-mayssa-brown text-mayssa-cream hover:bg-mayssa-caramel'
+                : 'bg-mayssa-brown/30 text-mayssa-cream/70'
+            )}
+          >
+            {nextLabel}
+            <ChevronRight size={18} aria-hidden="true" />
+          </motion.button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm md:hidden cursor-pointer"
+          />
+
+          {/* Sheet */}
+          <motion.div
+            ref={sheetRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Panier"
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+            drag="y"
+            dragControls={dragControls}
+            dragListener={false}
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0, bottom: 0.5 }}
+            onDragEnd={handleDragEnd}
+            className="fixed bottom-0 left-0 right-0 z-50 h-[90vh] rounded-t-3xl bg-mayssa-cream shadow-2xl md:hidden flex flex-col"
+          >
+            {/* Drag handle */}
+            <div
+              className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing flex-shrink-0"
+              onPointerDown={(e) => dragControls.start(e)}
+            >
+              <div className="w-12 h-1.5 rounded-full bg-mayssa-brown/20" />
+            </div>
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 pb-2 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <ShoppingBag size={20} className="text-mayssa-brown" />
+                  {itemCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-mayssa-caramel text-[9px] font-bold text-white">
+                      {itemCount}
+                    </span>
+                  )}
+                </div>
+                <h2 className="font-bold text-lg text-mayssa-brown">Ma Commande</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => { hapticFeedback('light'); onClose() }}
+                aria-label="Fermer le panier"
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-mayssa-brown/5 text-mayssa-brown/75 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Progress indicator */}
+            {renderStepIndicator()}
+
+            {/* Step content (scrollable) */}
+            <div className="flex-1 overflow-y-auto px-4 py-4">
+              <AnimatePresence mode="wait">
+                {currentStep === 1 && renderStep1()}
+                {currentStep === 2 && renderStep2()}
+                {currentStep === 3 && renderStep3()}
+              </AnimatePresence>
             </div>
 
             {/* Footer */}
-            <div className="flex-shrink-0 border-t border-mayssa-brown/10 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-white/50 backdrop-blur-sm">
-              {customer.wantsDelivery && totalAfterDiscount > 0 && totalAfterDiscount < FREE_DELIVERY_THRESHOLD && isWithinDeliveryZone && (
-                <p className="text-center text-[10px] font-semibold text-mayssa-caramel bg-mayssa-caramel/10 rounded-lg py-1.5 mb-2">
-                  Plus que {(FREE_DELIVERY_THRESHOLD - totalAfterDiscount).toFixed(2).replace('.', ',')} € pour la livraison offerte !
-                </p>
-              )}
-
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <span className="text-xs text-mayssa-brown/75">Total</span>
-                  {appliedPromo && appliedPromo.discount > 0 && (
-                    <span className="text-[9px] text-emerald-600 ml-1">(-{appliedPromo.discount.toFixed(2)} € promo)</span>
-                  )}
-                  {mysteryFraiseDiscount > 0 && (
-                    <span className="text-[9px] text-amber-600 ml-1">(-{mysteryFraiseDiscount.toFixed(2)} € mystère Fraise)</span>
-                  )}
-                  {donationAmount > 0 && (
-                    <span className="text-[9px] text-mayssa-rose ml-1">(+{donationAmount.toFixed(2)} € don)</span>
-                  )}
-                  {customer.wantsDelivery && deliveryFee !== null && deliveryFee > 0 && (
-                    <span className="text-[9px] text-mayssa-brown/40 ml-1">(+{DELIVERY_FEE}€ livraison)</span>
-                  )}
-                </div>
-                <span className="text-2xl font-bold text-mayssa-brown">
-                  {finalTotal.toFixed(2).replace('.', ',')} €
-                </span>
-              </div>
-
-              {pendingOrder ? (
-                <div className="rounded-2xl bg-emerald-50 border-2 border-emerald-200 p-4 text-center space-y-3">
-                  <div className="text-3xl">✅</div>
-                  <p className="text-sm font-bold text-emerald-800">
-                    Votre commande a bien été reçue{pendingOrder.orderNumber ? ` (n°${pendingOrder.orderNumber})` : ''} !
-                  </p>
-                  <p className="text-xs text-emerald-700 leading-relaxed">
-                    Nous la traitons et nous vous recontacterons rapidement pour confirmer. Merci ! 🙏
-                  </p>
-                  {!dismissSecondOrderPrompt && onAllowAnotherOrder ? (
-                    <div className="space-y-2 pt-1">
-                      <p className="text-xs font-semibold text-emerald-900">
-                        Souhaitez-vous passer une autre commande ?
-                      </p>
-                      <div className="flex flex-col gap-2">
-                        <button
-                          type="button"
-                          onClick={() => onAllowAnotherOrder()}
-                          className="w-full py-3 rounded-xl bg-emerald-800 text-white text-xs font-bold uppercase tracking-wider shadow-md active:scale-[0.98] transition-transform cursor-pointer"
-                        >
-                          Oui, une autre commande
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDismissSecondOrderPrompt(true)}
-                          className="w-full py-2.5 rounded-xl border border-emerald-700/40 text-emerald-900 text-[11px] font-bold uppercase tracking-wider cursor-pointer"
-                        >
-                          Non, merci
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
-                  <p className="text-[9px] text-emerald-600/70 italic">
-                    Ce rappel disparaît au bout de 48 h.
-                  </p>
-                </div>
-              ) : (
-                <>
-                  <motion.button
-                    type="button"
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => {
-                      if (canSend) {
-                        hapticFeedback('success')
-                        onSend()
-                      } else {
-                        hapticFeedback('warning')
-                      }
-                    }}
-                    disabled={!canSend}
-                    aria-label={hasItems && canSend ? 'Envoyer la commande sur WhatsApp' : hasItems ? 'Complète tes infos pour envoyer' : 'Panier vide'}
-                    className={cn(
-                      "w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base shadow-xl transition-all cursor-pointer",
-                      canSend
-                        ? "bg-[#25D366] text-white hover:bg-[#20bd5a]"
-                        : "bg-mayssa-brown/30 text-mayssa-cream/70"
-                    )}
-                  >
-                    <MessageCircle size={18} aria-hidden="true" />
-                    {hasItems
-                      ? canSend
-                        ? 'Envoyer sur WhatsApp'
-                        : ordersOpen === false
-                          ? 'Commandes fermées'
-                          : trompeLoeilBeforeMinDate
-                            ? `À partir du ${formatDateLabel(minDate)}`
-                            : orderCutoffPassed && hasNonTrompeLoeil
-                              ? "Jusqu'à 17h"
-                              : 'Complète tes infos'
-                      : 'Panier vide'}
-                  </motion.button>
-
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    <motion.button
-                      type="button"
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => {
-                        if (canSend) {
-                          hapticFeedback('success')
-                          onSendInstagram()
-                          onClose()
-                        }
-                      }}
-                      disabled={!canSend}
-                      aria-label={canSend ? 'Envoyer la commande sur Instagram' : 'Complète tes infos pour envoyer'}
-                      className={cn(
-                        "flex items-center justify-center gap-1.5 py-3 rounded-xl font-bold text-xs shadow-lg transition-all cursor-pointer",
-                        canSend
-                          ? "bg-gradient-to-r from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white"
-                          : "bg-mayssa-brown/20 text-mayssa-cream/70"
-                      )}
-                    >
-                      <Instagram size={16} aria-hidden="true" />
-                      Instagram
-                    </motion.button>
-                    <motion.button
-                      type="button"
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => {
-                        if (canSend) {
-                          hapticFeedback('success')
-                          onSendSnap()
-                          onClose()
-                        }
-                      }}
-                      disabled={!canSend}
-                      aria-label={canSend ? 'Envoyer la commande sur Snapchat' : 'Complète tes infos pour envoyer'}
-                      className={cn(
-                        "flex items-center justify-center gap-1.5 py-3 rounded-xl font-bold text-xs shadow-lg transition-all cursor-pointer",
-                        canSend
-                          ? "bg-[#FFFC00] text-black"
-                          : "bg-mayssa-brown/20 text-mayssa-cream/70"
-                      )}
-                    >
-                      <SnapIcon size={16} aria-hidden="true" />
-                      Snapchat
-                    </motion.button>
-                  </div>
-                </>
-              )}
-            </div>
+            {renderFooter()}
           </motion.div>
         </>
       )}
