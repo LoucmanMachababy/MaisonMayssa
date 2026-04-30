@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { Home, UtensilsCrossed, ShoppingBag } from 'lucide-react'
 import { hapticFeedback } from '../../lib/haptics'
 import { useState } from 'react'
+import { cn } from '../../lib/utils'
 
 interface BottomNavProps {
   cartCount: number
@@ -9,23 +10,25 @@ interface BottomNavProps {
 }
 
 export function BottomNav({ cartCount, onCartClick }: BottomNavProps) {
-  const [activeItem, setActiveItem] = useState<string | null>(null)
+  const [activeItem, setActiveItem] = useState<string>('home')
 
   const handleClick = (id: string, href: string) => {
-    hapticFeedback('medium') // Feedback tactile plus prononcé
+    hapticFeedback('medium')
     setActiveItem(id)
-    
-    // Reset l'état actif après un délai
-    setTimeout(() => setActiveItem(null), 200)
 
     if (id === 'cart') {
       onCartClick()
       return
     }
 
+    if (href === '#') {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+
     const element = document.querySelector(href)
     if (element) {
-      const offset = 80 // Offset pour éviter que le contenu soit caché par la navbar
+      const offset = 80
       const elementPosition = element.getBoundingClientRect().top + window.pageYOffset
       window.scrollTo({
         top: elementPosition - offset,
@@ -35,9 +38,9 @@ export function BottomNav({ cartCount, onCartClick }: BottomNavProps) {
   }
 
   const navItems = [
-    { id: 'home', icon: Home, label: 'Accueil', href: '#', count: 0 },
-    { id: 'menu', icon: UtensilsCrossed, label: 'Carte', href: '#la-carte', count: 0 },
-    { id: 'cart', icon: ShoppingBag, label: 'Panier', href: '#commande', count: cartCount },
+    { id: 'home', icon: Home, label: 'Accueil', href: '#' },
+    { id: 'menu', icon: UtensilsCrossed, label: 'Collection', href: '#la-carte' },
+    { id: 'cart', icon: ShoppingBag, label: 'Panier', href: '#commande' },
   ]
 
   return (
@@ -47,86 +50,69 @@ export function BottomNav({ cartCount, onCartClick }: BottomNavProps) {
       transition={{ type: "spring", damping: 25, stiffness: 200 }}
       className="fixed bottom-0 left-0 right-0 z-50 md:hidden"
     >
-      {/* Enhanced blur background with better iOS compatibility */}
-      <div className="absolute inset-0 bg-white/85 backdrop-blur-2xl border-t border-mayssa-brown/20 shadow-2xl" />
-      
-      {/* Subtle top glow */}
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-mayssa-caramel/30 to-transparent" />
+      {/* Luxury Glassmorphism Background */}
+      <div className="absolute inset-0 bg-white/80 backdrop-blur-3xl shadow-[0_-10px_40px_rgba(42,27,18,0.05)] border-t border-mayssa-brown/5" />
 
-      {/* Safe area padding for iOS with better touch targets */}
-      <div className="relative flex items-center justify-around px-1 py-1 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      {/* Navigation Items */}
+      <div className="relative flex items-center justify-around px-2 py-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
         {navItems.map((item) => {
           const Icon = item.icon
           const isCart = item.id === 'cart'
           const isActive = activeItem === item.id
-          const hasContent = item.count > 0
 
           return (
-            <motion.button
+            <button
               key={item.id}
               onClick={() => handleClick(item.id, item.href)}
-              className="relative flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-3xl transition-all duration-200 cursor-pointer min-w-[60px] min-h-[56px]" // Zones de touch plus grandes
-              whileTap={{ scale: 0.85 }}
-              style={{ touchAction: 'manipulation' }} // Améliore la réactivité sur mobile
+              className="relative flex flex-col items-center justify-center gap-1.5 min-w-[72px] h-14 cursor-pointer outline-none focus:outline-none group"
+              style={{ touchAction: 'manipulation' }}
             >
-              {/* Ripple effect background */}
-              {isActive && (
+              <div className="relative">
                 <motion.div
-                  layoutId="activeBackground"
-                  className="absolute inset-0 bg-mayssa-soft rounded-3xl"
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ type: "spring", damping: 30, stiffness: 400 }}
-                />
-              )}
-
-              <motion.div
-                className={`relative p-3 rounded-2xl transition-all duration-200 ${
-                  isCart
-                    ? 'bg-mayssa-brown text-mayssa-cream shadow-lg'
-                    : isActive
-                    ? 'bg-mayssa-soft/80 text-mayssa-brown shadow-sm'
-                    : 'text-mayssa-brown/60'
-                }`}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.9 }}
-                animate={isActive ? { rotate: [0, -3, 3, 0] } : {}}
-                transition={{ duration: 0.3 }}
-              >
-                <Icon
-                  size={24} // Icônes légèrement plus grandes pour une meilleure lisibilité
-                  strokeWidth={hasContent ? 2.5 : 2}
-                />
-
-                {/* Enhanced badge with bounce animation */}
-                {item.count > 0 && (
-                  <motion.span
-                    key={item.count} // Re-trigger animation when count changes
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", damping: 15, stiffness: 400, delay: 0.1 }}
-                    className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold text-white shadow-lg bg-mayssa-caramel ring-2 ring-white"
-                  >
-                    {item.count > 99 ? '99+' : item.count}
-                  </motion.span>
+                  whileTap={{ scale: 0.85 }}
+                  className={cn(
+                    "flex items-center justify-center rounded-2xl transition-all duration-300",
+                    isCart 
+                      ? "bg-mayssa-brown text-mayssa-gold w-12 h-12 shadow-lg" 
+                      : "w-10 h-10",
+                    !isCart && isActive ? "text-mayssa-gold" : "",
+                    !isCart && !isActive ? "text-mayssa-brown/40 group-hover:text-mayssa-brown/60" : ""
+                  )}
+                >
+                  <Icon size={isCart ? 22 : 24} strokeWidth={isActive || isCart ? 2.5 : 2} />
+                  
+                  {isCart && cartCount > 0 && (
+                    <motion.div
+                      key={cartCount}
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: "spring", damping: 15, stiffness: 400 }}
+                      className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-mayssa-gold text-white text-[10px] font-bold shadow-md ring-2 ring-white"
+                    >
+                      {cartCount > 99 ? '99+' : cartCount}
+                    </motion.div>
+                  )}
+                </motion.div>
+                
+                {/* Active Indicator Line */}
+                {!isCart && isActive && (
+                  <motion.div 
+                    layoutId="activeTab"
+                    className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-1 h-1 bg-mayssa-gold rounded-full"
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                  />
                 )}
-              </motion.div>
-
-              {/* Enhanced label with better contrast */}
-              <motion.span 
-                className={`text-[10px] font-semibold transition-colors duration-200 ${
-                  isCart || hasContent 
-                    ? 'text-mayssa-brown' 
-                    : isActive 
-                    ? 'text-mayssa-brown'
-                    : 'text-mayssa-brown/50'
-                }`}
-                animate={isActive ? { y: [0, -1, 0] } : {}}
-                transition={{ duration: 0.3 }}
-              >
-                {item.label}
-              </motion.span>
-            </motion.button>
+              </div>
+              
+              {!isCart && (
+                <span className={cn(
+                  "text-[10px] font-bold uppercase tracking-wider transition-colors duration-300",
+                  isActive ? "text-mayssa-gold" : "text-mayssa-brown/40 group-hover:text-mayssa-brown/60"
+                )}>
+                  {item.label}
+                </span>
+              )}
+            </button>
           )
         })}
       </div>

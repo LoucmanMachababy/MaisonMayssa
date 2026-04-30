@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import { Button } from './ui/Button'
 
 function formatRestockDate(raw?: string): string {
   if (!raw) return ''
@@ -16,78 +17,88 @@ interface HeaderProps {
   eventModeEnabled?: boolean
 }
 
-export function Header({ nextRestockDate, ordersOpen = true, eventModeEnabled = false }: HeaderProps) {
+export function Header({ nextRestockDate, ordersOpen = true }: HeaderProps) {
   const restockLabel = formatRestockDate(nextRestockDate)
 
   return (
-    <header className="relative w-full overflow-hidden min-h-[80vh] sm:min-h-[85vh] flex flex-col justify-end cursor-default transition-all duration-700">
-      {/* Image de fond (plus léger qu'une vidéo) */}
+    <header className="relative w-full h-[100dvh] flex flex-col items-center justify-center cursor-default overflow-hidden">
+      {/* Background Image */}
       <img
         src="/Trompe-loeil-header.webp"
-        alt=""
-        className="absolute inset-0 w-full h-full object-cover"
+        alt="Maison Mayssa Trompe l'œil"
+        className="absolute inset-0 w-full h-full object-cover scale-105"
         loading="eager"
         decoding="async"
         fetchPriority="high"
       />
 
-      {/* Overlay dégradé plus doux en haut, plus dense en bas */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-mayssa-brown/95 via-mayssa-brown/70 to-mayssa-brown/20" />
+      {/* Luxury Gradient Overlay - Darker for contrast */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-mayssa-brown/40 via-mayssa-brown/60 to-mayssa-brown/95" />
 
-      {/* Contenu overlay — infos Maison Mayssa */}
-      <div className="relative z-10 w-full max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 pb-16 sm:pb-20 lg:pb-24 pt-28 sm:pt-32">
+      {/* Content */}
+      <div className="relative z-10 w-full max-w-5xl mx-auto px-6 text-center flex flex-col items-center mt-20">
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, ease: 'easeOut' }}
-          className="space-y-5 sm:space-y-6 text-white max-w-2xl min-w-0"
+          transition={{ duration: 1, ease: 'easeOut' }}
+          className="space-y-8 text-mayssa-soft flex flex-col items-center"
         >
-          <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.38em] text-white/70 font-display">
-            Trompe l&apos;œil pâtissier · Annecy
-          </p>
-          <h1
-            className="text-4xl sm:text-[2.9rem] lg:text-[3.5rem] xl:text-[4rem] leading-tight font-display font-semibold tracking-[0.14em] uppercase drop-shadow-[0_18px_40px_rgba(0,0,0,0.6)]"
-          >
-            <span className="inline-block px-3 sm:px-4 py-1 sm:py-1.5 rounded-full bg-black/15 border border-white/15 backdrop-blur-sm">
-              MAISON MAYSSA
-            </span>
-          </h1>
-          <p className="text-[0.95rem] sm:text-base text-white/85 font-display max-w-xl">
-            Trompe l&apos;œil pâtissier en série limitée, préparé de nuit pour vos fins de soirée.
-          </p>
-          <div className="pt-3 sm:pt-5 space-y-2 sm:space-y-3">
-            <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.32em] text-white/75 font-display">
-              Prochain restock
+          <div className="space-y-2">
+            <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.4em] text-mayssa-gold">
+              Maison de Haute Pâtisserie
             </p>
-            <p className="text-3xl sm:text-[2.3rem] lg:text-[2.6rem] xl:text-[3rem] font-display font-semibold tracking-[0.06em] uppercase text-white drop-shadow-[0_15px_45px_rgba(0,0,0,0.7)]">
-              {restockLabel || 'Tous les jours'}
-            </p>
+            <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] leading-[1.1] font-display font-medium tracking-tight text-white drop-shadow-2xl">
+              L'Art du Trompe-l'œil
+            </h1>
           </div>
-          <div className="pt-4 sm:pt-6 flex flex-wrap items-center gap-3 sm:gap-4">
-            <a
-              href="#la-carte"
-              className="inline-flex items-center justify-center rounded-full bg-white/95 text-mayssa-brown px-7 sm:px-9 py-2.5 sm:py-3 text-[11px] sm:text-xs font-bold uppercase tracking-[0.28em] shadow-[0_18px_45px_rgba(0,0,0,0.45)] hover:bg-white active:scale-[0.97] transition-all cursor-pointer"
-            >
-              Découvrir la carte
-            </a>
-            <a
-              href={ordersOpen ? '#commande' : '#'}
-              aria-disabled={!ordersOpen}
-              onClick={(e) => {
-                if (!ordersOpen) e.preventDefault()
-              }}
-              className={`inline-flex items-center justify-center rounded-full border border-white/60 px-6 sm:px-7 py-2.5 sm:py-3 text-[11px] sm:text-xs font-semibold uppercase tracking-[0.26em] backdrop-blur-md transition-all ${
-                ordersOpen
-                  ? 'bg-white/10 text-white hover:bg-white/20 active:scale-[0.97] cursor-pointer'
-                  : 'bg-white/5 text-white/70 opacity-70 cursor-not-allowed'
-              }`}
-              title={!ordersOpen && eventModeEnabled ? 'Précommandes fermées cette semaine' : undefined}
-            >
-              {ordersOpen ? 'Commander maintenant' : 'Précommandes fermées'}
-            </a>
+
+          <p className="text-sm sm:text-base md:text-lg text-mayssa-soft/80 font-light max-w-2xl mx-auto leading-relaxed">
+            Une collection signature de pâtisseries artisanales, façonnées avec passion à Annecy.
+            L'illusion visuelle au service de l'émotion gustative.
+          </p>
+
+          <div className="pt-8 flex flex-col items-center gap-6">
+            {restockLabel && (
+              <div className="flex flex-col items-center gap-1.5">
+                <span className="text-[10px] uppercase tracking-[0.3em] text-mayssa-soft/50 font-bold">
+                  Prochaine Collection
+                </span>
+                <span className="text-xl sm:text-2xl font-display text-mayssa-gold">
+                  {restockLabel}
+                </span>
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 mt-4">
+              <Button asChild size="lg">
+                <a href="#la-carte">Découvrir la collection</a>
+              </Button>
+              
+              <Button 
+                asChild
+                variant="glass" 
+                size="lg"
+                className={!ordersOpen ? "opacity-50 cursor-not-allowed pointer-events-none" : ""}
+              >
+                <a href={ordersOpen ? '#commande' : '#'}>
+                  {ordersOpen ? 'Commander' : 'Précommandes fermées'}
+                </a>
+              </Button>
+            </div>
           </div>
         </motion.div>
       </div>
+
+      {/* Scroll Indicator */}
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1.5, duration: 1 }}
+        className="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3"
+      >
+        <span className="text-[9px] uppercase tracking-[0.3em] text-mayssa-soft/50">Défiler</span>
+        <div className="w-[1px] h-12 bg-gradient-to-b from-mayssa-gold/80 to-transparent" />
+      </motion.div>
     </header>
   )
 }

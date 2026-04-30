@@ -129,6 +129,7 @@ export function Cart({
     orderContactIdentity = 'whatsapp',
     onOrderContactIdentityChange,
 }: CartProps) {
+    const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
     const [dismissSecondOrderPrompt, setDismissSecondOrderPrompt] = useState(false)
     useEffect(() => {
         setDismissSecondOrderPrompt(false)
@@ -282,7 +283,7 @@ export function Cart({
 
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.1fr] lg:items-start gap-8 lg:gap-12 mt-8">
                 {/* Left Column: Items & Notes */}
-                <div className="space-y-8 min-w-0">
+                <div className={`space-y-8 min-w-0 ${step > 1 ? 'hidden lg:block' : 'block'}`}>
                     <div className="space-y-4">
                         <p className="text-xs font-bold uppercase tracking-widest text-mayssa-brown/60">
                             Articles sélectionnés ({itemCount})
@@ -404,6 +405,15 @@ export function Cart({
                 {/* Right Column: Info & Totals */}
                 <div className="space-y-8 lg:sticky lg:top-24 lg:self-start min-w-0">
                     <div className="space-y-6 bg-white/80 backdrop-blur-3xl p-6 sm:p-8 rounded-[2.5rem] border border-mayssa-gold/20 shadow-[0_10px_40px_rgba(212,175,55,0.05)]">
+                        {/* Step Tabs */}
+                        <div className="flex items-center gap-2 mb-6">
+                           <button onClick={() => setStep(1)} className={`flex-1 h-1.5 rounded-full ${step >= 1 ? 'bg-mayssa-gold' : 'bg-mayssa-brown/10'}`} />
+                           <button onClick={() => { if (step >= 1) setStep(2) }} className={`flex-1 h-1.5 rounded-full ${step >= 2 ? 'bg-mayssa-gold' : 'bg-mayssa-brown/10'}`} />
+                           <button onClick={() => { if (step >= 2) setStep(3) }} className={`flex-1 h-1.5 rounded-full ${step >= 3 ? 'bg-mayssa-gold' : 'bg-mayssa-brown/10'}`} />
+                           <button onClick={() => { if (step >= 3) setStep(4) }} className={`flex-1 h-1.5 rounded-full ${step >= 4 ? 'bg-mayssa-gold' : 'bg-mayssa-brown/10'}`} />
+                        </div>
+
+                        <div className={step === 1 ? 'space-y-6 block' : 'hidden'}>
                         {/* Code promo */}
                         {setPromoCodeInput != null && onApplyPromo != null && onClearPromo != null && (
                             <div className="space-y-2">
@@ -505,6 +515,14 @@ export function Cart({
                             </div>
                         )}
 
+                            <div className="pt-6 border-t border-mayssa-gold/10">
+                                <button type="button" onClick={() => setStep(2)} className="w-full bg-mayssa-brown text-mayssa-gold py-4 rounded-xl font-bold uppercase tracking-widest text-xs hover:bg-mayssa-brown/90 shadow-md transition-all">
+                                    Suivant : Mes informations →
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className={step === 2 ? 'space-y-6 block' : 'hidden'}>
                         <p className="text-xs font-bold uppercase tracking-widest text-mayssa-brown/60 border-b border-mayssa-brown/5 pb-3">
                             Informations de livraison
                         </p>
@@ -652,7 +670,17 @@ export function Cart({
                             </div>
                             <p className="text-[10px] text-mayssa-brown/50 pl-4">Optionnel. Tu recevras le récap et un mail quand ta commande est validée.</p>
                         </div>
+                            <div className="pt-6 border-t border-mayssa-gold/10">
+                                <button type="button" onClick={() => setStep(3)} className="w-full bg-mayssa-brown text-mayssa-gold py-4 rounded-xl font-bold uppercase tracking-widest text-xs hover:bg-mayssa-brown/90 shadow-md transition-all">
+                                    Suivant : Récupération →
+                                </button>
+                            </div>
+                        </div>
 
+                        <div className={step === 3 ? 'space-y-6 block' : 'hidden'}>
+                        <p className="text-xs font-bold uppercase tracking-widest text-mayssa-brown/60 border-b border-mayssa-brown/5 pb-3 flex items-center justify-between">
+                            Mode de récupération
+                        </p>
                         <div className="grid grid-cols-2 gap-3">
                             <button
                                 type="button"
@@ -798,7 +826,19 @@ export function Cart({
                             </div>
                         )}
 
-                        <div className="space-y-4 pt-6 mt-6 border-t border-mayssa-gold/10">
+                            <div className="pt-6 mt-6 border-t border-mayssa-gold/10">
+                                <button type="button" onClick={() => setStep(4)} className="w-full bg-mayssa-brown text-mayssa-gold py-4 rounded-xl font-bold uppercase tracking-widest text-xs hover:bg-mayssa-brown/90 shadow-md transition-all">
+                                    Suivant : Validation →
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className={step === 4 ? 'space-y-6 block' : 'hidden'}>
+                        <p className="text-xs font-bold uppercase tracking-widest text-mayssa-brown/60 border-b border-mayssa-brown/5 pb-3 flex items-center justify-between">
+                            Validation
+                        </p>
+
+                        <div className="space-y-4 pt-4 mt-4 border-t border-mayssa-gold/10">
                             <div className="flex flex-col gap-3">
                                 <div className="flex items-center justify-between text-sm">
                                     <span className="text-mayssa-brown/60">Sous-total</span>
@@ -1045,6 +1085,7 @@ export function Cart({
                                 </>
                                 )}
                             </div>
+                        </div>
                         </div>
                     </div>
                 </div>

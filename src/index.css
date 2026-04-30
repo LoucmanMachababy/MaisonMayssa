@@ -1,16 +1,19 @@
 @import "tailwindcss";
 
 @theme {
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-lux: cubic-bezier(0.4, 0, 0.2, 1);
+
   --font-display: Georgia, "Times New Roman", serif;
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
-  --color-mayssa-brown: #2A1B12;
-  --color-mayssa-caramel: #D48C45;
-  --color-mayssa-cream: #FFFDF9;
-  --color-mayssa-rose: #F8E3DE;
-  --color-mayssa-soft: #FCFBFA;
-  --color-mayssa-gold: #C5A059;
-  --color-mayssa-gold-light: #E0C792;
+  --color-mayssa-brown: #1E120D;
+  --color-mayssa-caramel: #C17F3D;
+  --color-mayssa-cream: #FAF9F6;
+  --color-mayssa-rose: #F5DFD9;
+  --color-mayssa-soft: #FDFCFB;
+  --color-mayssa-gold: #D4AF37;
+  --color-mayssa-gold-light: #E6C27A;
 
   --animate-float: float 7s ease-in-out infinite;
   --animate-pulse-slow: pulse-glow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;

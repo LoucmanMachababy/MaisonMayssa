@@ -530,6 +530,7 @@ async function decrementStockAtomic(items) {
   for (const it of items) {
     decrements[it.productId] = (decrements[it.productId] || 0) + it.quantity
   }
+  console.log('[decrementStockAtomic] decrements to apply:', JSON.stringify(decrements))
   // Pour chaque produit, 3 cas possibles :
   //  - wasUntracked=true : stock initial null/undefined → rien à faire, pas de rollback
   //  - wasInsufficient=true : stock < qty → abort + rollback
@@ -538,14 +539,19 @@ async function decrementStockAtomic(items) {
   for (const [productId, qty] of Object.entries(decrements)) {
     const stockRef = db.ref(`stock/${productId}`)
     let wasUntracked = false
+    let before = null
+    let after = null
     const result = await stockRef.transaction((current) => {
+      before = current
       if (current == null) {
         wasUntracked = true
         return // produit non-tracké : on ne touche rien
       }
       if (current < qty) return // abort → pas assez de stock
+      after = current - qty
       return current - qty
     })
+    console.log(`[decrementStockAtomic] ${productId}: before=${before} qty=${qty} after=${after} committed=${result.committed} untracked=${wasUntracked}`)
     if (wasUntracked) continue // rien à faire, pas tracké
     const commitFailed = !result.committed
     if (commitFailed) {
@@ -585,7 +591,9 @@ export const createOrder = onCall(
     await checkDoubleOrder(data.customer.phone)
 
     // Décomposer les bundles/boxes en saveurs individuelles pour le stock
+    console.log('[createOrder] input items:', JSON.stringify(data.items))
     const stockItems = expandItemsForStock(data.items)
+    console.log('[createOrder] expanded stockItems:', JSON.stringify(stockItems))
 
     // Stock (bloquant avec rollback)
     await decrementStockAtomic(stockItems)

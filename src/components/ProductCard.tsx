@@ -1,6 +1,5 @@
-// import removed to resolve lint
 import { motion } from 'framer-motion'
-import { Plus, ShoppingCart, Calendar, Star, CalendarClock, Info, Pin } from 'lucide-react'
+import { Plus, ShoppingCart, Star, CalendarClock, Info, Pin } from 'lucide-react'
 import type { Product } from '../types'
 import { use3DTilt } from '../hooks/use3DTilt'
 import { useReviews } from '../hooks/useReviews'
@@ -16,24 +15,30 @@ import { formatDateLabel } from '../lib/delivery'
 interface ProductCardProps {
     product: Product
     onAdd: (product: Product) => void
-    /** Ouvre la modal détail (utilisé pour les produits en rupture) */
     onViewDetail?: (product: Product) => void
     stock?: number | null
     isPreorderDay?: boolean
     dayNames?: string
-    /** Date d'ouverture des précommandes (YYYY-MM-DD). Affiché sur les trompe-l'œil si pas encore ouvert. */
     preorderOpenDate?: string
-    /** Heure d'ouverture des précommandes (HH:mm). */
     preorderOpenTime?: string
-    /** LCP: charger l'image en priorité (premières cartes above-the-fold) */
     priority?: boolean
-    /** Cadre coloré "Nouveau" pour mettre en avant un produit */
     highlightAsNew?: boolean
-    /** Taille plus grande pour la grille style Le Meurice */
     size?: 'default' | 'large'
 }
 
-export function ProductCard({ product, onAdd, onViewDetail, stock = null, isPreorderDay = true, dayNames = '', preorderOpenDate, preorderOpenTime, priority = false, highlightAsNew = false, size = 'default' }: ProductCardProps) {
+export function ProductCard({ 
+    product, 
+    onAdd, 
+    onViewDetail, 
+    stock = null, 
+    isPreorderDay = true, 
+    dayNames = '', 
+    preorderOpenDate, 
+    preorderOpenTime, 
+    priority = false, 
+    highlightAsNew = false, 
+    size = 'default' 
+}: ProductCardProps) {
     const { ref, style, handlers } = use3DTilt(8)
     const { getAverageRatingForProduct, getReviewCountForProduct } = useReviews()
     const isPreorderSoon = isPreorderNotYetAvailable(product)
@@ -42,7 +47,6 @@ export function ProductCard({ product, onAdd, onViewDetail, stock = null, isPreo
     const isStockManaged = stock !== null
     const isUnavailable = isStockManaged && (stock <= 0 || (isTrompeLoeil && !isPreorderDay))
 
-    // Label "Ouverture le X à Yh" — basé uniquement sur preorderOpenDate/Time (indépendant de isPreorderDay)
     const openingBannerLabel = (() => {
         if (!isTrompeLoeil || !preorderOpenDate) return null
         const now = new Date()
@@ -60,6 +64,7 @@ export function ProductCard({ product, onAdd, onViewDetail, stock = null, isPreo
             ? `Ouverture ${dateLabel} à ${preorderOpenTime}`
             : `Ouverture ${dateLabel}`
     })()
+    
     const productRating = isTrompeLoeil ? getAverageRatingForProduct(product.id) : null
     const productReviewCount = isTrompeLoeil ? getReviewCountForProduct(product.id) : 0
 
@@ -78,24 +83,21 @@ export function ProductCard({ product, onAdd, onViewDetail, stock = null, isPreo
                     onAdd(product)
                 }
             }}
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
             viewport={{ once: true, margin: "-50px" }}
             className={cn(
-                "group relative flex flex-col overflow-hidden rounded-[2.5rem] transition-all duration-700 will-change-transform bg-white/40 backdrop-blur-3xl border border-white/80 shadow-premium-shadow",
-                size === 'large' ? "gap-6 p-6 sm:p-7" : "gap-5 p-5",
+                "group relative flex flex-col overflow-hidden transition-all duration-[600ms] ease-lux bg-white/70",
+                size === 'large' ? "rounded-[2.5rem] p-4 sm:p-5" : "rounded-[2rem] p-3 sm:p-4",
+                "hover:bg-white hover:shadow-[0_15px_40px_rgba(0,0,0,0.06)] hover:-translate-y-2",
                 isUnavailable && onViewDetail && "cursor-pointer",
-                isUnavailable && !onViewDetail && "cursor-default opacity-80 grayscale-[0.3]",
-                !isUnavailable && "cursor-pointer hover:-translate-y-3 hover:shadow-2xl hover:bg-white/60 active:scale-[0.98] premium-border",
-                highlightAsNew &&
-                    "ring-2 ring-mayssa-gold/55 bg-gradient-to-br from-mayssa-gold/[0.08] via-white/40 to-amber-50/30 shadow-[0_0_28px_-8px_rgba(201,162,39,0.45)]"
+                isUnavailable && !onViewDetail && "cursor-default opacity-80 grayscale-[0.2]",
+                !isUnavailable && "cursor-pointer active:scale-[0.98]",
+                highlightAsNew && "ring-1 ring-mayssa-gold/30 bg-white"
             )}
         >
-            <div className="absolute inset-0 gold-gradient opacity-0 group-hover:opacity-[0.02] transition-opacity duration-1000 pointer-events-none" />
-
-            {/* Action buttons */}
-            <div className="absolute top-6 right-6 z-20 flex flex-col gap-3 opacity-0 translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-700 ease-out">
+            <div className="absolute top-4 right-4 z-20 flex flex-col gap-2 opacity-0 -translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500">
                 {onViewDetail && (
                     <motion.button
                         type="button"
@@ -104,12 +106,12 @@ export function ProductCard({ product, onAdd, onViewDetail, stock = null, isPreo
                             hapticFeedback('light')
                             onViewDetail(product)
                         }}
-                        whileHover={{ scale: 1.15, rotate: -5 }}
+                        whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
-                        className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/90 backdrop-blur-md shadow-premium-shadow text-mayssa-brown/60 hover:text-mayssa-gold transition-all duration-500 border border-white/40"
+                        className="flex h-10 w-10 items-center justify-center rounded-full bg-white/95 backdrop-blur shadow-sm text-mayssa-brown hover:text-mayssa-gold transition-colors border border-black/5"
                         aria-label={`Voir les détails de ${product.name}`}
                     >
-                        <Info size={20} />
+                        <Info size={18} strokeWidth={2} />
                     </motion.button>
                 )}
             </div>
@@ -118,92 +120,84 @@ export function ProductCard({ product, onAdd, onViewDetail, stock = null, isPreo
                 ref={ref}
                 style={style}
                 {...handlers}
-                className={cn("flex flex-col h-full relative z-10", size === 'large' ? "gap-6" : "gap-5")}
+                className="flex flex-col h-full relative z-10 gap-4 sm:gap-5"
             >
                 <div className={cn(
-                  "relative overflow-hidden shadow-inner group-hover:shadow-lg transition-all duration-1000",
-                  size === 'large' ? "aspect-[3/4] rounded-[2rem]" : "aspect-[3/4] rounded-[1.8rem]",
-                  isTrompeLoeil
-                    ? "border-2 border-mayssa-brown/20 bg-mayssa-brown/5 ring-1 ring-mayssa-brown/10"
-                    : "border border-white/60 bg-mayssa-soft/30"
+                  "relative overflow-hidden rounded-[1.5rem] bg-mayssa-soft/50 transition-transform duration-700 ease-lux",
+                  size === 'large' ? "aspect-[4/5]" : "aspect-square"
                 )}>
                     {product.badges?.length ? (
-                        <ProductBadges badges={product.badges} variant="card" />
-                    ) : null}
-                    {product.pinned ? (
-                        <div
-                            className="absolute top-2 right-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-mayssa-gold/95 text-white shadow-lg border border-white/60"
-                            title="À la une"
-                        >
-                            <Pin size={14} className="-rotate-12" fill="currentColor" aria-hidden />
+                        <div className="absolute top-3 left-3 z-10 flex flex-col gap-1.5">
+                            <ProductBadges badges={product.badges} variant="card" />
                         </div>
                     ) : null}
+                    
+                    {product.pinned ? (
+                        <div className="absolute top-3 left-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-mayssa-gold text-white shadow-md">
+                            <Pin size={14} className="-rotate-12" fill="currentColor" />
+                        </div>
+                    ) : null}
+
                     {product.image ? (
                         <BlurImage
                             src={product.image}
                             alt={product.name}
-                            className="h-full w-full object-cover transition-transform duration-1000 ease-out group-hover:scale-105"
+                            className="h-full w-full object-cover transition-transform duration-[1.2s] ease-out group-hover:scale-[1.03]"
                             priority={priority}
                         />
                     ) : (
-                        <div className="flex flex-col items-center justify-center h-full gap-4 text-mayssa-gold/30">
+                        <div className="flex flex-col items-center justify-center h-full gap-3 text-mayssa-brown/20">
                             {showBientotDispo ? (
-                                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-mayssa-gold animate-pulse">Dévoilement imminent</span>
+                                <span className="text-[9px] font-bold uppercase tracking-widest text-mayssa-gold animate-pulse">Bientôt</span>
                             ) : (
-                                <ShoppingCart size={40} strokeWidth={1} />
+                                <ShoppingCart size={32} strokeWidth={1} />
                             )}
                         </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-mayssa-brown/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
                 </div>
 
-                <div className={cn("flex flex-col flex-1 px-1", size === 'large' ? "gap-5" : "gap-4")}>
-                    <div className={cn("space-y-3", size === 'large' && "space-y-4")}>
-                        <div className="flex items-center justify-between gap-3">
-                            <h4 className={cn("font-display font-medium leading-tight text-mayssa-brown group-hover:text-mayssa-gold transition-colors duration-700", size === 'large' ? "text-2xl sm:text-3xl" : "text-xl sm:text-2xl")}>
-                                {product.name}
-                            </h4>
-                            <div className="hidden sm:block h-[1px] flex-1 gold-gradient opacity-10" />
-                        </div>
+                <div className="flex flex-col flex-1 px-1">
+                    <div className="space-y-1.5 sm:space-y-2">
+                        <h4 className={cn("font-display font-medium text-mayssa-brown group-hover:text-mayssa-gold transition-colors duration-500", size === 'large' ? "text-2xl" : "text-xl")}>
+                            {product.name}
+                        </h4>
                         
-                        <p className={cn("font-sans font-light text-mayssa-brown/60 line-clamp-2 leading-relaxed tracking-wide", size === 'large' ? "text-sm sm:text-base" : "text-xs sm:text-sm")}>
-                            {product.description || 'Une signature Maison Mayssa, pensée pour l\'émotion.'}
+                        <p className="font-sans font-light text-mayssa-brown/60 line-clamp-2 text-xs sm:text-sm leading-relaxed">
+                            {product.description || 'Une création Maison Mayssa.'}
                         </p>
                         
                         {productRating != null && productReviewCount > 0 && (
-                            <div className="flex items-center gap-2 pt-1 group/rating">
-                                <div className="flex gap-1 text-mayssa-gold">
+                            <div className="flex items-center gap-1.5 pt-1">
+                                <div className="flex gap-0.5 text-mayssa-gold">
                                     {[1, 2, 3, 4, 5].map((v) => (
-                                        <Star key={v} size={12} className={cn("transition-all duration-500", v <= Math.round(productRating) ? "fill-current group-hover/rating:scale-110" : "text-mayssa-brown/5")} />
+                                        <Star key={v} size={10} className={cn(v <= Math.round(productRating) ? "fill-current" : "text-mayssa-brown/10")} />
                                     ))}
                                 </div>
-                                <span className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/40">{productReviewCount} avis</span>
+                                <span className="text-[9px] uppercase tracking-widest text-mayssa-brown/40">{productReviewCount} avis</span>
                             </div>
                         )}
                         
                         {isStockManaged && (
-                            <div className="pt-1">
+                            <div className="pt-2">
                                 <StockBadge stock={stock} isPreorderDay={isPreorderDay} dayNames={dayNames} isPreorderProduct={isTrompeLoeil} />
                             </div>
                         )}
                         
                         {openingBannerLabel && (
-                            <div className="flex items-center gap-2 mt-3 bg-mayssa-gold/5 w-fit px-4 py-2 rounded-xl border border-mayssa-gold/20 backdrop-blur-sm">
-                                <CalendarClock size={14} className="text-mayssa-gold flex-shrink-0" />
-                                <span className="text-[10px] uppercase tracking-[0.2em] font-black text-mayssa-gold leading-tight">{openingBannerLabel}</span>
+                            <div className="flex items-center gap-1.5 mt-2">
+                                <CalendarClock size={12} className="text-mayssa-gold" />
+                                <span className="text-[9px] uppercase tracking-[0.2em] font-bold text-mayssa-gold">{openingBannerLabel}</span>
                             </div>
                         )}
                     </div>
 
-                    <div className="mt-auto pt-6 flex items-end justify-between gap-4 border-t border-mayssa-brown/5 group-hover:border-mayssa-gold/10 transition-colors duration-700">
-                        <div className="flex flex-col gap-1.5">
+                    <div className="mt-auto pt-5 flex items-center justify-between gap-4">
+                        <div className="flex flex-col gap-0.5">
                             {isPreorderSoon && product.preorder ? (
                                 <>
-                                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-mayssa-gold flex items-center gap-2">
-                                        <Calendar size={14} strokeWidth={2.5} /> Précommande
-                                    </span>
-                                    <span className="text-[11px] text-mayssa-brown/50 font-bold uppercase tracking-widest">
-                                        Collecte le {(() => {
+                                    <span className="text-[9px] font-bold uppercase tracking-[0.25em] text-mayssa-gold">Précommande</span>
+                                    <span className="text-[10px] text-mayssa-brown/50 font-medium">
+                                        Retrait le {(() => {
                                             const now = new Date()
                                             const day = now.getDay()
                                             const daysUntil = day === 6 ? 4 : day === 3 ? 3 : 3
@@ -214,31 +208,23 @@ export function ProductCard({ product, onAdd, onViewDetail, stock = null, isPreo
                                     </span>
                                 </>
                             ) : (
-                                <>
-                                    <span className="text-[10px] font-black uppercase tracking-[0.4em] text-mayssa-brown/30">
-                                        {product.sizes ? 'De Collection' : 'Prix Signature'}
+                                <div className="flex items-baseline gap-2">
+                                    <span className={cn("font-display text-mayssa-brown transition-colors duration-500", size === 'large' ? "text-2xl" : "text-xl")}>
+                                        {product.price.toFixed(2).replace('.', ',')}
+                                        <span className="text-sm ml-1 opacity-70">€</span>
                                     </span>
-                                    <div className="flex items-baseline gap-2">
-                                        <span className={cn("font-display font-medium text-mayssa-brown group-hover:text-mayssa-gold transition-colors duration-700", size === 'large' ? "text-3xl sm:text-4xl" : "text-2xl sm:text-3xl")}>
-                                            {product.price.toFixed(2).replace('.', ',')}
-                                            <span className="text-lg ml-1 font-sans opacity-60">€</span>
+                                    {product.originalPrice && product.originalPrice > product.price && (
+                                        <span className="text-xs text-mayssa-brown/30 line-through">
+                                            {product.originalPrice.toFixed(2).replace('.', ',')}€
                                         </span>
-                                        {product.originalPrice && product.originalPrice > product.price && (
-                                            <span className="text-sm text-mayssa-brown/30 line-through decoration-mayssa-gold/40">
-                                                {product.originalPrice.toFixed(2).replace('.', ',')}€
-                                            </span>
-                                        )}
-                                    </div>
-                                </>
+                                    )}
+                                </div>
                             )}
                         </div>
 
                         {isUnavailable ? (
-                            <div className="flex flex-col items-end gap-2 flex-shrink-0 min-w-0">
-                                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-mayssa-brown/5 text-mayssa-brown/20 border border-mayssa-brown/5">
-                                    <Calendar size={24} strokeWidth={1.5} />
-                                </div>
-                                <NotifyWhenAvailable product={product} className="text-right transition-all duration-500 opacity-60 hover:opacity-100" />
+                            <div className="flex flex-col items-end gap-1.5">
+                                <NotifyWhenAvailable product={product} className="text-right opacity-70 hover:opacity-100 transition-opacity" />
                             </div>
                         ) : (
                             <motion.button
@@ -247,18 +233,16 @@ export function ProductCard({ product, onAdd, onViewDetail, stock = null, isPreo
                                     e.stopPropagation()
                                     onAdd(product)
                                 }}
-                                whileHover={{ scale: 1.05, y: -2 }}
+                                whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
-                                className="flex h-14 w-14 items-center justify-center rounded-2xl bg-mayssa-brown text-white shadow-premium-shadow hover:bg-mayssa-gold transition-all duration-700 flex-shrink-0 group/btn relative overflow-hidden"
+                                className="flex h-10 w-10 items-center justify-center rounded-full bg-mayssa-brown text-white shadow-md hover:bg-mayssa-gold transition-colors duration-300 flex-shrink-0"
                             >
-                                <div className="absolute inset-0 bg-white/20 translate-y-[-100%] group-hover/btn:translate-y-[100%] transition-transform duration-1000" />
-                                <Plus size={26} strokeWidth={2.5} className="relative z-10 group-hover/btn:rotate-90 transition-transform duration-700" />
+                                <Plus size={20} strokeWidth={2} />
                             </motion.button>
                         )}
                     </div>
                 </div>
             </div>
         </motion.article>
-
     )
 }
