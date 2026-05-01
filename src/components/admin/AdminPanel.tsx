@@ -544,6 +544,7 @@ function Dashboard({ user }: { user: User }) {
   const [livraisonMode, setLivraisonMode] = useState<'livraison' | 'retrait'>('livraison')
   const [catalogueSection, setCatalogueSection] = useState<'stock' | 'produits' | 'promos'>('stock')
   const [clientsSection, setClientsSection] = useState<'inscrits' | 'avis' | 'anniversaires' | 'alertes' | 'abonnes'>('inscrits')
+  const [clientsSearch, setClientsSearch] = useState('')
   const [reglagesSection, setReglagesSection] = useState<'jours' | 'creneaux' | 'rappels'>('jours')
   const [caPeriod, setCaPeriod] = useState<'jour' | 'semaine' | 'mois'>('semaine')
   const [allUsers, setAllUsers] = useState<Record<string, UserProfile>>({})
@@ -4420,11 +4421,45 @@ function Dashboard({ user }: { user: User }) {
                 <Users size={40} className="mx-auto text-mayssa-brown/15 mb-3" />
                 <p className="text-sm font-medium text-mayssa-brown/60">Aucun client inscrit pour le moment</p>
               </div>
-            ) : (
+            ) : (() => {
+              const normalize = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+              const q = normalize(clientsSearch.trim())
+              const filtered = Object.entries(allUsers)
+                .filter(([, u]) => {
+                  if (!q) return true
+                  const hay = normalize(`${u.firstName ?? ''} ${u.lastName ?? ''} ${u.email ?? ''} ${u.phone ?? ''}`)
+                  return hay.includes(q)
+                })
+                .sort(([, a], [, b]) => {
+                  const na = normalize(`${a.firstName ?? ''} ${a.lastName ?? ''}`).trim() || normalize(a.email ?? '')
+                  const nb = normalize(`${b.firstName ?? ''} ${b.lastName ?? ''}`).trim() || normalize(b.email ?? '')
+                  return na.localeCompare(nb, 'fr')
+                })
+              return (
               <div className="space-y-2">
-                {Object.entries(allUsers)
-                  .sort(([, a], [, b]) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
-                  .map(([uid, u]) => (
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-mayssa-brown/40 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={clientsSearch}
+                    onChange={(e) => setClientsSearch(e.target.value)}
+                    placeholder="Rechercher un client (nom, email, téléphone)..."
+                    className="w-full pl-9 pr-9 py-2.5 text-sm rounded-xl border border-mayssa-brown/15 bg-white focus:outline-none focus:ring-2 focus:ring-mayssa-caramel/40 focus:border-mayssa-caramel/40 placeholder:text-mayssa-brown/40"
+                  />
+                  {clientsSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setClientsSearch('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md text-mayssa-brown/40 hover:text-mayssa-brown hover:bg-mayssa-soft transition-colors cursor-pointer"
+                      aria-label="Effacer la recherche"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+                {filtered.length === 0 ? (
+                  <div className="py-8 text-center text-xs text-mayssa-brown/50">Aucun client trouvé pour « {clientsSearch} »</div>
+                ) : filtered.map(([uid, u]) => (
                     <div
                       key={uid}
                       className="flex items-center justify-between p-3 rounded-xl border border-mayssa-brown/10 bg-white hover:bg-mayssa-soft/30 transition-colors gap-2 cursor-pointer group"
@@ -4477,7 +4512,8 @@ function Dashboard({ user }: { user: User }) {
                     </div>
                   ))}
               </div>
-            )}
+              )
+            })()}
           </motion.section>
         )}
 
