@@ -19,6 +19,10 @@ export const MYSTERY_TROMPE_LOEIL_ID = 'trompe-loeil-fraise'
 export const BOX_DECOUVERTE_TROMPE_PRODUCT_ID = 'box-decouverte-trompe-5'
 export const DISCOVERY_BOX_TROMPE_SLOT_COUNT = 5
 
+/** Mini box trompe-l'œil par 5 : les saveurs sont choisies par l'admin (côté Firebase, miniBoxTrompeIncludedIds). */
+export const MINI_BOX_TROMPE_PRODUCT_ID = 'mini-box-trompe-loeil-5'
+export const MINI_BOX_TROMPE_SLOT_COUNT = 5
+
 /** Box fruitée : 6 trompe-l'œil distincts au choix parmi 7 saveurs fruitées. */
 export const FRUITEE_BOX_TROMPE_SLOT_COUNT = 6
 
@@ -275,6 +279,19 @@ export const PRODUCTS: Product[] = [
         category: "Trompe l'œil",
         image: '/Boxe-trompeloeil.webp',
         badges: ['nouveau'],
+        preorder: TROMPE_LOEIL_PREORDER,
+    },
+    {
+        id: MINI_BOX_TROMPE_PRODUCT_ID,
+        name: "Mini Box Trompe l'œil — 5 minis",
+        description:
+            "5 mini trompe-l'œil (1 à 2 bouchées max chacun) — les saveurs de la semaine sont choisies par la maison. À découvrir au gré de la carte du moment.",
+        price: 12.5,
+        originalPrice: 15,
+        category: "Trompe l'œil",
+        image: '/boxe-mini-par-5.webp',
+        badges: ['nouveaute'],
+        highlightAsNew: true,
         preorder: TROMPE_LOEIL_PREORDER,
     },
     {

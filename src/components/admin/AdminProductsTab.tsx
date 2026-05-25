@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { ChevronDown, ChevronUp, RotateCcw, Plus, Trash2, Tag, Pin, ImagePlus } from 'lucide-react'
-import { PRODUCTS, BOX_DECOUVERTE_TROMPE_PRODUCT_ID } from '../../constants'
+import { PRODUCTS, BOX_DECOUVERTE_TROMPE_PRODUCT_ID, MINI_BOX_TROMPE_PRODUCT_ID, MINI_BOX_TROMPE_SLOT_COUNT } from '../../constants'
 import { updateProductOverride, setProductOverride, deleteProductOverride, uploadProductImage, updateSettings } from '../../lib/firebase'
 import { listIndividualTrompeLoeilProducts } from '../../lib/discoveryBox'
 import type { ProductOverrideMap, ProductOverride, ProductCategory, ProductBadge, ProductSize } from '../../types'
@@ -25,12 +25,15 @@ interface AdminProductsTabProps {
   overrides: ProductOverrideMap
   /** Même source que le stock box : exclusions pour la composition client */
   boxDecouverteTrompeExcludedIds?: string[]
+  /** Saveurs incluses dans la mini box trompe-l'œil (admin) */
+  miniBoxTrompeIncludedIds?: string[]
 }
 
 export function AdminProductsTab({
   allProducts,
   overrides,
   boxDecouverteTrompeExcludedIds = [],
+  miniBoxTrompeIncludedIds = [],
 }: AdminProductsTabProps) {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(ALL_CATEGORIES))
   const [editingProduct, setEditingProduct] = useState<string | null>(null)
@@ -140,6 +143,7 @@ export function AdminProductsTab({
                     isEditing={editingProduct === product.id}
                     isSaving={saving === product.id}
                     boxDecouverteTrompeExcludedIds={boxDecouverteTrompeExcludedIds}
+                    miniBoxTrompeIncludedIds={miniBoxTrompeIncludedIds}
                     onToggleAvailability={() => handleToggleAvailability(product)}
                     onEdit={() => setEditingProduct(editingProduct === product.id ? null : product.id)}
                     onReset={() => handleResetProduct(product.id)}
@@ -163,6 +167,7 @@ interface ProductCardProps {
   isEditing: boolean
   isSaving: boolean
   boxDecouverteTrompeExcludedIds: string[]
+  miniBoxTrompeIncludedIds: string[]
   onToggleAvailability: () => void
   onEdit: () => void
   onReset: () => void
@@ -176,6 +181,7 @@ function ProductCard({
   isEditing,
   isSaving,
   boxDecouverteTrompeExcludedIds,
+  miniBoxTrompeIncludedIds,
   onToggleAvailability,
   onEdit,
   onReset,
@@ -260,6 +266,7 @@ function ProductCard({
           hasOverride={hasOverride}
           isCustom={isCustom}
           boxDecouverteTrompeExcludedIds={boxDecouverteTrompeExcludedIds}
+          miniBoxTrompeIncludedIds={miniBoxTrompeIncludedIds}
           onReset={onReset}
           onDelete={onDelete}
         />
@@ -274,6 +281,7 @@ interface ProductEditFormProps {
   hasOverride: boolean
   isCustom: boolean
   boxDecouverteTrompeExcludedIds: string[]
+  miniBoxTrompeIncludedIds: string[]
   onReset: () => void
   onDelete: () => void
 }
@@ -283,6 +291,7 @@ function ProductEditForm({
   hasOverride,
   isCustom,
   boxDecouverteTrompeExcludedIds,
+  miniBoxTrompeIncludedIds,
   onReset,
   onDelete,
 }: ProductEditFormProps) {
@@ -460,6 +469,52 @@ function ProductEditForm({
           className="w-full rounded-lg bg-mayssa-soft/30 px-3 py-2 text-sm text-mayssa-brown border border-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel resize-none"
         />
       </div>
+
+      {/* Mini box trompe-l'œil : saveurs incluses (5 max) — l'admin choisit, le client n'a pas le choix */}
+      {product.id === MINI_BOX_TROMPE_PRODUCT_ID && (
+        <div className="rounded-xl border border-amber-200/80 bg-amber-50/50 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-bold text-mayssa-brown">
+              Saveurs incluses dans la mini box ({miniBoxTrompeIncludedIds.length}/{MINI_BOX_TROMPE_SLOT_COUNT})
+            </p>
+            {miniBoxTrompeIncludedIds.length !== MINI_BOX_TROMPE_SLOT_COUNT && (
+              <span className="text-[9px] font-semibold text-amber-700">
+                Sélectionnez exactement {MINI_BOX_TROMPE_SLOT_COUNT} saveurs
+              </span>
+            )}
+          </div>
+          <p className="text-[9px] text-mayssa-brown/50 leading-snug">
+            Le client n&apos;a pas le choix : la liste affichée sur la fiche produit reprend les saveurs cochées ici. Ce sont les
+            mêmes parfums que les trompe-l&apos;œil classiques, en format mini (1 à 2 bouchées).
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {listIndividualTrompeLoeilProducts(PRODUCTS).map((p) => {
+              const included = miniBoxTrompeIncludedIds.includes(p.id)
+              const atCap = miniBoxTrompeIncludedIds.length >= MINI_BOX_TROMPE_SLOT_COUNT && !included
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  disabled={atCap}
+                  onClick={() => {
+                    const cur = new Set(miniBoxTrompeIncludedIds)
+                    if (included) cur.delete(p.id)
+                    else cur.add(p.id)
+                    void updateSettings({ miniBoxTrompeIncludedIds: [...cur] })
+                  }}
+                  className={`px-2 py-1 rounded-lg text-[9px] font-bold transition-colors cursor-pointer border disabled:opacity-40 disabled:cursor-not-allowed ${
+                    included
+                      ? 'border-amber-500 bg-amber-500 text-white'
+                      : 'border-mayssa-caramel/35 bg-white text-mayssa-brown hover:border-mayssa-caramel'
+                  }`}
+                >
+                  {p.name.replace(/^Trompe l'œil\s+/i, '')}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Box découverte : exclusions de saveurs (réglage global Firebase) */}
       {product.id === BOX_DECOUVERTE_TROMPE_PRODUCT_ID && (

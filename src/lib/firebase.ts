@@ -264,6 +264,11 @@ export type Settings = {
    * Tableau vide = aucune exclusion.
    */
   boxDecouverteTrompeExcludedIds?: string[]
+  /**
+   * Trompe-l'œil unitaires inclus dans la mini box par 5 (l'admin choisit explicitement les 5 saveurs proposées).
+   * Liste affichée au client sur la fiche produit. Stock indépendant des saveurs unitaires.
+   */
+  miniBoxTrompeIncludedIds?: string[]
 }
 
 const DEFAULT_PREORDER_OPENINGS: PreorderOpening[] = [
@@ -404,6 +409,11 @@ function mergeSettings(val: unknown): Settings {
       (x): x is string => typeof x === 'string' && allTrompeCatalogIds.has(x),
     )
   }
+  const miniBoxTrompeIncludedIds = Array.isArray(raw.miniBoxTrompeIncludedIds)
+    ? (raw.miniBoxTrompeIncludedIds as unknown[]).filter(
+        (x): x is string => typeof x === 'string' && allTrompeCatalogIds.has(x),
+      )
+    : []
   return {
     preorderDays,
     preorderOpenings,
@@ -428,6 +438,7 @@ function mergeSettings(val: unknown): Settings {
     eventModeMessage,
     eventModePosterUrl,
     boxDecouverteTrompeExcludedIds,
+    miniBoxTrompeIncludedIds,
   }
 }
 

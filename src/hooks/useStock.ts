@@ -7,6 +7,7 @@ export function useStock() {
     preorderDays: [3, 6],
     preorderMessage: '',
     boxDecouverteTrompeExcludedIds: [],
+    miniBoxTrompeIncludedIds: [],
   })
   const [loading, setLoading] = useState(true)
 

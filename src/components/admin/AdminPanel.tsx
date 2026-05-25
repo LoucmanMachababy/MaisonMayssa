@@ -3899,6 +3899,7 @@ function Dashboard({ user }: { user: User }) {
                   allProducts={allProducts}
                   overrides={productOverrides}
                   boxDecouverteTrompeExcludedIds={settings.boxDecouverteTrompeExcludedIds ?? []}
+                  miniBoxTrompeIncludedIds={settings.miniBoxTrompeIncludedIds ?? []}
                 />
               </motion.div>
             )}
@@ -4544,6 +4545,7 @@ function Dashboard({ user }: { user: User }) {
               allProducts={allProducts}
               overrides={productOverrides}
               boxDecouverteTrompeExcludedIds={settings.boxDecouverteTrompeExcludedIds ?? []}
+              miniBoxTrompeIncludedIds={settings.miniBoxTrompeIncludedIds ?? []}
             />
           </motion.div>
         )}

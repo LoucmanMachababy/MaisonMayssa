@@ -35,6 +35,7 @@ import { listenDeliverySlots, reserveDeliverySlot, listenSettings } from '../lib
 import {
   PRODUCTS,
   BOX_DECOUVERTE_TROMPE_PRODUCT_ID,
+  MINI_BOX_TROMPE_PRODUCT_ID,
   PHONE_E164,
   DISCOVERY_BOX_TROMPE_SLOT_COUNT,
   isCustomizableTrompeBundleBoxId,
@@ -179,6 +180,29 @@ export default function Home() {
     )
     return listIndividualTrompeLoeilProducts(availableProducts).filter((p) => ids.has(p.id))
   }, [availableProducts, settings.boxDecouverteTrompeExcludedIds])
+
+  /** Saveurs incluses dans la mini box (admin) — texte affiché sur la fiche client. */
+  const miniBoxFlavorsLabel = useMemo(() => {
+    const ids = settings.miniBoxTrompeIncludedIds ?? []
+    if (ids.length === 0) return ''
+    const names = ids
+      .map((id) => availableProducts.find((p) => p.id === id)?.name ?? PRODUCTS.find((p) => p.id === id)?.name)
+      .filter((n): n is string => Boolean(n))
+      .map((n) => n.replace(/^Trompe l'œil\s+/i, ''))
+    return names.join(', ')
+  }, [availableProducts, settings.miniBoxTrompeIncludedIds])
+
+  const decorateMiniBoxProduct = useCallback(
+    <P extends { id: string; description?: string }>(p: P): P => {
+      if (p.id !== MINI_BOX_TROMPE_PRODUCT_ID) return p
+      const base = p.description ?? ''
+      const head = miniBoxFlavorsLabel
+        ? `Saveurs de la semaine : ${miniBoxFlavorsLabel}.`
+        : 'Saveurs de la semaine choisies par la maison (à venir).'
+      return { ...p, description: base ? `${head} ${base}` : head }
+    },
+    [miniBoxFlavorsLabel],
+  )
 
   // Refs pour accéder aux données courantes dans les timers (évite les closures stale)
   const stockMapRef = useRef(stockMap)
@@ -716,8 +740,8 @@ export default function Home() {
       )
     }
 
-    return filtered
-  }, [activeCategory, searchQuery, availableProducts])
+    return filtered.map(decorateMiniBoxProduct)
+  }, [activeCategory, searchQuery, availableProducts, decorateMiniBoxProduct])
 
   const orderedProducts = useMemo(() => {
     const arr = [...filteredProducts]
