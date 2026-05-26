@@ -3628,7 +3628,7 @@ function Dashboard({ user }: { user: User }) {
                     <XAxis dataKey="label" tick={{ fontSize: 9 }} stroke="#5b3a29" />
                     <YAxis tick={{ fontSize: 9 }} stroke="#5b3a29" tickFormatter={(v) => `${v}€`} />
                     <Tooltip
-                      formatter={(value: number | undefined) => [`${(value ?? 0).toFixed(2).replace('.', ',')} €`, 'CA']}
+                      formatter={(value) => [`${(Number(value) || 0).toFixed(2).replace('.', ',')} €`, 'CA']}
                       labelFormatter={(label) => label}
                       contentStyle={{ fontSize: 11, borderRadius: 8 }}
                     />
@@ -3648,7 +3648,7 @@ function Dashboard({ user }: { user: User }) {
                     <XAxis dataKey="label" tick={{ fontSize: 8 }} stroke="#5b3a29" interval={0} />
                     <YAxis tick={{ fontSize: 9 }} stroke="#5b3a29" allowDecimals={false} />
                     <Tooltip
-                      formatter={(value: number | undefined) => [value ?? 0, 'Commandes']}
+                      formatter={(value) => [Number(value) || 0, 'Commandes']}
                       labelFormatter={(label) => label}
                       contentStyle={{ fontSize: 11, borderRadius: 8 }}
                     />
@@ -3747,9 +3747,12 @@ function Dashboard({ user }: { user: User }) {
                       <XAxis type="number" tick={{ fontSize: 9 }} stroke="#5b3a29" tickFormatter={(v) => `${v}`} />
                       <YAxis type="category" dataKey="name" tick={{ fontSize: 9 }} stroke="#5b3a29" width={100} />
                       <Tooltip
-                        formatter={(value: number | undefined, _: unknown, props: { payload?: { qty: number; ca: number } }) =>
-                          props?.payload ? [`${props.payload.qty} vendu(s) · ${props.payload.ca.toFixed(2).replace('.', ',')} €`, 'Total'] : [value ?? 0, 'Qté']
-                        }
+                        formatter={(value, _name, item) => {
+                          const p = (item as { payload?: { qty: number; ca: number } } | undefined)?.payload;
+                          return p
+                            ? [`${p.qty} vendu(s) · ${p.ca.toFixed(2).replace('.', ',')} €`, 'Total']
+                            : [Number(value) || 0, 'Qté'];
+                        }}
                         contentStyle={{ fontSize: 11, borderRadius: 8 }}
                       />
                       <Bar dataKey="qty" fill="#a67c52" radius={[0, 4, 4, 0]} name="Qté vendue" />
