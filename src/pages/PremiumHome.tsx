@@ -3,20 +3,24 @@ import { Link } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import { motion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
-import { CATALOG_PRODUCTS, TROMPE_PREORDER } from '../constants/catalog'
+import { CATALOG_PRODUCTS } from '../constants/catalog'
 import { TrompeLoeilMarquee } from '../components/decorative/TrompeLoeilMarquee'
 import { EditorialImageBand } from '../components/decorative/EditorialImageBand'
 import { LIFESTYLE } from '../lib/decorativeAssets'
 import { useSettings } from '../hooks/useSettings'
-import { getPreorderOpeningDisplayLabel } from '../lib/utils'
 
 export default function PremiumHome() {
   const settings = useSettings()
   const ordersOpen = (settings?.ordersOpen !== false) && !settings?.eventModeEnabled
-  const preorderOpeningLabel = useMemo(
-    () => getPreorderOpeningDisplayLabel(settings, TROMPE_PREORDER.availableFrom),
-    [settings],
-  )
+  /** Texte libre saisi dans l’admin — affiché tel quel, sans phrase automatique. */
+  const heroAnnouncement = useMemo(() => {
+    const fromRestock = settings?.nextRestockDate?.trim()
+    if (fromRestock) return fromRestock
+    if (settings?.globalMessageEnabled && settings.globalMessage?.trim()) {
+      return settings.globalMessage.trim()
+    }
+    return null
+  }, [settings])
 
   const categories = [
     { name: 'Les Canette Cake', image: '/nouvelle-img/canette-cake-speculos-framboise.png', path: '/carte?categorie=canette-cake' },
@@ -53,14 +57,16 @@ export default function PremiumHome() {
         </div>
         
         <div className="relative z-10 text-center px-6 max-w-5xl mx-auto">
-          <motion.p
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-            className="inline-block px-6 py-3 mb-6 border border-mayssa-gold/70 bg-mayssa-brown/50 backdrop-blur-sm text-sm sm:text-base md:text-lg lg:text-xl text-mayssa-gold font-medium tracking-[0.12em] sm:tracking-[0.15em] uppercase shadow-lg"
-          >
-            Ouverture des précommandes le {preorderOpeningLabel}
-          </motion.p>
+          {heroAnnouncement && (
+            <motion.p
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+              className="inline-block px-6 py-3 mb-6 border border-mayssa-gold/70 bg-mayssa-brown/50 backdrop-blur-sm text-sm sm:text-base md:text-lg lg:text-xl text-mayssa-gold font-medium tracking-[0.12em] sm:tracking-[0.15em] uppercase shadow-lg whitespace-pre-line"
+            >
+              {heroAnnouncement}
+            </motion.p>
+          )}
 
           <motion.h1 
             initial={{ opacity: 0, y: 30 }}
