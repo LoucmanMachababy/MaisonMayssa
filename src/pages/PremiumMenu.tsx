@@ -1,9 +1,9 @@
 import { useMemo, useRef } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
-import { CATALOG_PRODUCTS } from '../constants/catalog'
 import { motion, AnimatePresence, useScroll, useTransform, useMotionValue, useSpring } from 'framer-motion'
 import { useProductAddFlow } from '../hooks/useProductAddFlow'
+import { useProducts } from '../hooks/useProducts'
 import { ProductAddModals } from '../components/product/ProductAddModals'
 import { ProductAllergensBlock } from '../components/product/ProductAllergensBlock'
 import { TrompeLoeilMarquee } from '../components/decorative/TrompeLoeilMarquee'
@@ -131,18 +131,20 @@ export default function PremiumMenu() {
     setSearchParams(searchParams)
   }
 
+  const { catalogProducts } = useProducts()
+
   const filteredProducts = useMemo(() => {
-    let products = CATALOG_PRODUCTS.filter(p => p.visible !== false)
-    
+    let products = catalogProducts
+
     if (currentCategory !== 'tout') {
       const mappedCategories = CATEGORY_MAPPING[currentCategory]
       if (mappedCategories) {
         products = products.filter(p => mappedCategories.includes(p.category))
       }
     }
-    
+
     return products
-  }, [currentCategory])
+  }, [catalogProducts, currentCategory])
 
   return (
     <div className="min-h-screen bg-mayssa-soft pb-32 pt-[88px] lg:pt-[104px]">

@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import { motion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
-import { CATALOG_PRODUCTS } from '../constants/catalog'
 import { TrompeLoeilMarquee } from '../components/decorative/TrompeLoeilMarquee'
 import { EditorialImageBand } from '../components/decorative/EditorialImageBand'
 import { LIFESTYLE } from '../lib/decorativeAssets'
 import { useSettings } from '../hooks/useSettings'
+import { useProducts } from '../hooks/useProducts'
 
 export default function PremiumHome() {
   const settings = useSettings()
@@ -34,8 +34,7 @@ export default function PremiumHome() {
     { name: 'Événements', image: LIFESTYLE.boxAll, path: '/evenements' },
   ]
 
-  // Filter "Bientôt disponible" products
-  const comingSoonProducts = CATALOG_PRODUCTS.filter(p => !p.available && p.visible)
+  const { comingSoonProducts } = useProducts()
 
   return (
     <div className="w-full">

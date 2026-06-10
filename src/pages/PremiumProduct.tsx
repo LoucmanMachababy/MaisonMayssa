@@ -1,7 +1,7 @@
 import { useParams, Link } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
-import { CATALOG_PRODUCTS } from '../constants/catalog'
 import { useMemo, useState, useRef, useEffect } from 'react'
+import { useProducts } from '../hooks/useProducts'
 import { Minus, Plus, ArrowLeft, Check, ShoppingBag, ArrowRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useProductAddFlow } from '../hooks/useProductAddFlow'
@@ -19,7 +19,8 @@ import { getProductDetail, getProductRecommendations } from '../lib/productDetai
 
 export default function PremiumProduct() {
   const { id } = useParams()
-  const product = CATALOG_PRODUCTS.find((p) => p.id === id)
+  const { catalogProducts } = useProducts()
+  const product = catalogProducts.find((p) => p.id === id)
   const addFlow = useProductAddFlow()
   const addItem = useCartStore((s) => s.addItem)
   const cartCount = useCartStore((s) => s.items.reduce((n, i) => n + i.quantity, 0))
@@ -39,7 +40,7 @@ export default function PremiumProduct() {
     }
   }, [])
 
-  const catalogIds = useMemo(() => new Set(CATALOG_PRODUCTS.map((p) => p.id)), [])
+  const catalogIds = useMemo(() => new Set(catalogProducts.map((p) => p.id)), [catalogProducts])
 
   const detail = useMemo(
     () => (product ? getProductDetail(product.id, product.description) : null),
@@ -52,8 +53,8 @@ export default function PremiumProduct() {
   )
 
   const recommendedProducts = useMemo(
-    () => recommendations.map((rid) => CATALOG_PRODUCTS.find((p) => p.id === rid)).filter(Boolean),
-    [recommendations],
+    () => recommendations.map((rid) => catalogProducts.find((p) => p.id === rid)).filter(Boolean),
+    [recommendations, catalogProducts],
   )
 
   if (!product || !detail) {
