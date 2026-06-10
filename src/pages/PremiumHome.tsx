@@ -30,7 +30,7 @@ export default function PremiumHome() {
     { name: 'Le salé', image: '/nouvelle-img/Panuozzo-Italien.png', path: '/carte?categorie=sale' },
     { name: 'Les Cup de fruits', image: '/nouvelle-img/Cup-de-fruit-mixte.png', path: '/carte?categorie=fruits' },
     { name: 'La Chocolaterie', image: '/nouvelle-img/tablette-chocolat-dubai-pistache.png', path: '/carte?categorie=chocolaterie' },
-    { name: 'Nos jus frais', image: '/nouvelle-img/limonade-bresilienne.png', path: '/carte?categorie=jus' },
+    { name: 'Nos jus frais', image: LIFESTYLE.jusFrais, path: '/carte?categorie=jus' },
     { name: 'Événements', image: LIFESTYLE.boxAll, path: '/evenements' },
   ]
 

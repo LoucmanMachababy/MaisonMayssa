@@ -17,6 +17,8 @@ export const LIFESTYLE = {
   bandeauLuxe: '/nouvelle-img/boxe-7-trompe-loeil.png',
   /** Section communauté / storytelling */
   community: '/nouvelle-img/mangue-beaucoup.png',
+  /** Nos jus frais — limonades & mojitos */
+  jusFrais: '/nouvelle-img/limonade-bresilienne.png',
 } as const
 
 /** Visages trompe-l'œil pour bandeaux décoratifs (mosaïque / marquee). */

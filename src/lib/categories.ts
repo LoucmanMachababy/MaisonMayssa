@@ -35,7 +35,7 @@ export const CATEGORY_SHOWCASE: CategoryShowcase[] = [
     id: 'Nos jus frais',
     title: 'Nos jus frais',
     subtitle: 'Limonades & mojitos sans alcool',
-    image: '/Fraise.webp',
+    image: '/nouvelle-img/limonade-bresilienne.png',
     anchor: '#la-carte',
   },
   {

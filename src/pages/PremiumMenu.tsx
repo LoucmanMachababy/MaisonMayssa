@@ -7,6 +7,7 @@ import { useProductAddFlow } from '../hooks/useProductAddFlow'
 import { ProductAddModals } from '../components/product/ProductAddModals'
 import { ProductAllergensBlock } from '../components/product/ProductAllergensBlock'
 import { TrompeLoeilMarquee } from '../components/decorative/TrompeLoeilMarquee'
+import { LIFESTYLE } from '../lib/decorativeAssets'
 
 const CATEGORIES = [
   { id: 'tout', label: 'Tout' },
@@ -162,15 +163,24 @@ export default function PremiumMenu() {
         onMouseLeave={handleHeaderMouseLeave}
         className="relative w-full overflow-hidden mb-12 mt-4 min-h-[320px] md:min-h-[380px]"
       >
-        {/* Product mosaic background */}
-        <motion.div
-          style={{ y: mosaicY, x: springX, rotateX: tiltX, rotateY: tiltY }}
-          className="absolute inset-0 flex scale-105"
-        >
-          {MOSAIC_PANELS.map((panel, i) => (
-            <MosaicPanel key={panel.src} src={panel.src} hover={panel.hover} index={i} />
-          ))}
-        </motion.div>
+        {/* Background — image catégorie ou mosaïque trompe-l'œil */}
+        {currentCategory === 'jus' ? (
+          <motion.img
+            src={LIFESTYLE.jusFrais}
+            alt="Limonades et mojitos Maison Mayssa"
+            style={{ y: mosaicY }}
+            className="absolute inset-0 w-full h-full object-cover object-center scale-105"
+          />
+        ) : (
+          <motion.div
+            style={{ y: mosaicY, x: springX, rotateX: tiltX, rotateY: tiltY }}
+            className="absolute inset-0 flex scale-105"
+          >
+            {MOSAIC_PANELS.map((panel, i) => (
+              <MosaicPanel key={panel.src} src={panel.src} hover={panel.hover} index={i} />
+            ))}
+          </motion.div>
+        )}
 
         {/* Warm ambient glow */}
         <motion.div
