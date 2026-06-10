@@ -207,6 +207,56 @@ export const PRODUCT_DETAILS: Record<string, ProductDetailContent> = {
     composition: ['Sélection sur mesure', 'Budget au choix', 'Créations du jour'],
     conservation: 'À conserver au frais selon les produits inclus.',
   },
+  'cup-dubai-pistache-chocolat-fraise': {
+    tagline: 'Le Dubai chocolate viral — en cup gourmande',
+    paragraphs: [
+      'Inspirée du célèbre chocolat de Dubaï, cette cup réunit tout ce qui fait sa renommée : chocolat onctueux, crème pistache intense et le croquant irrésistible du kataïfi doré au beurre.',
+      'Dans un verre transparent, les couches s\'alternent : sauce chocolat, crème pistache parsemée d\'éclats, morceaux de fraises fraîches collés sur les parois, puis un généreux topping de kataïfi croustillant nappé de chocolat et de pistache.',
+      'Croquant, crémeux, fruité et chocolaté — une bouchée complète pour les amateurs de tendance Dubai sans compromis sur le fait maison.',
+    ],
+    composition: [
+      'Chocolat au lait / noir',
+      'Crème pistache',
+      'Fraises fraîches',
+      'Kataïfi doré au beurre',
+      'Éclats de pistache',
+    ],
+    conservation: 'À conserver au réfrigérateur et déguster dans les 48 h suivant le retrait.',
+  },
+  'limonade-bresilienne-mangue': {
+    tagline: 'La limonada suíça brésilienne, revisitée à la mangue',
+    paragraphs: [
+      'La limonade brésilienne — la limonada suíça — n\'a rien à voir avec une simple citronnade : on utilise des citrons verts entiers, lavés et coupés en quartiers avec leur peau, mixés brièvement avec de l\'eau très froide puis filtrés pour retirer pulpe et pépins.',
+      'Le jus filtré retourne au blender avec du lait concentré sucré, un peu de sucre et une généreuse portion de glaçons : c\'est ce mélange qui donne la texture crémeuse et légèrement mousseuse si caractéristique. Notre version mangue y ajoute de la mangue fraîche pour une douceur tropicale qui équilibre l\'acidité du citron vert.',
+      'Préparée à la commande et servie immédiatement bien fraîche — comme au Brésil, où cette boisson se déguste sur-le-champ pour garder toute sa fraîcheur.',
+    ],
+    composition: [
+      'Citrons verts entiers (avec peau)',
+      'Eau très froide',
+      'Lait concentré sucré',
+      'Mangue fraîche',
+      'Sucre',
+      'Glaçons',
+    ],
+    conservation: 'À déguster aussitôt, bien frais — la limonade brésilienne ne se conserve pas (le citron devient amer en reposant).',
+  },
+  'limonade-bresilienne-fraise': {
+    tagline: 'La limonada suíça brésilienne, revisitée à la fraise',
+    paragraphs: [
+      'La limonade brésilienne — la limonada suíça — n\'a rien à voir avec une simple citronnade : on utilise des citrons verts entiers, lavés et coupés en quartiers avec leur peau, mixés brièvement avec de l\'eau très froide puis filtrés pour retirer pulpe et pépins.',
+      'Le jus filtré retourne au blender avec du lait concentré sucré, un peu de sucre et une généreuse portion de glaçons : c\'est ce mélange qui donne la texture crémeuse et légèrement mousseuse si caractéristique. Notre version fraise y ajoute des fraises fraîches pour une note fruitée et acidulée.',
+      'Préparée à la commande et servie immédiatement bien fraîche — comme au Brésil, où cette boisson se déguste sur-le-champ pour garder toute sa fraîcheur.',
+    ],
+    composition: [
+      'Citrons verts entiers (avec peau)',
+      'Eau très froide',
+      'Lait concentré sucré',
+      'Fraises fraîches',
+      'Sucre',
+      'Glaçons',
+    ],
+    conservation: 'À déguster aussitôt, bien frais — la limonade brésilienne ne se conserve pas (le citron devient amer en reposant).',
+  },
 }
 
 const DEFAULT_TROMPE_RECS = ['trompe-loeil-passion', 'trompe-loeil-citron', 'box-decouverte-trompe-5'] as const

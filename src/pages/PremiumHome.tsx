@@ -46,7 +46,7 @@ export default function PremiumHome() {
         <link rel="canonical" href="https://maison-mayssa.fr/" />
       </Helmet>
       {/* Hero Section */}
-      <section className="relative min-h-[100dvh] w-full flex items-center justify-center py-28 overflow-hidden bg-mayssa-espresso">
+      <section className="relative min-h-[100dvh] w-full flex flex-col overflow-hidden bg-mayssa-espresso">
         <div className="absolute inset-0 w-full h-full">
           <img 
             src={LIFESTYLE.heroSpread}
@@ -56,13 +56,13 @@ export default function PremiumHome() {
           <div className="absolute inset-0 bg-gradient-to-t from-mayssa-brown/85 via-mayssa-brown/25 to-mayssa-brown/10" />
         </div>
         
-        <div className="relative z-10 text-center px-6 max-w-5xl mx-auto">
+        <div className="relative z-10 flex flex-1 flex-col justify-center text-center px-4 sm:px-6 pt-28 pb-6 sm:pt-32 sm:pb-10 max-w-5xl mx-auto w-full">
           {heroAnnouncement && (
             <motion.p
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-              className="inline-block px-6 py-3 mb-6 border border-mayssa-gold/70 bg-mayssa-brown/50 backdrop-blur-sm text-sm sm:text-base md:text-lg lg:text-xl text-mayssa-gold font-medium tracking-[0.12em] sm:tracking-[0.15em] uppercase shadow-lg whitespace-pre-line"
+              className="inline-block max-w-full px-4 py-2.5 sm:px-6 sm:py-3 mb-4 sm:mb-6 border border-mayssa-gold/70 bg-mayssa-brown/50 backdrop-blur-sm text-xs sm:text-sm md:text-lg lg:text-xl text-mayssa-gold font-medium tracking-[0.1em] sm:tracking-[0.15em] uppercase shadow-lg whitespace-pre-line leading-snug"
             >
               {heroAnnouncement}
             </motion.p>
@@ -72,7 +72,7 @@ export default function PremiumHome() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-            className="font-display text-5xl md:text-7xl lg:text-[6rem] text-white mb-6 tracking-tight leading-[1.1]"
+            className="font-display text-3xl sm:text-4xl md:text-7xl lg:text-[6rem] text-white mb-4 sm:mb-6 tracking-tight leading-[1.15]"
           >
             L'art du trompe-l'œil pâtissier
           </motion.h1>
@@ -81,7 +81,7 @@ export default function PremiumHome() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
-            className="text-lg md:text-xl text-mayssa-soft/90 mb-10 max-w-2xl mx-auto font-light"
+            className="text-base sm:text-lg md:text-xl text-mayssa-soft/90 mb-6 sm:mb-10 max-w-2xl mx-auto font-light"
           >
             Des créations artisanales pensées pour surprendre l'œil et séduire le palais.
           </motion.p>
@@ -90,31 +90,33 @@ export default function PremiumHome() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6"
+            className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-6 max-w-sm sm:max-w-none mx-auto w-full sm:w-auto"
           >
             <Link 
               to="/carte" 
-              className="w-full sm:w-auto px-8 py-4 bg-white text-mayssa-brown text-sm tracking-widest uppercase hover:bg-mayssa-gold hover:text-white transition-colors duration-300"
+              className="w-full sm:w-auto px-8 py-3.5 sm:py-4 bg-white text-mayssa-brown text-sm tracking-widest uppercase hover:bg-mayssa-gold hover:text-white transition-colors duration-300"
             >
               {ordersOpen ? 'Précommander' : 'Découvrir la carte'}
             </Link>
-            <Link 
-              to="/carte" 
-              className="w-full sm:w-auto px-8 py-4 border border-white/30 text-white text-sm tracking-widest uppercase hover:bg-white/10 transition-colors duration-300"
-            >
-              Découvrir la carte
-            </Link>
+            {ordersOpen && (
+              <Link 
+                to="/carte" 
+                className="w-full sm:w-auto px-8 py-3.5 sm:py-4 border border-white/30 text-white text-sm tracking-widest uppercase hover:bg-white/10 transition-colors duration-300"
+              >
+                Découvrir la carte
+              </Link>
+            )}
           </motion.div>
-
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 1, delay: 0.8 }}
-            className="mt-12 text-xs md:text-sm text-mayssa-soft/60 tracking-widest uppercase"
-          >
-            Fabrication artisanale — Quantités limitées — Retrait sur créneau
-          </motion.p>
         </div>
+
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 1, delay: 0.8 }}
+          className="relative z-10 shrink-0 px-4 pb-6 sm:pb-8 text-center text-[0.65rem] sm:text-xs md:text-sm text-mayssa-soft/60 tracking-[0.15em] sm:tracking-widest uppercase leading-relaxed"
+        >
+          Fabrication artisanale — Quantités limitées — Retrait sur créneau
+        </motion.p>
       </section>
 
       {/* Categories - Full Width Grid */}

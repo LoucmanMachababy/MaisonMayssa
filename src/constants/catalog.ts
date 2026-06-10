@@ -172,8 +172,8 @@ export const CATALOG_PRODUCTS: Product[] = [
   comingSoon('canette-cake-mangue-passion', 'Canette Cake - Mangue Passion', 'Canette Cake', 'Mangue et fruit de la passion, fraîcheur tropicale et douceur crémeuse.', 4, '/nouvelle-img/canette-cake-mangue-passion.png'),
 
   // ─── Nos jus frais — bientôt disponible ──────────────────────────────────
-  comingSoon('limonade-bresilienne-mangue', 'Limonade Brésilienne - Mangue', 'Nos jus frais', 'Limonade artisanale à la mangue, fraîche et parfumée.', 5, '/nouvelle-img/limonade-bresilienne-mangue.png'),
-  comingSoon('limonade-bresilienne-fraise', 'Limonade Brésilienne - Fraise', 'Nos jus frais', 'Limonade artisanale à la fraise, légère et rafraîchissante.', 5, '/nouvelle-img/limonade-bresilienne-fraise.png'),
+  comingSoon('limonade-bresilienne-mangue', 'Limonade Brésilienne - Mangue', 'Nos jus frais', 'Limonada suíça : citrons verts mixés entiers, eau froide, lait concentré sucré, mangue fraîche et glaçons — crémeuse et servie aussitôt.', 5, '/nouvelle-img/limonade-bresilienne-mangue.png'),
+  comingSoon('limonade-bresilienne-fraise', 'Limonade Brésilienne - Fraise', 'Nos jus frais', 'Limonada suíça : citrons verts mixés entiers, eau froide, lait concentré sucré, fraises fraîches et glaçons — crémeuse et servie aussitôt.', 5, '/nouvelle-img/limonade-bresilienne-fraise.png'),
 
   // ─── Le salé — bientôt disponible ────────────────────────────────────────
   comingSoon('new-york-roll-poulet-curry', 'New York Roll - Poulet saveur italienne', 'Le salé', 'Roll moelleux garni de poulet aux saveurs italiennes.', 5, '/nouvelle-img/NyRolls-poulet-curry.png'),
@@ -188,6 +188,7 @@ export const CATALOG_PRODUCTS: Product[] = [
   comingSoon('cup-fruits-mix-maison', 'Cup de fruits - Mix Maison Mayssa', 'Fruits frais', 'Sélection mixte de fruits de saison.', 4, '/nouvelle-img/Cup-de-fruit-mixte.png'),
 
   // ─── Chocolaterie — bientôt disponible ───────────────────────────────────
+  comingSoon('cup-dubai-pistache-chocolat-fraise', 'Cup Dubaï - Pistache, Chocolat & Fraise', 'Chocolaterie', 'Couches de chocolat, crème pistache, fraises fraîches et kataïfi doré — le Dubai chocolate en version cup.', 7, '/nouvelle-img/cup-dubai.PNG', { badges: ['nouveau'] }),
   comingSoon('tablette-dubai-pistache', 'Tablette Dubaï - Classiques Pistache', 'Chocolaterie', 'Tablette artisanale pistache, inspiration Dubaï.', 5, '/nouvelle-img/tablette-chocolat-dubai-pistache.png'),
   comingSoon('tablette-dubai-speculoos', 'Tablette Dubaï - Spéculoos', 'Chocolaterie', 'Tablette artisanale au chocolat blanc et cœur fondant spéculoos.', 5, '/nouvelle-img/tablette-chocolat-speculos.png'),
   comingSoon('tablette-dubai-framboise', 'Tablette Dubaï - Chocolat Framboise', 'Chocolaterie', 'Tablette artisanale au chocolat noir et cœur framboise.', 12, '/nouvelle-img/tablette-chocolat-framboise.png', { visible: false }),

@@ -13,7 +13,7 @@ const PATISSERIE = ['Gluten', 'Lait', 'Œufs', 'Soja', 'Fruits à coque (traces)
 const CHOCOLAT = ['Lait', 'Soja', 'Fruits à coque', 'Gluten (traces)']
 const SALE = ['Gluten', 'Lait', 'Œufs', 'Moutarde', 'Soja']
 const FRUITS_FRAIS = ['Fruits à coque (traces)', 'Gluten (traces)', 'Lait (traces)']
-const JUS = ['Fruits à coque (traces)']
+const JUS = ['Lait', 'Fruits à coque (traces)']
 
 /** Allergènes par produit (prioritaire sur la catégorie). */
 export const PRODUCT_ALLERGENS: Record<string, string[]> = {
@@ -58,6 +58,7 @@ export const PRODUCT_ALLERGENS: Record<string, string[]> = {
   'cup-fruits-pasteque': FRUITS_FRAIS,
   'cup-fruits-mix-maison': FRUITS_FRAIS,
   // Chocolaterie
+  'cup-dubai-pistache-chocolat-fraise': [...CHOCOLAT, 'Fruits à coque (pistache)', 'Gluten'],
   'tablette-dubai-pistache': [...CHOCOLAT, 'Fruits à coque (pistache)'],
   'tablette-dubai-speculoos': CHOCOLAT,
   'tablette-dubai-framboise': CHOCOLAT,
