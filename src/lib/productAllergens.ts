@@ -14,6 +14,7 @@ const CHOCOLAT = ['Lait', 'Soja', 'Fruits à coque', 'Gluten (traces)']
 const SALE = ['Gluten', 'Lait', 'Œufs', 'Moutarde', 'Soja']
 const FRUITS_FRAIS = ['Fruits à coque (traces)', 'Gluten (traces)', 'Lait (traces)']
 const JUS = ['Lait', 'Fruits à coque (traces)']
+const MOJITO = ['Fruits à coque (traces)']
 
 /** Allergènes par produit (prioritaire sur la catégorie). */
 export const PRODUCT_ALLERGENS: Record<string, string[]> = {
@@ -45,8 +46,18 @@ export const PRODUCT_ALLERGENS: Record<string, string[]> = {
   'canette-cake-speculoos-framboise': PATISSERIE,
   'canette-cake-mangue-passion': TROMPE_FRUIT,
   // Jus
+  'limonade-bresilienne-classique': JUS,
   'limonade-bresilienne-mangue': JUS,
   'limonade-bresilienne-fraise': JUS,
+  'limonade-bresilienne-framboise': JUS,
+  'limonade-bresilienne-peche': JUS,
+  'limonade-bresilienne-pasteque': JUS,
+  'mojito-classique': MOJITO,
+  'mojito-passion': MOJITO,
+  'mojito-melon': MOJITO,
+  'mojito-mangue': MOJITO,
+  'mojito-framboise': MOJITO,
+  'mojito-fraise': MOJITO,
   // Salé
   'new-york-roll-poulet-curry': SALE,
   'new-york-roll-steak': SALE,

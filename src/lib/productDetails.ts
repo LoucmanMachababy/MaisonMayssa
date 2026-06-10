@@ -223,6 +223,22 @@ export const PRODUCT_DETAILS: Record<string, ProductDetailContent> = {
     ],
     conservation: 'À conserver au réfrigérateur et déguster dans les 48 h suivant le retrait.',
   },
+  'limonade-bresilienne-classique': {
+    tagline: 'La limonada suíça brésilienne, dans sa version originale',
+    paragraphs: [
+      'La limonade brésilienne — la limonada suíça — n\'a rien à voir avec une simple citronnade : on utilise des citrons verts entiers, lavés et coupés en quartiers avec leur peau, mixés brièvement avec de l\'eau très froide puis filtrés pour retirer pulpe et pépins.',
+      'Le jus filtré retourne au blender avec du lait concentré sucré, un peu de sucre et une généreuse portion de glaçons : c\'est ce mélange qui donne la texture crémeuse et légèrement mousseuse si caractéristique, sans fruit ajouté.',
+      'Préparée à la commande et servie immédiatement bien fraîche — comme au Brésil, où cette boisson se déguste sur-le-champ pour garder toute sa fraîcheur.',
+    ],
+    composition: [
+      'Citrons verts entiers (avec peau)',
+      'Eau très froide',
+      'Lait concentré sucré',
+      'Sucre',
+      'Glaçons',
+    ],
+    conservation: 'À déguster aussitôt, bien frais — la limonade brésilienne ne se conserve pas (le citron devient amer en reposant).',
+  },
   'limonade-bresilienne-mangue': {
     tagline: 'La limonada suíça brésilienne, revisitée à la mangue',
     paragraphs: [
@@ -256,6 +272,117 @@ export const PRODUCT_DETAILS: Record<string, ProductDetailContent> = {
       'Glaçons',
     ],
     conservation: 'À déguster aussitôt, bien frais — la limonade brésilienne ne se conserve pas (le citron devient amer en reposant).',
+  },
+  'limonade-bresilienne-framboise': {
+    tagline: 'La limonada suíça brésilienne, revisitée à la framboise',
+    paragraphs: [
+      'La limonade brésilienne — la limonada suíça — n\'a rien à voir avec une simple citronnade : on utilise des citrons verts entiers, lavés et coupés en quartiers avec leur peau, mixés brièvement avec de l\'eau très froide puis filtrés pour retirer pulpe et pépins.',
+      'Le jus filtré retourne au blender avec du lait concentré sucré, un peu de sucre et une généreuse portion de glaçons : c\'est ce mélange qui donne la texture crémeuse et légèrement mousseuse si caractéristique. Notre version framboise y ajoute des framboises fraîches pour une note acidulée et fruitée.',
+      'Préparée à la commande et servie immédiatement bien fraîche — comme au Brésil, où cette boisson se déguste sur-le-champ pour garder toute sa fraîcheur.',
+    ],
+    composition: [
+      'Citrons verts entiers (avec peau)',
+      'Eau très froide',
+      'Lait concentré sucré',
+      'Framboises fraîches',
+      'Sucre',
+      'Glaçons',
+    ],
+    conservation: 'À déguster aussitôt, bien frais — la limonade brésilienne ne se conserve pas (le citron devient amer en reposant).',
+  },
+  'limonade-bresilienne-peche': {
+    tagline: 'La limonada suíça brésilienne, revisitée à la pêche',
+    paragraphs: [
+      'La limonade brésilienne — la limonada suíça — n\'a rien à voir avec une simple citronnade : on utilise des citrons verts entiers, lavés et coupés en quartiers avec leur peau, mixés brièvement avec de l\'eau très froide puis filtrés pour retirer pulpe et pépins.',
+      'Le jus filtré retourne au blender avec du lait concentré sucré, un peu de sucre et une généreuse portion de glaçons : c\'est ce mélange qui donne la texture crémeuse et légèrement mousseuse si caractéristique. Notre version pêche y ajoute de la pêche fraîche pour une douceur estivale et parfumée.',
+      'Préparée à la commande et servie immédiatement bien fraîche — comme au Brésil, où cette boisson se déguste sur-le-champ pour garder toute sa fraîcheur.',
+    ],
+    composition: [
+      'Citrons verts entiers (avec peau)',
+      'Eau très froide',
+      'Lait concentré sucré',
+      'Pêche fraîche',
+      'Sucre',
+      'Glaçons',
+    ],
+    conservation: 'À déguster aussitôt, bien frais — la limonade brésilienne ne se conserve pas (le citron devient amer en reposant).',
+  },
+  'limonade-bresilienne-pasteque': {
+    tagline: 'La limonada suíça brésilienne, revisitée à la pastèque',
+    paragraphs: [
+      'La limonade brésilienne — la limonada suíça — n\'a rien à voir avec une simple citronnade : on utilise des citrons verts entiers, lavés et coupés en quartiers avec leur peau, mixés brièvement avec de l\'eau très froide puis filtrés pour retirer pulpe et pépins.',
+      'Le jus filtré retourne au blender avec du lait concentré sucré, un peu de sucre et une généreuse portion de glaçons : c\'est ce mélange qui donne la texture crémeuse et légèrement mousseuse si caractéristique. Notre version pastèque y ajoute de la pastèque fraîche pour une fraîcheur juteuse et légère.',
+      'Préparée à la commande et servie immédiatement bien fraîche — comme au Brésil, où cette boisson se déguste sur-le-champ pour garder toute sa fraîcheur.',
+    ],
+    composition: [
+      'Citrons verts entiers (avec peau)',
+      'Eau très froide',
+      'Lait concentré sucré',
+      'Pastèque fraîche',
+      'Sucre',
+      'Glaçons',
+    ],
+    conservation: 'À déguster aussitôt, bien frais — la limonade brésilienne ne se conserve pas (le citron devient amer en reposant).',
+  },
+  'mojito-classique': {
+    tagline: 'Le grand classique — 100 % sans alcool',
+    paragraphs: [
+      'Notre mojito classique reprend l\'esprit du cocktail cubain sans alcool : feuilles de menthe fraîche, jus de citron vert, un filet de sirop de sucre et de l\'eau pétillante, le tout sur une base de glaçons.',
+      'La menthe est légèrement froissée pour libérer son parfum sans l\'amertumer, le citron vert apporte l\'acidité, et les bulles de l\'eau gazeuse finissent l\'ensemble en légèreté.',
+      'Servi en cup transparente, prêt à boire — rafraîchissant à tout moment de la journée.',
+    ],
+    composition: ['Menthe fraîche', 'Citron vert', 'Sirop de sucre', 'Eau pétillante', 'Glaçons'],
+    conservation: 'À déguster aussitôt, bien frais.',
+  },
+  'mojito-passion': {
+    tagline: 'Tropical et acidulé — sans alcool',
+    paragraphs: [
+      'Version fruitée de notre mojito : pulpe de fruit de la passion, menthe fraîche, citron vert et glaçons, complétés par de l\'eau pétillante pour une boisson légère et parfumée.',
+      'Les graines de passion apportent une texture et une acidité caractéristiques, équilibrées par la fraîcheur de la menthe.',
+      'Une escapade tropicale en cup, sans alcool.',
+    ],
+    composition: ['Fruit de la passion', 'Menthe fraîche', 'Citron vert', 'Eau pétillante', 'Glaçons'],
+    conservation: 'À déguster aussitôt, bien frais.',
+  },
+  'mojito-melon': {
+    tagline: 'Douceur estivale — sans alcool',
+    paragraphs: [
+      'Morceaux de melon frais, menthe, citron vert et glaçons, allongés à l\'eau pétillante : un mojito gourmand et ultra rafraîchissant pour les beaux jours.',
+      'Le melon apporte sa douceur juteuse, la menthe et le citron vert structurent l\'ensemble sans le alourdir.',
+      'Préparé à la commande, servi bien frais en cup.',
+    ],
+    composition: ['Melon frais', 'Menthe fraîche', 'Citron vert', 'Eau pétillante', 'Glaçons'],
+    conservation: 'À déguster aussitôt, bien frais.',
+  },
+  'mojito-mangue': {
+    tagline: 'Mangue fraîche et menthe — sans alcool',
+    paragraphs: [
+      'Cubes de mangue mûre, menthe fraîche, citron vert et glaçons, complétés par de l\'eau pétillante : un mojito tropical généreux en fruit.',
+      'La mangue apporte douceur et exotisme, la menthe et le citron vert gardent l\'équilibre frais du cocktail original.',
+      'Servi en cup transparente, prêt à déguster sur-le-champ.',
+    ],
+    composition: ['Mangue fraîche', 'Menthe fraîche', 'Citron vert', 'Eau pétillante', 'Glaçons'],
+    conservation: 'À déguster aussitôt, bien frais.',
+  },
+  'mojito-framboise': {
+    tagline: 'Fruité et acidulé — sans alcool',
+    paragraphs: [
+      'Framboises fraîches, menthe, citron vert et glaçons, allongés à l\'eau pétillante : un mojito rouge vif, léger et parfumé.',
+      'Les framboises apportent leur acidité délicate, la menthe et le citron vert complètent le profil sans alcool.',
+      'Préparé à la commande pour une fraîcheur maximale.',
+    ],
+    composition: ['Framboises fraîches', 'Menthe fraîche', 'Citron vert', 'Eau pétillante', 'Glaçons'],
+    conservation: 'À déguster aussitôt, bien frais.',
+  },
+  'mojito-fraise': {
+    tagline: 'Gourmand et rafraîchissant — sans alcool',
+    paragraphs: [
+      'Fraises fraîches, menthe, citron vert et glaçons, complétés par de l\'eau pétillante : un mojito gourmand aux notes rouges et fruitées.',
+      'Les fraises apportent douceur et parfum, la menthe et le citron vert gardent l\'équilibre typique du mojito.',
+      'Servi en cup, sans alcool, à déguster bien frais.',
+    ],
+    composition: ['Fraises fraîches', 'Menthe fraîche', 'Citron vert', 'Eau pétillante', 'Glaçons'],
+    conservation: 'À déguster aussitôt, bien frais.',
   },
 }
 

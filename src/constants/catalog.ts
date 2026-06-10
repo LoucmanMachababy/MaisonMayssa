@@ -172,8 +172,18 @@ export const CATALOG_PRODUCTS: Product[] = [
   comingSoon('canette-cake-mangue-passion', 'Canette Cake - Mangue Passion', 'Canette Cake', 'Mangue et fruit de la passion, fraîcheur tropicale et douceur crémeuse.', 4, '/nouvelle-img/canette-cake-mangue-passion.png'),
 
   // ─── Nos jus frais — bientôt disponible ──────────────────────────────────
+  comingSoon('limonade-bresilienne-classique', 'Limonade Brésilienne - Classique', 'Nos jus frais', 'Limonada suíça : citrons verts mixés entiers, eau froide, lait concentré sucré et glaçons — crémeuse et servie aussitôt.', 5, '/nouvelle-img/limonade-bresilienne-classique.PNG'),
   comingSoon('limonade-bresilienne-mangue', 'Limonade Brésilienne - Mangue', 'Nos jus frais', 'Limonada suíça : citrons verts mixés entiers, eau froide, lait concentré sucré, mangue fraîche et glaçons — crémeuse et servie aussitôt.', 5, '/nouvelle-img/limonade-bresilienne-mangue.png'),
   comingSoon('limonade-bresilienne-fraise', 'Limonade Brésilienne - Fraise', 'Nos jus frais', 'Limonada suíça : citrons verts mixés entiers, eau froide, lait concentré sucré, fraises fraîches et glaçons — crémeuse et servie aussitôt.', 5, '/nouvelle-img/limonade-bresilienne-fraise.png'),
+  comingSoon('limonade-bresilienne-framboise', 'Limonade Brésilienne - Framboise', 'Nos jus frais', 'Limonada suíça : citrons verts mixés entiers, eau froide, lait concentré sucré, framboises fraîches et glaçons — crémeuse et servie aussitôt.', 5, '/nouvelle-img/limonade-bresilienne-framboise.PNG'),
+  comingSoon('limonade-bresilienne-peche', 'Limonade Brésilienne - Pêche', 'Nos jus frais', 'Limonada suíça : citrons verts mixés entiers, eau froide, lait concentré sucré, pêche fraîche et glaçons — crémeuse et servie aussitôt.', 5, '/nouvelle-img/limonade-bresilienne-peche.PNG'),
+  comingSoon('limonade-bresilienne-pasteque', 'Limonade Brésilienne - Pastèque', 'Nos jus frais', 'Limonada suíça : citrons verts mixés entiers, eau froide, lait concentré sucré, pastèque fraîche et glaçons — crémeuse et servie aussitôt.', 5, '/nouvelle-img/limonade-bresilienne-pasteque.PNG'),
+  comingSoon('mojito-classique', 'Mojito Classique', 'Nos jus frais', 'Menthe fraîche, citron vert, sirop de sucre et eau pétillante — sans alcool, servi bien frais.', 4.9, '/nouvelle-img/cocktail-mojito-classique.PNG'),
+  comingSoon('mojito-passion', 'Mojito Passion', 'Nos jus frais', 'Fruit de la passion, menthe fraîche, citron vert et glaçons — sans alcool, notes tropicales.', 4.9, '/nouvelle-img/cocktail-mojito-passion.PNG'),
+  comingSoon('mojito-melon', 'Mojito Melon', 'Nos jus frais', 'Morceaux de melon frais, menthe, citron vert et glaçons — sans alcool, douceur estivale.', 4.9, '/nouvelle-img/cocktail-mojito-melon.PNG'),
+  comingSoon('mojito-mangue', 'Mojito Mangue', 'Nos jus frais', 'Mangue fraîche, menthe, citron vert et glaçons — sans alcool, fraîcheur tropicale.', 4.9, '/nouvelle-img/cocktail-mojito-mangue.PNG'),
+  comingSoon('mojito-framboise', 'Mojito Framboise', 'Nos jus frais', 'Framboises fraîches, menthe, citron vert et glaçons — sans alcool, acidulé et fruité.', 4.9, '/nouvelle-img/cocktail-mojito-framboise.PNG'),
+  comingSoon('mojito-fraise', 'Mojito Fraise', 'Nos jus frais', 'Fraises fraîches, menthe, citron vert et glaçons — sans alcool, gourmand et rafraîchissant.', 4.9, '/nouvelle-img/cocktail-mojito-fraise.PNG'),
 
   // ─── Le salé — bientôt disponible ────────────────────────────────────────
   comingSoon('new-york-roll-poulet-curry', 'New York Roll - Poulet saveur italienne', 'Le salé', 'Roll moelleux garni de poulet aux saveurs italiennes.', 5, '/nouvelle-img/NyRolls-poulet-curry.png'),

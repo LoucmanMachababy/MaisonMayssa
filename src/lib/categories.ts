@@ -34,7 +34,7 @@ export const CATEGORY_SHOWCASE: CategoryShowcase[] = [
   {
     id: 'Nos jus frais',
     title: 'Nos jus frais',
-    subtitle: 'Limonades artisanales',
+    subtitle: 'Limonades & mojitos sans alcool',
     image: '/Fraise.webp',
     anchor: '#la-carte',
   },
@@ -77,8 +77,12 @@ export const SIGNATURE_PRODUCT_IDS = [
 ] as const
 
 export const COMING_SOON_FEATURED_IDS = [
+  'limonade-bresilienne-classique',
   'limonade-bresilienne-mangue',
   'limonade-bresilienne-fraise',
+  'limonade-bresilienne-pasteque',
+  'mojito-classique',
+  'mojito-mangue',
   'new-york-roll-poulet-curry',
   'new-york-roll-steak',
   'panuozzo-maison-mayssa',
