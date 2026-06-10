@@ -18,8 +18,9 @@ function mergeProduct(p: Product, override?: ProductOverrideMap[string]): Produc
       pinned: p.pinned ?? false,
     }
   }
-  const { isCustom: _, ...rawOverride } = override
-  // null = champ supprimé dans Firebase → on garde la valeur du catalogue statique
+  const isCustom = override.isCustom === true
+  // image/images exclus : l'admin ne gère pas les visuels des produits catalogue (évite les URLs obsolètes Firebase)
+  const { isCustom: _, image: _img, images: _imgs, ...rawOverride } = override
   const overrideFields = Object.fromEntries(
     Object.entries(rawOverride).filter(([, v]) => v !== null && v !== undefined),
   )
@@ -31,13 +32,9 @@ function mergeProduct(p: Product, override?: ProductOverrideMap[string]): Produc
     pinned: override.pinned ?? p.pinned ?? false,
     highlightAsNew:
       override.highlightAsNew != null ? Boolean(override.highlightAsNew) : (p.highlightAsNew ?? false),
+    image: isCustom && override.image ? override.image : p.image,
+    images: isCustom && override.images?.length ? override.images : p.images,
   } as ProductWithAvailability
-  const overrideImages = override.images
-  if (p.images?.length) {
-    if (!overrideImages?.length || overrideImages.length < p.images.length) {
-      merged.images = p.images
-    }
-  }
   return merged
 }
 
