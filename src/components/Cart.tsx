@@ -10,6 +10,7 @@ import { useAuth } from '../hooks/useAuth'
 import { REWARD_COSTS, REWARD_LABELS } from '../lib/rewards'
 import type { DeliverySlotsMap } from '../lib/firebase'
 import { AddressAutocomplete } from './AddressAutocomplete'
+import { CgvAcceptance } from './legal/CgvAcceptance'
 import {
     ANNECY_GARE,
     DELIVERY_RADIUS_KM,
@@ -131,6 +132,7 @@ export function Cart({
 }: CartProps) {
     const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
     const [dismissSecondOrderPrompt, setDismissSecondOrderPrompt] = useState(false)
+    const [acceptedTerms, setAcceptedTerms] = useState(false)
     useEffect(() => {
         setDismissSecondOrderPrompt(false)
     }, [pendingOrder?.placedAt])
@@ -253,6 +255,7 @@ export function Cart({
     const canSend =
       hasItems &&
       isCustomerValid &&
+      acceptedTerms &&
       ordersOpen !== false &&
       !trompeLoeilBeforeMinDate &&
       (!hasNonTrompeLoeil || !orderCutoffPassed || ordersExplicit)
@@ -1031,6 +1034,12 @@ export function Cart({
                                         Les précommandes trompe l&apos;œil sont possibles à partir du {formatDateLabel(minDate)}.
                                     </p>
                                 )}
+
+                                <CgvAcceptance
+                                    checked={acceptedTerms}
+                                    onChange={setAcceptedTerms}
+                                    className="max-w-md mx-auto px-1"
+                                />
 
                                 <button
                                     type="button"

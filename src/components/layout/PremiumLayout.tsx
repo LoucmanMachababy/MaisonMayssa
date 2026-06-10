@@ -3,6 +3,8 @@ import { PremiumHeader } from './PremiumHeader'
 import { PremiumFooter } from './PremiumFooter'
 import { PremiumGlobalBanner } from './PremiumGlobalBanner'
 import { PremiumCartSheetLayer } from './PremiumCartSheetLayer'
+import { CookieBanner } from '../CookieBanner'
+import { AccessibilityControls } from '../AccessibilityProvider'
 import { OrderCheckoutProvider } from '../../contexts/OrderCheckoutContext'
 import { useSettings } from '../../hooks/useSettings'
 
@@ -21,6 +23,8 @@ export function PremiumLayout() {
         </main>
         <PremiumFooter />
         <PremiumCartSheetLayer />
+        <CookieBanner />
+        <AccessibilityControls />
       </div>
     </OrderCheckoutProvider>
   )

@@ -77,9 +77,12 @@ export function PremiumFooter() {
         </div>
 
         <div className="mt-16 pt-8 border-t border-mayssa-soft/10 flex flex-col md:flex-row items-center justify-between text-xs text-mayssa-soft/40">
-          <p>© {new Date().getFullYear()} Maison Mayssa. Tous droits réservés.</p>
-          <div className="flex space-x-6 mt-4 md:mt-0">
-            <Link to="/legal" className="hover:text-mayssa-soft transition-colors">Mentions légales</Link>
+          <p>© {new Date().getFullYear()} GHAZI ROUMAYSSA (Maison Mayssa) · SIRET 989 703 715 00015</p>
+          <div className="flex flex-wrap justify-center md:justify-end gap-x-6 gap-y-2 mt-4 md:mt-0">
+            <Link to="/legal#cgv" className="hover:text-mayssa-soft transition-colors">CGV</Link>
+            <Link to="/legal#mentions-legales" className="hover:text-mayssa-soft transition-colors">Mentions légales</Link>
+            <Link to="/legal#confidentialite" className="hover:text-mayssa-soft transition-colors">Confidentialité</Link>
+            <Link to="/legal#accessibilite" className="hover:text-mayssa-soft transition-colors">Accessibilité</Link>
             <Link to="/faq" className="hover:text-mayssa-soft transition-colors">FAQ</Link>
             <Link to="/contact" className="hover:text-mayssa-soft transition-colors">Contact</Link>
           </div>

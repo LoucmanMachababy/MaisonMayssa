@@ -12,6 +12,7 @@ import { useFocusTrap } from '../../hooks/useAccessibility'
 import { REWARD_COSTS, REWARD_LABELS } from '../../lib/rewards'
 import type { CartItem, CustomerInfo } from '../../types'
 import type { DeliverySlotsMap } from '../../lib/firebase'
+import { CgvAcceptance } from '../legal/CgvAcceptance'
 import {
   ANNECY_GARE,
   DELIVERY_RADIUS_KM,
@@ -120,6 +121,7 @@ export function CartSheet({
   onOrderContactIdentityChange,
 }: CartSheetProps) {
   const [dismissSecondOrderPrompt, setDismissSecondOrderPrompt] = useState(false)
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
   useEffect(() => {
     setDismissSecondOrderPrompt(false)
   }, [pendingOrder?.placedAt])
@@ -268,6 +270,7 @@ export function CartSheet({
   const canSend =
     hasItems &&
     isCustomerValid &&
+    acceptedTerms &&
     ordersOpen !== false &&
     !trompeLoeilBeforeMinDate &&
     (!hasNonTrompeLoeil || !orderCutoffPassed || ordersExplicit)
@@ -1038,6 +1041,8 @@ export function CartSheet({
           Les précommandes trompe l&apos;œil sont possibles à partir du {formatDateLabel(minDate)}.
         </p>
       )}
+
+      <CgvAcceptance checked={acceptedTerms} onChange={setAcceptedTerms} />
     </motion.div>
   )
 

@@ -4,6 +4,7 @@ import { User, Mail, Lock, Phone, Eye, EyeOff, Gift, Calendar, Cake } from 'luci
 import { clientRegister, clientLogin, createUserProfile, resetPassword } from '../../lib/firebase'
 import { refreshUserProfile } from '../../hooks/useAuth'
 import { AddressAutocomplete } from '../AddressAutocomplete'
+import { CgvAcceptance } from '../legal/CgvAcceptance'
 import type { Coordinates } from '../../types'
 
 const inputWrap = (hasError: boolean) =>
@@ -27,6 +28,7 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
     addressCoordinates: null as Coordinates,
   })
   const [showPassword, setShowPassword] = useState(false)
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
 
@@ -52,6 +54,7 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
       if (age < 13) newErrors.birthday = 'Vous devez avoir au moins 13 ans'
     }
     if (!formData.address.trim()) newErrors.address = 'Adresse requise'
+    if (!acceptedTerms) newErrors.terms = 'Vous devez accepter les CGV et la politique de confidentialité'
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
@@ -222,9 +225,12 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
           {errors.address && <p className="text-xs text-red-500 mt-1">{errors.address}</p>}
         </div>
 
+        <CgvAcceptance checked={acceptedTerms} onChange={setAcceptedTerms} className="mt-2" />
+        {errors.terms && <p className="text-xs text-red-500">{errors.terms}</p>}
+
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || !acceptedTerms}
           className="w-full py-4 bg-mayssa-brown text-white text-sm tracking-widest uppercase hover:bg-mayssa-espresso transition-colors disabled:opacity-50 mt-2"
         >
           {loading ? 'Création en cours...' : 'Créer mon compte'}

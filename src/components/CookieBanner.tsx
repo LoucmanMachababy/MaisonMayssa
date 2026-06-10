@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Cookie } from 'lucide-react'
 
@@ -37,10 +38,10 @@ export function CookieBanner() {
             <div className="flex items-start gap-3 flex-1">
               <Cookie size={24} className="text-mayssa-caramel flex-shrink-0 mt-0.5" />
               <p className="text-sm text-mayssa-brown/90">
-                En continuant, tu acceptes l'utilisation du stockage local (panier, préférences). Aucun cookie publicitaire.
-                <a href="#confidentialite" className="text-mayssa-caramel font-medium hover:underline ml-1">
+                En continuant, tu acceptes le stockage local (panier, préférences) et la mesure d&apos;audience anonymisée (Firebase). Aucun cookie publicitaire.
+                <Link to="/legal#confidentialite" className="text-mayssa-caramel font-medium hover:underline ml-1">
                   En savoir plus
-                </a>
+                </Link>
               </p>
             </div>
             <button

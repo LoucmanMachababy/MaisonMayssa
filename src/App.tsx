@@ -111,8 +111,9 @@ export default function App() {
         } />
 
         <Route path="/mentions-legales" element={<Navigate to="/legal" replace />} />
-        <Route path="/cgv" element={<Navigate to="/legal" replace />} />
-        <Route path="/confidentialite" element={<Navigate to="/legal" replace />} />
+        <Route path="/cgv" element={<Navigate to="/legal#cgv" replace />} />
+        <Route path="/confidentialite" element={<Navigate to="/legal#confidentialite" replace />} />
+        <Route path="/accessibilite" element={<Navigate to="/legal#accessibilite" replace />} />
       </Routes>
     </AccessibilityProvider>
   )
