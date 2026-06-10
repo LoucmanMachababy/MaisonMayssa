@@ -86,7 +86,7 @@ export function AdminClientProfileModal({ uid, profile, orders, onClose, onNewOr
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-end sm:items-center justify-center p-4"
+        className="admin-modal-overlay"
       >
         <motion.div
           initial={{ opacity: 0, y: 40, scale: 0.95 }}
@@ -94,7 +94,7 @@ export function AdminClientProfileModal({ uid, profile, orders, onClose, onNewOr
           exit={{ opacity: 0, y: 20, scale: 0.95 }}
           transition={{ type: 'spring', damping: 30, stiffness: 300 }}
           onClick={e => e.stopPropagation()}
-          className="w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+          className="admin-modal overflow-hidden max-h-[90vh] flex flex-col w-full max-w-lg"
         >
           {/* Header */}
           <div className="relative bg-gradient-to-br from-mayssa-brown to-mayssa-brown/80 p-6 pb-8 text-white">

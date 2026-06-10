@@ -1,19 +1,28 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap');
+
 @import "tailwindcss";
+@import "./components/admin/ui/admin-v2.css";
+@import "./components/mobile/cart-sheet.css";
+@import "./components/checkout/premium-cart-checkout.css";
+@import "./components/account/premium-account.css";
 
 @theme {
   --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-lux: cubic-bezier(0.4, 0, 0.2, 1);
 
-  --font-display: Georgia, "Times New Roman", serif;
+  --font-display: "Playfair Display", Georgia, "Times New Roman", serif;
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
   --color-mayssa-brown: #1E120D;
-  --color-mayssa-caramel: #C17F3D;
-  --color-mayssa-cream: #FAF9F6;
-  --color-mayssa-rose: #F5DFD9;
-  --color-mayssa-soft: #FDFCFB;
-  --color-mayssa-gold: #D4AF37;
-  --color-mayssa-gold-light: #E6C27A;
+  --color-mayssa-espresso: #2A1B12;
+  --color-mayssa-caramel: #B8860B;
+  --color-mayssa-cream: #F7F3ED;
+  --color-mayssa-ivory: #FDFCFB;
+  --color-mayssa-rose: #F0E4DC;
+  --color-mayssa-soft: #FAF8F5;
+  --color-mayssa-gold: #C5A059;
+  --color-mayssa-gold-light: #E6D4A8;
+  --color-mayssa-marble: #F5F2EE;
 
   --animate-float: float 7s ease-in-out infinite;
   --animate-pulse-slow: pulse-glow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
@@ -57,13 +66,25 @@
     from { opacity: 0; }
     to { opacity: 1; }
   }
+
+  @keyframes ken-burns {
+    0%, 100% { transform: scale(1.08) translate(0, 0); }
+    50% { transform: scale(1.16) translate(-1.5%, -0.5%); }
+  }
+
+  @keyframes grain-shift {
+    0%, 100% { transform: translate(0, 0); }
+    25% { transform: translate(-2%, -1%); }
+    50% { transform: translate(1%, 2%); }
+    75% { transform: translate(-1%, 1%); }
+  }
 }
 
 @layer base {
   :root {
     --primary: #2A1B12;
-    --accent: #D48C45;
-    --background: #FCFBFA;
+    --accent: #B8860B;
+    --background: #FAF8F5;
   }
 
   html {
@@ -181,6 +202,387 @@
   .content-visibility-auto {
     content-visibility: auto;
     contain-intrinsic-size: auto 400px;
+  }
+
+  /* ── Admin console — legacy tokens (compat) ── */
+  .admin-app {
+    font-feature-settings: 'tnum' 1;
+    --admin-bg: var(--color-mayssa-ivory);
+    --admin-surface: #fff;
+    --admin-surface-2: color-mix(in srgb, var(--color-mayssa-soft) 55%, white);
+    --admin-border: color-mix(in srgb, var(--color-mayssa-brown) 10%, transparent);
+    --admin-text: var(--color-mayssa-brown);
+    --admin-text-muted: color-mix(in srgb, var(--color-mayssa-brown) 55%, transparent);
+    --admin-sidebar-bg: var(--color-mayssa-espresso);
+    --admin-sidebar-text: color-mix(in srgb, var(--color-mayssa-soft) 85%, white);
+    --admin-topbar-bg: color-mix(in srgb, white 92%, transparent);
+    background: var(--admin-bg);
+    color: var(--admin-text);
+  }
+
+  .admin-app.admin-theme-dark {
+    --admin-bg: #09090b;
+    --admin-surface: #18181b;
+    --admin-surface-2: #27272a;
+    --admin-border: #3f3f46;
+    --admin-text: #fafafa;
+    --admin-text-muted: #a1a1aa;
+    --admin-sidebar-bg: #0c0c0e;
+    --admin-sidebar-text: #d4d4d8;
+    --admin-topbar-bg: color-mix(in srgb, #18181b 95%, transparent);
+  }
+
+  .admin-sidebar {
+    background: var(--admin-sidebar-bg);
+    border-right: 1px solid color-mix(in srgb, var(--color-mayssa-gold) 12%, transparent);
+    color: var(--admin-sidebar-text);
+  }
+
+  .admin-sidebar-brand {
+    border-color: color-mix(in srgb, var(--color-mayssa-gold) 10%, transparent);
+  }
+
+  .admin-sidebar-logo {
+    border: 1px solid color-mix(in srgb, var(--color-mayssa-gold) 35%, transparent);
+    background: color-mix(in srgb, var(--color-mayssa-gold) 12%, transparent);
+  }
+
+  .admin-nav-group-label {
+    font-size: 9px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--color-mayssa-gold) 55%, transparent);
+    font-weight: 600;
+  }
+
+  .admin-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.7rem 0.75rem;
+    min-height: 44px;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 500;
+    color: color-mix(in srgb, var(--admin-sidebar-text) 55%, transparent);
+    border-left: 2px solid transparent;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+    position: relative;
+  }
+
+  .admin-nav-item:hover {
+    background: color-mix(in srgb, white 6%, transparent);
+    color: var(--admin-sidebar-text);
+  }
+
+  .admin-nav-item-active {
+    background: color-mix(in srgb, var(--color-mayssa-gold) 14%, transparent);
+    color: var(--color-mayssa-gold);
+    border-left-color: var(--color-mayssa-gold);
+  }
+
+  .admin-nav-badge {
+    display: flex;
+    height: 1.25rem;
+    min-width: 1.25rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.35rem;
+    font-size: 9px;
+    font-weight: 700;
+    background: var(--color-mayssa-gold);
+    color: var(--color-mayssa-brown);
+  }
+
+  .admin-sidebar-divider {
+    border-color: color-mix(in srgb, var(--color-mayssa-gold) 10%, transparent);
+  }
+
+  .admin-pin-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.45rem 0.75rem;
+    font-size: 10px;
+    color: color-mix(in srgb, var(--admin-sidebar-text) 65%, transparent);
+    transition: background 0.2s;
+  }
+
+  .admin-pin-item:hover {
+    background: color-mix(in srgb, white 5%, transparent);
+  }
+
+  .admin-sidebar-action {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 0.75rem;
+    min-height: 44px;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--admin-sidebar-text) 45%, transparent);
+    transition: background 0.2s, color 0.2s;
+  }
+
+  .admin-sidebar-action:hover {
+    background: color-mix(in srgb, white 5%, transparent);
+    color: var(--admin-sidebar-text);
+  }
+
+  .admin-topbar {
+    background: var(--admin-topbar-bg);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--admin-border);
+  }
+
+  .admin-topbar-eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--admin-text-muted);
+    margin-bottom: 0.15rem;
+  }
+
+  .admin-topbar-title {
+    font-family: var(--font-display, 'Playfair Display', serif);
+    font-size: 1.15rem;
+    line-height: 1.2;
+    color: var(--admin-text);
+  }
+
+  @media (min-width: 640px) {
+    .admin-topbar-title {
+      font-size: 1.35rem;
+    }
+  }
+
+  .admin-topbar-meta {
+    font-size: 10px;
+    color: var(--admin-text-muted);
+    margin-top: 0.15rem;
+  }
+
+  .admin-topbar-search-wrap {
+    border-color: var(--admin-border);
+  }
+
+  .admin-status-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.75rem;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    border: 1px solid var(--admin-border);
+  }
+
+  .admin-status-chip-open {
+    background: color-mix(in srgb, #10b981 8%, var(--admin-surface));
+    color: #047857;
+    border-color: color-mix(in srgb, #10b981 25%, transparent);
+  }
+
+  .admin-theme-dark .admin-status-chip-open {
+    background: color-mix(in srgb, #10b981 12%, transparent);
+    color: #6ee7b7;
+    border-color: #065f46;
+  }
+
+  .admin-status-chip-closed {
+    background: color-mix(in srgb, #ef4444 8%, var(--admin-surface));
+    color: #b91c1c;
+    border-color: color-mix(in srgb, #ef4444 25%, transparent);
+  }
+
+  .admin-theme-dark .admin-status-chip-closed {
+    background: color-mix(in srgb, #ef4444 12%, transparent);
+    color: #fca5a5;
+    border-color: #7f1d1d;
+  }
+
+  .admin-icon-btn,
+  .admin-toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0 0.75rem;
+    border: 1px solid var(--admin-border);
+    background: var(--admin-surface);
+    color: var(--admin-text-muted);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    transition: border-color 0.2s, background 0.2s, color 0.2s;
+  }
+
+  .admin-toolbar-btn:hover,
+  .admin-icon-btn:hover {
+    border-color: color-mix(in srgb, var(--color-mayssa-gold) 35%, transparent);
+    color: var(--admin-text);
+  }
+
+  .admin-toolbar-btn-active {
+    background: var(--color-mayssa-brown);
+    border-color: var(--color-mayssa-brown);
+    color: white;
+  }
+
+  .admin-theme-dark .admin-toolbar-btn-active {
+    background: var(--color-mayssa-gold);
+    border-color: var(--color-mayssa-gold);
+    color: var(--color-mayssa-brown);
+  }
+
+  .admin-toolbar-btn-sound-on {
+    border-color: color-mix(in srgb, #10b981 35%, transparent);
+    color: #047857;
+    background: color-mix(in srgb, #10b981 8%, var(--admin-surface));
+  }
+
+  .admin-toolbar-btn-danger:hover {
+    border-color: color-mix(in srgb, #ef4444 40%, transparent);
+    color: #dc2626;
+    background: color-mix(in srgb, #ef4444 6%, var(--admin-surface));
+  }
+
+  .admin-search-icon {
+    color: var(--admin-text-muted);
+  }
+
+  .admin-search-input {
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-border);
+    color: var(--admin-text);
+    padding: 0.85rem 2.75rem 0.85rem 2.75rem;
+    font-size: 0.875rem;
+    box-shadow: 0 8px 30px rgba(30, 18, 13, 0.04);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .admin-search-input::placeholder {
+    color: var(--admin-text-muted);
+  }
+
+  .admin-search-input:focus {
+    outline: none;
+    border-color: color-mix(in srgb, var(--color-mayssa-gold) 50%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-mayssa-gold) 12%, transparent);
+  }
+
+  .admin-search-results {
+    background: color-mix(in srgb, var(--admin-surface) 96%, transparent);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--admin-border);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.12);
+  }
+
+  .admin-search-result-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.85rem 1rem;
+    transition: background 0.15s;
+    color: var(--admin-text);
+  }
+
+  .admin-search-result-item:hover {
+    background: var(--admin-surface-2);
+  }
+
+  .admin-search-result-icon {
+    display: flex;
+    height: 2.5rem;
+    width: 2.5rem;
+    align-items: center;
+    justify-content: center;
+    background: var(--admin-surface-2);
+    color: var(--admin-text-muted);
+  }
+
+  .admin-app .admin-card {
+    background: var(--admin-surface);
+    border-color: var(--admin-border);
+    box-shadow: 0 8px 40px rgba(30, 18, 13, 0.04);
+  }
+
+  .admin-theme-dark .admin-app .admin-card,
+  .admin-theme-dark .admin-card {
+    box-shadow: none;
+  }
+
+  .admin-app .admin-kpi:hover {
+    border-color: color-mix(in srgb, var(--color-mayssa-gold) 40%, transparent);
+  }
+
+  .admin-btn-primary {
+    background: var(--color-mayssa-brown);
+    color: white;
+  }
+
+  .admin-btn-primary:hover {
+    background: var(--color-mayssa-espresso);
+  }
+
+  .admin-btn-ghost {
+    border-color: var(--admin-border);
+    color: var(--admin-text-muted);
+  }
+
+  .admin-btn-ghost:hover {
+    background: var(--admin-surface-2);
+    color: var(--admin-text);
+  }
+
+  .admin-input {
+    background: var(--admin-surface);
+    border-color: var(--admin-border);
+    color: var(--admin-text);
+  }
+
+  .admin-subnav {
+    background: var(--admin-surface);
+    margin-bottom: 0.25rem;
+  }
+
+  .admin-app input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  .admin-app select,
+  .admin-app textarea {
+    border-radius: 0;
+  }
+
+  .admin-app .rounded-\[2\.5rem\],
+  .admin-app .rounded-\[2rem\],
+  .admin-app .rounded-3xl:not(.rounded-full) {
+    border-radius: 0;
+  }
+
+  /* Harmonise les panneaux legacy encore en bg-white */
+  .admin-theme-dark .bg-white {
+    background-color: var(--admin-surface) !important;
+  }
+
+  .admin-theme-dark .border-mayssa-brown\/5,
+  .admin-theme-dark .border-mayssa-brown\/10 {
+    border-color: var(--admin-border) !important;
+  }
+
+  .admin-theme-dark .text-mayssa-brown {
+    color: var(--admin-text) !important;
+  }
+
+  .admin-theme-dark .text-mayssa-brown\/60,
+  .admin-theme-dark .text-mayssa-brown\/50,
+  .admin-theme-dark .text-mayssa-brown\/40 {
+    color: var(--admin-text-muted) !important;
   }
 }
 

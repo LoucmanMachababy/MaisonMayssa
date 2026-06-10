@@ -183,6 +183,27 @@ export function parseDateYyyyMmDd(dateYyyyMmDd: string): Date {
   return new Date(dateYyyyMmDd + 'T12:00:00')
 }
 
+/** Libellé affiché : « Ouverture des précommandes le … » (admin ou repli catalogue). */
+export function getPreorderOpeningDisplayLabel(
+  settings: { preorderOpenDate?: string; preorderOpenTime?: string; nextRestockDate?: string } | null,
+  fallbackDateYyyyMmDd: string,
+): string {
+  if (settings?.preorderOpenDate) {
+    const date = formatDateYyyyMmDdToFrench(settings.preorderOpenDate)
+    const time = settings.preorderOpenTime
+    if (time && time !== '00:00') {
+      const [h, m] = time.split(':')
+      return `${date} à ${h}h${m !== '00' ? m : ''}`
+    }
+    return date
+  }
+  if (settings?.nextRestockDate?.trim()) {
+    const raw = settings.nextRestockDate.trim()
+    return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? formatDateYyyyMmDdToFrench(raw) : raw
+  }
+  return formatDateYyyyMmDdToFrench(fallbackDateYyyyMmDd)
+}
+
 /** Formate YYYY-MM-DD en français (ex: "mercredi 19 février"). Utilise Europe/Paris pour cohérence. */
 export function formatDateYyyyMmDdToFrench(dateYyyyMmDd: string, options?: { weekday?: 'long' | 'short'; timeZone?: string }): string {
   if (!dateYyyyMmDd) return ''

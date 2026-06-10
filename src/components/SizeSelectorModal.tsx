@@ -45,7 +45,7 @@ export function SizeSelectorModal({ product, onClose, onSelect }: SizeSelectorMo
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                         className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[61] mx-auto max-w-md"
                     >
-                        <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl">
+                        <div className="relative overflow-hidden bg-mayssa-soft border border-mayssa-brown/10">
                             {/* Close button */}
                             <button
                                 type="button"
@@ -75,7 +75,7 @@ export function SizeSelectorModal({ product, onClose, onSelect }: SizeSelectorMo
                             {/* Content */}
                             <div className="p-5 sm:p-6 space-y-4 sm:space-y-5">
                                 <div className="text-center space-y-1">
-                                    <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-mayssa-caramel">
+                                    <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-mayssa-gold">
                                         {product.category}
                                     </p>
                                     <h3 className="text-xl sm:text-2xl font-display font-bold text-mayssa-brown">
@@ -105,8 +105,8 @@ export function SizeSelectorModal({ product, onClose, onSelect }: SizeSelectorMo
                                                 aria-label={`Choisir ${product.name} - ${size.ml} ml à ${size.price.toFixed(2)} €`}
                                                 className={cn(
                                                     "group relative flex flex-col items-center justify-center gap-1 sm:gap-2 rounded-2xl p-3 sm:p-4 transition-all cursor-pointer",
-                                                    "bg-mayssa-soft/60 hover:bg-mayssa-caramel hover:text-white",
-                                                    "border-2 border-transparent hover:border-mayssa-caramel",
+                                                    "bg-mayssa-soft/60 hover:bg-mayssa-gold hover:text-white",
+                                                    "border-2 border-transparent hover:border-mayssa-gold",
                                                     "shadow-md hover:shadow-xl hover:scale-105 active:scale-95"
                                                 )}
                                             >
@@ -117,7 +117,7 @@ export function SizeSelectorModal({ product, onClose, onSelect }: SizeSelectorMo
                                                     {size.label}
                                                 </span>
                                                 <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-mayssa-caramel shadow-lg">
+                                                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-mayssa-gold shadow-lg">
                                                         <Check size={12} strokeWidth={3} />
                                                     </div>
                                                 </div>

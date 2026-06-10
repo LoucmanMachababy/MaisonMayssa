@@ -10,7 +10,7 @@ export function CadeauGourmandAnnecyPage() {
         { name: 'Accueil', url: '/' },
         { name: 'Cadeau gourmand Annecy' },
       ]}
-      heroImage="/box-mixte.webp"
+      heroImage="/nouvelle-img/photo-trompe-loeil-site.png"
       heroEyebrow="Cadeau original"
       heroTitle="Cadeau gourmand à Annecy"
       heroSubtitle="Boxes et coffrets artisanaux à offrir — un cadeau qui marque, plus qu'une simple boîte de chocolats."

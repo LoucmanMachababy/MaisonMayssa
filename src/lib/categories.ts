@@ -1,0 +1,91 @@
+import type { ProductCategory } from '../types'
+
+export type CatalogFilter = 'Tout' | ProductCategory
+
+export const CATALOG_FILTERS: CatalogFilter[] = [
+  'Tout',
+  'Nos trompe-l\'œil',
+  'Nos jus frais',
+  'Canette Cake',
+  'Cookies gourmands',
+  'Le salé',
+  'Fruits frais',
+  'Chocolaterie',
+  'Boxes',
+]
+
+export type CategoryShowcase = {
+  id: CatalogFilter
+  title: string
+  subtitle: string
+  image: string
+  anchor: string
+}
+
+/** Grandes tuiles visuelles — style maison de pâtisserie contemporaine. */
+export const CATEGORY_SHOWCASE: CategoryShowcase[] = [
+  {
+    id: 'Nos trompe-l\'œil',
+    title: 'Nos trompe-l\'œil',
+    subtitle: 'Créations signatures trompe-l\'œil',
+    image: '/nouvelle-img/mangue-face.png',
+    anchor: '#la-carte',
+  },
+  {
+    id: 'Nos jus frais',
+    title: 'Nos jus frais',
+    subtitle: 'Limonades artisanales',
+    image: '/Fraise.webp',
+    anchor: '#la-carte',
+  },
+  {
+    id: 'Le salé',
+    title: 'Le salé',
+    subtitle: 'Bouchées salées Maison Mayssa',
+    image: '/box-mixte.webp',
+    anchor: '#la-carte',
+  },
+  {
+    id: 'Chocolaterie',
+    title: 'Chocolaterie',
+    subtitle: 'Tablettes artisanales',
+    image: '/brownie-nutella-oreo.webp',
+    anchor: '#la-carte',
+  },
+  {
+    id: 'Fruits frais',
+    title: 'Fruits frais',
+    subtitle: 'Cups de fruits de saison',
+    image: '/mangue-ouverte.webp',
+    anchor: '#la-carte',
+  },
+  {
+    id: 'Cookies gourmands',
+    title: 'Cookies gourmands',
+    subtitle: 'Le Cookie Gourmand',
+    image: '/cookie-pistache-framboise.webp',
+    anchor: '#la-carte',
+  },
+]
+
+export const SIGNATURE_PRODUCT_IDS = [
+  'trompe-loeil-mangue',
+  'trompe-loeil-pistache',
+  'trompe-loeil-cacahuete',
+  'trompe-loeil-fraise',
+  'trompe-loeil-cabosse',
+] as const
+
+export const COMING_SOON_FEATURED_IDS = [
+  'limonade-bresilienne-mangue',
+  'limonade-bresilienne-fraise',
+  'new-york-roll-poulet-curry',
+  'new-york-roll-steak',
+  'panuozzo-maison-mayssa',
+  'tablette-dubai-pistache',
+  'tablette-dubai-speculoos',
+  'cup-fruits-mix-maison',
+  'cup-fruits-pasteque',
+  'canette-cake-mangue-passion',
+  'trompe-loeil-amande',
+] as const

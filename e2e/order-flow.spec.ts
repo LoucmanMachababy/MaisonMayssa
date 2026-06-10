@@ -1,40 +1,32 @@
 import { test, expect } from '@playwright/test'
 
-test.describe('Parcours commande', () => {
-  test('add to cart → formulaire → envoi WhatsApp', async ({ page }) => {
-    await page.goto('/')
+test.describe('Parcours commande premium', () => {
+  test('fiche produit → panier → formulaire visible', async ({ page }) => {
+    await page.goto('/produit/trompe-loeil-mangue')
 
-    // Attendre le chargement
-    await expect(page.getByRole('heading', { name: /nos douceurs/i })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Mangue' })).toBeVisible({ timeout: 10000 })
 
-    // Ajouter un brownie au panier (produit simple)
-    const firstBrownie = page.getByText(/Brownie/).first()
-    await firstBrownie.click()
+    await page.getByRole('button', { name: /ajouter à la précommande/i }).click()
 
-    // Vérifier toast ou panier mis à jour
-    await expect(page.getByText(/ajouté au panier/i).or(page.getByLabel(/panier/i))).toBeVisible({ timeout: 3000 })
+    await expect(page).toHaveURL(/\/panier/, { timeout: 5000 })
+    await expect(page.getByRole('heading', { name: /votre précommande/i })).toBeVisible()
+    await expect(page.getByText('Mangue').first()).toBeVisible()
 
-    // Ouvrir le panier (barre flottante ou icône)
-    await page.getByRole('button', { name: /panier/i }).or(page.getByLabel(/panier/i)).first().click()
+    await page.getByRole('button', { name: /suivant.*mes informations/i }).click()
+    await page.getByRole('textbox', { name: 'Prénom' }).fill('Marie')
+    await page.getByRole('textbox', { name: 'Nom', exact: true }).fill('Dupont')
+    await page.getByRole('textbox', { name: 'Numéro de téléphone' }).fill('0612345678')
+  })
 
-    // Remplir le formulaire client
-    await page.getByPlaceholder(/prénom/i).fill('Marie')
-    await page.getByPlaceholder(/nom/i).fill('Dupont')
-    await page.getByPlaceholder(/téléphone/i).fill('0612345678')
-    await page.getByPlaceholder(/date/i).fill(new Date().toISOString().slice(0, 10))
+  test('carte → précommander un trompe-l\'œil', async ({ page }) => {
+    await page.goto('/carte')
 
-    // Choisir un créneau heure
-    const timeSelect = page.locator('select').filter({ has: page.getByText(/:/) }).or(page.getByLabel(/heure/i))
-    if (await timeSelect.count() > 0) {
-      await timeSelect.first().selectOption({ index: 1 })
-    }
+    await expect(page.getByRole('heading', { name: 'La Carte' })).toBeVisible({ timeout: 10000 })
 
-    // Cliquer sur Envoyer (WhatsApp)
-    const sendBtn = page.getByRole('button', { name: /whatsapp/i }).or(page.getByText(/envoyer.*whatsapp/i))
-    await expect(sendBtn).toBeVisible({ timeout: 5000 })
-    await sendBtn.click()
+    const mangueCard = page.locator('.group').filter({ has: page.getByRole('heading', { name: 'Mangue' }) })
+    await mangueCard.getByRole('button', { name: /précommander/i }).click()
 
-    // Vérifier l'écran de confirmation (numéro commande, PayPal, etc.)
-    await expect(page.getByText(/commande enregistrée|numéro de commande/i)).toBeVisible({ timeout: 5000 })
+    await expect(page).toHaveURL(/\/panier/, { timeout: 5000 })
+    await expect(page.getByText('Mangue').first()).toBeVisible()
   })
 })

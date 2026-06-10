@@ -86,7 +86,7 @@ export const FAQ_CATEGORIES: FAQCategory[] = [
       },
       {
         q: 'Quelles sont les saveurs de trompe-l\'œil disponibles ?',
-        a: 'Notre gamme évolue régulièrement. Actuellement : mangue, citron, pistache, passion, framboise, fraise, myrtille, café, vanille, cacahuète, noix de pécan, popcorn, grappe de banane, amande, cabosse de cacao. Consulte la carte à jour sur le site.',
+        a: 'Notre gamme évolue régulièrement. Actuellement : mangue, citron, pistache, passion, framboise, fraise, myrtille, café, vanille, cacahuète, noix de pécan, popcorn, amande, cabosse de cacao. Consulte la carte à jour sur le site.',
       },
     ],
   },

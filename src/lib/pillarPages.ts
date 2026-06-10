@@ -15,7 +15,7 @@ export const PILLAR_PAGES: Record<string, RelatedPage> = {
     slug: 'trompe-loeil-annecy',
     title: "Trompe-l'œil Annecy",
     description: "Fruits pâtissiers qui trompent l'œil, faits main à Annecy.",
-    image: '/Trompe-loeil-header.webp',
+    image: '/nouvelle-img/Plusieurs-trompeloeil.png',
   },
   'brownies-annecy': {
     slug: 'brownies-annecy',
@@ -33,12 +33,12 @@ export const PILLAR_PAGES: Record<string, RelatedPage> = {
     slug: 'patisserie-anniversaire-annecy',
     title: 'Anniversaire Annecy',
     description: "Pâtisseries pour anniversaire, livrées le soir à Annecy.",
-    image: '/Boxe-trompeloeil.webp',
+    image: '/nouvelle-img/boxe-de-tout.png',
   },
   'cadeau-gourmand-annecy': {
     slug: 'cadeau-gourmand-annecy',
     title: 'Cadeau gourmand Annecy',
     description: "Boxes et trompe-l'œil à offrir — un cadeau qui marque.",
-    image: '/box-mixte.webp',
+    image: '/nouvelle-img/boxe-fruiter.png',
   },
 }

@@ -257,36 +257,41 @@ export function Cart({
       !trompeLoeilBeforeMinDate &&
       (!hasNonTrompeLoeil || !orderCutoffPassed || ordersExplicit)
 
+    const stepLabels: Record<1 | 2 | 3 | 4, string> = {
+        1: 'Options',
+        2: 'Infos',
+        3: 'Livraison',
+        4: 'Validation',
+    }
+
     return (
-        <div className="flex flex-col min-w-0 w-full overflow-hidden section-shell bg-white/40 backdrop-blur-3xl border border-white/60 shadow-[0_8px_32px_rgba(0,0,0,0.05)] !p-4 sm:!p-8 md:!p-10 rounded-[2.5rem]">
+        <div className="premium-cart-checkout min-w-0 w-full overflow-hidden">
+            <div className="premium-cart-checkout__inner">
             {!ordersOpen && ordersClosedMessage.trim().length > 0 && (
-                <div className="mb-6 rounded-2xl border border-mayssa-brown/10 bg-white/80 backdrop-blur-md p-4">
+                <div className="premium-cart-checkout__alert mb-6">
                     <p className="text-sm font-bold text-mayssa-brown">Précommandes fermées cette semaine</p>
                     <p className="text-xs text-mayssa-brown/70 mt-1 leading-relaxed">
                         {ordersClosedMessage}
                     </p>
                 </div>
             )}
-            <header className="flex items-center justify-between flex-shrink-0 pb-6 border-b border-mayssa-gold/10">
-                <div className="flex items-center gap-3 text-mayssa-brown">
-                    <div className="relative">
-                        <ShoppingBag size={24} className="sm:w-8 sm:h-8" strokeWidth={1.5} />
-                        {itemCount > 0 && (
-                            <span className="absolute -right-2 -top-2 flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-full bg-mayssa-gold text-[10px] sm:text-[11px] font-bold text-white shadow-lg ring-2 ring-white">
-                                {itemCount}
-                            </span>
-                        )}
-                    </div>
-                    <h2 className="text-3xl sm:text-4xl font-display font-medium tracking-tight">Votre Panier</h2>
+            <header className="premium-cart-checkout__header">
+                <div>
+                    <span className="premium-cart-checkout__eyebrow">Maison Mayssa</span>
+                    <h2 className="premium-cart-checkout__title">Votre précommande</h2>
+                    {itemCount > 0 && (
+                        <p className="premium-cart-checkout__count">{itemCount} article{itemCount > 1 ? 's' : ''} sélectionné{itemCount > 1 ? 's' : ''}</p>
+                    )}
                 </div>
+                <ShoppingBag size={28} className="text-mayssa-gold shrink-0" strokeWidth={1.25} />
             </header>
 
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.1fr] lg:items-start gap-8 lg:gap-12 mt-8">
+            <div className="premium-cart-checkout__grid">
                 {/* Left Column: Items & Notes */}
                 <div className={`space-y-8 min-w-0 ${step > 1 ? 'hidden lg:block' : 'block'}`}>
                     <div className="space-y-4">
-                        <p className="text-xs font-bold uppercase tracking-widest text-mayssa-brown/60">
-                            Articles sélectionnés ({itemCount})
+                        <p className="premium-cart-checkout__section-label">
+                            Articles ({itemCount})
                         </p>
                         <AnimatePresence mode="popLayout">
                             {hasItems ? (
@@ -298,10 +303,10 @@ export function Cart({
                                             initial={{ opacity: 0, x: -20 }}
                                             animate={{ opacity: 1, x: 0 }}
                                             exit={{ opacity: 0, scale: 0.95 }}
-                                            className="group flex items-center gap-4 rounded-3xl bg-white/60 backdrop-blur-xl border border-white/80 p-3 sm:p-4 shadow-sm hover:shadow-lg transition-all"
+                                            className="premium-cart-checkout__item group"
                                         >
                                             {item.product.image && (
-                                                <div className="h-16 w-16 sm:h-20 sm:w-20 overflow-hidden rounded-2xl shadow-sm flex-shrink-0 ring-1 ring-mayssa-gold/30">
+                                                <div className="premium-cart-checkout__item-img">
                                                     <img
                                                         src={item.product.image}
                                                         alt={item.product.name}
@@ -316,7 +321,7 @@ export function Cart({
 
                                             <div className="min-w-0 flex-1">
                                                 <div className="flex items-start gap-2">
-                                                    <h3 className="truncate text-sm sm:text-base font-bold text-mayssa-brown flex-1">
+                                                    <h3 className="premium-cart-checkout__item-name truncate flex-1">
                                                         {item.product.name}
                                                     </h3>
                                                 </div>
@@ -342,8 +347,8 @@ export function Cart({
                                                     <p className="text-xs text-mayssa-brown/60">
                                                         {item.product.price.toFixed(2).replace('.', ',')} €
                                                     </p>
-                                                    <p className="text-sm font-bold text-mayssa-gold">
-                                                        = {(item.product.price * item.quantity).toFixed(2).replace('.', ',')} €
+                                                    <p className="premium-cart-checkout__item-price">
+                                                        {(item.product.price * item.quantity).toFixed(2).replace('.', ',')} €
                                                     </p>
                                                 </div>
                                                 {item.reservationExpiresAt && (
@@ -357,11 +362,11 @@ export function Cart({
                                             </div>
 
                                             <div className="flex flex-col items-center gap-2 flex-shrink-0">
-                                                <div className="flex items-center gap-1.5 rounded-2xl bg-white/80 backdrop-blur-md p-1 shadow-sm border border-mayssa-gold/20">
+                                                <div className="premium-cart-checkout__qty">
                                                     <button
                                                         onClick={() => onUpdateQuantity(item.product.id, item.quantity - 1)}
                                                         aria-label={`Réduire ${item.product.name}`}
-                                                        className="flex h-7 w-7 items-center justify-center rounded-xl text-mayssa-brown transition-all hover:bg-mayssa-brown hover:text-mayssa-gold hover:scale-110 active:scale-95 cursor-pointer"
+                                                        className="premium-cart-checkout__qty-btn"
                                                     >
                                                         <Minus size={14} />
                                                     </button>
@@ -371,7 +376,7 @@ export function Cart({
                                                     <button
                                                         onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
                                                         aria-label={`Ajouter ${item.product.name}`}
-                                                        className="flex h-7 w-7 items-center justify-center rounded-xl text-mayssa-brown transition-all hover:bg-mayssa-brown hover:text-mayssa-gold hover:scale-110 active:scale-95 cursor-pointer"
+                                                        className="premium-cart-checkout__qty-btn"
                                                     >
                                                         <Plus size={14} />
                                                     </button>
@@ -381,45 +386,56 @@ export function Cart({
                                     ))}
                                 </div>
                             ) : (
-                                <div className="flex flex-col items-center justify-center gap-4 py-12 text-center text-mayssa-brown/40 bg-white/40 backdrop-blur-lg rounded-[2.5rem] border border-dashed border-mayssa-brown/20 shadow-inner">
-                                    <ShoppingBag size={48} className="opacity-20" />
-                                    <p className="text-base font-medium">Votre panier est vide</p>
+                                <div className="premium-cart-checkout__empty">
+                                    <ShoppingBag size={40} className="mx-auto mb-3 opacity-30" />
+                                    <p className="font-display text-lg text-mayssa-brown">Panier vide</p>
                                 </div>
                             )}
                         </AnimatePresence>
                     </div>
 
                     <div className="space-y-3">
-                        <label className="text-xs font-bold uppercase tracking-widest text-mayssa-brown/60 block">
+                        <label className="premium-cart-checkout__section-label block">
                             Instructions particulières
                         </label>
                         <textarea
                             value={note}
                             onChange={(e) => onNoteChange(e.target.value)}
                             placeholder="Allergies ou instructions livraison"
-                            className="w-full min-h-[120px] resize-none rounded-[2rem] bg-white/60 backdrop-blur-xl p-5 text-sm md:text-base text-mayssa-brown border border-white/80 shadow-[0_4px_16px_rgba(0,0,0,0.02)] focus:outline-none focus:ring-1 focus:ring-mayssa-gold/50 transition-all placeholder:text-mayssa-brown/40"
+                            className="premium-cart-checkout__textarea"
                         />
                     </div>
                 </div>
 
                 {/* Right Column: Info & Totals */}
-                <div className="space-y-8 lg:sticky lg:top-24 lg:self-start min-w-0">
-                    <div className="space-y-6 bg-white/80 backdrop-blur-3xl p-6 sm:p-8 rounded-[2.5rem] border border-mayssa-gold/20 shadow-[0_10px_40px_rgba(212,175,55,0.05)]">
-                        {/* Step Tabs */}
-                        <div className="flex items-center gap-2 mb-6">
-                           <button onClick={() => setStep(1)} className={`flex-1 h-1.5 rounded-full ${step >= 1 ? 'bg-mayssa-gold' : 'bg-mayssa-brown/10'}`} />
-                           <button onClick={() => { if (step >= 1) setStep(2) }} className={`flex-1 h-1.5 rounded-full ${step >= 2 ? 'bg-mayssa-gold' : 'bg-mayssa-brown/10'}`} />
-                           <button onClick={() => { if (step >= 2) setStep(3) }} className={`flex-1 h-1.5 rounded-full ${step >= 3 ? 'bg-mayssa-gold' : 'bg-mayssa-brown/10'}`} />
-                           <button onClick={() => { if (step >= 3) setStep(4) }} className={`flex-1 h-1.5 rounded-full ${step >= 4 ? 'bg-mayssa-gold' : 'bg-mayssa-brown/10'}`} />
+                <div className="premium-cart-checkout__flow space-y-6 min-w-0">
+                        {/* Étapes */}
+                        <div className="premium-cart-checkout__steps">
+                           {([1, 2, 3, 4] as const).map((s) => (
+                             <button
+                               key={s}
+                               type="button"
+                               disabled={s > step && s !== step}
+                               onClick={() => { if (s <= step) setStep(s) }}
+                               className={cn(
+                                 'premium-cart-checkout__step',
+                                 step === s && 'is-active',
+                                 step > s && 'is-done',
+                               )}
+                             >
+                               <span className={cn('premium-cart-checkout__step-bar', (step >= s) && 'is-done')} />
+                               <span className="premium-cart-checkout__step-label">{stepLabels[s]}</span>
+                             </button>
+                           ))}
                         </div>
 
                         <div className={step === 1 ? 'space-y-6 block' : 'hidden'}>
                         {/* Code promo */}
                         {setPromoCodeInput != null && onApplyPromo != null && onClearPromo != null && (
                             <div className="space-y-2">
-                                <p className="text-xs font-bold uppercase tracking-widest text-mayssa-brown/60">Code promo</p>
+                                <p className="premium-cart-checkout__section-label">Code promo</p>
                                 {appliedPromo ? (
-                                    <div className="flex items-center justify-between gap-2 rounded-2xl bg-[#E8F3E8] border border-[#A3C7A3] px-4 py-3">
+                                    <div className="premium-cart-checkout__promo-applied">
                                         <span className="text-sm font-semibold text-[#2D5A2D]">
                                             <Tag size={14} className="inline mr-1.5" />
                                             {appliedPromo.code} : -{appliedPromo.discount.toFixed(2).replace('.', ',')} €
@@ -435,19 +451,21 @@ export function Cart({
                                     </div>
                                 ) : (
                                     <div className="flex gap-2">
-                                        <input
-                                            type="text"
-                                            value={promoCodeInput}
-                                            onChange={(e) => setPromoCodeInput(e.target.value.toUpperCase())}
-                                            placeholder="Code promo"
-                                            className="flex-1 rounded-2xl bg-white/60 backdrop-blur-md px-4 py-3 text-sm border border-mayssa-brown/10 focus:outline-none focus:ring-1 focus:ring-mayssa-gold shadow-[0_2px_8px_rgba(0,0,0,0.02)]"
-                                        />
+                                        <div className="premium-cart-checkout__field flex-1">
+                                            <Tag size={16} className="text-mayssa-gold shrink-0" />
+                                            <input
+                                                type="text"
+                                                value={promoCodeInput}
+                                                onChange={(e) => setPromoCodeInput(e.target.value.toUpperCase())}
+                                                placeholder="Code promo"
+                                            />
+                                        </div>
                                         <button
                                             type="button"
                                             onClick={onApplyPromo}
                                             disabled={!promoCodeInput.trim()}
                                             aria-label="Appliquer le code promo"
-                                            className="rounded-2xl bg-mayssa-brown px-4 py-3 text-sm font-bold text-mayssa-gold hover:bg-mayssa-brown/90 shadow-lg disabled:opacity-50 cursor-pointer transition-all border border-mayssa-gold/20"
+                                            className="premium-cart-checkout__btn-primary shrink-0 !w-auto px-5"
                                         >
                                             Appliquer
                                         </button>
@@ -459,26 +477,28 @@ export function Cart({
                         {/* Code parrain (1ère commande uniquement) */}
                         {setReferralCodeInput != null && isAuthenticated && profile && (profile.orderStats?.orderCount ?? 0) === 0 && !profile.referredByCode && (
                             <div className="space-y-2">
-                                <p className="text-xs font-bold uppercase tracking-widest text-mayssa-brown/60">Code parrain</p>
+                                <p className="premium-cart-checkout__section-label">Code parrain</p>
                                 <p className="text-[10px] text-mayssa-brown/60">Un ami t&apos;a parrainé ? Saisis son code pour avoir -5 € sur ta 1ère commande.</p>
-                                <input
-                                    type="text"
-                                    value={referralCodeInput}
-                                    onChange={(e) => setReferralCodeInput(e.target.value.toUpperCase())}
-                                    placeholder="ex. MAYSSA-ABC1"
-                                    className="w-full rounded-2xl bg-white px-4 py-3 text-sm ring-1 ring-mayssa-brown/10 focus:ring-2 focus:ring-mayssa-caramel"
-                                />
+                                <div className="premium-cart-checkout__field">
+                                    <Gift size={16} className="text-mayssa-gold shrink-0" />
+                                    <input
+                                        type="text"
+                                        value={referralCodeInput}
+                                        onChange={(e) => setReferralCodeInput(e.target.value.toUpperCase())}
+                                        placeholder="ex. MAYSSA-ABC1"
+                                    />
+                                </div>
                             </div>
                         )}
 
                         {/* Soutien au projet */}
                         {setDonationAmount != null && (
                             <div className="space-y-2">
-                                <p className="text-xs font-bold uppercase tracking-widest text-mayssa-brown/60 flex items-center gap-1.5">
+                                <p className="premium-cart-checkout__section-label flex items-center gap-1.5">
                                     <Heart size={12} /> Soutenir le projet
                                 </p>
                                 <p className="text-[10px] text-mayssa-brown/60">Montant libre (optionnel)</p>
-                                <div className="flex flex-wrap gap-2">
+                                <div className="premium-cart-checkout__segment">
                                     {[2, 5, 10, 15].map((amount) => (
                                         <button
                                             key={amount}
@@ -486,10 +506,8 @@ export function Cart({
                                             onClick={() => setDonationAmount(donationAmount === amount ? 0 : amount)}
                                             aria-label={donationAmount === amount ? `Retirer le don de ${amount} €` : `Ajouter un don de ${amount} €`}
                                             className={cn(
-                                                'rounded-xl px-3 py-2 text-sm font-bold transition-all',
-                                                donationAmount === amount
-                                                    ? 'bg-mayssa-rose text-white ring-2 ring-mayssa-brown/20'
-                                                    : 'bg-white text-mayssa-brown ring-1 ring-mayssa-brown/10 hover:ring-mayssa-caramel'
+                                                'premium-cart-checkout__chip',
+                                                donationAmount === amount && 'is-active',
                                             )}
                                         >
                                             {amount} €
@@ -515,31 +533,29 @@ export function Cart({
                             </div>
                         )}
 
-                            <div className="pt-6 border-t border-mayssa-gold/10">
-                                <button type="button" onClick={() => setStep(2)} className="w-full bg-mayssa-brown text-mayssa-gold py-4 rounded-xl font-bold uppercase tracking-widest text-xs hover:bg-mayssa-brown/90 shadow-md transition-all">
+                            <div className="pt-4 border-t border-mayssa-gold/20">
+                                <button type="button" onClick={() => setStep(2)} className="premium-cart-checkout__btn-primary">
                                     Suivant : Mes informations →
                                 </button>
                             </div>
                         </div>
 
                         <div className={step === 2 ? 'space-y-6 block' : 'hidden'}>
-                        <p className="text-xs font-bold uppercase tracking-widest text-mayssa-brown/60 border-b border-mayssa-brown/5 pb-3">
+                        <p className="premium-cart-checkout__section-label border-b border-mayssa-brown/8 pb-3">
                             Informations de livraison
                         </p>
 
                         <div className="space-y-2">
                             <p className="text-[10px] font-semibold text-mayssa-brown/70">Tu finalises par</p>
-                            <div className="flex flex-wrap gap-2">
+                            <div className="premium-cart-checkout__segment">
                                 {(['whatsapp', 'instagram', 'snap'] as const).map((id) => (
                                     <button
                                         key={id}
                                         type="button"
                                         onClick={() => handleContactIdentityChange(id)}
                                         className={cn(
-                                            'inline-flex items-center gap-1.5 rounded-2xl px-3 py-2 text-[10px] font-bold uppercase tracking-wider border transition-all cursor-pointer',
-                                            orderContactIdentity === id
-                                                ? 'bg-mayssa-brown text-mayssa-gold border-mayssa-brown shadow-sm'
-                                                : 'bg-white/70 text-mayssa-brown/75 border-mayssa-brown/15 hover:border-mayssa-gold/40',
+                                            'premium-cart-checkout__chip inline-flex items-center gap-1.5',
+                                            orderContactIdentity === id && 'is-active',
                                         )}
                                     >
                                         {id === 'whatsapp' && <MessageCircle size={14} />}
@@ -561,10 +577,7 @@ export function Cart({
                         {orderContactIdentity === 'whatsapp' ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-1.5">
-                                <div className={cn(
-                                    "flex items-center gap-3 rounded-2xl bg-white/60 backdrop-blur-md px-4 py-3.5 transition-all shadow-sm border",
-                                    showError('firstName') ? "border-red-300 ring-1 ring-red-300" : "border-mayssa-brown/10 focus-within:ring-1 focus-within:ring-mayssa-gold focus-within:border-mayssa-gold"
-                                )}>
+                                <div className={cn('premium-cart-checkout__field', showError('firstName') && 'is-error')}>
                                     <User size={18} className="text-mayssa-gold flex-shrink-0" />
                                     <input
                                         value={customer.firstName}
@@ -572,16 +585,12 @@ export function Cart({
                                         onBlur={() => markTouched('firstName')}
                                         placeholder="Prénom *"
                                         aria-label="Prénom"
-                                        className="w-full bg-transparent text-sm font-semibold text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
                                     />
                                 </div>
                                 {showError('firstName') && <p className="text-[10px] text-red-500 pl-4">{validationErrors.firstName}</p>}
                             </div>
                             <div className="space-y-1.5">
-                                <div className={cn(
-                                    "flex items-center gap-3 rounded-2xl bg-white/60 backdrop-blur-md px-4 py-3.5 transition-all shadow-sm border",
-                                    showError('lastName') ? "border-red-300 ring-1 ring-red-300" : "border-mayssa-brown/10 focus-within:ring-1 focus-within:ring-mayssa-gold focus-within:border-mayssa-gold"
-                                )}>
+                                <div className={cn('premium-cart-checkout__field', showError('lastName') && 'is-error')}>
                                     <User size={18} className="text-mayssa-gold flex-shrink-0" />
                                     <input
                                         value={customer.lastName}
@@ -589,7 +598,6 @@ export function Cart({
                                         onBlur={() => markTouched('lastName')}
                                         placeholder="Nom *"
                                         aria-label="Nom"
-                                        className="w-full bg-transparent text-sm font-semibold text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
                                     />
                                 </div>
                                 {showError('lastName') && <p className="text-[10px] text-red-500 pl-4">{validationErrors.lastName}</p>}
@@ -597,10 +605,7 @@ export function Cart({
                         </div>
                         ) : (
                         <div className="space-y-1.5">
-                            <div className={cn(
-                                "flex items-center gap-3 rounded-2xl bg-white/60 backdrop-blur-md px-4 py-3.5 transition-all shadow-sm border",
-                                showError('firstName') ? "border-red-300 ring-1 ring-red-300" : "border-mayssa-brown/10 focus-within:ring-1 focus-within:ring-mayssa-gold focus-within:border-mayssa-gold"
-                            )}>
+                            <div className={cn('premium-cart-checkout__field', showError('firstName') && 'is-error')}>
                                 {orderContactIdentity === 'instagram' ? (
                                     <Instagram size={18} className="text-mayssa-gold flex-shrink-0" />
                                 ) : (
@@ -626,7 +631,6 @@ export function Cart({
                                             ? "Nom d'utilisateur Instagram"
                                             : "Nom d'utilisateur Snapchat"
                                     }
-                                    className="w-full bg-transparent text-sm font-semibold text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
                                 />
                             </div>
                             {showError('firstName') && <p className="text-[10px] text-red-500 pl-4">{validationErrors.firstName}</p>}
@@ -634,10 +638,7 @@ export function Cart({
                         )}
 
                         <div className="space-y-1.5">
-                            <div className={cn(
-                                "flex items-center gap-3 rounded-2xl bg-white/60 backdrop-blur-md px-4 py-3.5 transition-all shadow-sm border",
-                                showError('phone') ? "border-red-300 ring-1 ring-red-300" : "border-mayssa-brown/10 focus-within:ring-1 focus-within:ring-mayssa-gold focus-within:border-mayssa-gold"
-                            )}>
+                            <div className={cn('premium-cart-checkout__field', showError('phone') && 'is-error')}>
                                 <Phone size={18} className="text-mayssa-gold flex-shrink-0" />
                                 <input
                                     type="tel"
@@ -650,14 +651,13 @@ export function Cart({
                                     onBlur={() => markTouched('phone')}
                                     placeholder="Numéro de téléphone *"
                                     aria-label="Numéro de téléphone"
-                                    className="w-full bg-transparent text-sm font-semibold text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
                                 />
                             </div>
                             {showError('phone') && <p className="text-[10px] text-red-500 pl-4">{validationErrors.phone}</p>}
                         </div>
 
                         <div className="space-y-1.5">
-                            <div className="flex items-center gap-3 rounded-2xl bg-white/60 backdrop-blur-md px-4 py-3.5 border border-mayssa-brown/10 focus-within:ring-1 focus-within:ring-mayssa-gold focus-within:border-mayssa-gold shadow-sm transition-all">
+                            <div className="premium-cart-checkout__field">
                                 <Mail size={18} className="text-mayssa-gold flex-shrink-0" />
                                 <input
                                     type="email"
@@ -665,20 +665,19 @@ export function Cart({
                                     onChange={(e) => onCustomerChange({ ...customer, email: e.target.value.trim() || undefined })}
                                     placeholder="Email (récap + notifs)"
                                     aria-label="Email pour récap de commande"
-                                    className="w-full bg-transparent text-sm font-semibold text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
                                 />
                             </div>
                             <p className="text-[10px] text-mayssa-brown/50 pl-4">Optionnel. Tu recevras le récap et un mail quand ta commande est validée.</p>
                         </div>
-                            <div className="pt-6 border-t border-mayssa-gold/10">
-                                <button type="button" onClick={() => setStep(3)} className="w-full bg-mayssa-brown text-mayssa-gold py-4 rounded-xl font-bold uppercase tracking-widest text-xs hover:bg-mayssa-brown/90 shadow-md transition-all">
+                            <div className="pt-4 border-t border-mayssa-gold/20">
+                                <button type="button" onClick={() => setStep(3)} className="premium-cart-checkout__btn-primary">
                                     Suivant : Récupération →
                                 </button>
                             </div>
                         </div>
 
                         <div className={step === 3 ? 'space-y-6 block' : 'hidden'}>
-                        <p className="text-xs font-bold uppercase tracking-widest text-mayssa-brown/60 border-b border-mayssa-brown/5 pb-3 flex items-center justify-between">
+                        <p className="premium-cart-checkout__section-label border-b border-mayssa-brown/8 pb-3">
                             Mode de récupération
                         </p>
                         <div className="grid grid-cols-2 gap-3">
@@ -686,32 +685,26 @@ export function Cart({
                                 type="button"
                                 onClick={() => onCustomerChange({ ...customer, wantsDelivery: false })}
                                 aria-label="Choisir retrait sur place"
-                                className={cn(
-                                    "flex flex-col items-center gap-2 rounded-[1.5rem] py-4 transition-all cursor-pointer backdrop-blur-md",
-                                    !customer.wantsDelivery ? "bg-mayssa-brown text-mayssa-gold border border-mayssa-gold/30 shadow-lg -translate-y-1" : "bg-white/50 text-mayssa-brown border border-mayssa-brown/10 hover:bg-white/80"
-                                )}
+                                className={cn('premium-cart-checkout__mode', !customer.wantsDelivery && 'is-active')}
                             >
-                                <MapPin size={22} className={!customer.wantsDelivery ? "text-mayssa-gold" : "text-mayssa-brown"} />
-                                <span className="text-xs font-bold uppercase tracking-wide">Retrait</span>
+                                <MapPin size={22} />
+                                <span>Retrait</span>
                             </button>
                             <button
                                 type="button"
                                 onClick={() => onCustomerChange({ ...customer, wantsDelivery: true })}
                                 aria-label="Choisir livraison"
-                                className={cn(
-                                    "flex flex-col items-center gap-2 rounded-[1.5rem] py-4 transition-all cursor-pointer backdrop-blur-md",
-                                    customer.wantsDelivery ? "bg-mayssa-brown text-mayssa-gold border border-mayssa-gold/30 shadow-lg -translate-y-1" : "bg-white/50 text-mayssa-brown border border-mayssa-brown/10 hover:bg-white/80"
-                                )}
+                                className={cn('premium-cart-checkout__mode', customer.wantsDelivery && 'is-active')}
                             >
-                                <Truck size={22} className={customer.wantsDelivery ? "text-mayssa-gold" : "text-mayssa-brown"} />
-                                <span className="text-xs font-bold uppercase tracking-wide">Livraison</span>
+                                <Truck size={22} />
+                                <span>Livraison</span>
                             </button>
                         </div>
 
                         {customer.wantsDelivery && (
                             <div className={cn(
-                                "rounded-3xl bg-white/60 backdrop-blur-xl p-5 transition-all shadow-inner border",
-                                validationErrors.address ? "border-red-300 ring-1 ring-red-300" : "border-white"
+                                'premium-cart-checkout__panel',
+                                validationErrors.address && 'border-red-300',
                             )}>
                                 <AddressAutocomplete
                                     value={customer.address}
@@ -741,11 +734,8 @@ export function Cart({
                         )}
 
                         <div className="grid grid-cols-2 gap-3">
-                            <div className={cn(
-                                "flex items-center gap-2 rounded-2xl bg-white/60 backdrop-blur-md px-3 py-3 shadow-sm transition-all border",
-                                validationErrors.date ? "border-red-300 ring-1 ring-red-300" : "border-mayssa-brown/10 focus-within:ring-1 focus-within:ring-mayssa-gold focus-within:border-mayssa-gold"
-                            )}>
-                                <Calendar size={16} className="text-mayssa-gold" aria-hidden="true" />
+                            <div className={cn('premium-cart-checkout__field', validationErrors.date && 'is-error')}>
+                                <Calendar size={16} className="text-mayssa-gold shrink-0" aria-hidden="true" />
                                 {useDateSelect ? (
                                   <select
                                     id="cart-date"
@@ -776,11 +766,8 @@ export function Cart({
                                   />
                                 )}
                             </div>
-                            <div className={cn(
-                                "flex items-center gap-2 rounded-2xl bg-white/60 backdrop-blur-md px-3 py-3 shadow-sm transition-all border",
-                                validationErrors.time ? "border-red-300 ring-1 ring-red-300" : "border-mayssa-brown/10 focus-within:ring-1 focus-within:ring-mayssa-gold focus-within:border-mayssa-gold"
-                            )}>
-                                <Clock size={16} className="text-mayssa-gold" aria-hidden="true" />
+                            <div className={cn('premium-cart-checkout__field', validationErrors.time && 'is-error')}>
+                                <Clock size={16} className="text-mayssa-gold shrink-0" aria-hidden="true" />
                                 <select
                                     id="cart-time"
                                     value={customer.time}
@@ -826,15 +813,15 @@ export function Cart({
                             </div>
                         )}
 
-                            <div className="pt-6 mt-6 border-t border-mayssa-gold/10">
-                                <button type="button" onClick={() => setStep(4)} className="w-full bg-mayssa-brown text-mayssa-gold py-4 rounded-xl font-bold uppercase tracking-widest text-xs hover:bg-mayssa-brown/90 shadow-md transition-all">
+                            <div className="pt-4 mt-4 border-t border-mayssa-gold/20">
+                                <button type="button" onClick={() => setStep(4)} className="premium-cart-checkout__btn-primary">
                                     Suivant : Validation →
                                 </button>
                             </div>
                         </div>
 
                         <div className={step === 4 ? 'space-y-6 block' : 'hidden'}>
-                        <p className="text-xs font-bold uppercase tracking-widest text-mayssa-brown/60 border-b border-mayssa-brown/5 pb-3 flex items-center justify-between">
+                        <p className="premium-cart-checkout__section-label border-b border-mayssa-brown/8 pb-3">
                             Validation
                         </p>
 
@@ -870,9 +857,9 @@ export function Cart({
                                         <span className="font-bold">+{donationAmount.toFixed(2)} €</span>
                                     </div>
                                 )}
-                                <div className="flex items-center justify-between pt-4 mt-2 border-t border-mayssa-gold/10">
-                                    <span className="text-lg font-bold text-mayssa-brown uppercase tracking-wider">Total</span>
-                                    <span className="text-4xl font-display font-medium text-mayssa-gold drop-shadow-sm">{finalTotal.toFixed(2).replace('.', ',')} €</span>
+                                <div className="premium-cart-checkout__total">
+                                    <span className="premium-cart-checkout__total-label">Total</span>
+                                    <span className="premium-cart-checkout__total-value">{finalTotal.toFixed(2).replace('.', ',')} €</span>
                                 </div>
                             </div>
 
@@ -880,7 +867,7 @@ export function Cart({
                             {isAuthenticated && profile && hasItems && (
                                 <div className="space-y-3 pt-5 mt-5 border-t border-mayssa-gold/10">
                                     {/* Points à gagner */}
-                                    <div className="flex items-center justify-between bg-gradient-to-r from-mayssa-gold/10 to-transparent border border-mayssa-gold/20 rounded-2xl p-4 shadow-sm backdrop-blur-md">
+                                    <div className="premium-cart-checkout__loyalty">
                                         <div className="flex items-center gap-3">
                                             <div className="bg-white/50 p-1.5 rounded-full shadow-inner">
                                                 <Star size={16} className="text-mayssa-gold" />
@@ -905,11 +892,10 @@ export function Cart({
                                                 {availableRewards.slice(0, 2).map(([rewardType, cost]) => (
                                                     <div
                                                         key={rewardType}
-                                                        className={`group flex items-center justify-between p-3.5 rounded-2xl border transition-all cursor-pointer shadow-sm backdrop-blur-sm ${
-                                                            selectedReward?.type === rewardType
-                                                                ? 'border-mayssa-gold bg-mayssa-gold/5 shadow-[0_4px_12px_rgba(212,175,55,0.1)]'
-                                                                : 'border-mayssa-brown/10 bg-white/40 hover:border-mayssa-gold/30 hover:bg-white/60'
-                                                        }`}
+                                                        className={cn(
+                                                            'premium-cart-checkout__reward-item group',
+                                                            selectedReward?.type === rewardType && 'is-selected',
+                                                        )}
                                                         onClick={() => {
                                                             if (onSelectReward) {
                                                                 onSelectReward(
@@ -951,7 +937,7 @@ export function Cart({
 
                             {/* Incitation connexion si pas connecté */}
                             {!isAuthenticated && hasItems && (
-                                <div className="bg-gradient-to-r from-white/90 to-mayssa-gold/5 rounded-2xl p-4 border border-mayssa-gold/20 shadow-sm backdrop-blur-md">
+                                <div className="premium-cart-checkout__loyalty">
                                     <div className="flex items-center gap-3 mb-2">
                                         <div className="bg-mayssa-gold/10 p-1.5 rounded-full">
                                             <Star size={16} className="text-mayssa-gold drop-shadow-sm" />
@@ -977,7 +963,7 @@ export function Cart({
                             <div className="space-y-3 pt-4">
                                 {pendingOrder ? (
                                     /* ── Commande reçue + option 2e commande ── */
-                                    <div className="max-w-md mx-auto rounded-3xl bg-[#E8F3E8] border border-[#A3C7A3] p-6 text-center space-y-4 shadow-xl backdrop-blur-md">
+                                    <div className="premium-cart-checkout__success space-y-4">
                                         <div className="text-5xl drop-shadow-md">✨</div>
                                         <div className="space-y-1.5">
                                             <p className="text-base font-bold text-[#2D5A2D] uppercase tracking-widest">
@@ -1020,7 +1006,7 @@ export function Cart({
                                     <MessageCircle size={14} className="text-mayssa-gold" />
                                     Finaliser la commande
                                 </p>
-                                <div className="max-w-md mx-auto rounded-3xl bg-white/40 border border-white/60 p-5 text-[10px] text-mayssa-brown/70 space-y-2 backdrop-blur-md shadow-sm">
+                                <div className="premium-cart-checkout__panel max-w-md mx-auto text-[10px] text-mayssa-brown/70 space-y-2">
                                     <p className="font-bold text-[11px] text-mayssa-brown uppercase tracking-wider border-b border-mayssa-brown/5 pb-2 mb-3">
                                         Parcours Maison Mayssa
                                     </p>
@@ -1031,17 +1017,17 @@ export function Cart({
                                 </div>
 
                                 {hasNonTrompeLoeil && isClassicPreorderPhase && (
-                                    <p className="text-[11px] text-mayssa-brown text-center bg-white/50 backdrop-blur-sm rounded-2xl p-3 border border-mayssa-gold/20 shadow-sm">
+                                    <p className="premium-cart-checkout__notice text-mayssa-brown">
                                         Précommandes — récupération à partir du <span className="font-bold text-mayssa-gold">{FIRST_PICKUP_DATE_CLASSIC_LABEL}</span>.
                                     </p>
                                 )}
                                 {orderCutoffPassed && hasNonTrompeLoeil && (
-                                    <p className="text-[11px] text-amber-800 text-center bg-amber-50 rounded-2xl px-4 py-3 border border-amber-200/50 shadow-sm">
+                                    <p className="premium-cart-checkout__notice is-warning">
                                         Commandes (pâtisseries, cookies…) possibles jusqu&apos;à 17h. Les précommandes trompe-l&apos;œil restent disponibles.
                                     </p>
                                 )}
                                 {trompeLoeilBeforeMinDate && (
-                                    <p className="text-[11px] text-amber-800 text-center bg-amber-50 rounded-2xl px-4 py-3 border border-amber-200/50 shadow-sm">
+                                    <p className="premium-cart-checkout__notice is-warning">
                                         Les précommandes trompe l&apos;œil sont possibles à partir du {formatDateLabel(minDate)}.
                                     </p>
                                 )}
@@ -1051,11 +1037,10 @@ export function Cart({
                                     onClick={onSend}
                                     disabled={!canSend}
                                     aria-label="Envoyer la commande sur WhatsApp"
-                                    className="relative w-full overflow-hidden flex items-center justify-center gap-3 rounded-[2rem] bg-[#25D366] text-white py-5 text-sm uppercase tracking-widest font-bold shadow-xl transition-all hover:bg-[#20bd5a] hover:scale-[1.02] hover:shadow-2xl active:scale-95 disabled:opacity-50 disabled:grayscale disabled:hover:scale-100 disabled:shadow-none cursor-pointer group"
+                                    className="premium-cart-checkout__btn-primary premium-cart-checkout__btn-whatsapp"
                                 >
-                                    <div className="absolute inset-0 bg-white/20 translate-y-[-100%] group-hover:translate-y-[100%] transition-transform duration-500 rounded-[2rem]" />
-                                    <MessageCircle size={22} className="relative z-10" />
-                                    <span className="relative z-10 drop-shadow-sm">{hasItems ? (canSend ? 'WhatsApp' : ordersOpen === false ? 'Fermé' : trompeLoeilBeforeMinDate ? `Dès le ${formatDateLabel(minDate)}` : orderCutoffPassed && hasNonTrompeLoeil ? 'Jusqu\'à 17h' : 'Vérifier Formulaire') : 'Panier Vide'}</span>
+                                    <MessageCircle size={20} />
+                                    <span>{hasItems ? (canSend ? 'WhatsApp' : ordersOpen === false ? 'Fermé' : trompeLoeilBeforeMinDate ? `Dès le ${formatDateLabel(minDate)}` : orderCutoffPassed && hasNonTrompeLoeil ? 'Jusqu\'à 17h' : 'Vérifier Formulaire') : 'Panier Vide'}</span>
                                 </button>
 
                                 <div className="grid grid-cols-2 gap-3 mt-4">
@@ -1064,22 +1049,20 @@ export function Cart({
                                         onClick={onSendInstagram}
                                         disabled={!canSend}
                                         aria-label="Envoyer la commande sur Instagram"
-                                        className="relative overflow-hidden w-full flex items-center justify-center gap-2 rounded-[1.5rem] bg-gradient-to-tr from-[#f09433] via-[#e6683c] via-[#dc2743] via-[#cc2366] to-[#bc1888] text-white py-4 text-xs font-bold uppercase tracking-wider shadow-lg transition-all hover:scale-[1.02] hover:shadow-xl active:scale-95 disabled:opacity-50 disabled:grayscale disabled:hover:scale-100 disabled:shadow-none cursor-pointer group"
+                                        className="premium-cart-checkout__btn-primary premium-cart-checkout__btn-instagram"
                                     >
-                                        <div className="absolute inset-0 bg-white/20 translate-y-[-100%] group-hover:translate-y-[100%] transition-transform duration-500 rounded-[1.5rem]" />
-                                        <Instagram size={18} className="relative z-10" />
-                                        <span className="relative z-10 drop-shadow-sm">Insta</span>
+                                        <Instagram size={18} />
+                                        <span>Insta</span>
                                     </button>
                                     <button
                                         type="button"
                                         onClick={onSendSnap}
                                         disabled={!canSend}
                                         aria-label="Envoyer la commande sur Snapchat"
-                                        className="relative overflow-hidden w-full flex items-center justify-center gap-2 rounded-[1.5rem] bg-[#FFFC00] text-black py-4 text-xs font-bold uppercase tracking-wider shadow-lg transition-all hover:scale-[1.02] hover:brightness-105 hover:shadow-xl active:scale-95 disabled:opacity-50 disabled:grayscale disabled:hover:scale-100 disabled:shadow-none cursor-pointer group"
+                                        className="premium-cart-checkout__btn-primary premium-cart-checkout__btn-snap"
                                     >
-                                        <div className="absolute inset-0 bg-white/50 translate-y-[-100%] group-hover:translate-y-[100%] transition-transform duration-500 rounded-[1.5rem]" />
-                                        <SnapIcon size={18} className="relative z-10" />
-                                        <span className="relative z-10 font-black">Snap</span>
+                                        <SnapIcon size={18} />
+                                        <span>Snap</span>
                                     </button>
                                 </div>
                                 </>

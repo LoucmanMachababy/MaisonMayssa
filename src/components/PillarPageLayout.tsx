@@ -1,8 +1,9 @@
+import { Link } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import { motion } from 'framer-motion'
 import { ChevronRight, MessageCircle, ShoppingBag, HelpCircle, ArrowRight } from 'lucide-react'
-import { Footer } from './Footer'
 import { PRODUCTS, PHONE_E164 } from '../constants'
+import { PremiumButton, PremiumCtaBlock } from './layout/PremiumEditorial'
 import { hapticFeedback } from '../lib/haptics'
 import type { FAQItem } from '../lib/faqItems'
 import { PILLAR_PAGES, type RelatedPage } from '../lib/pillarPages'
@@ -69,7 +70,7 @@ export function PillarPageLayout({
         brand: { '@type': 'Brand', name: 'Maison Mayssa' },
         offers: {
           '@type': 'Offer',
-          url: 'https://maison-mayssa.fr/#la-carte',
+          url: `https://maison-mayssa.fr/produit/${product.id}`,
           priceCurrency: 'EUR',
           price: String(product.price),
           availability: product.preorder
@@ -131,8 +132,8 @@ export function PillarPageLayout({
         )}
       </Helmet>
 
-      <div className="min-h-screen bg-mayssa-soft">
-        <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
+      <div className="min-h-screen bg-mayssa-soft pt-[104px] pb-24">
+        <div className="max-w-4xl mx-auto px-6">
           {/* Breadcrumb */}
           <nav
             aria-label="Fil d'Ariane"
@@ -143,12 +144,12 @@ export function PillarPageLayout({
               return (
                 <span key={idx} className="flex items-center gap-1.5">
                   {item.url && !isLast ? (
-                    <a
-                      href={item.url}
-                      className="hover:text-mayssa-caramel transition-colors"
+                    <Link
+                      to={item.url}
+                      className="hover:text-mayssa-gold transition-colors"
                     >
                       {item.name}
-                    </a>
+                    </Link>
                   ) : (
                     <span className={isLast ? 'text-mayssa-brown font-semibold' : ''}>
                       {item.name}
@@ -183,7 +184,7 @@ export function PillarPageLayout({
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="mb-10 rounded-[2rem] overflow-hidden shadow-lg"
+            className="mb-10 aspect-[16/10] overflow-hidden bg-mayssa-marble"
           >
             <img
               src={heroImage}
@@ -198,7 +199,7 @@ export function PillarPageLayout({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="section-shell bg-white/80 border border-mayssa-brown/5 space-y-10 sm:space-y-12"
+            className="bg-white border border-mayssa-brown/5 p-8 sm:p-10 space-y-10 sm:space-y-12"
           >
             {children}
           </motion.article>
@@ -210,23 +211,23 @@ export function PillarPageLayout({
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-50px' }}
               transition={{ duration: 0.5 }}
-              className="mt-12 sm:mt-16 section-shell bg-white/80 border border-mayssa-brown/5"
+              className="mt-12 sm:mt-16 bg-white border border-mayssa-brown/5 p-8 sm:p-10"
             >
               <div className="flex items-center gap-3 mb-6">
-                <ShoppingBag size={22} className="text-mayssa-caramel" />
+                <ShoppingBag size={22} className="text-mayssa-gold" />
                 <h2 className="text-xl sm:text-2xl font-display font-bold text-mayssa-brown">
                   Nos créations
                 </h2>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 {catalogProducts.map((product) => (
-                  <a
+                  <Link
                     key={product.id}
-                    href="/#la-carte"
+                    to={`/produit/${product.id}`}
                     className="group block"
                     onClick={() => hapticFeedback('light')}
                   >
-                    <div className="aspect-square rounded-2xl overflow-hidden bg-mayssa-cream/40 mb-2 shadow-sm group-hover:shadow-md transition-shadow">
+                    <div className="aspect-square overflow-hidden bg-mayssa-marble mb-2 border border-mayssa-brown/5 group-hover:border-mayssa-gold/30 transition-colors">
                       {product.image && (
                         <img
                           src={product.image}
@@ -239,20 +240,20 @@ export function PillarPageLayout({
                     <h3 className="text-sm font-bold text-mayssa-brown leading-tight">
                       {product.name}
                     </h3>
-                    <p className="text-xs text-mayssa-caramel font-semibold mt-0.5">
+                    <p className="text-xs text-mayssa-gold mt-0.5 tracking-wide">
                       {product.price.toFixed(2).replace('.', ',')} €
                     </p>
-                  </a>
+                  </Link>
                 ))}
               </div>
               <div className="mt-6 text-center">
-                <a
-                  href="/#la-carte"
-                  className="inline-flex items-center gap-1.5 text-sm font-bold text-mayssa-caramel hover:text-mayssa-brown transition-colors"
+                <Link
+                  to="/carte"
+                  className="inline-flex items-center gap-1.5 text-xs tracking-widest uppercase text-mayssa-brown hover:text-mayssa-gold transition-colors"
                 >
                   Voir toute la carte
                   <ArrowRight size={14} />
-                </a>
+                </Link>
               </div>
             </motion.section>
           )}
@@ -264,10 +265,10 @@ export function PillarPageLayout({
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-50px' }}
               transition={{ duration: 0.5 }}
-              className="mt-12 sm:mt-16 section-shell bg-white/80 border border-mayssa-brown/5"
+              className="mt-12 sm:mt-16 bg-white border border-mayssa-brown/5 p-8 sm:p-10"
             >
               <div className="flex items-center gap-3 mb-6">
-                <HelpCircle size={22} className="text-mayssa-caramel" />
+                <HelpCircle size={22} className="text-mayssa-gold" />
                 <h2 className="text-xl sm:text-2xl font-display font-bold text-mayssa-brown">
                   Questions fréquentes
                 </h2>
@@ -288,13 +289,13 @@ export function PillarPageLayout({
                 ))}
               </dl>
               <div className="mt-6 pt-5 border-t border-mayssa-brown/10 text-center">
-                <a
-                  href="/faq"
-                  className="inline-flex items-center gap-1.5 text-sm font-bold text-mayssa-caramel hover:text-mayssa-brown transition-colors"
+                <Link
+                  to="/faq"
+                  className="inline-flex items-center gap-1.5 text-xs tracking-widest uppercase text-mayssa-brown hover:text-mayssa-gold transition-colors"
                 >
                   Voir toutes les questions
                   <ArrowRight size={14} />
-                </a>
+                </Link>
               </div>
             </motion.section>
           )}
@@ -317,10 +318,10 @@ export function PillarPageLayout({
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {related.map((page) => (
-                  <a
+                  <Link
                     key={page.slug}
-                    href={`/${page.slug}`}
-                    className="group block rounded-2xl overflow-hidden bg-white/80 border border-mayssa-brown/5 shadow-sm hover:shadow-md transition-shadow"
+                    to={`/${page.slug}`}
+                    className="group block overflow-hidden bg-white border border-mayssa-brown/5 hover:border-mayssa-gold/30 transition-colors"
                   >
                     <div className="aspect-[4/3] overflow-hidden bg-mayssa-cream/40">
                       <img
@@ -331,55 +332,45 @@ export function PillarPageLayout({
                       />
                     </div>
                     <div className="p-4">
-                      <h3 className="text-sm font-bold text-mayssa-brown mb-1 group-hover:text-mayssa-caramel transition-colors">
+                      <h3 className="text-sm font-display text-mayssa-brown mb-1 group-hover:text-mayssa-gold transition-colors">
                         {page.title}
                       </h3>
                       <p className="text-xs text-mayssa-brown/70 leading-relaxed">
                         {page.description}
                       </p>
                     </div>
-                  </a>
+                  </Link>
                 ))}
               </div>
             </motion.section>
           )}
 
-          {/* CTA final */}
-          <motion.section
+          <motion.div
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-            className="mt-12 sm:mt-16 bg-mayssa-cream/50 rounded-2xl p-6 sm:p-8 text-center"
+            className="mt-12 sm:mt-16"
           >
-            <h2 className="text-xl sm:text-2xl font-display font-bold text-mayssa-brown mb-3">
-              Envie de passer commande ?
-            </h2>
-            <p className="text-sm sm:text-base text-mayssa-brown/80 mb-5 leading-relaxed">
-              Découvre toute ma carte ou contacte-moi directement sur WhatsApp.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <a
-                href="/#la-carte"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-mayssa-brown text-white font-bold text-sm hover:bg-mayssa-caramel transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mayssa-gold/50"
-              >
-                <ShoppingBag size={18} />
+            <PremiumCtaBlock
+              title="Envie de passer commande ?"
+              description="Découvre toute ma carte ou contacte-moi directement sur WhatsApp."
+            >
+              <PremiumButton to="/carte">
+                <ShoppingBag size={16} />
                 Voir la carte
-              </a>
-              <a
+              </PremiumButton>
+              <PremiumButton
                 href={`https://wa.me/${PHONE_E164}`}
-                target="_blank"
-                rel="noopener noreferrer"
+                variant="whatsapp"
+                external
                 onClick={() => hapticFeedback('medium')}
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[#25D366] text-white font-bold text-sm hover:bg-[#20bd5a] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mayssa-gold/50"
               >
-                <MessageCircle size={18} />
+                <MessageCircle size={16} />
                 WhatsApp
-              </a>
-            </div>
-          </motion.section>
+              </PremiumButton>
+            </PremiumCtaBlock>
+          </motion.div>
         </div>
-        <Footer />
       </div>
     </>
   )

@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import { Minus, Plus, ChevronDown, ChevronUp, Infinity, X, ArrowDownAZ, Package } from 'lucide-react'
+import { AdminPanelHeader } from './ui/AdminUi'
 import { updateStock, initializeStock, removeStockTracking, type StockMap } from '../../lib/firebase'
 import { getBundleEffectiveStock } from '../../lib/bundleStock'
 import {
@@ -154,11 +155,16 @@ export function AdminStockTab({ allProducts, stock, boxDecouverteTrompeExcludedI
 
   return (
     <section className="space-y-3">
+      <AdminPanelHeader
+        title="Stock & ruptures"
+        description="Suivi des quantités par catégorie. Absent du stock = non suivi."
+        icon={Package}
+      />
       {Object.entries(productsByCategory).map(([cat, products]) => {
         const isExpanded = expandedCategories.has(cat)
         const trackedCount = getTrackedCount(cat)
         return (
-          <div key={cat} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div key={cat} className="admin-panel overflow-hidden">
             {/* Category header */}
             <button
               type="button"

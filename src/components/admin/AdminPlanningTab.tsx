@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { AdminPanelHeader } from './ui/AdminUi'
 import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
   Search, X, MapPin, Phone, Calendar, Clock,
@@ -246,8 +247,12 @@ export function AdminPlanningTab({ orders, onEditOrder }: AdminPlanningTabProps)
       transition={{ duration: 0.2 }}
       className="space-y-4"
     >
-      {/* ── Navigation temporelle ── */}
-      <div className="flex items-center gap-2 bg-white rounded-2xl p-2 shadow-sm border border-mayssa-brown/5">
+      <AdminPanelHeader
+        title="Planning détaillé"
+        description="Vue calendrier des commandes à préparer et livrer."
+        icon={Calendar}
+      />
+      <div className="admin-toolbar-bar">
         <button
           type="button"
           onClick={() => navigate(-10)}
@@ -327,13 +332,13 @@ export function AdminPlanningTab({ orders, onEditOrder }: AdminPlanningTabProps)
 
       {/* ── KPIs ── */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5">
+        <div className="admin-panel admin-panel-pad">
           <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">
             {isPast ? 'Commandes passées' : 'Commandes (10j)'}
           </span>
           <p className="text-xl font-display font-bold text-mayssa-brown mt-0.5">{totalOrders}</p>
         </div>
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5">
+        <div className="admin-panel admin-panel-pad">
           <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">
             {isPast ? 'CA réalisé' : 'CA prévisionnel'} (10j)
           </span>

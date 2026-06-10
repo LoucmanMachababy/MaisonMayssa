@@ -1,0 +1,197 @@
+import type { Product } from '../types'
+
+export const TROMPE_PREORDER = { availableFrom: '2026-02-13', daysToPickup: 3 }
+
+const trompe = (
+  id: string,
+  name: string,
+  description: string,
+  price: number,
+  image: string,
+  images?: string[],
+  extra?: Partial<Product>,
+): Product => ({
+  id,
+  name,
+  description,
+  price,
+  originalPrice: price + 1.5,
+  category: 'Nos trompe-l\'œil',
+  image,
+  images,
+  badges: extra?.badges,
+  pinned: extra?.pinned,
+  highlightAsNew: extra?.highlightAsNew,
+  preorder: TROMPE_PREORDER,
+  available: true,
+  visible: true,
+  ...extra,
+})
+
+const comingSoon = (
+  id: string,
+  name: string,
+  category: Product['category'],
+  description: string,
+  price: number,
+  image: string,
+  extra?: Partial<Product>,
+): Product => ({
+  id,
+  name,
+  description,
+  price,
+  category,
+  image,
+  badges: ['nouveau'],
+  available: false,
+  visible: true,
+  ...extra,
+})
+
+/** Catalogue client Maison Mayssa — refonte premium 2026 */
+export const CATALOG_PRODUCTS: Product[] = [
+  // ─── Les pâtisseries : trompe-l'œil signatures ───────────────────────────
+  trompe('trompe-loeil-mangue', 'Mangue', 'Morceaux de mangue, coulis, ganache mangue, coque chocolat blanc.', 8.5, '/nouvelle-img/mangue-face.png', ['/nouvelle-img/mangue-face.png', '/nouvelle-img/mangue-ouverte.png'], { badges: ['best-seller'] }),
+  trompe('trompe-loeil-vanille', 'Gousse de Vanille', 'Ganache vanille, coulis fondant, biscuit moelleux.', 9.5, '/nouvelle-img/gousse-de-vanille-seul.png', ['/nouvelle-img/gousse-de-vanille-seul.png', '/nouvelle-img/gousse-de-vanille-ouverte.PNG', '/nouvelle-img/gousse-de-vanille-seul-interieur.PNG']),
+  trompe('trompe-loeil-cacahuete', 'Cacahuète', 'Cacahuètes caramélisées, praliné, ganache, crème beurre de cacahuète.', 8.5, '/nouvelle-img/Cacahuete-face.png', ['/nouvelle-img/Cacahuete-face.png', '/nouvelle-img/cacahuete-ouverte.PNG'], { badges: ['best-seller'] }),
+  trompe('trompe-loeil-framboise', 'Framboise', 'Framboises fraîches, coulis, crème, ganache framboise.', 7.5, '/nouvelle-img/Framboise-face.png', ['/nouvelle-img/Framboise-face.png', '/framboise-ouverte.webp'], { badges: ['best-seller'] }),
+  trompe('trompe-loeil-passion', 'Passion', 'Fruit de la passion, coulis, crème, ganache, pâte à sucre.', 7.5, '/nouvelle-img/Passion-face.png', ['/nouvelle-img/Passion-face.png', '/nouvelle-img/Passion-ouverte.png'], { badges: ['best-seller'] }),
+  trompe('trompe-loeil-pistache', 'Pistache', 'Pâte, crème, ganache, éclats de pistache, pâte à sucre.', 8.5, '/nouvelle-img/Pistache-face.png', ['/nouvelle-img/Pistache-face.png', '/nouvelle-img/pistache-ouverte.png'], { badges: ['best-seller'] }),
+  trompe('trompe-loeil-amande', 'Amande', 'Crème d\'amande, amandes effilées, ganache onctueuse, biscuit moelleux.', 8.5, '/nouvelle-img/amande-face.png', ['/nouvelle-img/amande-face.png']),
+  trompe('trompe-loeil-popcorn', 'Pop Corn', 'Mousse légère, cœur caramel, éclats croustillants, biscuit moelleux.', 8.5, '/nouvelle-img/pop-corn-face.PNG', ['/nouvelle-img/pop-corn-face.PNG'], { badges: ['nouveau'] }),
+  trompe('trompe-loeil-pecan', 'Noix de Pécan', 'Praliné noix de pécan, caramel beurre salé, ganache onctueuse.', 8.5, '/nouvelle-img/noix-de-pecan.png', ['/nouvelle-img/noix-de-pecan.png'], { badges: ['nouveau'] }),
+  trompe('trompe-loeil-myrtille', 'Myrtille', 'Ganache vanille, coulis et morceaux de myrtilles, biscuit moelleux.', 7.5, '/nouvelle-img/Myrtille-face.png', ['/nouvelle-img/Myrtille-face.png', '/nouvelle-img/myrtille-ouverte.PNG'], { badges: ['nouveau'] }),
+  trompe('trompe-loeil-cafe', 'Café', 'Mousse mascarpone café, cœur fondant café, biscuit imbibé café.', 7.5, '/nouvelle-img/Graine-de-cafe-face.png', ['/nouvelle-img/Graine-de-cafe-face.png', '/nouvelle-img/graine-de-cafe-ouverte.PNG'], { badges: ['nouveau'] }),
+  trompe('trompe-loeil-citron', 'Citron', 'Zestes et jus, crème citron, ganache citron, pâte à sucre.', 7.5, '/nouvelle-img/Citron-face.png', ['/nouvelle-img/Citron-face.png', '/nouvelle-img/citron-ouvert.png'], { badges: ['best-seller'] }),
+  trompe('trompe-loeil-cabosse', 'Cabosse de Cacao', 'Ganache chocolat intense, mousse cacao, praliné, biscuit chocolat.', 7.5, '/nouvelle-img/cabosse-de-cacao-face.png', ['/nouvelle-img/cabosse-de-cacao-face.png', '/nouvelle-img/cabosse-de-cacao-ouverte.PNG'], { badges: ['nouveau'] }),
+  trompe('trompe-loeil-fraise', 'Fraise', 'Fraises fraîches, coulis, crème, ganache fraise, pâte à sucre.', 7.5, '/nouvelle-img/Fraise-face.png', ['/nouvelle-img/Fraise-face.png', '/nouvelle-img/Fraise-ouverte.png'], { badges: ['nouveau'] }),
+
+  // ─── Boxes trompe-l'œil ──────────────────────────────────────────────────
+  {
+    id: 'box-trompe-loeil',
+    name: "Box Trompe l'œil — Les 7 saveurs",
+    description: "L'intégrale des 7 trompe-l'œil dans une seule box.",
+    price: 50,
+    originalPrice: 55.5,
+    category: 'Boxes',
+    image: '/nouvelle-img/boxe-7-trompe-loeil.png',
+    badges: ['best-seller'],
+    preorder: TROMPE_PREORDER,
+    available: true,
+    visible: true,
+    bundleProductIds: [
+      'trompe-loeil-mangue', 'trompe-loeil-citron', 'trompe-loeil-pistache', 'trompe-loeil-passion',
+      'trompe-loeil-framboise', 'trompe-loeil-cacahuete', 'trompe-loeil-fraise',
+    ],
+  },
+  {
+    id: 'box-fruitee',
+    name: 'Box Fruitée',
+    description: '6 trompe-l\'œil fruités au choix parmi 6 saveurs.',
+    price: 35,
+    category: 'Boxes',
+    image: '/nouvelle-img/boxe-fruiter.png',
+    badges: ['nouveau'],
+    preorder: TROMPE_PREORDER,
+    available: true,
+    visible: true,
+    bundleProductIds: [
+      'trompe-loeil-mangue', 'trompe-loeil-passion', 'trompe-loeil-fraise', 'trompe-loeil-framboise',
+      'trompe-loeil-myrtille', 'trompe-loeil-citron',
+    ],
+  },
+  {
+    id: 'box-decouverte-trompe-5',
+    name: "Box découverte — 5 trompe-l'œil",
+    description: 'Composez votre box : 5 trompe-l\'œil différents au choix.',
+    price: 40,
+    originalPrice: 42.5,
+    category: 'Boxes',
+    image: '/nouvelle-img/boite-5-trompe-loeil.png',
+    badges: ['nouveau'],
+    preorder: TROMPE_PREORDER,
+    available: true,
+    visible: true,
+  },
+  {
+    id: 'mini-box-trompe-loeil-5',
+    name: "Mini Box Trompe l'œil — 5 minis",
+    description: '5 mini trompe-l\'œil — saveurs de la semaine choisies par la maison.',
+    price: 12.5,
+    originalPrice: 15,
+    category: 'Boxes',
+    image: '/boxe-mini-par-5.webp',
+    badges: ['nouveaute'],
+    highlightAsNew: true,
+    preorder: TROMPE_PREORDER,
+    available: true,
+    visible: true,
+  },
+  {
+    id: 'box-de-tout',
+    name: 'La box de tout',
+    description: "La totalité des trompe-l'œil signatures Maison Mayssa.",
+    price: 90,
+    category: 'Boxes',
+    image: '/nouvelle-img/boxe-de-tout.png',
+    badges: ['best-seller'],
+    preorder: TROMPE_PREORDER,
+    available: true,
+    visible: true,
+    bundleProductIds: [
+      'trompe-loeil-mangue', 'trompe-loeil-citron', 'trompe-loeil-pistache', 'trompe-loeil-passion',
+      'trompe-loeil-framboise', 'trompe-loeil-cacahuete', 'trompe-loeil-fraise', 'trompe-loeil-myrtille',
+      'trompe-loeil-cafe', 'trompe-loeil-vanille', 'trompe-loeil-popcorn', 'trompe-loeil-pecan',
+      'trompe-loeil-amande', 'trompe-loeil-cabosse',
+    ],
+  },
+  {
+    id: 'box-surprise',
+    name: 'Box surprise',
+    description: 'Choisissez votre budget et l\'occasion — nous composons une sélection sur mesure.',
+    price: 25,
+    category: 'Boxes',
+    image: '/box-mixte.webp',
+    badges: ['coup-de-coeur'],
+    available: true,
+    visible: true,
+    sizes: [
+      { label: 'Budget 20 €', ml: 20, price: 20 },
+      { label: 'Budget 25 €', ml: 25, price: 25 },
+      { label: 'Budget 30 €', ml: 30, price: 30 },
+      { label: 'Budget 35 €', ml: 35, price: 35 },
+      { label: 'Budget 50 €', ml: 50, price: 50 },
+    ],
+  },
+
+  // ─── Canette Cake — bientôt disponible ───────────────────
+  comingSoon('canette-cake-fraise', 'Canette Cake - Fraise Vanille', 'Canette Cake', 'Douceur crémeuse aux saveurs de fraise et vanille.', 4, '/nouvelle-img/canette-cake-fraise.PNG'),
+  comingSoon('canette-cake-nutella-oreo', 'Canette Cake - Nutella Oreo', 'Canette Cake', 'Gourmandise chocolatée au Nutella et éclats croquants d\'Oreo.', 4, '/nouvelle-img/Canette-cake-nutella-oreo.png'),
+  comingSoon('canette-cake-speculoos-framboise', 'Canette Cake - Spéculoos Framboise', 'Canette Cake', 'Crème onctueuse aux notes épicées du spéculoos et acidité de la framboise.', 4, '/nouvelle-img/canette-cake-speculos-framboise.png'),
+  comingSoon('canette-cake-mangue-passion', 'Canette Cake - Mangue Passion', 'Canette Cake', 'Mangue et fruit de la passion, fraîcheur tropicale et douceur crémeuse.', 4, '/nouvelle-img/canette-cake-mangue-passion.png'),
+
+  // ─── Nos jus frais — bientôt disponible ──────────────────────────────────
+  comingSoon('limonade-bresilienne-mangue', 'Limonade Brésilienne - Mangue', 'Nos jus frais', 'Limonade artisanale à la mangue, fraîche et parfumée.', 5, '/nouvelle-img/limonade-bresilienne-mangue.png'),
+  comingSoon('limonade-bresilienne-fraise', 'Limonade Brésilienne - Fraise', 'Nos jus frais', 'Limonade artisanale à la fraise, légère et rafraîchissante.', 5, '/nouvelle-img/limonade-bresilienne-fraise.png'),
+
+  // ─── Le salé — bientôt disponible ────────────────────────────────────────
+  comingSoon('new-york-roll-poulet-curry', 'New York Roll - Poulet saveur italienne', 'Le salé', 'Roll moelleux garni de poulet aux saveurs italiennes.', 5, '/nouvelle-img/NyRolls-poulet-curry.png'),
+  comingSoon('new-york-roll-steak', 'New York Roll - À la viande', 'Le salé', 'Roll généreux à la viande et condiments signature.', 5.5, '/nouvelle-img/NyRolls-Steak.png'),
+  comingSoon('panuozzo-maison-mayssa', 'Panuozzo Spécial Maison Mayssa', 'Le salé', 'Panuozzo artisanal, recette exclusive Maison Mayssa.', 10, '/nouvelle-img/Panuozzo-Italien.png'),
+
+  // ─── Fruits frais — bientôt disponible ───────────────────────────────────
+  comingSoon('cup-fruits-fraise', 'Cup de fruits - Fraise', 'Fruits frais', 'Fraises sélectionnées, prêtes à déguster.', 3, '/nouvelle-img/cup-de-fraise.png'),
+  comingSoon('cup-fruits-mangue', 'Cup de fruits - Mangue', 'Fruits frais', 'Mangue mûre et juteuse.', 3, '/nouvelle-img/cup-de-fruit-mangue.png'),
+  comingSoon('cup-fruits-ananas', 'Cup de fruits - Ananas', 'Fruits frais', 'Ananas frais, notes tropicales.', 3, '/nouvelle-img/cup-de-fruit-ananas.png'),
+  comingSoon('cup-fruits-pasteque', 'Cup de fruits - Pastèque', 'Fruits frais', 'Pastèque fraîche et juteuse, cubes prêts à déguster.', 3, '/nouvelle-img/cup-de-fruit-pasteque.png'),
+  comingSoon('cup-fruits-mix-maison', 'Cup de fruits - Mix Maison Mayssa', 'Fruits frais', 'Sélection mixte de fruits de saison.', 4, '/nouvelle-img/Cup-de-fruit-mixte.png'),
+
+  // ─── Chocolaterie — bientôt disponible ───────────────────────────────────
+  comingSoon('tablette-dubai-pistache', 'Tablette Dubaï - Classiques Pistache', 'Chocolaterie', 'Tablette artisanale pistache, inspiration Dubaï.', 5, '/nouvelle-img/tablette-chocolat-dubai-pistache.png'),
+  comingSoon('tablette-dubai-speculoos', 'Tablette Dubaï - Spéculoos', 'Chocolaterie', 'Tablette artisanale au chocolat blanc et cœur fondant spéculoos.', 5, '/nouvelle-img/tablette-chocolat-speculos.png'),
+  comingSoon('tablette-dubai-framboise', 'Tablette Dubaï - Chocolat Framboise', 'Chocolaterie', 'Tablette artisanale au chocolat noir et cœur framboise.', 12, '/nouvelle-img/tablette-chocolat-framboise.png', { visible: false }),
+  comingSoon('mini-tablette-dubai-pistache', 'Mini Tablette Dubaï à partager - Pistache', 'Chocolaterie', 'Format à partager, pistache.', 6, '/nouvelle-img/tablette-chocolat-dubai-pistache.png', { visible: false }),
+  comingSoon('mini-tablette-dubai-speculoos', 'Mini Tablette Dubaï à partager - Spéculoos', 'Chocolaterie', 'Format à partager, spéculoos.', 6, '/nouvelle-img/tablette-chocolat-speculos.png', { visible: false }),
+  comingSoon('mini-tablette-dubai-framboise', 'Mini Tablette Dubaï à partager - Framboise', 'Chocolaterie', 'Format à partager, framboise.', 6, '/nouvelle-img/tablette-chocolat-framboise.png', { visible: false }),
+]

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { BarChart3, Plus } from 'lucide-react'
+import { AdminPanelHeader } from './ui/AdminUi'
 import { createPoll, type Poll } from '../../lib/firebase'
 
 interface AdminPollsTabProps {
@@ -42,7 +43,12 @@ export function AdminPollsTab({ polls }: AdminPollsTabProps) {
       transition={{ duration: 0.2 }}
       className="space-y-6"
     >
-      <div className="rounded-2xl bg-white p-4 shadow-sm border border-mayssa-brown/5">
+      <AdminPanelHeader
+        title="Sondages"
+        description="Créer des sondages affichés sur le site pour engager la communauté."
+        icon={BarChart3}
+      />
+      <div className="admin-panel admin-panel-pad">
         <h3 className="font-bold text-mayssa-brown flex items-center gap-2 mb-4">
           <BarChart3 size={18} />
           Créer un sondage
@@ -80,7 +86,7 @@ export function AdminPollsTab({ polls }: AdminPollsTabProps) {
         </form>
       </div>
 
-      <div className="rounded-2xl bg-white p-4 shadow-sm border border-mayssa-brown/5">
+      <div className="admin-panel admin-panel-pad">
         <h3 className="font-bold text-mayssa-brown mb-3">Sondages ({entries.length})</h3>
         {entries.length === 0 ? (
           <p className="text-sm text-mayssa-brown/50">Aucun sondage.</p>

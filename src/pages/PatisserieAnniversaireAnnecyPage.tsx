@@ -10,7 +10,7 @@ export function PatisserieAnniversaireAnnecyPage() {
         { name: 'Accueil', url: '/' },
         { name: 'Anniversaire Annecy' },
       ]}
-      heroImage="/Boxe-trompeloeil.webp"
+      heroImage="/nouvelle-img/boxe-de-tout.png"
       heroEyebrow="Occasion spéciale"
       heroTitle="Pâtisserie d'anniversaire à Annecy"
       heroSubtitle="Trompe-l'œil, layer cups, boxes gourmandes — des pâtisseries qui font l'effet wow le jour J."

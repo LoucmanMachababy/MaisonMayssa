@@ -9,10 +9,9 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = 'primary', size = 'md', isLoading, disabled, children, ...props }, ref) => {
-    
+  ({ className, variant = 'primary', size = 'md', isLoading, disabled, asChild, children, ...props }, ref) => {
     const baseStyles = "inline-flex items-center justify-center font-bold uppercase tracking-[0.2em] transition-all active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-mayssa-gold/50"
-    
+
     const variants = {
       primary: "bg-mayssa-brown text-white shadow-premium-shadow hover:bg-mayssa-gold",
       secondary: "bg-white text-mayssa-brown shadow-md hover:bg-mayssa-soft",
@@ -20,7 +19,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       ghost: "text-mayssa-brown hover:bg-mayssa-brown/5",
       glass: "bg-white/10 text-white backdrop-blur-md border border-white/60 hover:bg-white/20",
     }
-    
+
     const sizes = {
       sm: "px-5 py-2.5 text-[10px] rounded-full",
       md: "px-7 py-3 text-[11px] sm:text-xs rounded-full",
@@ -28,10 +27,20 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       icon: "w-12 h-12 rounded-full",
     }
 
+    const classes = cn(baseStyles, variants[variant], sizes[size], className)
+
+    if (asChild && React.isValidElement(children)) {
+      const child = children as React.ReactElement<{ className?: string }>
+      return React.cloneElement(child, {
+        ...props,
+        className: cn(classes, child.props.className),
+      })
+    }
+
     return (
       <button
         ref={ref}
-        className={cn(baseStyles, variants[variant], sizes[size], className)}
+        className={classes}
         disabled={disabled || isLoading}
         {...props}
       >

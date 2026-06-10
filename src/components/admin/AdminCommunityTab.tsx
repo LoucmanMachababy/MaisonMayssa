@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
+import { AdminPanelHeader } from './ui/AdminUi'
 import { MapPin, Upload } from 'lucide-react'
 import type { Order } from '../../lib/firebase'
 import { setCommunityMap, type CommunityMapData } from '../../lib/firebase'
@@ -74,11 +75,13 @@ export function AdminCommunityTab({ orders }: AdminCommunityTabProps) {
       transition={{ duration: 0.2 }}
       className="space-y-4"
     >
-      <div className="rounded-2xl bg-white p-4 shadow-sm border border-mayssa-brown/5">
-        <h3 className="font-bold text-mayssa-brown mb-3 flex items-center gap-2">
-          <MapPin size={18} />
-          Carte de la communauté
-        </h3>
+      <AdminPanelHeader
+        title="Carte communauté"
+        description="Agrégation anonyme des commandes par code postal."
+        icon={MapPin}
+      />
+      <div className="admin-panel admin-panel-pad">
+        <h3 className="admin-panel-title mb-3">Publication</h3>
         <p className="text-xs text-mayssa-brown/60 mb-3">
           Agrégation anonyme des commandes par code postal (extrait de l&apos;adresse). Publiez pour afficher sur le site.
         </p>

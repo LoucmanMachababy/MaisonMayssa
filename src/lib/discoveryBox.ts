@@ -14,7 +14,6 @@ export { BOX_DECOUVERTE_TROMPE_PRODUCT_ID, DISCOVERY_BOX_TROMPE_SLOT_COUNT }
 export function listIndividualTrompeLoeilProducts(catalog: Product[] = PRODUCTS): Product[] {
   return catalog.filter(
     (p) =>
-      p.category === "Trompe l'œil" &&
       p.id.startsWith('trompe-loeil-') &&
       !p.bundleProductIds?.length,
   )

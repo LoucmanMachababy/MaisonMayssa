@@ -1,13 +1,23 @@
 import { useState, useMemo } from 'react'
-import { ChevronDown, ChevronUp, RotateCcw, Plus, Trash2, Tag, Pin, ImagePlus } from 'lucide-react'
+import { ChevronDown, ChevronUp, RotateCcw, Plus, Trash2, Tag, Pin, ImagePlus, ShoppingBag } from 'lucide-react'
 import { PRODUCTS, BOX_DECOUVERTE_TROMPE_PRODUCT_ID, MINI_BOX_TROMPE_PRODUCT_ID, MINI_BOX_TROMPE_SLOT_COUNT } from '../../constants'
 import { updateProductOverride, setProductOverride, deleteProductOverride, uploadProductImage, updateSettings } from '../../lib/firebase'
 import { listIndividualTrompeLoeilProducts } from '../../lib/discoveryBox'
 import type { ProductOverrideMap, ProductOverride, ProductCategory, ProductBadge, ProductSize } from '../../types'
 import type { ProductWithAvailability } from '../../hooks/useProducts'
 
+import { getProductAvailabilityState, type ProductAvailabilityState } from '../../lib/productHelpers'
+import { AdminPanelHeader, AdminBtn } from './ui/AdminUi'
+
 const ALL_CATEGORIES: ProductCategory[] = [
-  "Trompe l'œil", 'Mini Gourmandises', 'Brownies', 'Cookies', 'Layer Cups', 'Boxes', 'Tiramisus',
+  'Nos trompe-l\'œil',
+  'Nos jus frais',
+  'Canette Cake',
+  'Cookies gourmands',
+  'Le salé',
+  'Fruits frais',
+  'Chocolaterie',
+  'Boxes',
 ]
 
 const ALL_BADGES: { value: ProductBadge; label: string }[] = [
@@ -60,9 +70,15 @@ export function AdminProductsTab({
   const hasOverride = (productId: string) => !!overrides[productId]
   const isCustomProduct = (productId: string) => !!overrides[productId]?.isCustom
 
-  const handleToggleAvailability = async (product: ProductWithAvailability) => {
+  const handleSetAvailability = async (product: ProductWithAvailability, state: ProductAvailabilityState) => {
     setSaving(product.id)
-    await updateProductOverride(product.id, { available: !product.available })
+    if (state === 'available') {
+      await updateProductOverride(product.id, { available: true, visible: true })
+    } else if (state === 'coming_soon') {
+      await updateProductOverride(product.id, { available: false, visible: true })
+    } else {
+      await updateProductOverride(product.id, { visible: false })
+    }
     setSaving(null)
   }
 
@@ -78,26 +94,21 @@ export function AdminProductsTab({
     setSaving(null)
   }
 
-  const unavailableCount = allProducts.filter(p => !p.available).length
+  const unavailableCount = allProducts.filter((p) => p.visible !== false && p.available === false).length
+  const hiddenCount = allProducts.filter((p) => p.visible === false).length
 
   return (
     <section className="space-y-4">
-      {/* Header stats */}
-      <div className="bg-white rounded-2xl p-4 shadow-sm flex items-center justify-between">
-        <div>
-          <p className="text-sm font-bold text-mayssa-brown">{allProducts.length} produits</p>
-          <p className="text-[10px] text-mayssa-brown/50">
-            {unavailableCount > 0 ? `${unavailableCount} en rupture` : 'Tous disponibles'}
-          </p>
-        </div>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-mayssa-brown text-white text-xs font-bold hover:bg-mayssa-caramel transition-colors cursor-pointer"
-        >
-          <Plus size={14} />
-          Ajouter un produit
-        </button>
-      </div>
+      <AdminPanelHeader
+        title="Catalogue produits"
+        description={`${allProducts.length} produits · ${unavailableCount > 0 ? `${unavailableCount} bientôt dispo` : 'tous disponibles'}${hiddenCount > 0 ? ` · ${hiddenCount} masqués` : ''}`}
+        icon={ShoppingBag}
+        action={
+          <AdminBtn variant="primary" onClick={() => setShowAddForm(true)}>
+            <Plus size={14} /> Ajouter
+          </AdminBtn>
+        }
+      />
 
       {/* Add product form */}
       {showAddForm && (
@@ -112,10 +123,10 @@ export function AdminProductsTab({
         const products = productsByCategory[cat] || []
         if (products.length === 0) return null
         const isExpanded = expandedCategories.has(cat)
-        const catUnavailable = products.filter(p => !p.available).length
+        const catUnavailable = products.filter((p) => p.visible !== false && p.available === false).length
 
         return (
-          <div key={cat} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div key={cat} className="admin-panel overflow-hidden">
             <button
               onClick={() => toggleCategory(cat)}
               className="w-full flex items-center justify-between p-4 hover:bg-mayssa-soft/30 transition-colors cursor-pointer"
@@ -124,8 +135,8 @@ export function AdminProductsTab({
                 <span className="text-sm font-bold text-mayssa-brown">{cat}</span>
                 <span className="text-[10px] text-mayssa-brown/40">{products.length} produit{products.length > 1 ? 's' : ''}</span>
                 {catUnavailable > 0 && (
-                  <span className="bg-red-100 text-red-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full">
-                    {catUnavailable} rupture
+                  <span className="bg-amber-100 text-amber-700 text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+                    {catUnavailable} bientôt
                   </span>
                 )}
               </div>
@@ -144,7 +155,7 @@ export function AdminProductsTab({
                     isSaving={saving === product.id}
                     boxDecouverteTrompeExcludedIds={boxDecouverteTrompeExcludedIds}
                     miniBoxTrompeIncludedIds={miniBoxTrompeIncludedIds}
-                    onToggleAvailability={() => handleToggleAvailability(product)}
+                    onSetAvailability={(state) => handleSetAvailability(product, state)}
                     onEdit={() => setEditingProduct(editingProduct === product.id ? null : product.id)}
                     onReset={() => handleResetProduct(product.id)}
                     onDelete={() => handleDeleteCustomProduct(product.id)}
@@ -168,7 +179,7 @@ interface ProductCardProps {
   isSaving: boolean
   boxDecouverteTrompeExcludedIds: string[]
   miniBoxTrompeIncludedIds: string[]
-  onToggleAvailability: () => void
+  onSetAvailability: (state: ProductAvailabilityState) => void
   onEdit: () => void
   onReset: () => void
   onDelete: () => void
@@ -182,18 +193,22 @@ function ProductCard({
   isSaving,
   boxDecouverteTrompeExcludedIds,
   miniBoxTrompeIncludedIds,
-  onToggleAvailability,
+  onSetAvailability,
   onEdit,
   onReset,
   onDelete,
 }: ProductCardProps) {
+  const availabilityState = getProductAvailabilityState(product)
+
   return (
     <div className={`rounded-xl border transition-all ${
-      !product.available
-        ? 'border-red-200 bg-red-50/50 opacity-70'
-        : hasOverride
-          ? 'border-mayssa-caramel/30 bg-mayssa-caramel/5'
-          : 'border-mayssa-brown/10 bg-white'
+      availabilityState === 'coming_soon'
+        ? 'border-amber-200/80 bg-amber-50/40'
+        : availabilityState === 'hidden'
+          ? 'border-mayssa-brown/10 bg-mayssa-soft/50 opacity-60'
+          : hasOverride
+            ? 'border-mayssa-caramel/30 bg-mayssa-caramel/5'
+            : 'border-mayssa-brown/10 bg-white'
     }`}>
       {/* Compact row */}
       <div className="flex items-center gap-3 p-3">
@@ -232,19 +247,32 @@ function ProductCard({
           </p>
         </div>
 
-        {/* Toggle availability */}
-        <button
-          onClick={onToggleAvailability}
-          disabled={isSaving}
-          className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 cursor-pointer ${
-            product.available ? 'bg-emerald-400' : 'bg-red-400'
-          }`}
-          title={product.available ? 'Disponible' : 'En rupture'}
-        >
-          <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-            product.available ? 'left-5.5 translate-x-0' : 'left-0.5'
-          }`} />
-        </button>
+        {/* Disponibilité : 3 états */}
+        <div className="flex flex-col gap-1 flex-shrink-0">
+          {(['available', 'coming_soon', 'hidden'] as const).map((state) => {
+            const labels = { available: 'Dispo', coming_soon: 'Bientôt', hidden: 'Masqué' }
+            const active = availabilityState === state
+            return (
+              <button
+                key={state}
+                type="button"
+                onClick={() => onSetAvailability(state)}
+                disabled={isSaving}
+                className={`px-2 py-0.5 rounded-md text-[8px] font-bold uppercase tracking-wide cursor-pointer transition-colors ${
+                  active
+                    ? state === 'available'
+                      ? 'bg-emerald-500 text-white'
+                      : state === 'coming_soon'
+                        ? 'bg-amber-500 text-white'
+                        : 'bg-mayssa-brown/70 text-white'
+                    : 'bg-mayssa-soft text-mayssa-brown/50 hover:bg-mayssa-brown/10'
+                }`}
+              >
+                {labels[state]}
+              </button>
+            )
+          })}
+        </div>
 
         {/* Edit button */}
         <button
@@ -769,7 +797,7 @@ function AddProductForm({ onClose, onSaved }: { onClose: () => void; onSaved: ()
   }
 
   return (
-    <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3 border-2 border-mayssa-caramel/30">
+    <div className="admin-panel admin-panel-pad space-y-3 border-2 border-mayssa-caramel/30">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-bold text-mayssa-brown">Nouveau produit</h3>
         <button onClick={onClose} className="text-[10px] text-mayssa-brown/40 hover:text-mayssa-brown cursor-pointer">

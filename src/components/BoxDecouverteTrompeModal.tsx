@@ -89,7 +89,7 @@ export function BoxDecouverteTrompeModal({
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             className="fixed inset-x-4 top-4 bottom-4 sm:top-1/2 sm:bottom-auto sm:-translate-y-1/2 z-[60] mx-auto max-w-lg max-h-[calc(100vh-2rem)] sm:max-h-[90vh] flex flex-col"
           >
-            <div className="relative flex flex-col flex-1 min-h-0 overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <div className="relative flex flex-col flex-1 min-h-0 overflow-hidden bg-mayssa-soft border border-mayssa-brown/10">
               <button
                 type="button"
                 onClick={onClose}
@@ -107,7 +107,7 @@ export function BoxDecouverteTrompeModal({
 
               <div className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-6 space-y-4">
                 <div className="text-center space-y-1">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-caramel">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-gold">
                     {product.category}
                   </p>
                   <h3 className="text-xl sm:text-2xl font-display font-bold text-mayssa-brown leading-tight">
@@ -182,7 +182,7 @@ export function BoxDecouverteTrompeModal({
                             'rounded-2xl border-2 px-3 py-2.5 text-left transition-all cursor-pointer',
                             !selectable || !canPickMore
                               ? 'border-mayssa-brown/10 bg-mayssa-brown/[0.04] opacity-55 cursor-not-allowed'
-                              : 'border-mayssa-caramel/25 bg-white hover:border-mayssa-caramel hover:shadow-md active:scale-[0.98]',
+                              : 'border-mayssa-gold/25 bg-white hover:border-mayssa-gold hover:shadow-md active:scale-[0.98]',
                           )}
                         >
                           <span className="text-xs font-bold text-mayssa-brown block truncate">{p.name}</span>
@@ -191,7 +191,7 @@ export function BoxDecouverteTrompeModal({
                               className={cn(
                                 'text-[9px] font-semibold mt-0.5 block',
                                 already
-                                  ? 'text-mayssa-caramel'
+                                  ? 'text-mayssa-gold'
                                   : s !== null && s <= 0
                                     ? 'text-red-500'
                                     : 'text-mayssa-brown/45',
@@ -220,7 +220,7 @@ export function BoxDecouverteTrompeModal({
                   className={cn(
                     'w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold transition-all cursor-pointer',
                     picked.length === slots
-                      ? 'bg-mayssa-caramel text-white shadow-lg hover:bg-mayssa-brown'
+                      ? 'bg-mayssa-gold text-white shadow-lg hover:bg-mayssa-brown'
                       : 'bg-mayssa-brown/10 text-mayssa-brown/35 cursor-not-allowed',
                   )}
                 >

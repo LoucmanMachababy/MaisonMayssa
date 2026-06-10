@@ -1,0 +1,465 @@
+/* Panier mobile — aligné vitrine premium Maison Mayssa */
+
+@layer components {
+  .cart-sheet-backdrop {
+    background: color-mix(in srgb, var(--color-mayssa-espresso) 55%, transparent);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .cart-sheet {
+    --cs-radius: 0;
+    --cs-radius-sm: 0;
+    background: var(--color-mayssa-soft);
+    border-top: 2px solid color-mix(in srgb, var(--color-mayssa-gold) 35%, transparent);
+    box-shadow: 0 -24px 80px rgba(42, 27, 18, 0.18);
+  }
+
+  .cart-sheet-handle {
+    width: 2.5rem;
+    height: 3px;
+    background: color-mix(in srgb, var(--color-mayssa-gold) 45%, var(--color-mayssa-brown));
+  }
+
+  .cart-sheet-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0 1.25rem 0.75rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-mayssa-brown) 8%, transparent);
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-mayssa-espresso) 6%, var(--color-mayssa-soft)) 0%,
+      var(--color-mayssa-soft) 100%
+    );
+  }
+
+  .cart-sheet-eyebrow {
+    display: block;
+    font-size: 0.58rem;
+    font-weight: 600;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--color-mayssa-gold);
+    margin-bottom: 0.2rem;
+  }
+
+  .cart-sheet-title {
+    font-family: var(--font-display, 'Playfair Display', serif);
+    font-size: 1.35rem;
+    font-weight: 500;
+    color: var(--color-mayssa-brown);
+    line-height: 1.2;
+  }
+
+  .cart-sheet-count {
+    font-size: 0.68rem;
+    color: color-mix(in srgb, var(--color-mayssa-brown) 55%, transparent);
+    margin-top: 0.15rem;
+  }
+
+  .cart-sheet-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    color: var(--color-mayssa-brown);
+    border: 1px solid color-mix(in srgb, var(--color-mayssa-brown) 12%, transparent);
+    background: #fff;
+    transition: border-color 0.2s, color 0.2s;
+  }
+
+  .cart-sheet-close:hover {
+    border-color: color-mix(in srgb, var(--color-mayssa-gold) 40%, transparent);
+    color: var(--color-mayssa-espresso);
+  }
+
+  .cart-sheet-steps {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.85rem 1.25rem;
+    background: #fff;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-mayssa-brown) 8%, transparent);
+  }
+
+  .cart-sheet-step-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+  }
+
+  .cart-sheet-step-dot {
+    display: flex;
+    height: 1.5rem;
+    width: 1.5rem;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.58rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    transition: all 0.2s;
+  }
+
+  .cart-sheet-step-dot.is-active {
+    background: var(--color-mayssa-espresso);
+    color: var(--color-mayssa-gold);
+    box-shadow: 0 0 0 2px #fff, 0 0 0 3px color-mix(in srgb, var(--color-mayssa-gold) 50%, transparent);
+  }
+
+  .cart-sheet-step-dot.is-done {
+    background: var(--color-mayssa-gold);
+    color: #fff;
+  }
+
+  .cart-sheet-step-dot.is-idle {
+    background: color-mix(in srgb, var(--color-mayssa-brown) 8%, transparent);
+    color: color-mix(in srgb, var(--color-mayssa-brown) 40%, transparent);
+  }
+
+  .cart-sheet-step-label {
+    font-size: 0.58rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .cart-sheet-step-label.is-active { color: var(--color-mayssa-brown); }
+  .cart-sheet-step-label.is-done { color: var(--color-mayssa-gold); }
+  .cart-sheet-step-label.is-idle { color: color-mix(in srgb, var(--color-mayssa-brown) 38%, transparent); }
+
+  .cart-sheet-step-line {
+    flex: 1;
+    height: 1px;
+    margin: 0 0.35rem;
+    background: color-mix(in srgb, var(--color-mayssa-brown) 10%, transparent);
+    transition: background 0.2s;
+  }
+
+  .cart-sheet-step-line.is-done {
+    background: var(--color-mayssa-gold);
+  }
+
+  .cart-sheet-body {
+    padding: 1rem 1.25rem 1.25rem;
+  }
+
+  .cart-sheet-section-label {
+    font-size: 0.58rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--color-mayssa-brown) 52%, transparent);
+    margin-bottom: 0.65rem;
+  }
+
+  .cart-sheet-item {
+    display: flex;
+    gap: 0.85rem;
+    padding: 0.85rem;
+    background: #fff;
+    border: 1px solid color-mix(in srgb, var(--color-mayssa-brown) 8%, transparent);
+    border-left: 2px solid var(--color-mayssa-gold);
+  }
+
+  .cart-sheet-item-img {
+    width: 3.5rem;
+    height: 3.5rem;
+    flex-shrink: 0;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--color-mayssa-gold) 25%, transparent);
+  }
+
+  .cart-sheet-item-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--color-mayssa-brown);
+  }
+
+  .cart-sheet-item-price {
+    font-family: var(--font-display, 'Playfair Display', serif);
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--color-mayssa-espresso);
+  }
+
+  .cart-sheet-qty-btn {
+    display: flex;
+    height: 2rem;
+    width: 2rem;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .cart-sheet-qty-btn--minus {
+    background: var(--color-mayssa-soft);
+    color: var(--color-mayssa-brown);
+    border: 1px solid color-mix(in srgb, var(--color-mayssa-brown) 10%, transparent);
+  }
+
+  .cart-sheet-qty-btn--plus {
+    background: var(--color-mayssa-espresso);
+    color: #fff;
+  }
+
+  .cart-sheet-total-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.85rem 1rem;
+    background: #fff;
+    border: 1px solid color-mix(in srgb, var(--color-mayssa-brown) 8%, transparent);
+  }
+
+  .cart-sheet-empty {
+    padding: 2.5rem 1rem;
+    text-align: center;
+    background: #fff;
+    border: 1px dashed color-mix(in srgb, var(--color-mayssa-brown) 15%, transparent);
+  }
+
+  .cart-sheet-empty-icon {
+    display: flex;
+    height: 4rem;
+    width: 4rem;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+    border: 1px solid color-mix(in srgb, var(--color-mayssa-gold) 30%, transparent);
+    color: color-mix(in srgb, var(--color-mayssa-gold) 70%, var(--color-mayssa-brown));
+  }
+
+  .cart-sheet-footer {
+    flex-shrink: 0;
+    padding: 1rem 1.25rem max(1rem, env(safe-area-inset-bottom));
+    background: #fff;
+    border-top: 1px solid color-mix(in srgb, var(--color-mayssa-brown) 8%, transparent);
+    box-shadow: 0 -8px 32px rgba(42, 27, 18, 0.06);
+  }
+
+  .cart-sheet-footer-total {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 0.85rem;
+  }
+
+  .cart-sheet-footer-total-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--color-mayssa-brown) 55%, transparent);
+  }
+
+  .cart-sheet-footer-total-value {
+    font-family: var(--font-display, 'Playfair Display', serif);
+    font-size: 1.35rem;
+    font-weight: 600;
+    color: var(--color-mayssa-brown);
+  }
+
+  .cart-sheet-btn-primary {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 1rem 1.25rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    transition: background 0.2s, opacity 0.2s;
+  }
+
+  .cart-sheet-btn-primary.is-enabled {
+    background: var(--color-mayssa-espresso);
+    color: #fff;
+  }
+
+  .cart-sheet-btn-primary.is-enabled:hover {
+    background: var(--color-mayssa-brown);
+  }
+
+  .cart-sheet-btn-primary.is-disabled {
+    background: color-mix(in srgb, var(--color-mayssa-brown) 25%, transparent);
+    color: color-mix(in srgb, white 70%, transparent);
+  }
+
+  .cart-sheet-btn-ghost {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0.85rem 1rem;
+    font-size: 0.58rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--color-mayssa-brown) 65%, transparent);
+    background: var(--color-mayssa-soft);
+    border: 1px solid color-mix(in srgb, var(--color-mayssa-brown) 10%, transparent);
+  }
+
+  .cart-sheet-panel {
+    background: #fff;
+    border: 1px solid color-mix(in srgb, var(--color-mayssa-brown) 8%, transparent);
+    padding: 0.85rem;
+  }
+
+  .cart-sheet-field {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.7rem 0.85rem;
+    background: var(--color-mayssa-soft);
+    border: 1px solid color-mix(in srgb, var(--color-mayssa-brown) 10%, transparent);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .cart-sheet-field:focus-within {
+    border-color: color-mix(in srgb, var(--color-mayssa-gold) 50%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-mayssa-gold) 12%, transparent);
+  }
+
+  .cart-sheet-field.is-error {
+    border-color: #f87171;
+  }
+
+  .cart-sheet-field input,
+  .cart-sheet-field select,
+  .cart-sheet-field textarea {
+    width: 100%;
+    background: transparent;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--color-mayssa-brown);
+    border: none;
+    outline: none;
+  }
+
+  .cart-sheet-field input::placeholder,
+  .cart-sheet-field textarea::placeholder {
+    color: color-mix(in srgb, var(--color-mayssa-brown) 38%, transparent);
+  }
+
+  .cart-sheet-mode-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0.85rem;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border: 1px solid color-mix(in srgb, var(--color-mayssa-brown) 10%, transparent);
+    background: #fff;
+    color: color-mix(in srgb, var(--color-mayssa-brown) 70%, transparent);
+    transition: all 0.2s;
+  }
+
+  .cart-sheet-mode-btn.is-active {
+    background: var(--color-mayssa-espresso);
+    color: var(--color-mayssa-gold);
+    border-color: var(--color-mayssa-espresso);
+    box-shadow: 0 8px 24px rgba(42, 27, 18, 0.12);
+  }
+
+  .cart-sheet-segment {
+    display: flex;
+    gap: 0.35rem;
+    overflow-x: auto;
+    padding: 0.2rem;
+    background: var(--color-mayssa-soft);
+    border: 1px solid color-mix(in srgb, var(--color-mayssa-brown) 8%, transparent);
+    scrollbar-width: none;
+  }
+
+  .cart-sheet-segment::-webkit-scrollbar { display: none; }
+
+  .cart-sheet-segment-btn {
+    flex: 1;
+    min-width: max-content;
+    padding: 0.45rem 0.65rem;
+    font-size: 0.58rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--color-mayssa-brown) 55%, transparent);
+    background: transparent;
+    transition: all 0.15s;
+  }
+
+  .cart-sheet-segment-btn.is-active {
+    background: #fff;
+    color: var(--color-mayssa-brown);
+    box-shadow: 0 1px 6px rgba(42, 27, 18, 0.08);
+  }
+
+  .cart-sheet textarea.cart-sheet-textarea {
+    width: 100%;
+    min-height: 4rem;
+    resize: none;
+    padding: 0.85rem;
+    font-size: 0.78rem;
+    color: var(--color-mayssa-brown);
+    background: var(--color-mayssa-soft);
+    border: 1px solid color-mix(in srgb, var(--color-mayssa-brown) 10%, transparent);
+  }
+
+  .cart-sheet textarea.cart-sheet-textarea:focus {
+    outline: none;
+    border-color: color-mix(in srgb, var(--color-mayssa-gold) 45%, transparent);
+  }
+
+  /* Floating bar mobile */
+  .cart-float-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.85rem 1rem;
+    background: var(--color-mayssa-espresso);
+    color: #fff;
+    border: 1px solid color-mix(in srgb, var(--color-mayssa-gold) 25%, transparent);
+    box-shadow: 0 16px 48px rgba(42, 27, 18, 0.28);
+  }
+
+  .cart-float-bar-eyebrow {
+    font-size: 0.55rem;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--color-mayssa-gold) 85%, white);
+  }
+
+  .cart-float-bar-total {
+    font-family: var(--font-display, 'Playfair Display', serif);
+    font-size: 1.15rem;
+    font-weight: 500;
+  }
+
+  .cart-float-bar-badge {
+    position: absolute;
+    top: -0.35rem;
+    right: -0.35rem;
+    display: flex;
+    height: 1.15rem;
+    min-width: 1.15rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.25rem;
+    font-size: 0.55rem;
+    font-weight: 800;
+    background: var(--color-mayssa-gold);
+    color: var(--color-mayssa-espresso);
+  }
+}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { ShoppingBag, MapPin, Phone, Calendar, Clock, RefreshCw } from 'lucide-react'
+import { ShoppingBag, MapPin, Phone, Calendar, Clock, RefreshCw, Users } from 'lucide-react'
+import { AdminPanelHeader } from './ui/AdminUi'
 import type { ActiveSession } from '../../types'
 
 const SESSION_TTL_MS = 30 * 60 * 1000 // 30 minutes
@@ -46,6 +47,11 @@ export function AdminSessionsTab() {
       transition={{ duration: 0.2 }}
       className="space-y-4"
     >
+      <AdminPanelHeader
+        title="Sessions actives"
+        description="Visiteurs en cours sur le site avec panier non finalisé."
+        icon={Users}
+      />
       <div className="rounded-2xl bg-blue-50 border border-blue-200 p-4">
         <p className="text-sm text-blue-800">
           <ShoppingBag size={16} className="inline mr-2" />
@@ -55,18 +61,18 @@ export function AdminSessionsTab() {
 
       {/* Stats synthèse */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-2xl bg-white border border-mayssa-brown/10 shadow-sm p-4 text-center">
+        <div className="admin-panel admin-panel-pad text-center">
           <p className="text-3xl font-bold text-mayssa-brown">{activeSessions.length}</p>
           <p className="text-xs text-mayssa-brown/60 mt-1">Paniers actifs</p>
         </div>
-        <div className="rounded-2xl bg-white border border-mayssa-brown/10 shadow-sm p-4 text-center">
+        <div className="admin-panel admin-panel-pad text-center">
           <p className="text-3xl font-bold text-mayssa-brown">{totalRevenuePotentiel.toFixed(0)} €</p>
           <p className="text-xs text-mayssa-brown/60 mt-1">Potentiel estimé</p>
         </div>
       </div>
 
       {/* Liste */}
-      <div className="rounded-2xl bg-white border border-mayssa-brown/10 shadow-sm p-4">
+      <div className="admin-panel admin-panel-pad">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-bold text-mayssa-brown">Sessions en cours</h3>
           <span className="flex items-center gap-1 text-xs text-mayssa-brown/40">

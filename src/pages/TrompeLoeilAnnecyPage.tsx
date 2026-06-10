@@ -10,7 +10,7 @@ export function TrompeLoeilAnnecyPage() {
         { name: 'Accueil', url: '/' },
         { name: "Trompe-l'œil Annecy" },
       ]}
-      heroImage="/Trompe-loeil-header.webp"
+      heroImage="/nouvelle-img/photo-trompe-loeil-site.png"
       heroEyebrow="Pâtisserie artisanale Annecy"
       heroTitle="L'art du trompe-l'œil pâtissier à Annecy"
       heroSubtitle="Des fruits qui trompent l'œil, des saveurs qui régalent. Créations artisanales faites main."

@@ -158,7 +158,7 @@ export function AdminDailyReport({ orders, isOpen, onClose }: AdminDailyReportPr
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100]"
+            className="admin-modal-overlay"
           />
           <motion.div
             initial={{ opacity: 0, x: '100%' }}
@@ -227,7 +227,7 @@ export function AdminDailyReport({ orders, isOpen, onClose }: AdminDailyReportPr
               </div>
 
               {/* Status breakdown */}
-              <div className="bg-white rounded-2xl border border-mayssa-brown/8 p-4 space-y-2">
+              <div className="admin-panel admin-panel-pad space-y-2">
                 <p className="text-xs font-black text-mayssa-brown uppercase tracking-wider mb-3">Avancement</p>
                 {[
                   { label: 'En attente', count: stats.enAttente, color: 'bg-amber-400' },
@@ -245,7 +245,7 @@ export function AdminDailyReport({ orders, isOpen, onClose }: AdminDailyReportPr
 
               {/* Production list */}
               {productionList.length > 0 && (
-                <div className="bg-white rounded-2xl border border-mayssa-brown/8 p-4">
+                <div className="admin-panel admin-panel-pad">
                   <p className="text-xs font-black text-mayssa-brown uppercase tracking-wider mb-3">📋 À préparer</p>
                   <div className="space-y-2">
                     {productionList.map((p, i) => (

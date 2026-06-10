@@ -2,11 +2,17 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { jsPDF } from 'jspdf'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { LogOut, Package, Plus, Calendar, Clock, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp, Pencil, Search, Download, Bell, MessageSquare, MessageCircle, Filter, XCircle, Star, Tag, FileText, LayoutDashboard, Copy, Eye, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, CheckCheck, ArrowRight, Settings, Moon, Sun, PanelLeftClose, PanelLeft, Menu, Percent } from 'lucide-react'
+import { Package, Plus, Calendar, Clock, RefreshCw, ClipboardList, Check, X, Trash2, AlertTriangle, Cake, Gift, ShoppingBag, Truck, MapPin, Users, Phone, History, TrendingUp, Pencil, Search, Download, Bell, MessageSquare, MessageCircle, Filter, XCircle, Star, Tag, FileText, LayoutDashboard, Copy, Eye, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, CheckCheck, Percent } from 'lucide-react'
+import { AdminLoginScreen, AdminUnauthorizedScreen } from './AdminAuthScreens'
+import { adminCard, adminCardPadLg, adminStatusBanner } from './adminTheme'
+import { buildAdminNavigation } from './adminNavigation'
+import { AdminShell } from './ui/AdminShell'
+import { AdminSubNav } from './ui/AdminSubNav'
+import { AdminPanel as AdminPanelCard, AdminKpi, AdminBtn, AdminAlert, AdminPanelHeader } from './ui/AdminUi'
 import { cn } from '../../lib/utils'
 import type { OrderStatus } from '../../lib/firebase'
 import {
-  adminLogin, adminLogout, onAuthChange,
+  adminLogout, onAuthChange,
   listenStock, updateStock, listenSettings, updateSettings,
   listenOrders, updateOrderStatus, deleteOrder, updateOrder,
   listenAllUsers, claimBirthdayGift, listenProductOverrides, deleteUserProfile,
@@ -50,14 +56,14 @@ import { PRODUCTS, BOX_DECOUVERTE_TROMPE_PRODUCT_ID, isCustomizableTrompeBundleB
 import { AdminEditOrderModal } from './AdminEditOrderModal'
 import { AdminEditReviewModal } from './AdminEditReviewModal'
 import { AdminClientProfileModal } from './AdminClientProfileModal'
-import { AdminNotificationsCenter } from './AdminNotificationsCenter'
 import { AdminDailyReport } from './AdminDailyReport'
 import { AdminWhatsAppDropdown } from './AdminWhatsAppDropdown'
-import { getPinnedOrders, getPinnedClients, togglePinOrder, isOrderPinned } from '../../lib/adminPins'
+import { togglePinOrder, isOrderPinned } from '../../lib/adminPins'
 import { formatOrderCustomerDisplayName } from '../../lib/orderCustomerDisplay'
 import { getOrderDepositAmount, getOrderRemainingToPay, DEPOSIT_50_PERCENT_MIN_TOTAL_EUR } from '../../lib/orderAmounts'
 import { AdminDeposit50Prompt } from './AdminDeposit50Prompt'
 import { Pin } from 'lucide-react'
+import { ADMIN_EMAIL, checkUserIsAdmin } from '../../lib/adminAccess'
 
 const DAY_LABELS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
 const DELIVERY_RADIUS_KM = 5
@@ -405,130 +411,28 @@ export function AdminPanel() {
     }
     // Belt & braces : accepte Custom Claim `admin: true` OU email hardcodé
     // Fallback email conservé pendant la migration pour zéro downtime
-    user.getIdTokenResult()
-      .then((tokenResult) => {
-        if (cancelled) return
-        const hasAdminClaim = tokenResult.claims.admin === true
-        const hasAdminEmail = user.email === 'roumayssaghazi213@gmail.com'
-        setIsAdmin(hasAdminClaim || hasAdminEmail)
+    checkUserIsAdmin(user)
+      .then((admin) => {
+        if (!cancelled) setIsAdmin(admin)
       })
       .catch(() => {
-        if (cancelled) return
-        // Si le token ne se charge pas, fallback sur email seul
-        setIsAdmin(user.email === 'roumayssaghazi213@gmail.com')
+        if (!cancelled) setIsAdmin(user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase())
       })
     return () => { cancelled = true }
   }, [user])
 
   if (authLoading || (user && isAdmin === null)) {
     return (
-      <div className="min-h-screen bg-mayssa-soft flex items-center justify-center">
-        <RefreshCw size={32} className="text-mayssa-caramel animate-spin" />
+      <div className="min-h-dvh bg-mayssa-ivory flex flex-col items-center justify-center gap-4">
+        <RefreshCw size={28} className="text-mayssa-gold animate-spin" />
+        <p className="text-xs tracking-[0.3em] uppercase text-mayssa-brown/40">Chargement admin</p>
       </div>
     )
   }
 
-  if (!user) return <LoginForm />
-  if (!isAdmin) return <UnauthorizedAccess />
+  if (!user) return <AdminLoginScreen />
+  if (!isAdmin) return <AdminUnauthorizedScreen />
   return <Dashboard user={user} />
-}
-
-// --- Login Form ---
-function LoginForm() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
-    try {
-      await adminLogin(email, password)
-    } catch {
-      setError('Email ou mot de passe incorrect')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div className="min-h-screen bg-mayssa-soft flex items-center justify-center p-4">
-      <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl p-8 space-y-6">
-        <div className="text-center space-y-2">
-          <h1 className="text-2xl font-display font-bold text-mayssa-brown">Maison Mayssa</h1>
-          <p className="text-sm text-mayssa-brown/60">Espace administration</p>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email"
-            required
-            className="w-full rounded-xl bg-mayssa-soft/50 px-4 py-3 text-sm text-mayssa-brown border border-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
-          />
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Mot de passe"
-            required
-            className="w-full rounded-xl bg-mayssa-soft/50 px-4 py-3 text-sm text-mayssa-brown border border-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
-          />
-          {error && <p className="text-xs text-red-500 text-center">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 rounded-xl bg-mayssa-brown text-white font-bold hover:bg-mayssa-caramel transition-colors disabled:opacity-50 cursor-pointer"
-          >
-            {loading ? 'Connexion...' : 'Se connecter'}
-          </button>
-        </form>
-        <a href="/" className="block text-center text-xs text-mayssa-brown/40 hover:text-mayssa-brown transition-colors">
-          Retour au site
-        </a>
-      </div>
-    </div>
-  )
-}
-
-// --- Unauthorized Access ---
-function UnauthorizedAccess() {
-  const handleLogout = async () => {
-    await adminLogout()
-  }
-
-  return (
-    <div className="min-h-screen bg-mayssa-soft flex items-center justify-center p-4">
-      <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl p-8 space-y-6 text-center">
-        <div className="space-y-4">
-          <AlertTriangle size={48} className="mx-auto text-red-500" />
-          <div className="space-y-2">
-            <h1 className="text-xl font-display font-bold text-mayssa-brown">Accès non autorisé</h1>
-            <p className="text-sm text-mayssa-brown/60">
-              Seul l'administrateur principal peut accéder à cette section.
-            </p>
-          </div>
-        </div>
-        <div className="space-y-3">
-          <button
-            onClick={handleLogout}
-            className="w-full py-3 rounded-xl bg-mayssa-brown text-white font-bold hover:bg-mayssa-caramel transition-colors cursor-pointer"
-          >
-            Se déconnecter
-          </button>
-          <a 
-            href="/" 
-            className="block text-center text-xs text-mayssa-brown/40 hover:text-mayssa-brown transition-colors"
-          >
-            Retour au site
-          </a>
-        </div>
-      </div>
-    </div>
-  )
 }
 
 // --- Dashboard ---
@@ -620,19 +524,17 @@ function Dashboard({ user }: { user: User }) {
   /** Menu validation en masse ouvert */
   const [bulkValidateOpen, setBulkValidateOpen] = useState(false)
   /** Pins (rafraîchir pour forcer re-render) */
-  const [pinsVersion, setPinsVersion] = useState(0)
-  const pinnedOrderIds = useMemo(() => getPinnedOrders(), [pinsVersion])
-  const pinnedClientPhones = useMemo(() => getPinnedClients(), [pinsVersion])
+  const [, setPinsVersion] = useState(0)
   /** Dark mode admin (persisté en localStorage) */
   const [darkMode, setDarkMode] = useState(() => {
     try { return localStorage.getItem('admin-dark') === '1' } catch { return false }
   })
-  /** Sidebar repliée (desktop) */
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   /** Sidebar ouverte sur mobile (drawer) */
   const [sidebarMobileOpen, setSidebarMobileOpen] = useState(false)
+  const [activeDatePreset, setActiveDatePreset] = useState<'today' | '7d' | '30d' | 'month' | null>(null)
 
   const setDatePreset = (preset: 'today' | '7d' | '30d' | 'month') => {
+    setActiveDatePreset(preset)
     const now = new Date()
     const d = new Date(now)
     d.setHours(0, 0, 0, 0)
@@ -660,6 +562,7 @@ function Dashboard({ user }: { user: User }) {
     setSearchQuery('')
     setDateFrom('')
     setDateTo('')
+    setActiveDatePreset(null)
     setSourceFilter('all')
     setDeliveryFilter('all')
     setStatusFilter('all')
@@ -1464,382 +1367,54 @@ function Dashboard({ user }: { user: User }) {
   }, [orders])
 
   const isDark = darkMode
-  const navItems: { id: string; icon: typeof LayoutDashboard; label: string; badge?: number }[] = [
-    { id: 'resume', icon: LayoutDashboard, label: 'Résumé' },
-    { id: 'commandes', icon: ClipboardList, label: 'À valider', badge: pendingCount },
-    { id: 'historique', icon: Calendar, label: 'Planning' },
-    { id: 'livret', icon: Truck, label: 'Journalier', badge: Object.values(orders).filter(o => o.status === 'en_preparation').length },
-    { id: 'ca', icon: TrendingUp, label: 'Analytics' },
-    { id: 'catalogue', icon: Package, label: 'Carte' },
-    { id: 'clients', icon: Users, label: 'Clients' },
-    { id: 'reglages', icon: Settings, label: 'Options' },
-  ]
+  const navGroups = buildAdminNavigation({
+    pending: pendingCount,
+    inPrep: Object.values(orders).filter((o) => o.status === 'en_preparation').length,
+  })
 
   return (
-    <div
-      className={cn(
-        'min-h-dvh min-h-[100dvh] flex',
-        isDark ? 'bg-zinc-950 text-zinc-100' : 'bg-[#fdfaf8] bg-mesh text-mayssa-brown',
-      )}
+    <>
+    <AdminShell
+      isDark={isDark}
+      onToggleDark={() => setDarkMode((d) => !d)}
+      sidebarMobileOpen={sidebarMobileOpen}
+      onSidebarMobileOpen={setSidebarMobileOpen}
+      navGroups={navGroups}
+      tab={tab}
+      onTabChange={(t) => setTab(t)}
+      user={user}
+      ordersOpen={settings.ordersOpen !== false}
+      onLogout={handleLogout}
+      onOpenDailyReport={() => setShowDailyReport(true)}
+      showNotifications={showNotifications}
+      onToggleNotifications={() => setShowNotifications((v) => !v)}
+      onCloseNotifications={() => setShowNotifications(false)}
+      onNavigateFromNotifications={(t) => setTab(t as typeof tab)}
+      soundEnabled={soundEnabled}
+      onToggleSound={() => {
+        if (soundEnabled && typeof Notification !== 'undefined' && Notification.permission === 'default') {
+          Notification.requestPermission()
+        }
+        setSoundEnabled((v) => !v)
+      }}
+      orders={orders}
+      stock={stock}
+      allUsers={allUsers}
+      globalSearch={globalSearch}
+      onGlobalSearchChange={setGlobalSearch}
+      globalSearchResults={globalSearchResults}
+      onSelectSearchOrder={(id) => {
+        setTab('historique')
+        setEditingOrderId(id)
+        setGlobalSearch('')
+      }}
     >
-      {/* Overlay mobile sidebar */}
-      <div
-        className={cn(
-          'fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 lg:hidden',
-          sidebarMobileOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-        )}
-        onClick={() => setSidebarMobileOpen(false)}
-        aria-hidden="true"
-      />
-      {/* Sidebar */}
-      <aside
-        className={cn(
-          'fixed left-0 top-0 z-50 h-dvh max-h-[100dvh] flex flex-col border-r transition-all duration-300',
-          'pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]',
-          'lg:translate-x-0',
-          sidebarMobileOpen ? 'w-[min(18rem,calc(100vw-1rem))]' : (sidebarCollapsed ? 'w-16' : 'w-56'),
-          isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white/95 backdrop-blur-xl border-mayssa-brown/5',
-          sidebarMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        )}
-      >
-        <div className="flex items-center justify-between p-3 sm:p-3 border-b border-inherit min-h-[52px]">
-          {!sidebarCollapsed && (
-            <div className="flex items-center gap-2 min-w-0">
-              <div className={cn('h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0', isDark ? 'bg-mayssa-gold/20' : 'bg-mayssa-brown')}>
-                <LayoutDashboard size={16} className={isDark ? 'text-mayssa-gold' : 'text-white'} />
-              </div>
-              <span className="text-xs font-bold truncate">Admin</span>
-            </div>
-          )}
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setSidebarMobileOpen(false)}
-              className={cn(
-                'min-h-11 min-w-11 inline-flex items-center justify-center rounded-xl transition-colors lg:hidden',
-                isDark ? 'hover:bg-zinc-800' : 'hover:bg-mayssa-brown/5',
-              )}
-              title="Fermer"
-              aria-label="Fermer le menu"
-            >
-              <X size={22} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setSidebarCollapsed((s) => !s)}
-              className={cn('p-1.5 rounded-lg transition-colors hidden lg:block', isDark ? 'hover:bg-zinc-800' : 'hover:bg-mayssa-brown/5')}
-              title={sidebarCollapsed ? 'Ouvrir' : 'Replier'}
-            >
-              {sidebarCollapsed ? <PanelLeft size={16} /> : <PanelLeftClose size={16} />}
-            </button>
-          </div>
-        </div>
-        <nav className="flex-1 overflow-y-auto overscroll-y-contain py-2 space-y-0.5 touch-pan-y">
-          {navItems.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => { setTab(t.id as any); setSidebarMobileOpen(false) }}
-              className={cn(
-                'w-full flex items-center gap-3 px-3 py-3.5 text-left transition-all lg:py-2.5 min-h-[48px] lg:min-h-0',
-                sidebarCollapsed ? 'justify-center px-0' : '',
-                tab === t.id
-                  ? isDark ? 'bg-mayssa-gold/20 text-mayssa-gold border-r-2 border-mayssa-gold' : 'bg-mayssa-brown/10 text-mayssa-brown border-r-2 border-mayssa-brown'
-                  : isDark ? 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200' : 'text-mayssa-brown/60 hover:bg-mayssa-brown/5 hover:text-mayssa-brown'
-              )}
-            >
-              <t.icon size={18} strokeWidth={2.5} className="flex-shrink-0" />
-              {!sidebarCollapsed && (
-                <>
-                  <span className="text-xs font-bold truncate flex-1">{t.label}</span>
-                  {t.badge !== undefined && t.badge > 0 && (
-                    <span className={cn('flex h-5 min-w-[20px] items-center justify-center rounded-full text-[10px] font-black px-1', isDark ? 'bg-red-500/80 text-white' : 'bg-red-500 text-white')}>
-                      {t.badge}
-                    </span>
-                  )}
-                </>
-              )}
-            </button>
-          ))}
-          {/* Favoris / Pins */}
-          {(pinnedOrderIds.length > 0 || pinnedClientPhones.length > 0) && !sidebarCollapsed && (
-            <div className="mt-2 pt-2 border-t border-inherit">
-              <p className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/40">Favoris</p>
-              {pinnedOrderIds.slice(0, 5).map((id) => {
-                const o = orders[id]
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => { setTab('historique'); setEditingOrderId(id); setSidebarMobileOpen(false) }}
-                    className="w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-left text-[10px] hover:bg-mayssa-brown/5"
-                  >
-                    <span className="truncate">#{o?.orderNumber ?? id.slice(-6)}</span>
-                    <Pin size={10} className="text-mayssa-gold flex-shrink-0" fill="currentColor" />
-                  </button>
-                )
-              })}
-              {pinnedClientPhones.slice(0, 3).map((phone) => {
-                const match = Object.entries(allUsers).find(([, u]) => u.phone?.replace(/\D/g, '') === phone)
-                return (
-                  <button
-                    key={phone}
-                    type="button"
-                    onClick={() => { if (match) { setTab('clients'); setSelectedClientUid(match[0]); setSidebarMobileOpen(false) } }}
-                    className="w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-left text-[10px] hover:bg-mayssa-brown/5"
-                  >
-                    <span className="truncate">{match ? `${match[1].firstName} ${match[1].lastName}` : phone}</span>
-                    <Pin size={10} className="text-mayssa-gold flex-shrink-0" fill="currentColor" />
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </nav>
-        <div className="p-2 border-t border-inherit pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]">
-          <button
-            type="button"
-            onClick={() => setDarkMode((d) => !d)}
-            className={cn(
-              'w-full flex items-center gap-3 px-3 py-3.5 rounded-lg transition-colors lg:py-2.5 min-h-[48px] lg:min-h-0',
-              sidebarCollapsed ? 'justify-center px-0' : '',
-              isDark ? 'text-zinc-400 hover:bg-zinc-800' : 'text-mayssa-brown/60 hover:bg-mayssa-brown/5'
-            )}
-            title={isDark ? 'Mode clair' : 'Mode sombre'}
-          >
-            {isDark ? <Sun size={18} /> : <Moon size={18} />}
-            {!sidebarCollapsed && <span className="text-xs font-bold">{isDark ? 'Clair' : 'Sombre'}</span>}
-          </button>
-        </div>
-      </aside>
-
-      {/* Main content */}
-      <div
-        className={cn(
-          'flex-1 flex flex-col min-w-0 ml-0 w-full min-h-0',
-          /* Mobile : une seule colonne scrollable (évite le body qui « saute » et garde header + recherche visibles) */
-          'max-lg:h-dvh max-lg:max-h-dvh max-lg:overflow-hidden',
-          sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-56',
-        )}
-      >
-      {/* Header premium admin */}
-      <header
-        className={cn(
-          'sticky top-0 z-30 flex-shrink-0 max-lg:relative max-lg:shrink-0 pt-[env(safe-area-inset-top,0px)]',
-          isDark ? 'bg-zinc-900/95 backdrop-blur-xl border-b border-zinc-800' : 'bg-white/90 backdrop-blur-2xl border-b border-mayssa-brown/5 shadow-sm',
-        )}
-      >
-        <div className="max-w-5xl mx-auto px-3 sm:px-6 py-2.5 sm:py-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-2">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 basis-[min(100%,14rem)] sm:basis-auto sm:flex-initial">
-            <button
-              type="button"
-              onClick={() => setSidebarMobileOpen(true)}
-              className={cn(
-                'lg:hidden min-h-11 min-w-11 inline-flex items-center justify-center rounded-xl transition-colors shrink-0',
-                isDark ? 'hover:bg-zinc-800' : 'hover:bg-mayssa-brown/5',
-              )}
-              title="Menu"
-              aria-label="Ouvrir le menu"
-            >
-              <Menu size={24} className={isDark ? 'text-zinc-300' : 'text-mayssa-brown'} />
-            </button>
-            <div className={cn('h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0', isDark ? 'bg-mayssa-gold/20' : 'bg-mayssa-brown')}>
-              <LayoutDashboard size={18} className={isDark ? 'text-mayssa-gold' : 'text-white'} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h1 className={cn('text-xs sm:text-sm font-display font-bold tracking-tight truncate', isDark ? 'text-zinc-100' : 'text-mayssa-brown')}>
-                Maison Mayssa Admin
-              </h1>
-              <p className={cn('text-[9px] sm:text-[10px] tabular-nums truncate max-w-[55vw] sm:max-w-[240px] md:max-w-md', isDark ? 'text-zinc-500' : 'text-mayssa-brown/40')}>
-                {user.email}
-              </p>
-            </div>
-          </div>
-
-          {/* Status badge */}
-          <div className={cn(
-            'flex items-center gap-2 px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border flex-shrink-0 min-h-9',
-            settings.ordersOpen === false
-              ? 'bg-red-50 text-red-700 border-red-200'
-              : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-          )}>
-            <span className={cn('h-1.5 w-1.5 rounded-full', settings.ordersOpen === false ? 'bg-red-500' : 'bg-emerald-500 animate-pulse')} />
-            {settings.ordersOpen === false ? 'Fermé' : 'Ouvert'}
-          </div>
-
-          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 w-full sm:w-auto justify-end sm:justify-start">
-            {/* Daily report button */}
-            <button
-              onClick={() => setShowDailyReport(true)}
-              className="flex items-center justify-center gap-1.5 min-h-11 min-w-11 sm:min-w-0 px-2.5 sm:px-3 sm:py-2 rounded-xl bg-mayssa-gold/10 text-mayssa-gold text-[10px] font-black uppercase tracking-wider hover:bg-mayssa-gold/20 transition-all cursor-pointer border border-mayssa-gold/20"
-              title="Rapport journalier"
-            >
-              <FileText size={16} className="sm:shrink-0" />
-              <span className="hidden sm:inline">Rapport</span>
-            </button>
-
-            {/* Notifications bell */}
-            <div className="relative">
-              <button
-                onClick={() => setShowNotifications(s => !s)}
-                className={cn(
-                  'relative min-h-11 min-w-11 inline-flex items-center justify-center rounded-xl transition-all duration-300 border cursor-pointer',
-                  showNotifications
-                    ? 'bg-mayssa-brown text-white border-mayssa-brown'
-                    : 'bg-mayssa-brown/5 text-mayssa-brown/60 border-mayssa-brown/10 hover:bg-mayssa-brown/10'
-                )}
-                title="Notifications"
-                aria-label="Notifications"
-              >
-                <Bell size={18} fill={soundEnabled ? 'currentColor' : 'none'} />
-              </button>
-              <AdminNotificationsCenter
-                orders={orders}
-                stock={stock}
-                allUsers={allUsers}
-                isOpen={showNotifications}
-                onClose={() => setShowNotifications(false)}
-                onNavigate={(t) => setTab(t as any)}
-              />
-            </div>
-
-            {/* Sound toggle */}
-            <button
-              onClick={() => {
-                if (soundEnabled && typeof Notification !== 'undefined' && Notification.permission === 'default') {
-                  Notification.requestPermission()
-                }
-                setSoundEnabled((s) => !s)
-              }}
-              className={cn(
-                'min-h-11 min-w-11 inline-flex items-center justify-center rounded-xl transition-all duration-300 border cursor-pointer text-lg',
-                soundEnabled
-                  ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
-                  : 'bg-mayssa-brown/5 text-mayssa-brown/30 border-mayssa-brown/10'
-              )}
-              title={soundEnabled ? 'Son activé' : 'Son coupé'}
-              aria-label={soundEnabled ? 'Son activé' : 'Son coupé'}
-            >
-              {soundEnabled ? '🔔' : '🔕'}
-            </button>
-
-            <button
-              onClick={handleLogout}
-              className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-xl text-mayssa-brown/40 hover:text-red-500 hover:bg-red-50 transition-all duration-300 border border-transparent hover:border-red-200 cursor-pointer"
-              title="Déconnexion"
-              aria-label="Déconnexion"
-            >
-              <LogOut size={18} />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Recherche globale */}
-      <div className="max-w-5xl mx-auto px-3 sm:px-6 pt-3 sm:pt-8 relative z-30 flex-shrink-0 max-lg:shrink-0 w-full min-w-0">
-        <div className="relative group w-full min-w-0">
-          <Search size={18} className="absolute left-3.5 sm:left-4 top-1/2 -translate-y-1/2 text-mayssa-brown/30 group-focus-within:text-mayssa-gold transition-colors pointer-events-none z-[1]" />
-          <input
-            type="search"
-            value={globalSearch}
-            onChange={(e) => setGlobalSearch(e.target.value)}
-            placeholder="Client, tél. ou n° commande…"
-            aria-label="Rechercher un client, un numéro de téléphone ou un numéro de commande"
-            title="Rechercher un client, un numéro de téléphone ou un numéro de commande"
-            className={cn(
-              'w-full min-w-0 rounded-[2rem] pl-11 sm:pl-12 pr-11 sm:pr-12 py-3.5 sm:py-4 text-base sm:text-sm font-medium backdrop-blur-xl shadow-premium-shadow focus:outline-none focus:ring-2 focus:ring-mayssa-gold/20 focus:border-mayssa-gold transition-all',
-              isDark ? 'border border-zinc-700 bg-zinc-800/80 text-zinc-100 placeholder:text-zinc-500' : 'border border-mayssa-brown/10 text-mayssa-brown placeholder:text-mayssa-brown/30 bg-white/80'
-            )}
-          />
-          {globalSearch && (
-            <button
-              type="button"
-              onClick={() => setGlobalSearch('')}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-mayssa-brown/30 hover:text-mayssa-brown transition-all"
-            >
-              <X size={18} />
-            </button>
-          )}
-
-          {/* Résultats de recherche en direct */}
-          <AnimatePresence>
-            {globalSearchResults.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 5, scale: 0.95 }}
-                className={cn(
-                'absolute top-full left-0 right-0 mt-3 p-2 backdrop-blur-2xl rounded-3xl shadow-2xl z-[60] overflow-hidden',
-                isDark ? 'bg-zinc-800/95 border border-zinc-700' : 'bg-white/95 border border-white/50'
-              )}
-              >
-                <div className="max-h-[min(400px,70vh)] overflow-y-auto custom-scrollbar p-2 space-y-1">
-                  {globalSearchResults.map(([id, order]) => (
-                    <button
-                      key={id}
-                      onClick={() => {
-                        setTab('historique')
-                        setEditingOrderId(id)
-                        setGlobalSearch('')
-                      }}
-                      className={cn(
-                        'w-full flex items-center justify-between p-4 rounded-2xl transition-colors text-left group',
-                        isDark ? 'hover:bg-zinc-700/50' : 'hover:bg-mayssa-soft/50'
-                      )}
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className={cn('h-10 w-10 rounded-xl flex items-center justify-center', isDark ? 'bg-zinc-700 text-zinc-300' : 'bg-mayssa-soft text-mayssa-brown')}>
-                          {order.deliveryMode === 'livraison' ? <Truck size={18} /> : <MapPin size={18} />}
-                        </div>
-                        <div>
-                          <p className={cn('text-sm font-bold', isDark ? 'text-zinc-200' : 'text-mayssa-brown')}>
-                            {formatOrderCustomerDisplayName(order)}
-                          </p>
-                          <p className={cn('text-[10px] font-medium', isDark ? 'text-zinc-500' : 'text-mayssa-brown/50')}>
-                            {order.orderNumber ? `#${order.orderNumber}` : 'Sans numéro'} • {new Date(order.createdAt ?? 0).toLocaleDateString('fr-FR')}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end gap-1">
-                        <span className="text-xs font-black text-mayssa-gold">{order.total?.toFixed(0)}€</span>
-                        <span className={cn(
-                          "text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg",
-                          order.status === 'en_attente' ? "bg-amber-100 text-amber-600" :
-                          order.status === 'en_preparation' ? "bg-blue-100 text-blue-600" :
-                          order.status === 'pret' ? "bg-emerald-100 text-emerald-600" : "bg-mayssa-brown/5 text-mayssa-brown/40"
-                        )}>
-                          {order.status}
-                        </span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
-
-      <main
-        className={cn(
-          'w-full max-w-full md:max-w-3xl lg:max-w-4xl mx-auto px-3 sm:px-5 py-4 space-y-4 flex-1 overflow-x-hidden',
-          'max-lg:min-h-0 max-lg:overflow-y-auto max-lg:overscroll-y-contain touch-pan-y',
-          'pb-[max(2rem,calc(env(safe-area-inset-bottom,0px)+1rem))]',
-          isDark ? '' : '',
-        )}
-      >
         {/* Status banner */}
-        <div className={cn(
-          'rounded-2xl p-4 text-center shadow-sm',
-          settings.ordersOpen === false ? (isDark ? 'bg-red-950/40 border border-red-800' : 'bg-red-50 border border-red-200') :
-          isPreorderDay ? (isDark ? 'bg-emerald-950/40 border border-emerald-800' : 'bg-emerald-50 border border-emerald-200') :
-          (isDark ? 'bg-amber-950/40 border border-amber-800' : 'bg-amber-50 border border-amber-200')
+        <div className={adminStatusBanner(
+          settings.ordersOpen === false ? 'closed' : isPreorderDay ? 'open' : 'warning',
+          isDark,
         )}>
-          <p className={cn(
-            'text-sm font-bold',
-            settings.ordersOpen === false ? (isDark ? 'text-red-300' : 'text-red-800') :
-            isPreorderDay ? (isDark ? 'text-emerald-300' : 'text-emerald-800') :
-            (isDark ? 'text-amber-300' : 'text-amber-800')
-          )}>
+          <p>
             {settings.ordersOpen === false
               ? 'Commandes fermées — les clients ne peuvent pas envoyer de commande'
               : isPreorderDay
@@ -1866,93 +1441,73 @@ function Dashboard({ user }: { user: User }) {
               transition={{ duration: 0.2 }}
               className="space-y-4"
             >
-              {/* Ouvrir / Fermer les commandes */}
-              <div className={`rounded-2xl p-4 border-2 ${settings.ordersOpen === false ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'}`}>
-                <div className="flex flex-wrap items-center justify-between gap-3">
+              <AdminPanelCard>
+                <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
-                    <p className="text-sm font-bold text-mayssa-brown">
-                      {settings.ordersOpen === false ? 'Commandes fermées' : 'Commandes ouvertes'}
+                    <p className="admin-panel-title">
+                      {settings.ordersOpen === false ? 'Boutique fermée' : 'Boutique ouverte'}
                     </p>
-                    <p className="text-[10px] text-mayssa-brown/60 mt-0.5">
-                      {settings.ordersOpen === false ? 'Les clients ne peuvent pas envoyer de commande.' : 'Les clients peuvent commander.'}
+                    <p className="admin-panel-desc">
+                      {settings.ordersOpen === false
+                        ? 'Les clients ne peuvent pas commander.'
+                        : 'Les précommandes sont actives côté client.'}
                     </p>
                   </div>
-                  <button
-                    type="button"
+                  <AdminBtn
+                    variant={settings.ordersOpen === false ? 'success' : 'secondary'}
                     onClick={() => updateSettings({ ordersOpen: !(settings.ordersOpen !== false) })}
-                    className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-colors cursor-pointer ${
-                      settings.ordersOpen === false ? 'bg-emerald-500 text-white hover:bg-emerald-600' : 'bg-white border-2 border-amber-300 text-amber-700 hover:bg-amber-50'
-                    }`}
                   >
-                    {settings.ordersOpen === false ? 'Ouvrir les commandes' : 'Fermer les commandes'}
-                  </button>
+                    {settings.ordersOpen === false ? 'Ouvrir' : 'Fermer'}
+                  </AdminBtn>
                 </div>
-              </div>
+              </AdminPanelCard>
 
-              {/* KPIs cliquables */}
               {(() => {
                 const preparationCount = Object.values(orders).filter(o => o.status === 'en_preparation').length
                 return (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                    <button
-                      type="button"
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <AdminKpi
+                      label="À valider"
+                      value={pendingCount}
+                      hint="Voir les commandes →"
+                      tone={pendingCount > 0 ? 'warning' : 'default'}
                       onClick={() => setTab('commandes')}
-                      className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-premium-shadow border border-white hover:border-mayssa-gold transition-all duration-700 text-left group"
-                    >
-                      <span className="text-[10px] font-black uppercase tracking-[0.3em] text-mayssa-brown/30 group-hover:text-mayssa-gold transition-all">Commandes</span>
-                      <p className={cn("text-4xl font-display font-bold mt-3", pendingCount > 0 ? "text-amber-600" : "text-mayssa-brown")}>{pendingCount}</p>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-mayssa-gold mt-6 flex items-center gap-2">Actions Requises <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform" /></p>
-                    </button>
-                    <button
-                      type="button"
+                    />
+                    <AdminKpi
+                      label="En préparation"
+                      value={preparationCount}
+                      hint="Ouvrir le planning →"
+                      tone={preparationCount > 0 ? 'info' : 'default'}
                       onClick={() => { setTab('historique'); setHistoriqueVue('a_traiter') }}
-                      className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-premium-shadow border border-white hover:border-blue-400 transition-all duration-700 text-left group"
-                    >
-                      <span className="text-[10px] font-black uppercase tracking-[0.3em] text-mayssa-brown/30 group-hover:text-blue-500 transition-all">Atelier</span>
-                      <p className={cn("text-4xl font-display font-bold mt-3", preparationCount > 0 ? "text-blue-600" : "text-mayssa-brown")}>{preparationCount}</p>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-blue-500 mt-6 flex items-center gap-2">En Préparation <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform" /></p>
-                    </button>
-                    <button
-                      type="button"
+                    />
+                    <AdminKpi
+                      label="CA aujourd'hui"
+                      value={`${caJour.toFixed(0)}€`}
+                      hint="Analytics →"
+                      tone="gold"
                       onClick={() => setTab('ca')}
-                      className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-premium-shadow border border-white hover:border-mayssa-gold transition-all duration-700 text-left group"
-                    >
-                      <span className="text-[10px] font-black uppercase tracking-[0.3em] text-mayssa-brown/30 group-hover:text-mayssa-gold transition-all">Performance</span>
-                      <p className="text-4xl font-display font-bold text-mayssa-gold mt-3 font-numeric">{caJour.toFixed(0)}€</p>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-mayssa-brown/30 mt-6">Aujourd'hui</p>
-                    </button>
+                    />
                   </div>
                 )
               })()}
 
-              {/* Alertes urgentes (retrait dans < 2h) */}
               {urgentOrders.length > 0 && (
-                <div className={cn(
-                  'rounded-2xl p-4 border-2 animate-pulse',
-                  isDark ? 'bg-amber-950/50 border-amber-600/50' : 'bg-amber-50 border-amber-300'
-                )}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <AlertTriangle size={18} className="text-amber-600" />
-                    <span className={cn('text-sm font-bold', isDark ? 'text-amber-400' : 'text-amber-800')}>
-                      {urgentOrders.length} commande{urgentOrders.length > 1 ? 's' : ''} urgente{urgentOrders.length > 1 ? 's' : ''} — retrait dans moins de 2h
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
+                <AdminAlert
+                  tone="warning"
+                  title={`${urgentOrders.length} commande${urgentOrders.length > 1 ? 's' : ''} urgente${urgentOrders.length > 1 ? 's' : ''} — retrait < 2h`}
+                >
+                  <div className="flex flex-wrap gap-2 mt-2">
                     {urgentOrders.slice(0, 5).map(([id, o]) => (
-                      <button
+                      <AdminBtn
                         key={id}
-                        type="button"
+                        variant="ghost"
                         onClick={() => { setTab('historique'); setEditingOrderId(id) }}
-                        className={cn(
-                          'px-3 py-1.5 rounded-xl text-xs font-bold transition-colors',
-                          isDark ? 'bg-amber-900/50 text-amber-200 hover:bg-amber-800/50' : 'bg-amber-100 text-amber-800 hover:bg-amber-200'
-                        )}
                       >
                         {formatOrderCustomerDisplayName(o)} — {o.requestedTime}
-                      </button>
+                      </AdminBtn>
                     ))}
                   </div>
-                </div>
+                </AdminAlert>
               )}
 
               {/* CA heure par heure + Flux 5 commandes */}
@@ -2035,11 +1590,11 @@ function Dashboard({ user }: { user: User }) {
 
               {/* Stats : commandes cette semaine + Top 3 du mois */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5">
+                <div className="admin-panel admin-panel-pad">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">Commandes cette semaine</span>
                   <p className="text-lg font-display font-bold text-mayssa-brown mt-0.5">{commandesCetteSemaine} commande{commandesCetteSemaine !== 1 ? 's' : ''}</p>
                 </div>
-                <div className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5">
+                <div className="admin-panel admin-panel-pad">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">Top 3 du mois</span>
                   {top3Mois.length === 0 ? (
                     <p className="text-sm text-mayssa-brown/50 mt-0.5">Aucune vente ce mois</p>
@@ -2054,7 +1609,7 @@ function Dashboard({ user }: { user: User }) {
               </div>
 
               {/* À préparer pour demain (ou date au choix) — préparer à l'avance */}
-              <div className="bg-white rounded-2xl p-4 shadow-sm border border-mayssa-brown/5">
+              <div className="admin-panel admin-panel-pad">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-bold text-mayssa-brown">À préparer pour le</span>
@@ -2107,11 +1662,11 @@ function Dashboard({ user }: { user: User }) {
                     }
                     const prodList = Object.values(prodMap).sort((a, b) => b.qty - a.qty)
                     return (
-                      <div className="mb-4 p-3 rounded-xl bg-mayssa-gold/5 border border-mayssa-gold/20">
+                      <div className="admin-highlight-box">
                         <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60 mb-2">Produits à préparer ({prodList.reduce((s, p) => s + p.qty, 0)} pièces)</p>
                         <div className="flex flex-wrap gap-2">
                           {prodList.map((p, i) => (
-                            <span key={i} className="px-2.5 py-1 rounded-lg bg-white border border-mayssa-brown/10 text-xs font-bold text-mayssa-brown">
+                            <span key={i} className="admin-chip">
                               {p.qty}× {p.name}
                             </span>
                           ))}
@@ -2131,7 +1686,7 @@ function Dashboard({ user }: { user: User }) {
                       return (
                         <li
                           key={id}
-                          className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-mayssa-soft/50 border border-mayssa-brown/10"
+                          className="flex flex-wrap items-center justify-between gap-2 admin-order-row"
                         >
                           <div className="min-w-0 flex-1">
                             <p className="text-xs font-bold text-mayssa-brown truncate">{client}</p>
@@ -2223,118 +1778,113 @@ function Dashboard({ user }: { user: User }) {
             transition={{ duration: 0.2 }}
             className="space-y-4"
           >
-            {/* KPI + Actions */}
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="bg-white rounded-xl px-4 py-2 shadow-sm border border-mayssa-brown/5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">En attente</span>
-                  <p className="text-lg font-display font-bold text-mayssa-brown">{pendingCount}</p>
-                </div>
-                <button
-                  onClick={() => { setOffSitePresetClient(null); setShowOffSiteForm(true) }}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-mayssa-brown text-white text-xs font-bold hover:bg-mayssa-brown/90 shadow-md transition-all cursor-pointer"
-                >
-                  <Plus size={16} />
-                  Commande hors-site
-                </button>
-              </div>
-            </div>
-
-            {/* Filtres premium */}
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-mayssa-brown/5 space-y-3">
-              <div className="flex items-center gap-2 text-mayssa-brown/70">
+            <AdminPanelHeader
+              title="Commandes à valider"
+              description={`${pendingCount} en attente de validation`}
+              icon={ClipboardList}
+              action={
+                <AdminBtn variant="primary" onClick={() => { setOffSitePresetClient(null); setShowOffSiteForm(true) }}>
+                  <Plus size={14} /> Hors-site
+                </AdminBtn>
+              }
+            />
+            {/* Filtres */}
+            <div className="admin-panel admin-panel-pad space-y-3">
+              <div className="admin-filters-head">
                 <Filter size={14} />
-                <span className="text-xs font-bold uppercase tracking-wider">Filtres</span>
+                <span className="admin-filters-head-label">Filtres</span>
                 {hasActiveFilters && (
-                  <button
-                    onClick={clearFilters}
-                    className="ml-auto flex items-center gap-1 text-[10px] font-bold text-amber-600 hover:text-amber-700 cursor-pointer"
-                  >
+                  <button type="button" onClick={clearFilters} className="admin-filters-clear">
                     <XCircle size={12} />
                     Effacer
                   </button>
                 )}
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="relative flex-1 min-w-[130px]">
-                  <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-mayssa-brown/40" />
+              <div className="admin-filters">
+                <div className="admin-field-search">
+                  <Search size={14} className="admin-field-search-icon" />
                   <input
                     type="text"
-                    placeholder="Nom, téléphone ou pseudo..."
+                    placeholder="Nom, téléphone ou pseudo…"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-mayssa-brown/10 text-xs text-mayssa-brown bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel focus:border-transparent"
+                    className="admin-input-field"
                   />
                 </div>
-                <div className="flex gap-1">
+                <div className="admin-segment">
                   {(['today', '7d', '30d', 'month'] as const).map((p) => (
                     <button
                       key={p}
+                      type="button"
                       onClick={() => setDatePreset(p)}
-                      className="px-2.5 py-2 rounded-lg text-[10px] font-bold bg-slate-100 text-mayssa-brown/70 hover:bg-mayssa-soft transition-colors cursor-pointer"
+                      className={cn('admin-segment-btn', activeDatePreset === p && 'is-active')}
                     >
                       {p === 'today' ? "Aujourd'hui" : p === '7d' ? '7 j' : p === '30d' ? '30 j' : 'Ce mois'}
                     </button>
                   ))}
                 </div>
-                <input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                  className="rounded-xl border border-mayssa-brown/10 px-2.5 py-2 text-xs font-medium text-mayssa-brown bg-white w-32"
-                  title="Du"
-                />
-                <input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => setDateTo(e.target.value)}
-                  className="rounded-xl border border-mayssa-brown/10 px-2.5 py-2 text-xs font-medium text-mayssa-brown bg-white w-32"
-                  title="Au"
-                />
-                <select
-                  value={sourceFilter}
-                  onChange={e => setSourceFilter(e.target.value as OrderSource | 'all')}
-                  className="rounded-xl border border-mayssa-brown/10 px-3 py-2 text-xs font-bold text-mayssa-brown bg-white"
-                >
-                  <option value="all">Toutes sources</option>
-                  <option value="site">Site</option>
-                  <option value="snap">Snap</option>
-                  <option value="instagram">Insta</option>
-                  <option value="whatsapp">WhatsApp</option>
-                </select>
-                <select
-                  value={deliveryFilter}
-                  onChange={e => setDeliveryFilter(e.target.value as 'all' | 'livraison' | 'retrait')}
-                  className="rounded-xl border border-mayssa-brown/10 px-3 py-2 text-xs font-bold text-mayssa-brown bg-white"
-                >
-                  <option value="all">Tous modes</option>
-                  <option value="livraison">Livraison</option>
-                  <option value="retrait">Retrait</option>
-                </select>
-                {allProductsInPendingOrders.length > 0 && (
+                <div className="admin-filters-dates">
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => { setDateFrom(e.target.value); setActiveDatePreset(null) }}
+                    className="admin-input-field"
+                    title="Du"
+                  />
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => { setDateTo(e.target.value); setActiveDatePreset(null) }}
+                    className="admin-input-field"
+                    title="Au"
+                  />
+                </div>
+                <div className="admin-filters-selects">
                   <select
-                    value={pendingProductFilter}
-                    onChange={e => setPendingProductFilter(e.target.value)}
-                    className="rounded-xl border border-mayssa-brown/10 px-3 py-2 text-xs font-bold text-mayssa-brown bg-white"
+                    value={sourceFilter}
+                    onChange={e => setSourceFilter(e.target.value as OrderSource | 'all')}
+                    className="admin-input-field"
                   >
-                    <option value="">Tous les produits</option>
-                    {allProductsInPendingOrders.map(([id, label]) => (
-                      <option key={id} value={id}>{label}</option>
-                    ))}
+                    <option value="all">Toutes sources</option>
+                    <option value="site">Site</option>
+                    <option value="snap">Snap</option>
+                    <option value="instagram">Insta</option>
+                    <option value="whatsapp">WhatsApp</option>
                   </select>
-                )}
+                  <select
+                    value={deliveryFilter}
+                    onChange={e => setDeliveryFilter(e.target.value as 'all' | 'livraison' | 'retrait')}
+                    className="admin-input-field"
+                  >
+                    <option value="all">Tous modes</option>
+                    <option value="livraison">Livraison</option>
+                    <option value="retrait">Retrait</option>
+                  </select>
+                  {allProductsInPendingOrders.length > 0 && (
+                    <select
+                      value={pendingProductFilter}
+                      onChange={e => setPendingProductFilter(e.target.value)}
+                      className="admin-input-field"
+                    >
+                      <option value="">Tous les produits</option>
+                      {allProductsInPendingOrders.map(([id, label]) => (
+                        <option key={id} value={id}>{label}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
               </div>
             </div>
 
             {ordersToValidate.length === 0 ? (
-              <div className="bg-white rounded-2xl p-12 shadow-sm border border-mayssa-brown/5 text-center">
+              <div className="admin-panel admin-panel-pad admin-empty text-center">
                 <ClipboardList size={48} className="mx-auto text-mayssa-brown/15 mb-4" />
                 <p className="text-sm font-medium text-mayssa-brown/60">Aucune commande en attente</p>
                 <p className="text-xs text-mayssa-brown/40 mt-1">{hasActiveFilters ? 'Essayez d\'effacer les filtres' : 'Les nouvelles commandes apparaîtront ici'}</p>
               </div>
             ) : (
               <>
-                <div className="flex flex-wrap items-center gap-2 py-2">
+                <div className="admin-bulk-bar">
                   <button
                     type="button"
                     onClick={() => setSelectedPendingIds(ordersToValidate.length === selectedPendingIds.size ? new Set() : new Set(ordersToValidate.map(([id]) => id)))}
@@ -2441,7 +1991,7 @@ function Dashboard({ user }: { user: User }) {
                   key={id}
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className={`bg-white rounded-2xl p-4 shadow-md border border-mayssa-brown/5 border-l-4 ${isSelected ? 'ring-2 ring-mayssa-caramel' : ''} ${
+                  className={`admin-order-card border-l-4 ${isSelected ? 'ring-2 ring-mayssa-caramel' : ''} ${
                     order.status === 'en_attente'
                       ? 'border-l-amber-400'
                       : order.status === 'validee'
@@ -2450,8 +2000,8 @@ function Dashboard({ user }: { user: User }) {
                   }`}
                 >
                   {/* Header commande */}
-                  <div className="flex items-start justify-between mb-3 gap-2">
-                    <label className="flex items-center gap-2 cursor-pointer flex-shrink-0">
+                  <div className="admin-order-card-head">
+                    <label className="admin-order-check flex items-center cursor-pointer">
                       <input
                         type="checkbox"
                         checked={isSelected}
@@ -2461,19 +2011,19 @@ function Dashboard({ user }: { user: User }) {
                           else next.add(id)
                           return next
                         })}
-                        className="rounded border-mayssa-brown/30 text-mayssa-caramel focus:ring-mayssa-caramel"
+                        className="admin-checkbox"
                       />
                       <span className="sr-only">Sélectionner</span>
                     </label>
                     <button
                       type="button"
                       onClick={() => { togglePinOrder(id); setPinsVersion(v => v + 1) }}
-                      className={cn('p-1.5 rounded-lg transition-colors', isOrderPinned(id) ? 'text-mayssa-gold' : 'text-mayssa-brown/30 hover:text-mayssa-brown/60')}
+                      className={cn('admin-order-pin', isOrderPinned(id) ? 'text-mayssa-gold' : 'text-mayssa-brown/30 hover:text-mayssa-brown/60')}
                       title={isOrderPinned(id) ? 'Retirer des favoris' : 'Épingler'}
                     >
                       <Pin size={14} fill={isOrderPinned(id) ? 'currentColor' : 'none'} />
                     </button>
-                    <div className="min-w-0 flex-1">
+                    <div className="admin-order-info min-w-0">
                       <p className="text-[10px] font-bold text-mayssa-brown/50 uppercase tracking-wider mb-0.5">
                         Commande {order.orderNumber != null ? `#${order.orderNumber}` : `#${id.slice(-8)}`}
                       </p>
@@ -2481,12 +2031,13 @@ function Dashboard({ user }: { user: User }) {
                         <p className="text-sm font-bold text-mayssa-brown">
                           {formatOrderCustomerDisplayName(order)}
                         </p>
-                        <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold border ${
-                          orderSource === 'snap' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-                          orderSource === 'instagram' ? 'bg-pink-50 text-pink-700 border-pink-200' :
-                          orderSource === 'whatsapp' ? 'bg-green-50 text-green-700 border-green-200' :
-                          'bg-gray-50 text-gray-500 border-gray-200'
-                        }`}>
+                        <span className={cn(
+                          'admin-source-tag',
+                          orderSource === 'snap' && 'admin-source-tag--snap',
+                          orderSource === 'instagram' && 'admin-source-tag--instagram',
+                          orderSource === 'whatsapp' && 'admin-source-tag--whatsapp',
+                          orderSource === 'site' && 'admin-source-tag--site',
+                        )}>
                           {orderSource === 'snap' ? 'Snap' : orderSource === 'instagram' ? 'Insta' : orderSource === 'whatsapp' ? 'WhatsApp' : 'Site'}
                         </span>
                       </div>
@@ -2527,14 +2078,13 @@ function Dashboard({ user }: { user: User }) {
                         </div>
                       )}
                     </div>
-                    <div className="text-right">
-                      <span className={`inline-block px-2 py-1 rounded-lg text-[10px] font-bold ${
-                        order.status === 'en_attente'
-                          ? 'bg-amber-50 text-amber-700'
-                          : order.status === 'validee'
-                            ? 'bg-emerald-50 text-emerald-700'
-                            : 'bg-red-50 text-red-600'
-                      }`}>
+                    <div className="admin-order-status text-right">
+                      <span className={cn(
+                        'admin-status-pill',
+                        order.status === 'en_attente' && 'admin-status-pill--pending',
+                        order.status === 'validee' && 'admin-status-pill--success',
+                        order.status !== 'en_attente' && order.status !== 'validee' && 'admin-status-pill--danger',
+                      )}>
                         {order.status === 'en_attente' ? 'En attente' : order.status === 'validee' ? 'Validée' : 'Refusée'}
                       </span>
                       <p className="text-[9px] text-mayssa-brown/40 mt-1">
@@ -2769,23 +2319,15 @@ function Dashboard({ user }: { user: User }) {
 
         {/* ===== TOGGLE PLANNING / HISTORIQUE ===== */}
         {tab === 'historique' && (
-          <div className="flex gap-1.5 bg-white rounded-2xl p-1.5 shadow-sm border border-mayssa-brown/5">
-            {([
-              { id: 'calendrier' as const, icon: LayoutDashboard, label: '📅 Planning' },
-              { id: 'liste' as const, icon: History, label: '📋 Historique' },
-            ] as const).map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => setHistoriqueMode(m.id)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  historiqueMode === m.id ? 'bg-mayssa-brown text-white shadow-md' : 'text-mayssa-brown/60 hover:bg-mayssa-soft/80'
-                }`}
-              >
-                {m.label}
-              </button>
-            ))}
-          </div>
+          <AdminSubNav
+            isDark={isDark}
+            active={historiqueMode}
+            onChange={setHistoriqueMode}
+            items={[
+              { id: 'calendrier', icon: LayoutDashboard, label: 'Planning' },
+              { id: 'liste', icon: History, label: 'Historique' },
+            ]}
+          />
         )}
 
         {/* ===== HISTORIQUE DES COMMANDES (mode liste) ===== */}
@@ -2796,7 +2338,11 @@ function Dashboard({ user }: { user: User }) {
             transition={{ duration: 0.2 }}
             className="space-y-4"
           >
-            {/* Onglets statut — chaque statut séparé */}
+            <AdminPanelHeader
+              title="Historique des commandes"
+              description="Parcourir toutes les commandes par statut, rechercher et exporter."
+              icon={History}
+            />
             {(() => {
               const cnt = (status: string | string[]) => {
                 const statuses = Array.isArray(status) ? status : [status]
@@ -2812,7 +2358,7 @@ function Dashboard({ user }: { user: User }) {
                 { vue: 'toutes',   label: 'Toutes',      count: Object.keys(orders).length, color: 'bg-mayssa-brown text-white' },
               ]
               return (
-                <div className="bg-white rounded-2xl shadow-sm border border-mayssa-brown/5 p-3">
+                <div className="admin-panel admin-panel-pad">
                   <div className="flex flex-wrap gap-1.5">
                     {tabs.map((t) => (
                       <button
@@ -2855,7 +2401,7 @@ function Dashboard({ user }: { user: User }) {
             {/* KPI + Export */}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2">
-                <div className="bg-white rounded-xl px-4 py-2 shadow-sm border border-mayssa-brown/5">
+                <div className="admin-mini-stat">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">
                     {historiqueVue === 'a_faire' ? (aFaireAujourdhuiOnly ? "Aujourd'hui" : 'En attente') : historiqueVue === 'a_traiter' ? 'En préparation' : historiqueVue === 'pret' ? 'Prêtes' : historiqueVue === 'livree' ? 'Livrées' : historiqueVue === 'validee' ? 'Validées' : historiqueVue === 'refusee' ? 'Refusées' : 'Toutes'}
                   </span>
@@ -2929,38 +2475,67 @@ function Dashboard({ user }: { user: User }) {
               </div>
             </div>
 
-            {/* Filtres premium avec statut */}
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-mayssa-brown/5 space-y-3">
-              <div className="flex items-center gap-2 text-mayssa-brown/70">
+            {/* Filtres */}
+            <div className="admin-panel admin-panel-pad space-y-3">
+              <div className="admin-filters-head">
                 <Filter size={14} />
-                <span className="text-xs font-bold uppercase tracking-wider">Filtres</span>
+                <span className="admin-filters-head-label">Filtres</span>
                 {hasActiveFilters && (
-                  <button
-                    onClick={clearFilters}
-                    className="ml-auto flex items-center gap-1 text-[10px] font-bold text-amber-600 hover:text-amber-700 cursor-pointer"
-                  >
+                  <button type="button" onClick={clearFilters} className="admin-filters-clear">
                     <XCircle size={12} />
                     Effacer
                   </button>
                 )}
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="relative flex-1 min-w-[130px]">
-                  <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-mayssa-brown/40" />
+              <div className="admin-filters">
+                <div className="admin-field-search">
+                  <Search size={14} className="admin-field-search-icon" />
                   <input
                     type="text"
-                    placeholder="Nom, téléphone ou pseudo..."
+                    placeholder="Nom, téléphone ou pseudo…"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-mayssa-brown/10 text-xs text-mayssa-brown bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
+                    className="admin-input-field"
                   />
                 </div>
                 {historiqueVue === 'toutes' && (
                   <>
+                    <div className="admin-segment">
+                      {(['today', '7d', '30d', 'month'] as const).map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => setDatePreset(p)}
+                          className={cn('admin-segment-btn', activeDatePreset === p && 'is-active')}
+                        >
+                          {p === 'today' ? "Aujourd'hui" : p === '7d' ? '7 j' : p === '30d' ? '30 j' : 'Ce mois'}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="admin-filters-dates">
+                      <input
+                        type="date"
+                        value={dateFrom}
+                        onChange={(e) => { setDateFrom(e.target.value); setActiveDatePreset(null) }}
+                        className="admin-input-field"
+                        title="Date de création (du)"
+                      />
+                      <input
+                        type="date"
+                        value={dateTo}
+                        onChange={(e) => { setDateTo(e.target.value); setActiveDatePreset(null) }}
+                        className="admin-input-field"
+                        title="Date de création (au)"
+                      />
+                    </div>
+                  </>
+                )}
+                <div className="admin-filters-selects">
+                  {historiqueVue === 'toutes' && (
                     <select
                       value={statusFilter}
                       onChange={e => setStatusFilter(e.target.value as typeof statusFilter)}
-                      className="rounded-xl border border-mayssa-brown/10 px-3 py-2 text-xs font-bold text-mayssa-brown bg-white"
+                      className="admin-input-field"
                     >
                       <option value="all">Tous statuts</option>
                       <option value="en_attente">En attente</option>
@@ -2970,53 +2545,28 @@ function Dashboard({ user }: { user: User }) {
                       <option value="validee">Validées</option>
                       <option value="refusee">Refusées</option>
                     </select>
-                    <div className="flex gap-1">
-                      {(['today', '7d', '30d', 'month'] as const).map((p) => (
-                        <button
-                          key={p}
-                          onClick={() => setDatePreset(p)}
-                          className="px-2.5 py-2 rounded-lg text-[10px] font-bold bg-slate-100 text-mayssa-brown/70 hover:bg-mayssa-soft transition-colors cursor-pointer"
-                        >
-                          {p === 'today' ? "Aujourd'hui" : p === '7d' ? '7 j' : p === '30d' ? '30 j' : 'Ce mois'}
-                        </button>
-                      ))}
-                    </div>
-                    <input
-                      type="date"
-                      value={dateFrom}
-                      onChange={(e) => setDateFrom(e.target.value)}
-                      className="rounded-xl border border-mayssa-brown/10 px-2.5 py-2 text-xs font-medium text-mayssa-brown bg-white w-32"
-                      title="Date de création"
-                    />
-                    <input
-                      type="date"
-                      value={dateTo}
-                      onChange={(e) => setDateTo(e.target.value)}
-                      className="rounded-xl border border-mayssa-brown/10 px-2.5 py-2 text-xs font-medium text-mayssa-brown bg-white w-32"
-                      title="Date de création"
-                    />
-                  </>
-                )}
-                <select
-                  value={sourceFilter}
-                  onChange={e => setSourceFilter(e.target.value as OrderSource | 'all')}
-                  className="rounded-xl border border-mayssa-brown/10 px-3 py-2 text-xs font-bold text-mayssa-brown bg-white"
-                >
-                  <option value="all">Toutes sources</option>
-                  <option value="site">Site</option>
-                  <option value="snap">Snap</option>
-                  <option value="instagram">Insta</option>
-                  <option value="whatsapp">WhatsApp</option>
-                </select>
-                <select
-                  value={deliveryFilter}
-                  onChange={e => setDeliveryFilter(e.target.value as 'all' | 'livraison' | 'retrait')}
-                  className="rounded-xl border border-mayssa-brown/10 px-3 py-2 text-xs font-bold text-mayssa-brown bg-white"
-                >
-                  <option value="all">Tous modes</option>
-                  <option value="livraison">Livraison</option>
-                  <option value="retrait">Retrait</option>
-                </select>
+                  )}
+                  <select
+                    value={sourceFilter}
+                    onChange={e => setSourceFilter(e.target.value as OrderSource | 'all')}
+                    className="admin-input-field"
+                  >
+                    <option value="all">Toutes sources</option>
+                    <option value="site">Site</option>
+                    <option value="snap">Snap</option>
+                    <option value="instagram">Insta</option>
+                    <option value="whatsapp">WhatsApp</option>
+                  </select>
+                  <select
+                    value={deliveryFilter}
+                    onChange={e => setDeliveryFilter(e.target.value as 'all' | 'livraison' | 'retrait')}
+                    className="admin-input-field"
+                  >
+                    <option value="all">Tous modes</option>
+                    <option value="livraison">Livraison</option>
+                    <option value="retrait">Retrait</option>
+                  </select>
+                </div>
               </div>
               {historiqueVue !== 'toutes' && (
                 <p className="text-[10px] text-mayssa-brown/50">
@@ -3031,7 +2581,7 @@ function Dashboard({ user }: { user: User }) {
             </div>
 
             {displayedOrders.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2 py-2">
+              <div className="admin-bulk-bar">
                 <button
                   type="button"
                   onClick={() => setSelectedHistoriqueIds(selectedHistoriqueIds.size === displayedOrders.length ? new Set() : new Set(displayedOrders.map(([id]) => id)))}
@@ -3043,7 +2593,7 @@ function Dashboard({ user }: { user: User }) {
                   <>
                     <span className="text-[10px] text-mayssa-brown/50">{selectedHistoriqueIds.size} sélectionnée{selectedHistoriqueIds.size > 1 ? 's' : ''}</span>
                     <select
-                      className="rounded-lg border border-mayssa-brown/20 px-2 py-1.5 text-[10px] font-bold text-mayssa-brown bg-white cursor-pointer"
+                      className="admin-input-field cursor-pointer !w-auto !py-1.5 !text-[10px]"
                       defaultValue=""
                       onChange={async (e) => {
                         const status = e.target.value as OrderStatus | ''
@@ -3105,7 +2655,7 @@ function Dashboard({ user }: { user: User }) {
                               else next.add(id)
                               return next
                             })}
-                            className="rounded border-mayssa-brown/30 text-mayssa-caramel focus:ring-mayssa-caramel"
+                            className="admin-checkbox"
                           />
                           <span className="sr-only">Sélectionner</span>
                         </label>
@@ -3394,27 +2944,15 @@ function Dashboard({ user }: { user: User }) {
           const retrInPrep = Object.values(orders).filter(o => o.deliveryMode === 'retrait' && o.status === 'en_preparation').length
           return (
             <div className="space-y-4">
-              <div className="flex gap-1.5 bg-white rounded-2xl p-1.5 shadow-sm border border-mayssa-brown/5">
-                {([
-                  { id: 'livraison' as const, icon: Truck, label: 'Livraison', badge: delivInPrep },
-                  { id: 'retrait' as const, icon: MapPin, label: 'Retrait', badge: retrInPrep },
-                ] as const).map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => setLivraisonMode(s.id)}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      livraisonMode === s.id ? 'bg-mayssa-brown text-white shadow-md' : 'text-mayssa-brown/60 hover:bg-mayssa-soft/80'
-                    }`}
-                  >
-                    <s.icon size={14} />
-                    {s.label}
-                    {s.badge > 0 && (
-                      <span className="bg-blue-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">{s.badge}</span>
-                    )}
-                  </button>
-                ))}
-              </div>
+              <AdminSubNav
+                isDark={isDark}
+                active={livraisonMode}
+                onChange={setLivraisonMode}
+                items={[
+                  { id: 'livraison', icon: Truck, label: 'Livraison', badge: delivInPrep },
+                  { id: 'retrait', icon: MapPin, label: 'Retrait', badge: retrInPrep },
+                ]}
+              />
               <AdminLivraisonTab orders={orders} onEditOrder={(id) => setEditingOrderId(id)} mode={livraisonMode} />
             </div>
           )
@@ -3436,8 +2974,12 @@ function Dashboard({ user }: { user: User }) {
             transition={{ duration: 0.5 }}
             className="space-y-6"
           >
-            {/* Header Analytics */}
-            <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-premium-shadow border border-white flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <AdminPanelHeader
+              title="Analytics & performance"
+              description="Chiffre d'affaires, tendances et produits les plus vendus."
+              icon={TrendingUp}
+            />
+            <div className={cn(adminCard, adminCardPadLg, 'flex flex-col md:flex-row md:items-center justify-between gap-6')}>
               <div>
                 <div className="flex items-center gap-3 text-mayssa-gold mb-2">
                   <TrendingUp size={24} strokeWidth={2.5} />
@@ -3465,7 +3007,7 @@ function Dashboard({ user }: { user: User }) {
 
             {/* Main Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-white/80 backdrop-blur-xl rounded-[2rem] p-8 shadow-premium-shadow border border-white hover:border-mayssa-gold transition-all group">
+              <div className={cn(adminCard, adminCardPadLg, 'hover:border-mayssa-gold/35 transition-all group')}>
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-mayssa-brown/30 group-hover:text-mayssa-gold transition-colors">Chiffre d'Affaires</p>
                 <p className="text-3xl font-display font-bold text-mayssa-brown mt-4">{caTotal.toFixed(0)}<span className="text-mayssa-gold text-lg ml-1">€</span></p>
                 <div className="mt-6 flex items-center gap-2 text-[10px] font-bold text-emerald-600 bg-emerald-500/10 w-fit px-3 py-1 rounded-full">
@@ -3474,7 +3016,7 @@ function Dashboard({ user }: { user: User }) {
                 </div>
               </div>
 
-              <div className="bg-white/80 backdrop-blur-xl rounded-[2rem] p-8 shadow-premium-shadow border border-white hover:border-emerald-400 transition-all group">
+              <div className={cn(adminCard, adminCardPadLg, 'hover:border-emerald-400/40 transition-all group')}>
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-mayssa-brown/30 group-hover:text-emerald-500 transition-colors">Panier Moyen</p>
                 <p className="text-3xl font-display font-bold text-mayssa-brown mt-4">
                   {caOrders.length > 0 ? (caTotal / caOrders.length).toFixed(1) : '0'}<span className="text-emerald-500 text-lg ml-1">€</span>
@@ -3482,7 +3024,7 @@ function Dashboard({ user }: { user: User }) {
                 <p className="mt-6 text-[10px] font-bold text-mayssa-brown/40 uppercase tracking-widest">Sur {caOrders.length} commandes</p>
               </div>
 
-              <div className="bg-white/80 backdrop-blur-xl rounded-[2rem] p-8 shadow-premium-shadow border border-white hover:border-mayssa-gold transition-all group">
+              <div className={cn(adminCard, adminCardPadLg, 'hover:border-mayssa-gold/35 transition-all group')}>
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-mayssa-brown/30 group-hover:text-mayssa-gold transition-colors">Ventes Mois</p>
                 <p className="text-3xl font-display font-bold text-mayssa-gold mt-4">{caMois.toFixed(0)}<span className="text-mayssa-brown text-lg ml-1">€</span></p>
                 {croissanceMois !== null && (
@@ -3495,7 +3037,7 @@ function Dashboard({ user }: { user: User }) {
                 )}
               </div>
 
-              <div className="bg-white/80 backdrop-blur-xl rounded-[2rem] p-8 shadow-premium-shadow border border-white hover:border-blue-400 transition-all group">
+              <div className={cn(adminCard, adminCardPadLg, 'hover:border-blue-400/40 transition-all group')}>
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-mayssa-brown/30 group-hover:text-blue-500 transition-colors">Activité Semaine</p>
                 <p className="text-3xl font-display font-bold text-blue-600 mt-4">{caSemaine.toFixed(0)}<span className="text-mayssa-brown text-lg ml-1">€</span></p>
                 {comparaisonSemaine.pct !== null && (
@@ -3511,7 +3053,7 @@ function Dashboard({ user }: { user: User }) {
             </div>
 
             {/* Top produits par période */}
-            <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-premium-shadow border border-white">
+            <div className={cn(adminCard, adminCardPadLg)}>
               <p className="text-[10px] font-black uppercase tracking-[0.3em] text-mayssa-brown/40 mb-4">Produits les plus vendus</p>
               <div className="flex gap-2 mb-4">
                 {(['jour', 'semaine', 'mois'] as const).map((p) => (
@@ -3544,7 +3086,7 @@ function Dashboard({ user }: { user: User }) {
             {/* Secondary Analysis Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Distribution par Source */}
-              <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-premium-shadow border border-white">
+              <div className={cn(adminCard, adminCardPadLg)}>
                 <div className="flex items-center justify-between mb-8">
                   <p className="text-[10px] font-black uppercase tracking-[0.3em] text-mayssa-brown/40">Distribution par Canal</p>
                   <MessageSquare size={16} className="text-mayssa-gold" />
@@ -3578,7 +3120,7 @@ function Dashboard({ user }: { user: User }) {
               </div>
 
               {/* Meilleure Journée d'hier / historique */}
-              <div className="bg-gradient-to-br from-mayssa-brown to-mayssa-brown/90 rounded-[2.5rem] p-8 shadow-premium-shadow border border-mayssa-brown/10 text-white overflow-hidden relative group">
+              <div className="bg-gradient-to-br from-mayssa-espresso to-mayssa-brown p-6 sm:p-8 border border-mayssa-gold/20 text-white overflow-hidden relative group shadow-[0_12px_48px_rgba(30,18,13,0.2)]">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-mayssa-gold/10 blur-[100px] rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-110 transition-transform duration-700" />
                 <div className="relative z-10 flex flex-col h-full justify-between">
                   <div>
@@ -3604,7 +3146,7 @@ function Dashboard({ user }: { user: User }) {
             </div>
 
             {/* Courbe CA */}
-            <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-premium-shadow border border-white">
+            <div className={cn(adminCard, adminCardPadLg)}>
               <div className="flex items-center justify-between mb-8">
                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-mayssa-brown/40">Courbe de Croissance</p>
                 <div className="flex gap-1">
@@ -3766,30 +3308,18 @@ function Dashboard({ user }: { user: User }) {
 
         {/* ===== CLIENTS (Inscrits + Avis + Anniv + Alertes + Abonnés fusionnés) ===== */}
         {tab === 'clients' && (
-          <div className="flex flex-wrap gap-1.5 bg-white rounded-2xl p-1.5 shadow-sm border border-mayssa-brown/5">
-            {([
-              { id: 'inscrits' as const, icon: Users, label: 'Inscrits', badge: Object.keys(allUsers).length },
-              { id: 'avis' as const, icon: Star, label: 'Avis', badge: Object.keys(reviews).length },
-              { id: 'anniversaires' as const, icon: Cake, label: 'Anniv.', badge: upcomingBirthdays.filter(b => !b.claimed).length },
-              { id: 'alertes' as const, icon: Bell, label: 'Alertes', badge: Object.keys(notifyWhenAvailableEntries).length },
-              { id: 'abonnes' as const, icon: Gift, label: 'Abonnés', badge: 0 },
-            ] as const).map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => setClientsSection(s.id)}
-                className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  clientsSection === s.id ? 'bg-mayssa-brown text-white shadow-md' : 'text-mayssa-brown/60 hover:bg-mayssa-soft/80'
-                }`}
-              >
-                <s.icon size={13} />
-                {s.label}
-                {s.badge > 0 && (
-                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${clientsSection === s.id ? 'bg-white/25 text-white' : 'bg-red-500 text-white'}`}>{s.badge}</span>
-                )}
-              </button>
-            ))}
-          </div>
+          <AdminSubNav
+            isDark={isDark}
+            active={clientsSection}
+            onChange={setClientsSection}
+            items={[
+              { id: 'inscrits', icon: Users, label: 'Inscrits', badge: Object.keys(allUsers).length },
+              { id: 'avis', icon: Star, label: 'Avis', badge: Object.keys(reviews).length },
+              { id: 'anniversaires', icon: Cake, label: 'Anniversaires', badge: upcomingBirthdays.filter(b => !b.claimed).length },
+              { id: 'alertes', icon: Bell, label: 'Alertes', badge: Object.keys(notifyWhenAvailableEntries).length },
+              { id: 'abonnes', icon: Gift, label: 'Abonnés' },
+            ]}
+          />
         )}
 
         {/* ===== AVIS ===== */}
@@ -3798,12 +3328,14 @@ function Dashboard({ user }: { user: User }) {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2 }}
-            className="bg-white rounded-2xl p-6 shadow-sm border border-mayssa-brown/5 space-y-4"
+            className="space-y-4"
           >
-            <h3 className="font-bold text-mayssa-brown text-sm flex items-center gap-2">
-              <Star size={18} />
-              Avis clients
-            </h3>
+            <AdminPanelHeader
+              title="Avis clients"
+              description="Modérer les avis publiés sur le site et répondre aux retours."
+              icon={Star}
+            />
+            <div className="admin-panel admin-panel-pad space-y-4">
             <p className="text-xs text-mayssa-brown/60">
               {Object.keys(reviews).length} avis au total. Export CSV : note, commentaire, auteur, produits notés, id commande.
             </p>
@@ -3864,31 +3396,23 @@ function Dashboard({ user }: { user: User }) {
                   ))}
               </ul>
             )}
+            </div>
           </motion.section>
         )}
 
         {/* ===== CATALOGUE (Stock + Produits + Promos fusionnés) ===== */}
         {tab === 'catalogue' && (
           <div className="space-y-4">
-            <div className="flex gap-1.5 bg-white rounded-2xl p-1.5 shadow-sm border border-mayssa-brown/5">
-              {([
-                { id: 'stock' as const, icon: Package, label: 'Stock' },
-                { id: 'produits' as const, icon: ShoppingBag, label: 'Produits' },
-                { id: 'promos' as const, icon: Tag, label: 'Promos' },
-              ] as const).map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => setCatalogueSection(s.id)}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    catalogueSection === s.id ? 'bg-mayssa-brown text-white shadow-md' : 'text-mayssa-brown/60 hover:bg-mayssa-soft/80'
-                  }`}
-                >
-                  <s.icon size={14} />
-                  {s.label}
-                </button>
-              ))}
-            </div>
+            <AdminSubNav
+              isDark={isDark}
+              active={catalogueSection}
+              onChange={setCatalogueSection}
+              items={[
+                { id: 'stock', icon: Package, label: 'Stock' },
+                { id: 'produits', icon: ShoppingBag, label: 'Produits' },
+                { id: 'promos', icon: Tag, label: 'Promos' },
+              ]}
+            />
             {catalogueSection === 'stock' && (
               <AdminStockTab
                 allProducts={allProducts}
@@ -3927,25 +3451,16 @@ function Dashboard({ user }: { user: User }) {
 
         {/* ===== RÉGLAGES (Jours + Créneaux + Rappels fusionnés) ===== */}
         {tab === 'reglages' && (
-          <div className="flex gap-1.5 bg-white rounded-2xl p-1.5 shadow-sm border border-mayssa-brown/5">
-            {([
-              { id: 'jours' as const, icon: Calendar, label: 'Jours & ouverture' },
-              { id: 'creneaux' as const, icon: Clock, label: 'Créneaux' },
-              { id: 'rappels' as const, icon: Bell, label: 'Rappels' },
-            ] as const).map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => setReglagesSection(s.id)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  reglagesSection === s.id ? 'bg-mayssa-brown text-white shadow-md' : 'text-mayssa-brown/60 hover:bg-mayssa-soft/80'
-                }`}
-              >
-                <s.icon size={14} />
-                {s.label}
-              </button>
-            ))}
-          </div>
+          <AdminSubNav
+            isDark={isDark}
+            active={reglagesSection}
+            onChange={setReglagesSection}
+            items={[
+              { id: 'jours', icon: Calendar, label: 'Jours & ouverture' },
+              { id: 'creneaux', icon: Clock, label: 'Créneaux' },
+              { id: 'rappels', icon: Bell, label: 'Rappels' },
+            ]}
+          />
         )}
 
         {/* ===== JOURS (horaires précommandes trompe-l'œil) ===== */}
@@ -3954,8 +3469,14 @@ function Dashboard({ user }: { user: User }) {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2 }}
-            className="bg-white rounded-2xl p-6 shadow-sm border border-mayssa-brown/5 space-y-4"
+            className="space-y-4"
           >
+            <AdminPanelHeader
+              title="Jours & ouverture"
+              description="Horaires, précommandes trompe-l'œil et état des commandes en ligne."
+              icon={Calendar}
+            />
+            <div className="admin-panel admin-panel-pad space-y-4">
             {/* Toggle Commandes ouvertes / fermées */}
             <div className={`rounded-xl p-4 border-2 ${settings.ordersOpen === false ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'}`}>
               <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -4326,6 +3847,7 @@ function Dashboard({ user }: { user: User }) {
                 Ajouter un créneau
               </button>
             </div>
+            </div>
           </motion.section>
         )}
 
@@ -4340,13 +3862,14 @@ function Dashboard({ user }: { user: User }) {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2 }}
-            className="bg-white rounded-2xl p-6 shadow-sm border border-mayssa-brown/5 space-y-4"
+            className="space-y-4"
           >
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-mayssa-brown text-sm">Anniversaires à venir (30 jours)</h3>
-              <span className="text-[10px] text-mayssa-brown/50">{upcomingBirthdays.length} client{upcomingBirthdays.length > 1 ? 's' : ''}</span>
-            </div>
-
+            <AdminPanelHeader
+              title={`Anniversaires à venir (${upcomingBirthdays.length})`}
+              description="Clients dont l'anniversaire tombe dans les 30 prochains jours."
+              icon={Cake}
+            />
+            <div className="admin-panel admin-panel-pad space-y-4">
             {upcomingBirthdays.length === 0 ? (
               <div className="py-12 text-center rounded-xl bg-mayssa-soft/20 border border-mayssa-brown/5">
                 <Cake size={40} className="mx-auto text-mayssa-brown/15 mb-3" />
@@ -4401,6 +3924,7 @@ function Dashboard({ user }: { user: User }) {
                 ))}
               </div>
             )}
+            </div>
           </motion.section>
         )}
 
@@ -4410,16 +3934,14 @@ function Dashboard({ user }: { user: User }) {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2 }}
-            className="bg-white rounded-2xl p-6 shadow-sm border border-mayssa-brown/5 space-y-4"
+            className="space-y-4"
           >
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-mayssa-brown text-sm flex items-center gap-2">
-                <Users size={18} />
-                Clients inscrits
-              </h3>
-              <span className="text-[10px] text-mayssa-brown/50">{Object.keys(allUsers).length} inscrit{Object.keys(allUsers).length !== 1 ? 's' : ''}</span>
-            </div>
-
+            <AdminPanelHeader
+              title={`Clients inscrits (${Object.keys(allUsers).length})`}
+              description="Comptes créés sur le site — anniversaires et profils."
+              icon={Users}
+            />
+            <div className="admin-panel admin-panel-pad space-y-4">
             {Object.keys(allUsers).length === 0 ? (
               <div className="py-12 text-center rounded-xl bg-mayssa-soft/20 border border-mayssa-brown/5">
                 <Users size={40} className="mx-auto text-mayssa-brown/15 mb-3" />
@@ -4518,6 +4040,7 @@ function Dashboard({ user }: { user: User }) {
               </div>
               )
             })()}
+            </div>
           </motion.section>
         )}
 
@@ -4577,9 +4100,12 @@ function Dashboard({ user }: { user: User }) {
             transition={{ duration: 0.2 }}
             className="space-y-4"
           >
-            <p className="text-sm text-mayssa-brown/70">
-              Personnes inscrites pour être prévenues quand un produit revient en stock.
-            </p>
+            <AdminPanelHeader
+              title="Alertes stock"
+              description="Personnes inscrites pour être prévenues quand un produit revient en stock."
+              icon={Bell}
+            />
+            <div className="admin-panel admin-panel-pad space-y-4">
             {(() => {
               const byProduct = Object.entries(notifyWhenAvailableEntries).reduce<Record<string, { name: string; emails: string[] }>>((acc, [, e]) => {
                 if (!acc[e.productId]) acc[e.productId] = { name: e.productName, emails: [] }
@@ -4623,6 +4149,7 @@ function Dashboard({ user }: { user: User }) {
                 </div>
               )
             })()}
+            </div>
           </motion.section>
         )}
 
@@ -4703,8 +4230,12 @@ function Dashboard({ user }: { user: User }) {
               transition={{ duration: 0.2 }}
               className="space-y-4"
             >
-              {/* Sélecteur multi-dates */}
-              <div className="bg-white rounded-2xl p-4 shadow-sm border border-mayssa-brown/5 space-y-3">
+              <AdminPanelHeader
+                title="Production"
+                description={`Quantités à préparer pour ${datesLabel} — ${totalOrders} commande${totalOrders !== 1 ? 's' : ''} active${totalOrders !== 1 ? 's' : ''}.`}
+                icon={ClipboardList}
+              />
+              <div className="admin-panel admin-panel-pad space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">
                     Dates de production
@@ -4779,7 +4310,7 @@ function Dashboard({ user }: { user: User }) {
               </div>
 
               {/* Liste agrégée */}
-              <div className="bg-white rounded-2xl p-5 shadow-sm border border-mayssa-brown/5 space-y-4">
+              <div className="admin-panel admin-panel-pad space-y-4">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div>
                     <h3 className="font-bold text-mayssa-brown text-base flex items-center gap-2">
@@ -4921,7 +4452,7 @@ function Dashboard({ user }: { user: User }) {
 
               {/* Détail par commande — groupé par date si multi-sélection */}
               {totalOrders > 0 && (
-                <div className="bg-white rounded-2xl p-5 shadow-sm border border-mayssa-brown/5 space-y-4">
+                <div className="admin-panel admin-panel-pad space-y-4">
                   <h4 className="font-bold text-mayssa-brown text-sm">Détail par commande</h4>
                   {[...selectedDates].sort().map(d => {
                     const dayOrders = Object.entries(orders)
@@ -5078,7 +4609,7 @@ function Dashboard({ user }: { user: User }) {
               className="space-y-4"
             >
               {/* Navigation temporelle */}
-              <div className="flex items-center gap-2 bg-white rounded-2xl p-2 shadow-sm border border-mayssa-brown/5">
+              <div className="admin-toolbar-bar">
                 <button
                   type="button"
                   onClick={() => { setPlanningDayOffset((o) => o - 10); setPlanningDaysCollapsed(new Set()); setPlanningProductionCollapsed(new Set()) }}
@@ -5167,13 +4698,13 @@ function Dashboard({ user }: { user: User }) {
 
               {/* KPIs période */}
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5">
+                <div className="admin-panel admin-panel-pad">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">
                     Commandes ({isPast && !windowContainsToday ? 'passées' : '10j'})
                   </span>
                   <p className="text-xl font-display font-bold text-mayssa-brown mt-0.5">{totalWeek}</p>
                 </div>
-                <div className="bg-white rounded-xl p-4 shadow-sm border border-mayssa-brown/5">
+                <div className="admin-panel admin-panel-pad">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">
                     {isPast && !windowContainsToday ? 'CA réalisé' : 'CA prévisionnel'} (10j)
                   </span>
@@ -5236,7 +4767,7 @@ function Dashboard({ user }: { user: User }) {
                 })
 
                 return (
-                  <div className="bg-white rounded-2xl border border-mayssa-brown/10 shadow-sm overflow-hidden">
+                  <div className="admin-panel overflow-hidden">
                     {/* En-tête */}
                     <div className="flex items-center w-full bg-mayssa-soft/60 border-b border-mayssa-brown/5">
                       <button
@@ -5771,7 +5302,7 @@ function Dashboard({ user }: { user: User }) {
             role="dialog"
             aria-modal="true"
             aria-labelledby="whatsapp-modal-title"
-            className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+            className="admin-modal-overlay"
             onClick={() => { setWhatsappMessageModal(null); setWhatsappCopyFeedback(null) }}
           >
             <motion.div
@@ -5780,7 +5311,7 @@ function Dashboard({ user }: { user: User }) {
               exit={{ opacity: 0, y: 24 }}
               onClick={(e) => e.stopPropagation()}
               className={cn(
-                'w-full max-w-lg rounded-2xl shadow-xl p-5 space-y-4 max-h-[90vh] flex flex-col',
+                'admin-modal admin-modal-pad space-y-4 max-h-[90vh] flex flex-col w-full max-w-lg',
                 isDark ? 'bg-zinc-900 border border-zinc-700' : 'bg-white',
               )}
             >
@@ -5891,12 +5422,12 @@ function Dashboard({ user }: { user: User }) {
 
         {/* ── Modal confirmation refus avec choix stock ── */}
         {refuseConfirm && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="admin-modal-overlay">
             <motion.div
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 24 }}
-              className="w-full max-w-sm bg-white rounded-2xl shadow-xl p-5 space-y-4"
+              className="admin-modal admin-modal-pad space-y-4 w-full max-w-sm"
             >
               <div>
                 <p className="font-bold text-mayssa-brown text-base">
@@ -5996,14 +5527,7 @@ function Dashboard({ user }: { user: User }) {
           />
         )}
 
-        <a
-          href="/"
-          className={cn('block text-center text-sm py-4 transition-colors', isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-mayssa-brown/40 hover:text-mayssa-brown')}
-        >
-          ← Retour au site
-        </a>
-      </main>
-      </div>
-    </div>
+    </AdminShell>
+    </>
   )
 }

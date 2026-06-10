@@ -39,7 +39,7 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
 
   const finalTotal = data.total + (data.deliveryFee ?? 0)
   const paypalUrl = `https://www.paypal.me/${PAYPAL_ME_USER}/${finalTotal.toFixed(2).replace('.', ',')}`
-  const statusUrl = `${window.location.origin}${window.location.pathname}#/commande/${data.orderId}`
+  const statusUrl = `${window.location.origin}/commande/${data.orderId}`
 
   const copyStatusLink = () => {
     navigator.clipboard.writeText(statusUrl)
@@ -67,7 +67,7 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden"
       >
-        <div className="bg-emerald-600 px-6 py-8 text-center text-white">
+        <div className="bg-mayssa-espresso px-6 py-8 text-center text-white">
           <CheckCircle2 size={56} className="mx-auto mb-3" />
           <h2 className="text-xl font-display font-bold">Commande enregistrée !</h2>
           <p className="text-emerald-100 text-sm mt-1">Numéro de commande</p>
@@ -90,7 +90,7 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
                   <span>+{data.deliveryFee.toFixed(2).replace('.', ',')} €</span>
                 </div>
               )}
-              <div className="flex justify-between font-bold text-mayssa-caramel pt-2">
+              <div className="flex justify-between font-bold text-mayssa-gold pt-2">
                 <span>Total</span>
                 <span>{finalTotal.toFixed(2).replace('.', ',')} €</span>
               </div>
@@ -101,15 +101,15 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
             <h3 className="text-xs font-bold uppercase tracking-wider text-mayssa-brown/75 mb-2">Prochaines étapes</h3>
             <ol className="space-y-2 text-sm text-mayssa-brown">
               <li className="flex gap-2">
-                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-mayssa-caramel/20 text-mayssa-caramel flex items-center justify-center text-xs font-bold">1</span>
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-mayssa-gold/20 text-mayssa-gold flex items-center justify-center text-xs font-bold">1</span>
                 <span><strong>Envoyez le message</strong> sur WhatsApp pour confirmer votre commande</span>
               </li>
               <li className="flex gap-2">
-                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-mayssa-caramel/20 text-mayssa-caramel flex items-center justify-center text-xs font-bold">2</span>
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-mayssa-gold/20 text-mayssa-gold flex items-center justify-center text-xs font-bold">2</span>
                 <span><strong>Réglez</strong> par PayPal ou à la récupération</span>
               </li>
               <li className="flex gap-2">
-                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-mayssa-caramel/20 text-mayssa-caramel flex items-center justify-center text-xs font-bold">3</span>
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-mayssa-gold/20 text-mayssa-gold flex items-center justify-center text-xs font-bold">3</span>
                 <span><strong>Suivez votre commande</strong> avec le lien ci-dessous</span>
               </li>
             </ol>
@@ -120,7 +120,7 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
               href={`https://wa.me/${PHONE_E164}?text=${encodeURIComponent(whatsappMessage)}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition-colors"
+              className="flex items-center justify-center gap-2 w-full py-4 bg-mayssa-brown text-white text-sm tracking-widest uppercase hover:bg-mayssa-espresso transition-colors"
             >
               <MessageSquare size={20} />
               Envoyer sur WhatsApp
@@ -142,7 +142,7 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
               type="button"
               onClick={copyPaypalNote}
               aria-label="Copier la note à inclure sur PayPal"
-              className="flex items-center justify-center gap-1 text-[10px] text-mayssa-caramel hover:underline cursor-pointer"
+              className="flex items-center justify-center gap-1 text-[10px] text-mayssa-gold hover:underline cursor-pointer"
             >
               <Copy size={12} aria-hidden="true" />
               Copier la note à inclure sur PayPal
@@ -175,7 +175,7 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
                       href={statusUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-1 text-xs text-mayssa-caramel font-medium truncate hover:underline"
+                      className="flex-1 text-xs text-mayssa-gold font-medium truncate hover:underline"
                     >
                       Voir le récap et le statut
                     </a>
@@ -196,7 +196,7 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
 
           <div className="border-t border-mayssa-brown/10 pt-5">
             <div className="flex items-center gap-2 mb-3">
-              <Star size={18} className="text-mayssa-caramel" />
+              <Star size={18} className="text-mayssa-gold" />
               <h3 className="text-xs font-bold uppercase tracking-wider text-mayssa-brown/75">Donner mon avis</h3>
             </div>
             {showReviewForm && reviewAlreadySubmitted !== null && (
@@ -218,7 +218,7 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
             type="button"
             onClick={onClose}
             aria-label="Retour au catalogue"
-            className="w-full py-3 rounded-xl bg-mayssa-brown text-white font-bold hover:bg-mayssa-caramel transition-colors cursor-pointer"
+            className="w-full py-4 bg-mayssa-brown text-white text-sm tracking-widest uppercase hover:bg-mayssa-espresso transition-colors cursor-pointer"
           >
             Retour au catalogue
           </button>

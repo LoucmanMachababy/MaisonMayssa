@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Tag, Plus, Trash2 } from 'lucide-react'
+import { AdminPanelHeader } from './ui/AdminUi'
 import { createPromoCode, deletePromoCode, type PromoCodeRecord } from '../../lib/firebase'
 
 interface AdminPromosTabProps {
@@ -77,11 +78,13 @@ export function AdminPromosTab({ promoCodes }: AdminPromosTabProps) {
       transition={{ duration: 0.2 }}
       className="space-y-6"
     >
-      <div className="rounded-2xl bg-white p-4 shadow-sm border border-mayssa-brown/5">
-        <h3 className="font-bold text-mayssa-brown flex items-center gap-2 mb-4">
-          <Tag size={18} />
-          Créer un code promo
-        </h3>
+      <AdminPanelHeader
+        title="Codes promo"
+        description={`${entries.length} code${entries.length !== 1 ? 's' : ''} actif${entries.length !== 1 ? 's' : ''}`}
+        icon={Tag}
+      />
+      <div className="admin-panel admin-panel-pad">
+        <h3 className="admin-panel-title mb-4">Créer un code</h3>
         <form onSubmit={handleCreate} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -169,7 +172,7 @@ export function AdminPromosTab({ promoCodes }: AdminPromosTabProps) {
         </form>
       </div>
 
-      <div className="rounded-2xl bg-white p-4 shadow-sm border border-mayssa-brown/5">
+      <div className="admin-panel admin-panel-pad">
         <h3 className="font-bold text-mayssa-brown mb-3">Codes existants ({entries.length})</h3>
         {entries.length === 0 ? (
           <p className="text-sm text-mayssa-brown/50">Aucun code pour l’instant.</p>

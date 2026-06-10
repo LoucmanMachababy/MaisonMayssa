@@ -446,8 +446,8 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
 
   return (
     <>
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center overflow-y-auto p-4 pt-8 pb-8">
-      <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden">
+    <div className="admin-modal-overlay admin-modal-overlay--scroll">
+      <div className="admin-modal overflow-hidden w-full max-w-lg">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-mayssa-brown/10">
           <h2 className="text-base font-display font-bold text-mayssa-brown">Nouvelle commande hors-site</h2>
@@ -834,14 +834,14 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
         role="dialog"
         aria-modal="true"
         aria-labelledby="trompe-deduction-title"
-        className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50"
+        className="admin-modal-overlay"
         onClick={trompeDeductionAsk.onCancel}
       >
         <div
-          className="w-full max-w-sm rounded-2xl bg-white shadow-xl p-5 space-y-4"
+          className="admin-modal admin-modal-pad space-y-4 w-full max-w-sm"
           onClick={(e) => e.stopPropagation()}
         >
-          <h3 id="trompe-deduction-title" className="text-base font-bold text-mayssa-brown">
+          <h3 id="trompe-deduction-title" className="admin-modal-title">
             {trompeDeductionAsk.title}
           </h3>
           <p className="text-sm text-mayssa-brown/80 leading-relaxed">

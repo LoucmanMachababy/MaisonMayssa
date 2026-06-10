@@ -1,0 +1,154 @@
+/* Mon compte — design premium Maison Mayssa */
+
+@layer components {
+  .premium-account__hero {
+    background: var(--color-mayssa-soft);
+    border: 1px solid color-mix(in srgb, var(--color-mayssa-brown) 10%, transparent);
+    border-left: 2px solid var(--color-mayssa-gold);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .premium-account__card {
+    background: #fff;
+    border: 1px solid color-mix(in srgb, var(--color-mayssa-brown) 8%, transparent);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .premium-account__section-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--color-mayssa-brown) 52%, transparent);
+  }
+
+  .premium-account__tabs {
+    display: flex;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    background: var(--color-mayssa-soft);
+    border: 1px solid color-mix(in srgb, var(--color-mayssa-brown) 8%, transparent);
+    margin-bottom: 1.5rem;
+  }
+
+  .premium-account__tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.65rem 0.5rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: color-mix(in srgb, var(--color-mayssa-brown) 55%, transparent);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .premium-account__tab.is-active {
+    background: var(--color-mayssa-espresso);
+    color: var(--color-mayssa-gold);
+  }
+
+  .premium-account__field {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.75rem 1rem;
+    background: var(--color-mayssa-soft);
+    border: 1px solid color-mix(in srgb, var(--color-mayssa-brown) 10%, transparent);
+  }
+
+  .premium-account__field input,
+  .premium-account__field textarea {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-size: 0.85rem;
+    color: var(--color-mayssa-brown);
+  }
+
+  .premium-account__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.7rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    border: 1px solid color-mix(in srgb, var(--color-mayssa-brown) 10%, transparent);
+    background: #fff;
+    color: color-mix(in srgb, var(--color-mayssa-brown) 45%, transparent);
+  }
+
+  .premium-account__chip.is-unlocked {
+    background: color-mix(in srgb, var(--color-mayssa-gold) 12%, #fff);
+    border-color: color-mix(in srgb, var(--color-mayssa-gold) 35%, transparent);
+    color: var(--color-mayssa-brown);
+  }
+
+  .premium-account__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.65rem 1.25rem;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    background: var(--color-mayssa-espresso);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .premium-account__btn:hover {
+    background: var(--color-mayssa-brown);
+  }
+
+  .premium-account__btn-outline {
+    background: transparent;
+    color: color-mix(in srgb, var(--color-mayssa-brown) 70%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-mayssa-brown) 15%, transparent);
+  }
+
+  .premium-account__btn-outline:hover {
+    background: var(--color-mayssa-soft);
+    color: var(--color-mayssa-brown);
+  }
+
+  .premium-account__admin-banner {
+    background: var(--color-mayssa-espresso);
+    border: 1px solid color-mix(in srgb, var(--color-mayssa-gold) 30%, transparent);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+    color: #fff;
+  }
+
+  .premium-account__reward {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
+    background: #fff;
+    border: 1px solid color-mix(in srgb, var(--color-mayssa-brown) 8%, transparent);
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+
+  .premium-account__reward:hover {
+    border-color: color-mix(in srgb, var(--color-mayssa-gold) 40%, transparent);
+  }
+
+  .premium-account__reward.is-selected {
+    border-color: var(--color-mayssa-gold);
+    background: color-mix(in srgb, var(--color-mayssa-gold) 8%, #fff);
+  }
+}

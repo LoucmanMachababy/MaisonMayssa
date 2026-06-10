@@ -5,12 +5,20 @@ import type { LoyaltyTier } from './lib/firebase'
 export type Channel = 'whatsapp' | 'instagram' | 'snap'
 
 export type ProductCategory =
+    | 'Nos trompe-l\'œil'
+    | 'Nos jus frais'
+    | 'Canette Cake'
+    | 'Cookies gourmands'
+    | 'Le salé'
+    | 'Fruits frais'
+    | 'Chocolaterie'
+    | 'Boxes'
+    /** @deprecated Conservé pour rétrocompat admin / commandes historiques */
     | "Trompe l'œil"
     | 'Mini Gourmandises'
     | 'Brownies'
     | 'Cookies'
     | 'Layer Cups'
-    | 'Boxes'
     | 'Tiramisus'
 
 /** Précommande : disponible à partir de cette date (YYYY-MM-DD), à récupérer sous X jours après préco. */
@@ -49,6 +57,12 @@ export type Product = {
     preorder?: ProductPreorder
     /** IDs des produits individuels contenus dans ce bundle. Si défini, décrémenter le stock de chaque composant à l'achat. */
     bundleProductIds?: string[]
+    /** false = affiché « Bientôt disponible », non commandable. Défaut true pour l’existant. */
+    available?: boolean
+    /** false = masqué du catalogue client. Défaut true. */
+    visible?: boolean
+    /** Sous-catégorie optionnelle (admin / filtres futurs) */
+    subcategory?: string
 }
 
 export type CartItem = {
@@ -94,8 +108,11 @@ export type ProductOverride = {
     /** null = supprimer l’override Firebase (revenir aux badges du catalogue) */
     badges?: ProductBadge[] | null
     sizes?: ProductSize[]
-    /** false = rupture de stock */
+    /** false = bientôt disponible (reste visible). true ou absent = commandable si visible. */
     available?: boolean
+    /** false = masqué du site client */
+    visible?: boolean
+    subcategory?: string
     /** Requis pour les produits créés par l'admin */
     category?: ProductCategory
     /** true = produit créé par l'admin (pas dans constants.ts) */

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ShoppingBag, ChevronUp } from 'lucide-react'
 import { hapticFeedback } from '../../lib/haptics'
@@ -11,30 +11,19 @@ interface FloatingCartPreviewProps {
 }
 
 export function FloatingCartPreview({ items, total, onExpand }: FloatingCartPreviewProps) {
+  const [lastAdded, setLastAdded] = useState<string | null>(null)
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0)
-  const [showAddedPreview, setShowAddedPreview] = useState(false)
-  const [lastAddedName, setLastAddedName] = useState('')
-  const prevItemCountRef = useRef(itemCount)
 
-  // Show "ajouté" preview only when a new item is added
   useEffect(() => {
-    if (itemCount > prevItemCountRef.current && items.length > 0) {
-      const lastItem = items[items.length - 1]
-      setLastAddedName(lastItem.product.name)
-      setShowAddedPreview(true)
-
-      // Hide after 2.5 seconds
-      const timer = setTimeout(() => {
-        setShowAddedPreview(false)
-      }, 2500)
-
-      return () => clearTimeout(timer)
-    }
-    prevItemCountRef.current = itemCount
-  }, [itemCount, items])
+    if (items.length === 0) return
+    const latest = items[items.length - 1]
+    setLastAdded(latest.product.name)
+    const t = setTimeout(() => setLastAdded(null), 3000)
+    return () => clearTimeout(t)
+  }, [items.length, items])
 
   const handleClick = () => {
-    hapticFeedback('medium')
+    hapticFeedback('light')
     onExpand()
   }
 
@@ -45,63 +34,52 @@ export function FloatingCartPreview({ items, total, onExpand }: FloatingCartPrev
           initial={{ y: 100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 100, opacity: 0 }}
-          className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-4 right-4 z-40 md:hidden"
+          className="fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] left-4 right-4 z-40 md:hidden"
         >
           <motion.button
+            type="button"
             onClick={handleClick}
-            className="w-full flex items-center justify-between gap-4 p-4 rounded-2xl bg-mayssa-brown text-mayssa-cream shadow-2xl shadow-mayssa-brown/30 cursor-pointer"
+            className="cart-float-bar w-full cursor-pointer"
             whileTap={{ scale: 0.98 }}
           >
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 text-left">
               <div className="relative">
-                <ShoppingBag size={24} />
-                <motion.span
-                  key={itemCount}
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-mayssa-caramel text-[10px] font-bold"
-                >
+                <ShoppingBag size={22} className="text-mayssa-gold" strokeWidth={1.5} />
+                <span className="cart-float-bar-badge">
                   {itemCount}
-                </motion.span>
+                </span>
               </div>
-
-              <div className="text-left">
-                <p className="text-xs opacity-80">
+              <div>
+                <p className="cart-float-bar-eyebrow">
                   {itemCount} article{itemCount > 1 ? 's' : ''}
                 </p>
-                <p className="text-lg font-bold">
+                <p className="cart-float-bar-total">
                   {total.toFixed(2).replace('.', ',')} €
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold">Voir le panier</span>
+            <div className="flex items-center gap-2 text-mayssa-gold">
+              <span className="text-[10px] font-bold tracking-[0.18em] uppercase">Panier</span>
               <motion.div
                 animate={{ y: [0, -3, 0] }}
                 transition={{ duration: 1.5, repeat: Infinity }}
               >
-                <ChevronUp size={20} />
+                <ChevronUp size={18} />
               </motion.div>
             </div>
           </motion.button>
 
-          {/* Last added item preview - only shows temporarily */}
           <AnimatePresence>
-            {showAddedPreview && lastAddedName && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
+            {lastAdded && (
+              <motion.p
+                initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="absolute -top-12 left-0 right-0 flex justify-center"
+                exit={{ opacity: 0 }}
+                className="mt-2 text-center text-[10px] text-mayssa-brown/55 truncate px-2"
               >
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/90 backdrop-blur-sm shadow-lg text-xs text-mayssa-brown">
-                  <span className="font-semibold truncate max-w-[150px]">
-                    {lastAddedName}
-                  </span>
-                  <span className="text-mayssa-caramel">ajouté ✓</span>
-                </div>
-              </motion.div>
+                Ajouté : {lastAdded}
+              </motion.p>
             )}
           </AnimatePresence>
         </motion.div>

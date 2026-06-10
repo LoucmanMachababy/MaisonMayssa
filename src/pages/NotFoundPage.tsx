@@ -1,15 +1,11 @@
+import { Link } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import { motion } from 'framer-motion'
-import { Home, ShoppingBag, MessageCircle } from 'lucide-react'
-import { Footer } from '../components/Footer'
+import { ArrowRight, MessageCircle } from 'lucide-react'
 import { PHONE_E164 } from '../constants'
-import { hapticFeedback } from '../lib/haptics'
+import { LIFESTYLE } from '../lib/decorativeAssets'
+import { TrompeLoeilMarquee } from '../components/decorative/TrompeLoeilMarquee'
 
-/**
- * Page 404 custom — "Page non trouvée".
- * Design chaleureux avec CTAs pour revenir au site principal.
- * SEO : noindex (pas besoin d'indexer les 404).
- */
 export function NotFoundPage() {
   return (
     <>
@@ -22,71 +18,64 @@ export function NotFoundPage() {
         />
       </Helmet>
 
-      <div className="min-h-screen bg-mayssa-soft flex flex-col">
-        <div className="flex-1 flex items-center justify-center px-4 py-16">
+      <div className="min-h-screen bg-mayssa-ivory pt-[104px]">
+        <div className="grid lg:grid-cols-2 min-h-[calc(100vh-104px)]">
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="relative hidden lg:block overflow-hidden"
+          >
+            <img
+              src={LIFESTYLE.mangueCluster}
+              alt="Trompe-l'œil mangue Maison Mayssa"
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent to-mayssa-ivory/30" />
+          </motion.div>
+
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="max-w-md w-full text-center"
+            className="flex flex-col items-center justify-center px-8 py-20 lg:py-0 text-center lg:text-left lg:items-start lg:px-16 xl:px-24"
           >
-            <div className="mb-8">
-              <img
-                src="/logo.webp"
-                alt="Maison Mayssa"
-                width={120}
-                height={120}
-                className="mx-auto rounded-3xl shadow-lg"
-                loading="eager"
-              />
-            </div>
-
-            <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-mayssa-gold mb-3">
-              Erreur 404
-            </p>
-            <h1 className="font-display text-3xl sm:text-4xl font-bold text-mayssa-brown mb-4">
-              Cette page n'existe pas
+            <span className="text-mayssa-gold text-xs tracking-[0.3em] uppercase mb-4 block">Erreur 404</span>
+            <h1 className="font-display text-4xl md:text-5xl text-mayssa-brown mb-4 leading-tight">
+              Cette page<br className="hidden lg:block" /> n&apos;existe pas
             </h1>
-            <p className="text-base text-mayssa-brown/70 font-light leading-relaxed mb-8">
-              L'adresse que tu as tapée n'existe pas ou a été déplacée. Pas de souci : tu peux
-              revenir à l'accueil ou découvrir notre carte.
+            <div className="w-12 h-px bg-mayssa-gold/50 mb-6" />
+            <p className="text-mayssa-brown/60 font-light leading-relaxed mb-10 max-w-md">
+              L&apos;adresse que vous avez tapée n&apos;existe pas ou a été déplacée.
+              Retrouvez nos créations sur la carte ou l&apos;accueil.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <a
-                href="/"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-mayssa-brown text-white font-bold text-sm hover:bg-mayssa-caramel transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mayssa-gold/50"
+            <div className="flex flex-col sm:flex-row gap-4 mb-10 w-full sm:w-auto">
+              <Link
+                to="/"
+                className="inline-flex items-center justify-center px-8 py-4 bg-mayssa-brown text-white text-xs tracking-widest uppercase hover:bg-mayssa-espresso transition-colors"
               >
-                <Home size={18} />
-                Retour à l'accueil
-              </a>
-              <a
-                href="/#la-carte"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-mayssa-cream text-mayssa-brown font-bold text-sm hover:bg-mayssa-gold/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mayssa-gold/50"
+                Retour à l&apos;accueil
+              </Link>
+              <Link
+                to="/carte"
+                className="inline-flex items-center justify-center gap-2 px-8 py-4 border border-mayssa-brown/20 text-mayssa-brown text-xs tracking-widest uppercase hover:border-mayssa-gold hover:text-mayssa-gold transition-colors"
               >
-                <ShoppingBag size={18} />
-                Voir la carte
-              </a>
+                Voir la carte <ArrowRight size={14} />
+              </Link>
             </div>
 
-            <div className="mt-8 pt-8 border-t border-mayssa-brown/10">
-              <p className="text-sm text-mayssa-brown/60 mb-3">
-                Un problème ? Une question ?
-              </p>
-              <a
-                href={`https://wa.me/${PHONE_E164}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => hapticFeedback('light')}
-                className="inline-flex items-center gap-2 text-sm font-bold text-[#25D366] hover:text-[#20bd5a] transition-colors"
-              >
-                <MessageCircle size={16} />
-                Écris-moi sur WhatsApp
-              </a>
-            </div>
+            <a
+              href={`https://wa.me/${PHONE_E164}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-sm text-mayssa-brown/60 hover:text-mayssa-gold transition-colors"
+            >
+              <MessageCircle size={16} />
+              Une question ? WhatsApp
+            </a>
           </motion.div>
         </div>
-        <Footer />
+
+        <TrompeLoeilMarquee variant="light" />
       </div>
     </>
   )

@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import { motion } from 'framer-motion'
 import { Package, ChefHat, CheckCircle2, Truck, XCircle } from 'lucide-react'
+import { PremiumBackLink } from './layout/PremiumEditorial'
 import { listenOrder, type Order, type OrderStatus } from '../lib/firebase'
 import { getOrderDepositAmount, getOrderRemainingToPay } from '../lib/orderAmounts'
 import { formatOrderItemName } from '../lib/utils'
@@ -20,7 +23,7 @@ interface OrderStatusPageProps {
   onBack: () => void
 }
 
-export function OrderStatusPage({ orderId, onBack }: OrderStatusPageProps) {
+export function OrderStatusPage({ orderId }: OrderStatusPageProps) {
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -40,7 +43,7 @@ export function OrderStatusPage({ orderId, onBack }: OrderStatusPageProps) {
   if (loading) {
     return (
       <div className="min-h-[50vh] flex items-center justify-center">
-        <div className="animate-spin w-10 h-10 border-2 border-mayssa-caramel border-t-transparent rounded-full" />
+        <div className="animate-spin w-10 h-10 border-2 border-mayssa-gold border-t-transparent rounded-full" />
       </div>
     )
   }
@@ -55,13 +58,12 @@ export function OrderStatusPage({ orderId, onBack }: OrderStatusPageProps) {
         <XCircle size={48} className="mx-auto text-red-500 mb-4" />
         <h2 className="text-xl font-bold text-mayssa-brown mb-2">Commande introuvable</h2>
         <p className="text-mayssa-brown/60 mb-6">{error ?? 'Vérifiez le numéro de commande.'}</p>
-        <button
-          type="button"
-          onClick={onBack}
-          className="px-6 py-3 rounded-xl bg-mayssa-brown text-white font-bold hover:bg-mayssa-caramel cursor-pointer"
+        <Link
+          to="/"
+          className="inline-flex items-center justify-center px-8 py-4 bg-mayssa-brown text-white text-sm tracking-widest uppercase hover:bg-mayssa-espresso transition-colors"
         >
           Retour au site
-        </button>
+        </Link>
       </motion.div>
     )
   }
@@ -87,12 +89,19 @@ export function OrderStatusPage({ orderId, onBack }: OrderStatusPageProps) {
     : '—'
 
   return (
+    <>
+      <Helmet>
+        <title>Suivi commande — Maison Mayssa</title>
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="max-w-lg mx-auto py-8 px-4"
+      className="max-w-lg mx-auto pt-[104px] pb-24 px-4 sm:px-6"
     >
-      <div className="bg-white rounded-2xl shadow-lg border border-mayssa-brown/5 overflow-hidden">
+      <PremiumBackLink to="/" />
+      <span className="text-mayssa-gold text-xs tracking-[0.3em] uppercase mb-4 block">Suivi de commande</span>
+      <div className="bg-white border border-mayssa-brown/8 border-t-2 border-t-mayssa-gold overflow-hidden shadow-[0_20px_60px_rgba(42,27,18,0.06)]">
         <div className="px-6 py-6 border-b border-mayssa-brown/5">
           <p className="text-xs font-bold text-mayssa-brown/50 uppercase tracking-wider">Commande n°</p>
           <p className="text-xl font-mono font-bold text-mayssa-brown mt-1">
@@ -103,7 +112,7 @@ export function OrderStatusPage({ orderId, onBack }: OrderStatusPageProps) {
 
         <div className="px-6 py-6">
           <div
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm ${config.color}`}
+            className={`inline-flex items-center gap-2 px-4 py-2 border text-sm tracking-wide uppercase ${config.color}`}
           >
             <Icon size={20} />
             {config.label}
@@ -146,7 +155,7 @@ export function OrderStatusPage({ orderId, onBack }: OrderStatusPageProps) {
                 )}
                 <li className="flex justify-between font-bold pt-2">
                   <span>Total TTC</span>
-                  <span className="text-mayssa-caramel">{(order.total ?? 0).toFixed(2).replace('.', ',')} €</span>
+                  <span className="text-mayssa-gold">{(order.total ?? 0).toFixed(2).replace('.', ',')} €</span>
                 </li>
                 {getOrderDepositAmount(order) > 0 && (
                   <li className="flex justify-between text-sm text-mayssa-brown/80 pt-1">
@@ -164,15 +173,15 @@ export function OrderStatusPage({ orderId, onBack }: OrderStatusPageProps) {
         </div>
 
         <div className="px-6 pb-6">
-          <button
-            type="button"
-            onClick={onBack}
-            className="w-full py-3 rounded-xl bg-mayssa-brown text-white font-bold hover:bg-mayssa-caramel cursor-pointer"
+          <Link
+            to="/carte"
+            className="w-full inline-flex items-center justify-center py-4 bg-mayssa-brown text-white text-sm tracking-widest uppercase hover:bg-mayssa-espresso transition-colors"
           >
-            Retour au catalogue
-          </button>
+            Retour à la carte
+          </Link>
         </div>
       </div>
     </motion.div>
+    </>
   )
 }

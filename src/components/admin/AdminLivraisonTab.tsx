@@ -12,6 +12,7 @@ import {
 import { formatOrderCustomerDisplayName } from '../../lib/orderCustomerDisplay'
 import { getOrderDepositAmount, getOrderRemainingToPay } from '../../lib/orderAmounts'
 import { AdminDeposit50Prompt } from './AdminDeposit50Prompt'
+import { AdminPanelHeader } from './ui/AdminUi'
 
 const ORDER_STATUS_LABELS: Record<string, string> = {
   en_attente: 'En attente',
@@ -390,16 +391,20 @@ export function AdminLivraisonTab({ orders, onEditOrder, mode }: AdminLivraisonT
       transition={{ duration: 0.2 }}
       className="space-y-4"
     >
-      {/* En-tête avec stats et export */}
+      <AdminPanelHeader
+        title={mode === 'livraison' ? 'Journalier — Livraisons' : 'Journalier — Retraits'}
+        description={`${displayOrders.length} commande${displayOrders.length !== 1 ? 's' : ''} pour la date sélectionnée`}
+        icon={mode === 'livraison' ? Truck : MapPin}
+      />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="bg-white rounded-xl px-4 py-2 shadow-sm border border-mayssa-brown/5">
+          <div className="admin-mini-stat">
             <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">
               {mode === 'livraison' ? 'Livraisons' : 'Retraits'}
             </span>
             <p className="text-lg font-display font-bold text-mayssa-brown">{displayOrders.length} commande{displayOrders.length !== 1 ? 's' : ''}</p>
           </div>
-          <div className="bg-white rounded-xl px-4 py-2 shadow-sm border border-mayssa-brown/5">
+          <div className="admin-mini-stat">
             <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">Total</span>
             <p className="text-lg font-display font-bold text-mayssa-caramel">
               {displayOrders.reduce((sum, [, o]) => sum + (o.total ?? 0), 0).toFixed(2).replace('.', ',')} €
@@ -443,7 +448,7 @@ export function AdminLivraisonTab({ orders, onEditOrder, mode }: AdminLivraisonT
       )}
 
       {/* Filtres */}
-      <div className="bg-white rounded-2xl p-4 shadow-sm border border-mayssa-brown/5 space-y-3">
+      <div className="admin-panel admin-panel-pad space-y-3">
         <div className="flex items-center gap-2 text-mayssa-brown/70">
           <Filter size={14} />
           <span className="text-xs font-bold uppercase tracking-wider">Filtres</span>
@@ -514,7 +519,7 @@ export function AdminLivraisonTab({ orders, onEditOrder, mode }: AdminLivraisonT
       {/* Liste */}
       <div className="space-y-3">
         {displayOrders.length === 0 ? (
-          <div className="bg-white rounded-2xl p-12 shadow-sm border border-mayssa-brown/5 text-center">
+          <div className="admin-panel admin-panel-pad admin-empty text-center">
             {mode === 'livraison' ? (
               <Truck size={48} className="mx-auto text-mayssa-brown/15 mb-4" />
             ) : (
@@ -533,7 +538,7 @@ export function AdminLivraisonTab({ orders, onEditOrder, mode }: AdminLivraisonT
               key={id}
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`bg-white rounded-2xl p-4 shadow-md border border-mayssa-brown/5 border-l-4 ${mode === 'livraison' ? 'border-l-blue-400' : 'border-l-emerald-400'}`}
+              className={`admin-order-card border-l-4 ${mode === 'livraison' ? 'border-l-blue-400' : 'border-l-emerald-400'}`}
             >
               {/* Header: N° commande + Client + Contact */}
               <div className="flex items-start justify-between gap-3 mb-3">

@@ -103,7 +103,7 @@ export function OrderRecapModal({
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         onPointerDown={(e) => e.stopPropagation()}
-        className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[86] max-w-md mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+        className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[86] max-w-md mx-auto bg-mayssa-soft border border-mayssa-brown/10 overflow-hidden max-h-[90vh] flex flex-col"
       >
         <div className="p-5 pb-4 border-b border-mayssa-brown/10 flex-shrink-0">
           <div className="flex items-center justify-between">

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { Clock, Calendar, Save, List, Timer } from 'lucide-react'
+import { AdminPanelHeader } from './ui/AdminUi'
 import { updateSettings, type Settings } from '../../lib/firebase'
 import { getMinDate, generateTimeSlotsFromWindow, normalizeTimeSlotHHmm } from '../../lib/delivery'
 
@@ -209,11 +210,12 @@ export function AdminCreneauxTab({ settings }: AdminCreneauxTabProps) {
       transition={{ duration: 0.2 }}
       className="space-y-6"
     >
-      <div className="rounded-2xl bg-white p-6 shadow-sm border border-mayssa-brown/5 space-y-5">
-        <h3 className="font-bold text-mayssa-brown flex items-center gap-2">
-          <Clock size={18} />
-          Créneaux — retrait & livraison
-        </h3>
+      <AdminPanelHeader
+        title="Créneaux retrait & livraison"
+        description="Plages horaires ou listes précises proposées aux clients."
+        icon={Clock}
+      />
+      <div className="admin-panel admin-panel-pad space-y-5">
         <p className="text-xs text-mayssa-brown/60">
           Définissez soit une <strong>plage horaire</strong> (ex. 10h–15h toutes les 30 min), soit une <strong>liste précise</strong>. Les mêmes créneaux sont proposés aux clients sur le site au moment de la commande.
         </p>

@@ -475,7 +475,6 @@ const BUNDLE_PRODUCT_IDS = {
   'box-fruitee': [
     'trompe-loeil-mangue', 'trompe-loeil-passion', 'trompe-loeil-fraise',
     'trompe-loeil-framboise', 'trompe-loeil-myrtille', 'trompe-loeil-citron',
-    'trompe-loeil-grappe-banane',
   ],
   'box-de-tout': [
     'trompe-loeil-mangue', 'trompe-loeil-citron', 'trompe-loeil-pistache',

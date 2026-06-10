@@ -328,19 +328,19 @@ export function CartSheet({
     <motion.div key="step1" {...stepTransition} className="space-y-4">
       {/* Cart Items */}
       {hasItems ? (
-        <div className="space-y-2">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/75">
+        <div className="space-y-2.5">
+          <p className="cart-sheet-section-label">
             Articles ({itemCount})
           </p>
           {items.map((item) => (
-            <div key={item.product.id} className="flex gap-3 p-2.5 rounded-xl bg-white/80">
+            <div key={item.product.id} className="cart-sheet-item">
               {item.product.image && (
-                <div className="w-14 h-14 flex-shrink-0 rounded-lg overflow-hidden">
+                <div className="cart-sheet-item-img">
                   <img src={item.product.image} alt={item.product.name} width={56} height={56} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-xs text-mayssa-brown truncate">{item.product.name}</h3>
+                <h3 className="cart-sheet-item-name truncate">{item.product.name}</h3>
                 {item.product.description ? (
                   <p className="text-[10px] text-mayssa-brown/65 truncate">{item.product.description}</p>
                 ) : null}
@@ -357,8 +357,8 @@ export function CartSheet({
                     </ul>
                   )
                 })()}
-                <div className="flex items-center justify-between mt-1.5">
-                  <span className="font-bold text-sm text-mayssa-caramel">
+                <div className="flex items-center justify-between mt-2">
+                  <span className="cart-sheet-item-price">
                     {(item.product.price * item.quantity).toFixed(2).replace('.', ',')} €
                   </span>
                   <div className="flex items-center gap-1.5">
@@ -366,16 +366,16 @@ export function CartSheet({
                       type="button"
                       onClick={() => { hapticFeedback('light'); onUpdateQuantity(item.product.id, item.quantity - 1) }}
                       aria-label={item.quantity === 1 ? `Supprimer ${item.product.name}` : `Réduire ${item.product.name}`}
-                      className="flex h-10 w-10 items-center justify-center rounded-md bg-mayssa-cream text-mayssa-brown cursor-pointer"
+                      className="cart-sheet-qty-btn cart-sheet-qty-btn--minus cursor-pointer"
                     >
                       {item.quantity === 1 ? <Trash2 size={14} /> : <Minus size={14} />}
                     </button>
-                    <span className="w-6 text-center font-bold text-sm">{item.quantity}</span>
+                    <span className="w-6 text-center font-bold text-sm text-mayssa-brown">{item.quantity}</span>
                     <button
                       type="button"
                       onClick={() => { hapticFeedback('light'); onUpdateQuantity(item.product.id, item.quantity + 1) }}
                       aria-label={`Ajouter ${item.product.name}`}
-                      className="flex h-10 w-10 items-center justify-center rounded-md bg-mayssa-brown text-mayssa-cream cursor-pointer"
+                      className="cart-sheet-qty-btn cart-sheet-qty-btn--plus cursor-pointer"
                     >
                       <Plus size={14} />
                     </button>
@@ -394,20 +394,20 @@ export function CartSheet({
           ))}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-mayssa-brown/5 mb-3">
-            <ShoppingBag size={32} className="text-mayssa-brown/30" />
+        <div className="cart-sheet-empty">
+          <div className="cart-sheet-empty-icon">
+            <ShoppingBag size={28} strokeWidth={1.25} />
           </div>
-          <p className="text-mayssa-brown/75 font-medium text-sm">Ton panier est vide</p>
-          <p className="text-mayssa-brown/50 text-xs mt-1">Ajoute des articles pour continuer</p>
+          <p className="font-display text-lg text-mayssa-brown mb-1">Panier vide</p>
+          <p className="text-mayssa-brown/55 text-xs">Ajoutez des créations depuis la carte</p>
         </div>
       )}
 
       {/* Sous-total simple */}
       {hasItems && (
-        <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-mayssa-cream/40 border border-mayssa-brown/10">
-          <span className="text-xs font-medium text-mayssa-brown/80">Sous-total</span>
-          <span className="text-base font-bold text-mayssa-brown">
+        <div className="cart-sheet-total-row">
+          <span className="cart-sheet-section-label mb-0">Sous-total</span>
+          <span className="cart-sheet-item-price">
             {total.toFixed(2).replace('.', ',')} €
           </span>
         </div>
@@ -638,7 +638,7 @@ export function CartSheet({
     <motion.div key="step2" {...stepTransition} className="space-y-4">
       {/* Delivery Mode */}
       <div className="space-y-2">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/75">
+        <p className="cart-sheet-section-label">
           Mode de récupération
         </p>
         <div className="grid grid-cols-2 gap-2">
@@ -647,10 +647,8 @@ export function CartSheet({
             onClick={() => { hapticFeedback('light'); onCustomerChange({ ...customer, wantsDelivery: false }) }}
             aria-label="Choisir retrait sur place"
             className={cn(
-              "flex flex-col items-center justify-center gap-1 rounded-xl p-3 text-xs font-bold transition-all cursor-pointer",
-              !customer.wantsDelivery
-                ? "bg-mayssa-brown text-mayssa-cream shadow-lg"
-                : "bg-white/80 text-mayssa-brown ring-1 ring-mayssa-brown/10"
+              'cart-sheet-mode-btn cursor-pointer',
+              !customer.wantsDelivery && 'is-active',
             )}
           >
             <MapPin size={18} />
@@ -661,10 +659,8 @@ export function CartSheet({
             onClick={() => { hapticFeedback('light'); onCustomerChange({ ...customer, wantsDelivery: true }) }}
             aria-label="Choisir livraison"
             className={cn(
-              "flex flex-col items-center justify-center gap-1 rounded-xl p-3 text-xs font-bold transition-all cursor-pointer",
-              customer.wantsDelivery
-                ? "bg-mayssa-caramel text-white shadow-lg"
-                : "bg-white/80 text-mayssa-brown ring-1 ring-mayssa-brown/10"
+              'cart-sheet-mode-btn cursor-pointer',
+              customer.wantsDelivery && 'is-active',
             )}
           >
             <Truck size={18} />
@@ -674,7 +670,7 @@ export function CartSheet({
 
         {customer.wantsDelivery && (
           <div>
-            <div className={cn("rounded-xl bg-white/80 px-3 py-2.5 ring-1", showError('address') ? "ring-red-300" : "ring-mayssa-caramel/30")}>
+            <div className={cn('cart-sheet-field', showError('address') && 'is-error')}>
               <AddressAutocomplete
                 value={customer.address}
                 onChange={(address, coordinates) => onCustomerChange({ ...customer, address, addressCoordinates: coordinates })}
@@ -707,11 +703,11 @@ export function CartSheet({
 
       {/* Date & Time */}
       <div className="space-y-2">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/75">
+        <p className="cart-sheet-section-label">
           Date et heure *
         </p>
         <div className="grid grid-cols-2 gap-2">
-          <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", showError('date') ? "ring-red-300" : "ring-mayssa-brown/10")}>
+          <div className={cn('cart-sheet-field', showError('date') && 'is-error')}>
             <Calendar size={14} className="text-mayssa-caramel flex-shrink-0" />
             {useDateSelect ? (
               <select
@@ -741,7 +737,7 @@ export function CartSheet({
               />
             )}
           </div>
-          <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", showError('time') ? "ring-red-300" : "ring-mayssa-brown/10")}>
+          <div className={cn('cart-sheet-field', showError('time') && 'is-error')}>
             <Clock size={14} className="text-mayssa-caramel flex-shrink-0" aria-hidden="true" />
             <select
               value={customer.time}
@@ -774,22 +770,20 @@ export function CartSheet({
 
       {/* Customer Info — identité + contact */}
       <div className="space-y-3">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/75">
-          Tes informations *
+        <p className="cart-sheet-section-label">
+          Vos informations *
         </p>
         <div className="space-y-2">
           <p className="text-[9px] font-semibold text-mayssa-brown/70">Tu finalises par</p>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="cart-sheet-segment">
             {(['whatsapp', 'instagram', 'snap'] as const).map((id) => (
               <button
                 key={id}
                 type="button"
                 onClick={() => { hapticFeedback('light'); handleContactIdentityChange(id) }}
                 className={cn(
-                  'inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide border transition-all',
-                  orderContactIdentity === id
-                    ? 'bg-mayssa-brown text-mayssa-gold border-mayssa-brown'
-                    : 'bg-white/80 text-mayssa-brown/75 border-mayssa-brown/10',
+                  'cart-sheet-segment-btn inline-flex items-center justify-center gap-1 cursor-pointer',
+                  orderContactIdentity === id && 'is-active',
                 )}
               >
                 {id === 'whatsapp' && <MessageCircle size={12} />}
@@ -803,7 +797,7 @@ export function CartSheet({
         {orderContactIdentity === 'whatsapp' ? (
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", showError('firstName') ? "ring-red-300" : "ring-mayssa-brown/10")}>
+              <div className={cn('cart-sheet-field', showError('firstName') && 'is-error')}>
                 <User size={14} className="text-mayssa-caramel flex-shrink-0" />
                 <input
                   value={customer.firstName}
@@ -817,7 +811,7 @@ export function CartSheet({
               {showError('firstName') && <p className="text-[9px] text-red-400 pl-3 mt-0.5">{validationErrors.firstName}</p>}
             </div>
             <div>
-              <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", showError('lastName') ? "ring-red-300" : "ring-mayssa-brown/10")}>
+              <div className={cn('cart-sheet-field', showError('lastName') && 'is-error')}>
                 <User size={14} className="text-mayssa-caramel flex-shrink-0" />
                 <input
                   value={customer.lastName}
@@ -833,7 +827,7 @@ export function CartSheet({
           </div>
         ) : (
           <div>
-            <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", showError('firstName') ? "ring-red-300" : "ring-mayssa-brown/10")}>
+            <div className={cn('cart-sheet-field', showError('firstName') && 'is-error')}>
               {orderContactIdentity === 'instagram' ? (
                 <Instagram size={14} className="text-mayssa-caramel flex-shrink-0" />
               ) : (
@@ -866,7 +860,7 @@ export function CartSheet({
           </div>
         )}
         <div>
-          <div className={cn("flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1", showError('phone') ? "ring-red-300" : "ring-mayssa-brown/10")}>
+          <div className={cn('cart-sheet-field', showError('phone') && 'is-error')}>
             <Phone size={14} className="text-mayssa-caramel flex-shrink-0" />
             <input
               type="tel"
@@ -885,7 +879,7 @@ export function CartSheet({
           {showError('phone') && <p className="text-[9px] text-red-400 pl-3 mt-0.5">{validationErrors.phone}</p>}
         </div>
         <div>
-          <div className="flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 ring-1 ring-mayssa-brown/10">
+          <div className="cart-sheet-field">
             <Mail size={14} className="text-mayssa-caramel flex-shrink-0" aria-hidden />
             <input
               type="email"
@@ -902,14 +896,14 @@ export function CartSheet({
 
       {/* Notes */}
       <div className="space-y-2">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/75">
+        <p className="cart-sheet-section-label">
           Notes (optionnel)
         </p>
         <textarea
           value={note}
           onChange={(e) => onNoteChange(e.target.value)}
           placeholder="Allergies, instructions..."
-          className="w-full min-h-[60px] resize-none rounded-xl bg-white/80 p-3 text-xs text-mayssa-brown ring-1 ring-mayssa-brown/10 focus:outline-none focus:ring-mayssa-caramel/50"
+          className="cart-sheet-textarea"
         />
       </div>
     </motion.div>
@@ -925,7 +919,7 @@ export function CartSheet({
         <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/75">
           Ta commande ({itemCount} article{itemCount > 1 ? 's' : ''})
         </p>
-        <div className="space-y-1.5 rounded-xl bg-white/80 p-3 max-h-44 overflow-y-auto">
+        <div className="cart-sheet-panel space-y-1.5 max-h-44 overflow-y-auto">
           {items.map((item) => (
             <div key={item.product.id} className="flex justify-between items-center text-xs">
               <span className="flex-1 truncate pr-2">
@@ -945,7 +939,7 @@ export function CartSheet({
         <p className="text-[10px] font-bold uppercase tracking-widest text-mayssa-brown/75">
           Récapitulatif
         </p>
-        <div className="rounded-xl bg-white/80 p-3 space-y-2 text-xs">
+        <div className="cart-sheet-panel space-y-2 text-xs">
           <div className="flex items-start gap-2">
             {customer.wantsDelivery ? <Truck size={12} className="text-mayssa-caramel mt-0.5 shrink-0" /> : <MapPin size={12} className="text-mayssa-caramel mt-0.5 shrink-0" />}
             <div className="flex-1">
@@ -1051,50 +1045,44 @@ export function CartSheet({
   // Step Indicator (progress bar)
   // ============================================================================
   const renderStepIndicator = () => (
-    <div className="flex items-center gap-2 px-4 py-3 border-b border-mayssa-brown/10 flex-shrink-0">
+    <div className="cart-sheet-steps flex-shrink-0">
       {([1, 2, 3] as const).map((step, idx) => {
         const isActive = step === currentStep
         const isCompleted = step < currentStep
         const isClickable = step < currentStep
         return (
-          <div key={step} className="flex items-center flex-1">
+          <div key={step} className="flex items-center flex-1 min-w-0">
             <button
               type="button"
               onClick={() => { if (isClickable) goToStep(step) }}
               disabled={!isClickable}
               aria-label={`Étape ${step} : ${stepLabels[step]}${isActive ? ' (actuelle)' : isCompleted ? ' (complétée)' : ''}`}
               aria-current={isActive ? 'step' : undefined}
-              className={cn(
-                'flex items-center gap-1.5 transition-all',
-                isClickable && 'cursor-pointer'
-              )}
+              className={cn('cart-sheet-step-btn', isClickable && 'cursor-pointer')}
             >
               <div
                 className={cn(
-                  'flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold transition-colors flex-shrink-0',
-                  isActive && 'bg-mayssa-brown text-mayssa-cream ring-2 ring-mayssa-gold ring-offset-2 ring-offset-mayssa-cream',
-                  isCompleted && 'bg-mayssa-caramel text-white',
-                  !isActive && !isCompleted && 'bg-mayssa-brown/10 text-mayssa-brown/40',
+                  'cart-sheet-step-dot',
+                  isActive && 'is-active',
+                  isCompleted && 'is-done',
+                  !isActive && !isCompleted && 'is-idle',
                 )}
               >
                 {isCompleted ? <Check size={12} /> : step}
               </div>
               <span
                 className={cn(
-                  'text-[10px] font-bold uppercase tracking-wider transition-colors whitespace-nowrap',
-                  isActive && 'text-mayssa-brown',
-                  isCompleted && 'text-mayssa-caramel',
-                  !isActive && !isCompleted && 'text-mayssa-brown/40',
+                  'cart-sheet-step-label',
+                  isActive && 'is-active',
+                  isCompleted && 'is-done',
+                  !isActive && !isCompleted && 'is-idle',
                 )}
               >
                 {stepLabels[step]}
               </span>
             </button>
             {idx < 2 && (
-              <div className={cn(
-                'flex-1 h-0.5 mx-1.5 rounded-full transition-colors',
-                step < currentStep ? 'bg-mayssa-caramel' : 'bg-mayssa-brown/10',
-              )} />
+              <div className={cn('cart-sheet-step-line', step < currentStep && 'is-done')} />
             )}
           </div>
         )
@@ -1109,8 +1097,8 @@ export function CartSheet({
     // Cas commande récente : afficher le bloc "commande en attente"
     if (pendingOrder) {
       return (
-        <div className="flex-shrink-0 border-t border-mayssa-brown/10 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-white/50 backdrop-blur-sm">
-          <div className="rounded-2xl bg-emerald-50 border-2 border-emerald-200 p-4 text-center space-y-3">
+        <div className="cart-sheet-footer">
+          <div className="cart-sheet-panel border-emerald-200 bg-emerald-50/80 p-4 text-center space-y-3">
             <div className="text-3xl">✅</div>
             <p className="text-sm font-bold text-emerald-800">
               Votre commande a bien été reçue{pendingOrder.orderNumber ? ` (n°${pendingOrder.orderNumber})` : ''} !
@@ -1152,7 +1140,7 @@ export function CartSheet({
     // Étape 3 : boutons d'envoi multi-canal
     if (currentStep === 3) {
       return (
-        <div className="flex-shrink-0 border-t border-mayssa-brown/10 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-white/50 backdrop-blur-sm space-y-2">
+        <div className="cart-sheet-footer space-y-2">
           <motion.button
             type="button"
             whileTap={{ scale: 0.98 }}
@@ -1167,10 +1155,8 @@ export function CartSheet({
             disabled={!canSend}
             aria-label={hasItems && canSend ? 'Envoyer la commande sur WhatsApp' : hasItems ? 'Complète tes infos pour envoyer' : 'Panier vide'}
             className={cn(
-              "w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base shadow-xl transition-all cursor-pointer",
-              canSend
-                ? "bg-[#25D366] text-white hover:bg-[#20bd5a]"
-                : "bg-mayssa-brown/30 text-mayssa-cream/70"
+              'cart-sheet-btn-primary cursor-pointer',
+              canSend ? 'is-enabled !bg-[#25D366] hover:!bg-[#20bd5a]' : 'is-disabled',
             )}
           >
             <MessageCircle size={18} aria-hidden="true" />
@@ -1192,7 +1178,7 @@ export function CartSheet({
               type="button"
               onClick={goBack}
               aria-label="Revenir à l'étape précédente"
-              className="flex items-center justify-center gap-1 py-3 rounded-xl font-bold text-[11px] text-mayssa-brown/70 bg-white/60 ring-1 ring-mayssa-brown/10 cursor-pointer"
+              className="cart-sheet-btn-ghost cursor-pointer"
             >
               <ChevronLeft size={14} />
               Retour
@@ -1255,12 +1241,11 @@ export function CartSheet({
           ? 'Voir le récap'
           : 'Envoyer'
     return (
-      <div className="flex-shrink-0 border-t border-mayssa-brown/10 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-white/50 backdrop-blur-sm">
-        {/* Total compact affiché à l'étape 1 et 2 */}
+      <div className="cart-sheet-footer">
         {hasItems && (
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs text-mayssa-brown/75">Total</span>
-            <span className="text-lg font-bold text-mayssa-brown">
+          <div className="cart-sheet-footer-total">
+            <span className="cart-sheet-footer-total-label">Total</span>
+            <span className="cart-sheet-footer-total-value">
               {finalTotal.toFixed(2).replace('.', ',')} €
             </span>
           </div>
@@ -1271,7 +1256,7 @@ export function CartSheet({
               type="button"
               onClick={goBack}
               aria-label="Revenir à l'étape précédente"
-              className="flex items-center justify-center gap-1 px-4 py-4 rounded-2xl font-bold text-xs text-mayssa-brown/70 bg-white/60 ring-1 ring-mayssa-brown/10 cursor-pointer"
+              className="cart-sheet-btn-ghost cursor-pointer"
             >
               <ChevronLeft size={14} />
               Retour
@@ -1284,14 +1269,12 @@ export function CartSheet({
             disabled={!canAdvance}
             aria-label={nextLabel}
             className={cn(
-              'w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base shadow-xl transition-all cursor-pointer',
-              canAdvance
-                ? 'bg-mayssa-brown text-mayssa-cream hover:bg-mayssa-caramel'
-                : 'bg-mayssa-brown/30 text-mayssa-cream/70'
+              'cart-sheet-btn-primary cursor-pointer',
+              canAdvance ? 'is-enabled' : 'is-disabled',
             )}
           >
             {nextLabel}
-            <ChevronRight size={18} aria-hidden="true" />
+            <ChevronRight size={16} aria-hidden="true" />
           </motion.button>
         </div>
       </div>
@@ -1308,7 +1291,7 @@ export function CartSheet({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm md:hidden cursor-pointer"
+            className="cart-sheet-backdrop fixed inset-0 z-50 md:hidden cursor-pointer"
           />
 
           {/* Sheet */}
@@ -1327,34 +1310,30 @@ export function CartSheet({
             dragConstraints={{ top: 0, bottom: 0 }}
             dragElastic={{ top: 0, bottom: 0.5 }}
             onDragEnd={handleDragEnd}
-            className="fixed bottom-0 left-0 right-0 z-50 h-[90vh] rounded-t-3xl bg-mayssa-cream shadow-2xl md:hidden flex flex-col"
+            className="cart-sheet fixed bottom-0 left-0 right-0 z-50 h-[92dvh] max-h-[92dvh] md:hidden flex flex-col"
           >
             {/* Drag handle */}
             <div
-              className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing flex-shrink-0"
+              className="flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing flex-shrink-0"
               onPointerDown={(e) => dragControls.start(e)}
             >
-              <div className="w-12 h-1.5 rounded-full bg-mayssa-brown/20" />
+              <div className="cart-sheet-handle" />
             </div>
 
             {/* Header */}
-            <div className="flex items-center justify-between px-4 pb-2 flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <ShoppingBag size={20} className="text-mayssa-brown" />
-                  {itemCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-mayssa-caramel text-[9px] font-bold text-white">
-                      {itemCount}
-                    </span>
-                  )}
-                </div>
-                <h2 className="font-bold text-lg text-mayssa-brown">Ma Commande</h2>
+            <div className="cart-sheet-header flex-shrink-0">
+              <div>
+                <span className="cart-sheet-eyebrow">Maison Mayssa</span>
+                <h2 className="cart-sheet-title">Votre précommande</h2>
+                {itemCount > 0 && (
+                  <p className="cart-sheet-count">{itemCount} article{itemCount > 1 ? 's' : ''}</p>
+                )}
               </div>
               <button
                 type="button"
                 onClick={() => { hapticFeedback('light'); onClose() }}
                 aria-label="Fermer le panier"
-                className="flex h-9 w-9 items-center justify-center rounded-xl bg-mayssa-brown/5 text-mayssa-brown/75 cursor-pointer"
+                className="cart-sheet-close cursor-pointer"
               >
                 <X size={18} />
               </button>
@@ -1364,7 +1343,7 @@ export function CartSheet({
             {renderStepIndicator()}
 
             {/* Step content (scrollable) */}
-            <div className="flex-1 overflow-y-auto px-4 py-4">
+            <div className="cart-sheet-body flex-1 overflow-y-auto">
               <AnimatePresence mode="wait">
                 {currentStep === 1 && renderStep1()}
                 {currentStep === 2 && renderStep2()}

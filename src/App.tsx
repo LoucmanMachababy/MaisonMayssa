@@ -3,15 +3,32 @@ import { Suspense, useEffect, useState } from 'react'
 import { lazyWithRetry } from './lib/lazyWithRetry'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { AccessibilityProvider } from './components/AccessibilityProvider'
-import { Footer } from './components/Footer'
+import { PremiumLayout } from './components/layout/PremiumLayout'
+import { ScrollToTop } from './components/ScrollToTop'
 
-import Home from './pages/Home'
+import PremiumHome from './pages/PremiumHome'
+import PremiumMenu from './pages/PremiumMenu'
+import PremiumEvents from './pages/PremiumEvents'
+import PremiumCart from './pages/PremiumCart'
+import PremiumProduct from './pages/PremiumProduct'
+import PremiumContact from './pages/PremiumContact'
+import PremiumLoginPage from './pages/PremiumLoginPage'
+import PremiumRegisterPage from './pages/PremiumRegisterPage'
+import PremiumAccountPage from './pages/PremiumAccountPage'
+import PremiumLegalPage from './pages/PremiumLegalPage'
+
 import { OrderStatusPage } from './components/OrderStatusPage'
+import { AboutPage } from './pages/AboutPage'
+import { FAQPage } from './pages/FAQPage'
+import { NotFoundPage } from './pages/NotFoundPage'
+import { TrompeLoeilAnnecyPage } from './pages/TrompeLoeilAnnecyPage'
+import { BrowniesAnnecyPage } from './pages/BrowniesAnnecyPage'
+import { CookiesAnnecyPage } from './pages/CookiesAnnecyPage'
+import { PatisserieAnniversaireAnnecyPage } from './pages/PatisserieAnniversaireAnnecyPage'
+import { CadeauGourmandAnnecyPage } from './pages/CadeauGourmandAnnecyPage'
 
 const AdminPanel = lazyWithRetry(() => import('./components/admin/AdminPanel').then(m => ({ default: m.AdminPanel })))
-const LegalPagesSections = lazyWithRetry(() => import('./components/LegalPages').then(m => ({ default: m.default })))
 
-// Handle old hash routes (like #admin) -> new path routes (/admin)
 function HashRedirector() {
   const navigate = useNavigate()
   useEffect(() => {
@@ -35,8 +52,9 @@ function HashRedirector() {
 
 function OrderStatusWrapper() {
   const { orderId } = useParams()
+  const navigate = useNavigate()
   if (!orderId) return <Navigate to="/" />
-  return <OrderStatusPage orderId={orderId} onBack={() => { window.location.href = '/' }} />
+  return <OrderStatusPage orderId={orderId} onBack={() => navigate('/')} />
 }
 
 export default function App() {
@@ -44,9 +62,30 @@ export default function App() {
 
   return (
     <AccessibilityProvider>
+      <ScrollToTop />
       <HashRedirector />
       <Routes>
-        <Route path="/" element={<Home />} />
+        <Route element={<PremiumLayout />}>
+          <Route index element={<PremiumHome />} />
+          <Route path="carte" element={<PremiumMenu />} />
+          <Route path="produit/:id" element={<PremiumProduct />} />
+          <Route path="evenements" element={<PremiumEvents />} />
+          <Route path="panier" element={<PremiumCart />} />
+          <Route path="contact" element={<PremiumContact />} />
+          <Route path="connexion" element={<PremiumLoginPage />} />
+          <Route path="inscription" element={<PremiumRegisterPage />} />
+          <Route path="compte" element={<PremiumAccountPage />} />
+          <Route path="a-propos" element={<AboutPage />} />
+          <Route path="faq" element={<FAQPage />} />
+          <Route path="trompe-loeil-annecy" element={<TrompeLoeilAnnecyPage />} />
+          <Route path="brownies-annecy" element={<BrowniesAnnecyPage />} />
+          <Route path="cookies-annecy" element={<CookiesAnnecyPage />} />
+          <Route path="patisserie-anniversaire-annecy" element={<PatisserieAnniversaireAnnecyPage />} />
+          <Route path="cadeau-gourmand-annecy" element={<CadeauGourmandAnnecyPage />} />
+          <Route path="legal" element={<PremiumLegalPage />} />
+          <Route path="commande/:orderId" element={<OrderStatusWrapper />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
 
         <Route path="/admin" element={
           <div key={adminRetryKey}>
@@ -59,8 +98,9 @@ export default function App() {
             >
               <Suspense
                 fallback={
-                  <div className="flex items-center justify-center min-h-screen bg-mayssa-soft text-mayssa-brown">
-                    <span>Chargement admin...</span>
+                  <div className="flex flex-col items-center justify-center min-h-dvh bg-mayssa-ivory text-mayssa-brown gap-3">
+                    <div className="w-8 h-8 border-2 border-mayssa-gold border-t-transparent animate-spin" />
+                    <span className="text-xs tracking-[0.3em] uppercase text-mayssa-brown/40">Chargement admin</span>
                   </div>
                 }
               >
@@ -70,22 +110,9 @@ export default function App() {
           </div>
         } />
 
-        <Route path="/legal" element={
-          <div className="min-h-screen bg-mayssa-soft">
-            <div className="max-w-4xl mx-auto px-4 py-10 sm:py-14">
-              <Suspense fallback={<div className="text-center text-mayssa-brown/60">Chargement des informations légales...</div>}>
-                <LegalPagesSections />
-              </Suspense>
-            </div>
-            <Footer />
-          </div>
-        } />
-
-        <Route path="/commande/:orderId" element={
-          <div className="min-h-screen bg-mayssa-soft">
-            <OrderStatusWrapper />
-          </div>
-        } />
+        <Route path="/mentions-legales" element={<Navigate to="/legal" replace />} />
+        <Route path="/cgv" element={<Navigate to="/legal" replace />} />
+        <Route path="/confidentialite" element={<Navigate to="/legal" replace />} />
       </Routes>
     </AccessibilityProvider>
   )

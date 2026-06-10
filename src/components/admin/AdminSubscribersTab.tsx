@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { Package } from 'lucide-react'
+import { AdminPanelHeader } from './ui/AdminUi'
 import type { Order } from '../../lib/firebase'
 import { formatOrderCustomerDisplayName } from '../../lib/orderCustomerDisplay'
 
@@ -28,14 +29,12 @@ export function AdminSubscribersTab({ orders }: AdminSubscribersTabProps) {
       transition={{ duration: 0.2 }}
       className="space-y-4"
     >
-      <div className="rounded-2xl bg-white p-4 shadow-sm border border-mayssa-brown/5">
-        <h3 className="font-bold text-mayssa-brown mb-3 flex items-center gap-2">
-          <Package size={18} />
-          Abonnés Box du mois ({subscribers.length})
-        </h3>
-        <p className="text-xs text-mayssa-brown/60 mb-3">
-          Commandes contenant l&apos;abonnement. Recontacter pour paiement et composition.
-        </p>
+      <AdminPanelHeader
+        title={`Abonnés Box du mois (${subscribers.length})`}
+        description="Commandes contenant l'abonnement — recontacter pour paiement et composition."
+        icon={Package}
+      />
+      <div className="admin-panel admin-panel-pad">
         {subscribers.length === 0 ? (
           <p className="text-sm text-mayssa-brown/50">Aucune commande avec abonnement.</p>
         ) : (

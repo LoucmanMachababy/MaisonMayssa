@@ -38,13 +38,13 @@ export function AdminEditReviewModal({ reviewId, review, onClose, onSaved }: Adm
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+    <div className="admin-modal-overlay" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4"
+        className="admin-modal admin-modal-pad space-y-4 max-w-md w-full"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between">
-          <h3 className="font-bold text-mayssa-brown text-lg">Modifier l&apos;avis</h3>
+        <div className="admin-modal-header">
+          <h3 className="admin-modal-title">Modifier l&apos;avis</h3>
           <button
             type="button"
             onClick={onClose}

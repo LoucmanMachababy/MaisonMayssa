@@ -210,7 +210,7 @@ export function AdminNotificationsCenter({ orders, stock, allUsers, isOpen, onCl
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10, scale: 0.95 }}
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="absolute top-full right-0 mt-3 w-[min(380px,90vw)] bg-white/95 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/80 z-[90] overflow-hidden"
+              className="admin-notif-panel"
             >
               {/* Header */}
               <div className="flex items-center justify-between px-5 py-4 border-b border-mayssa-brown/5">
@@ -245,9 +245,9 @@ export function AdminNotificationsCenter({ orders, stock, allUsers, isOpen, onCl
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: i * 0.03 }}
                         className={cn(
-                          'flex items-start gap-3 p-3 rounded-2xl transition-colors',
-                          n.priority === 'high' ? 'bg-red-50/50' : n.priority === 'medium' ? 'bg-amber-50/30' : 'bg-mayssa-soft/30',
-                          n.action && 'cursor-pointer hover:bg-mayssa-soft/60'
+                          'admin-notif-item',
+                          n.priority === 'high' ? 'bg-red-50/50' : n.priority === 'medium' ? 'bg-amber-50/30' : '',
+                          n.action && 'cursor-pointer'
                         )}
                         onClick={n.action}
                       >

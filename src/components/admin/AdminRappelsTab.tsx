@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Bell, Calendar, Mail, Star, Send, CheckCircle, AlertCircle, Loader2, MessageCircle, Copy, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
 import type { UserProfile, Order } from '../../lib/firebase'
 import { sendBulkGoogleReviewEmails } from '../../lib/firebase'
+import { AdminPanelHeader } from './ui/AdminUi'
 
 const GOOGLE_REVIEW_LINK = 'https://share.google/PsKmSr5Vx1VXqaNWx'
 
@@ -120,12 +121,13 @@ export function AdminRappelsTab({ allUsers, orders }: AdminRappelsTabProps) {
       transition={{ duration: 0.2 }}
       className="space-y-4"
     >
-      {/* ===== CAMPAGNE AVIS GOOGLE ===== */}
-      <div className="rounded-2xl bg-white p-4 shadow-sm border border-amber-200">
-        <h3 className="font-bold text-mayssa-brown mb-1 flex items-center gap-2">
-          <Star size={18} className="text-amber-500" />
-          Campagne avis Google
-        </h3>
+      <AdminPanelHeader
+        title="Rappels & avis Google"
+        description="Campagnes de relance et messages automatiques."
+        icon={Star}
+      />
+      <div className="admin-panel admin-panel-pad border-amber-200">
+        <h3 className="admin-panel-title mb-1">Campagne avis Google</h3>
         <p className="text-xs text-mayssa-brown/60 mb-4">
           Envoie le message d'avis Google à tous les clients ayant une commande validée ou livrée (dédupliqué par contact).
         </p>
@@ -349,7 +351,7 @@ export function AdminRappelsTab({ allUsers, orders }: AdminRappelsTabProps) {
           Liste des clients avec une dernière commande enregistrée. Idéal pour un rappel douceur (ex. -10 % après 2 semaines sans commande).
         </p>
       </div>
-      <div className="rounded-2xl bg-white p-4 shadow-sm border border-mayssa-brown/5">
+      <div className="admin-panel admin-panel-pad">
         <h3 className="font-bold text-mayssa-brown mb-3">Clients à relancer ({sorted.length})</h3>
         {sorted.length === 0 ? (
           <p className="text-sm text-mayssa-brown/50">Aucun client avec historique de commande.</p>
@@ -396,7 +398,7 @@ export function AdminRappelsTab({ allUsers, orders }: AdminRappelsTabProps) {
       </div>
 
       {/* ===== RÉVEIL OUVERTURE COMMANDES ===== */}
-      <div className="rounded-2xl bg-white p-4 shadow-sm border border-mayssa-brown/5">
+      <div className="admin-panel admin-panel-pad">
         <h3 className="font-bold text-mayssa-brown mb-2 flex items-center gap-2">
           <Mail size={18} />
           Réveil ouverture des commandes ({notifyOpening.length})
