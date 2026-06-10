@@ -223,6 +223,38 @@ export const PRODUCT_DETAILS: Record<string, ProductDetailContent> = {
     ],
     conservation: 'À conserver au réfrigérateur et déguster dans les 48 h suivant le retrait.',
   },
+  'cup-dubai-pistache-chocolatblanc-fraise': {
+    tagline: 'Le Dubai chocolate en version douce et fruitée',
+    paragraphs: [
+      'Une déclinaison plus lumineuse du Dubai chocolate : crème onctueuse au chocolat blanc, pistache intense et le croquant signature du kataïfi doré au beurre.',
+      'Les fraises fraîches s\'invitent sur les parois et entre chaque couche, apportant fraîcheur et acidité pour équilibrer la douceur du chocolat blanc et la richesse de la pistache.',
+      'Le topping final mêle éclats de pistache, copeaux de chocolat blanc et kataïfi croustillant — une cup généreuse, visuelle et irrésistiblement gourmande.',
+    ],
+    composition: [
+      'Chocolat blanc',
+      'Crème pistache',
+      'Fraises fraîches',
+      'Kataïfi doré au beurre',
+      'Éclats de pistache',
+    ],
+    conservation: 'À conserver au réfrigérateur et déguster dans les 48 h suivant le retrait.',
+  },
+  'cup-dubai-bueno': {
+    tagline: 'L\'esprit Bueno dans une cup Dubai généreuse',
+    paragraphs: [
+      'Pour les amateurs de noisette et de chocolat : cette cup s\'inspire du célèbre Bueno avec une crème onctueuse façon praliné noisette, enrobée de nappage chocolat et de kataïfi doré croustillant.',
+      'Les fraises fraîches s\'intercalent entre les couches pour une touche fruitée qui allège l\'ensemble, tandis que le topping réunit kataïfi, copeaux de chocolat et un carré de kunafa pour le croquant final.',
+      'Crémeux, croquant et gourmand — la tendance Dubai chocolate revisitée avec l\'indulgence irrésistible du Bueno.',
+    ],
+    composition: [
+      'Crème praliné noisette',
+      'Chocolat au lait',
+      'Fraises fraîches',
+      'Kataïfi doré au beurre',
+      'Copeaux de chocolat',
+    ],
+    conservation: 'À conserver au réfrigérateur et déguster dans les 48 h suivant le retrait.',
+  },
   'limonade-bresilienne-classique': {
     tagline: 'La limonada suíça brésilienne, dans sa version originale',
     paragraphs: [

@@ -87,6 +87,8 @@ export const COMING_SOON_FEATURED_IDS = [
   'new-york-roll-steak',
   'panuozzo-maison-mayssa',
   'cup-dubai-pistache-chocolat-fraise',
+  'cup-dubai-pistache-chocolatblanc-fraise',
+  'cup-dubai-bueno',
   'tablette-dubai-pistache',
   'tablette-dubai-speculoos',
   'cup-fruits-mix-maison',

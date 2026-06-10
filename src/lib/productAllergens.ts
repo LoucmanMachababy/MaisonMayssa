@@ -70,6 +70,8 @@ export const PRODUCT_ALLERGENS: Record<string, string[]> = {
   'cup-fruits-mix-maison': FRUITS_FRAIS,
   // Chocolaterie
   'cup-dubai-pistache-chocolat-fraise': [...CHOCOLAT, 'Fruits à coque (pistache)', 'Gluten'],
+  'cup-dubai-pistache-chocolatblanc-fraise': [...CHOCOLAT, 'Fruits à coque (pistache)', 'Gluten'],
+  'cup-dubai-bueno': [...CHOCOLAT, 'Fruits à coque (noisette)', 'Gluten'],
   'tablette-dubai-pistache': [...CHOCOLAT, 'Fruits à coque (pistache)'],
   'tablette-dubai-speculoos': CHOCOLAT,
   'tablette-dubai-framboise': CHOCOLAT,

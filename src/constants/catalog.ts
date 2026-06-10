@@ -199,6 +199,8 @@ export const CATALOG_PRODUCTS: Product[] = [
 
   // ─── Chocolaterie — bientôt disponible ───────────────────────────────────
   comingSoon('cup-dubai-pistache-chocolat-fraise', 'Cup Dubaï - Pistache, Chocolat & Fraise', 'Chocolaterie', 'Couches de chocolat, crème pistache, fraises fraîches et kataïfi doré — le Dubai chocolate en version cup.', 7, '/nouvelle-img/cup-dubai.PNG', { badges: ['nouveau'] }),
+  comingSoon('cup-dubai-pistache-chocolatblanc-fraise', 'Cup Dubaï - Pistache, Chocolat Blanc & Fraise', 'Chocolaterie', 'Crème chocolat blanc, pistache, fraises fraîches et kataïfi doré — une version douce et fruitée du Dubai chocolate.', 7, '/nouvelle-img/cup-dubai-pistache-chocolatblanc-fraise.PNG', { badges: ['nouveau'] }),
+  comingSoon('cup-dubai-bueno', 'Cup Dubaï - Bueno', 'Chocolaterie', 'Crème noisette façon Bueno, fraises fraîches, kataïfi croustillant et nappage chocolat — gourmandise irrésistible.', 7, '/nouvelle-img/cup-dubai-bueno.PNG', { badges: ['nouveau'] }),
   comingSoon('tablette-dubai-pistache', 'Tablette Dubaï - Classiques Pistache', 'Chocolaterie', 'Tablette artisanale pistache, inspiration Dubaï.', 5, '/nouvelle-img/tablette-chocolat-dubai-pistache.png'),
   comingSoon('tablette-dubai-speculoos', 'Tablette Dubaï - Spéculoos', 'Chocolaterie', 'Tablette artisanale au chocolat blanc et cœur fondant spéculoos.', 5, '/nouvelle-img/tablette-chocolat-speculos.png'),
   comingSoon('tablette-dubai-framboise', 'Tablette Dubaï - Chocolat Framboise', 'Chocolaterie', 'Tablette artisanale au chocolat noir et cœur framboise.', 12, '/nouvelle-img/tablette-chocolat-framboise.png', { visible: false }),

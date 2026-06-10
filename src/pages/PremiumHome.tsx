@@ -11,7 +11,9 @@ import { useSettings } from '../hooks/useSettings'
 
 export default function PremiumHome() {
   const settings = useSettings()
-  const ordersOpen = (settings?.ordersOpen !== false) && !settings?.eventModeEnabled
+  const ordersOpen = settings
+    ? settings.ordersOpen !== false && !settings.eventModeEnabled
+    : false
   /** Texte libre saisi dans l’admin — affiché tel quel, sans phrase automatique. */
   const heroAnnouncement = useMemo(() => {
     const fromRestock = settings?.nextRestockDate?.trim()
@@ -92,16 +94,25 @@ export default function PremiumHome() {
             transition={{ duration: 0.8, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
             className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-6 max-w-sm sm:max-w-none mx-auto w-full sm:w-auto"
           >
-            <Link 
-              to="/carte" 
-              className="w-full sm:w-auto px-8 py-3.5 sm:py-4 bg-white text-mayssa-brown text-sm tracking-widest uppercase hover:bg-mayssa-gold hover:text-white transition-colors duration-300"
-            >
-              {ordersOpen ? 'Précommander' : 'Découvrir la carte'}
-            </Link>
-            {ordersOpen && (
+            {ordersOpen ? (
+              <>
+                <Link 
+                  to="/carte" 
+                  className="w-full sm:w-auto px-8 py-3.5 sm:py-4 bg-white text-mayssa-brown text-sm tracking-widest uppercase hover:bg-mayssa-gold hover:text-white transition-colors duration-300"
+                >
+                  Précommander
+                </Link>
+                <Link 
+                  to="/carte" 
+                  className="w-full sm:w-auto px-8 py-3.5 sm:py-4 border border-white/30 text-white text-sm tracking-widest uppercase hover:bg-white/10 transition-colors duration-300"
+                >
+                  Découvrir la carte
+                </Link>
+              </>
+            ) : (
               <Link 
                 to="/carte" 
-                className="w-full sm:w-auto px-8 py-3.5 sm:py-4 border border-white/30 text-white text-sm tracking-widest uppercase hover:bg-white/10 transition-colors duration-300"
+                className="w-full sm:w-auto px-8 py-3.5 sm:py-4 bg-white text-mayssa-brown text-sm tracking-widest uppercase hover:bg-mayssa-gold hover:text-white transition-colors duration-300"
               >
                 Découvrir la carte
               </Link>
