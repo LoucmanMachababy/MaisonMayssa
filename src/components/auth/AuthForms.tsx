@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { User, Mail, Lock, Phone, Eye, EyeOff, Gift, Calendar, Cake } from 'lucide-react'
-import { clientRegister, clientLogin, createUserProfile, resetPassword } from '../../lib/firebase'
+import { User, Mail, Lock, Phone, Eye, EyeOff, Gift, Calendar, Cake, CheckCircle } from 'lucide-react'
+import { clientRegister, clientLoginFresh, createUserProfile, resetPassword, sendClientEmailVerification, clientLogout } from '../../lib/firebase'
 import { refreshUserProfile } from '../../hooks/useAuth'
 import { AddressAutocomplete } from '../AddressAutocomplete'
 import { CgvAcceptance } from '../legal/CgvAcceptance'
@@ -9,6 +9,9 @@ import type { Coordinates } from '../../types'
 
 const inputWrap = (hasError: boolean) =>
   `flex items-center gap-2 border px-4 py-3.5 ${hasError ? 'border-red-300' : 'border-mayssa-brown/10 focus-within:border-mayssa-gold'} bg-white transition-colors`
+
+const authInputClass =
+  'w-full bg-transparent text-sm text-mayssa-brown placeholder:text-mayssa-brown/55 placeholder:opacity-100 focus:outline-none'
 
 interface RegisterFormProps {
   onSuccess: () => void
@@ -29,6 +32,8 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
   })
   const [showPassword, setShowPassword] = useState(false)
   const [acceptedTerms, setAcceptedTerms] = useState(false)
+  const [verificationPending, setVerificationPending] = useState(false)
+  const [registeredEmail, setRegisteredEmail] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
 
@@ -53,7 +58,6 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
       const age = (Date.now() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
       if (age < 13) newErrors.birthday = 'Vous devez avoir au moins 13 ans'
     }
-    if (!formData.address.trim()) newErrors.address = 'Adresse requise'
     if (!acceptedTerms) newErrors.terms = 'Vous devez accepter les CGV et la politique de confidentialité'
 
     if (Object.keys(newErrors).length > 0) {
@@ -72,11 +76,13 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
         lastName: formData.lastName,
         phone: formData.phone,
         birthday: formData.birthday,
-        address: formData.address,
-        addressCoordinates: formData.addressCoordinates,
+        ...(formData.address.trim() && { address: formData.address }),
+        ...(formData.addressCoordinates && { addressCoordinates: formData.addressCoordinates }),
       })
-      await refreshUserProfile()
-      onSuccess()
+      await sendClientEmailVerification(userCredential.user)
+      await clientLogout()
+      setRegisteredEmail(formData.email)
+      setVerificationPending(true)
     } catch (error: unknown) {
       const code = (error as { code?: string })?.code
       if (code === 'auth/email-already-in-use') setErrors({ email: 'Cet email est déjà utilisé' })
@@ -86,6 +92,30 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (verificationPending) {
+    return (
+      <div className="text-center">
+        <div className="inline-flex items-center justify-center w-14 h-14 bg-emerald-50 text-emerald-600 mb-6 rounded-full">
+          <CheckCircle size={28} />
+        </div>
+        <h1 className="font-display text-3xl text-mayssa-brown mb-3">Vérifiez votre email</h1>
+        <p className="text-sm text-mayssa-brown/70 font-light leading-relaxed mb-2">
+          Un lien de confirmation a été envoyé à
+        </p>
+        <p className="text-sm font-medium text-mayssa-brown mb-6">{registeredEmail}</p>
+        <p className="text-xs text-mayssa-brown/55 leading-relaxed mb-8 max-w-sm mx-auto">
+          Cliquez sur le lien dans l&apos;email pour activer votre compte, puis connectez-vous. Pensez à vérifier vos spams.
+        </p>
+        <Link
+          to="/connexion"
+          className="inline-flex items-center justify-center w-full py-4 bg-mayssa-brown text-white text-sm tracking-widest uppercase hover:bg-mayssa-espresso transition-colors"
+        >
+          Aller à la connexion
+        </Link>
+      </div>
+    )
   }
 
   return (
@@ -114,7 +144,8 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
                 type="text"
                 value={formData.firstName}
                 onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                className="w-full bg-transparent text-sm text-mayssa-brown focus:outline-none"
+                className={authInputClass}
+                placeholder="Marie"
                 required
               />
             </div>
@@ -128,7 +159,8 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
                 type="text"
                 value={formData.lastName}
                 onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                className="w-full bg-transparent text-sm text-mayssa-brown focus:outline-none"
+                className={authInputClass}
+                placeholder="Dupont"
                 required
               />
             </div>
@@ -144,7 +176,8 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
               type="email"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full bg-transparent text-sm text-mayssa-brown focus:outline-none"
+              className={authInputClass}
+              placeholder="vous@exemple.fr"
               required
             />
           </div>
@@ -160,7 +193,7 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               placeholder="6 caractères minimum"
-              className="w-full bg-transparent text-sm text-mayssa-brown focus:outline-none"
+              className={authInputClass}
               required
             />
             <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-mayssa-brown/40">
@@ -185,7 +218,8 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
                 }
                 setFormData({ ...formData, phone: value })
               }}
-              className="w-full bg-transparent text-sm text-mayssa-brown focus:outline-none"
+              className={authInputClass}
+              placeholder="06 12 34 56 78"
               required
             />
           </div>
@@ -202,7 +236,8 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
               onChange={(e) => setFormData({ ...formData, birthday: e.target.value })}
               max={new Date(Date.now() - 13 * 365.25 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
               min="1920-01-01"
-              className="w-full bg-transparent text-sm text-mayssa-brown focus:outline-none"
+              className={authInputClass}
+              aria-label="Date de naissance"
               required
             />
           </div>
@@ -213,7 +248,7 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
         </div>
 
         <div>
-          <label className="block text-[10px] tracking-widest uppercase text-mayssa-brown/50 mb-1.5">Adresse</label>
+          <label className="block text-[10px] tracking-widest uppercase text-mayssa-brown/50 mb-1.5">Adresse (optionnelle)</label>
           <div className={`border ${errors.address ? 'border-red-300' : 'border-mayssa-brown/10'} bg-white`}>
             <AddressAutocomplete
               value={formData.address}
@@ -273,7 +308,16 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
     setErrors({})
 
     try {
-      await clientLogin(email, password)
+      const cred = await clientLoginFresh(email, password)
+      if (!cred.user.emailVerified) {
+        await sendClientEmailVerification(cred.user)
+        await clientLogout()
+        setErrors({
+          general:
+            'Votre email n\'est pas encore vérifié. Un nouveau lien de confirmation vient d\'être envoyé. Consultez votre boîte mail.',
+        })
+        return
+      }
       await refreshUserProfile()
       onSuccess()
     } catch (error: unknown) {
@@ -335,7 +379,8 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
               type="email"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full bg-transparent text-sm text-mayssa-brown focus:outline-none"
+              className={authInputClass}
+              placeholder="vous@exemple.fr"
               required
             />
           </div>
@@ -350,7 +395,8 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
               type={showPassword ? 'text' : 'password'}
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              className="w-full bg-transparent text-sm text-mayssa-brown focus:outline-none"
+              className={authInputClass}
+              placeholder="Votre mot de passe"
               required
             />
             <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-mayssa-brown/40">

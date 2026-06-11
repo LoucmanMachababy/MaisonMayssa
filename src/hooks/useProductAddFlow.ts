@@ -15,7 +15,19 @@ import {
 } from '../lib/discoveryBox'
 import { trackAddToCart } from '../lib/siteAnalytics'
 
-export function useProductAddFlow() {
+export interface ProductAddedInfo {
+  product: Product
+  quantity: number
+}
+
+interface UseProductAddFlowOptions {
+  /** Reste sur la page courante au lieu de rediriger vers /panier */
+  stayOnPage?: boolean
+  /** Appelé après un ajout réussi au panier */
+  onAdded?: (info: ProductAddedInfo) => void
+}
+
+export function useProductAddFlow(options?: UseProductAddFlowOptions) {
   const navigate = useNavigate()
   const addItem = useCartStore((s) => s.addItem)
   const { getStock, settings } = useStock()
@@ -30,6 +42,16 @@ export function useProductAddFlow() {
     )
     return listIndividualTrompeLoeilProducts(availableProducts).filter((p) => ids.has(p.id))
   }, [availableProducts, settings.boxDecouverteTrompeExcludedIds])
+
+  const afterAdd = (product: Product, quantity: number) => {
+    if (options?.onAdded) {
+      options.onAdded({ product, quantity })
+      return
+    }
+    if (!options?.stayOnPage) {
+      navigate('/panier')
+    }
+  }
 
   const tryAddProduct = (product: Product, quantity = 1) => {
     if (!product.available) return false
@@ -49,7 +71,7 @@ export function useProductAddFlow() {
 
     addItem(product, quantity)
     trackAddToCart(product.id, product.name)
-    navigate('/panier')
+    afterAdd(product, quantity)
     return true
   }
 
@@ -57,8 +79,9 @@ export function useProductAddFlow() {
     if (!discoveryBoxProduct) return
     addItem(discoveryBoxProduct, 1, { trompeDiscoverySelection: selectionIds })
     trackAddToCart(discoveryBoxProduct.id, discoveryBoxProduct.name)
+    const added = discoveryBoxProduct
     setDiscoveryBoxProduct(null)
-    navigate('/panier')
+    afterAdd(added, 1)
   }
 
   const confirmSize = (product: Product, size: ProductSize) => {
@@ -71,7 +94,7 @@ export function useProductAddFlow() {
     addItem(cartProduct, 1)
     trackAddToCart(cartProduct.id, cartProduct.name)
     setSizeProduct(null)
-    navigate('/panier')
+    afterAdd(cartProduct, 1)
   }
 
   const discoverySlotCount = discoveryBoxProduct

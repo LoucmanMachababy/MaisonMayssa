@@ -5,7 +5,9 @@ import { motion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
 import { TrompeLoeilMarquee } from '../components/decorative/TrompeLoeilMarquee'
 import { EditorialImageBand } from '../components/decorative/EditorialImageBand'
+import { GoogleReviewsCarousel } from '../components/GoogleReviewsCarousel'
 import { LIFESTYLE } from '../lib/decorativeAssets'
+import { trackAttrs } from '../lib/trackAttrs'
 import { useSettings } from '../hooks/useSettings'
 import { useProducts } from '../hooks/useProducts'
 
@@ -97,13 +99,15 @@ export default function PremiumHome() {
               <>
                 <Link 
                   to="/carte" 
-                  className="w-full sm:w-auto px-8 py-3.5 sm:py-4 bg-white text-mayssa-brown text-sm tracking-widest uppercase hover:bg-mayssa-gold hover:text-white transition-colors duration-300"
+                  className="w-full sm:w-auto px-8 py-3.5 sm:py-4 bg-white text-mayssa-brown text-sm tracking-widest uppercase hover:bg-mayssa-gold hover:text-white transition-colors duration-300 cursor-pointer"
+                  {...trackAttrs('hero-precommander', 'Précommander', 'cta')}
                 >
                   Précommander
                 </Link>
                 <Link 
                   to="/carte" 
-                  className="w-full sm:w-auto px-8 py-3.5 sm:py-4 border border-white/30 text-white text-sm tracking-widest uppercase hover:bg-white/10 transition-colors duration-300"
+                  className="w-full sm:w-auto px-8 py-3.5 sm:py-4 border border-white/30 text-white text-sm tracking-widest uppercase hover:bg-white/10 transition-colors duration-300 cursor-pointer"
+                  {...trackAttrs('hero-decouvrir-carte', 'Découvrir la carte', 'cta')}
                 >
                   Découvrir la carte
                 </Link>
@@ -111,7 +115,8 @@ export default function PremiumHome() {
             ) : (
               <Link 
                 to="/carte" 
-                className="w-full sm:w-auto px-8 py-3.5 sm:py-4 bg-white text-mayssa-brown text-sm tracking-widest uppercase hover:bg-mayssa-gold hover:text-white transition-colors duration-300"
+                className="w-full sm:w-auto px-8 py-3.5 sm:py-4 bg-white text-mayssa-brown text-sm tracking-widest uppercase hover:bg-mayssa-gold hover:text-white transition-colors duration-300 cursor-pointer"
+                {...trackAttrs('hero-decouvrir-carte', 'Découvrir la carte', 'cta')}
               >
                 Découvrir la carte
               </Link>
@@ -233,58 +238,7 @@ export default function PremiumHome() {
         </motion.div>
       </section>
 
-      {/* Google Reviews Carousel */}
-      <section className="py-24 md:py-32 bg-white overflow-hidden">
-        <div className="max-w-[1600px] mx-auto px-6">
-          <div className="text-center mb-16">
-            <div className="flex items-center justify-center gap-2 mb-4">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <svg key={star} className="w-6 h-6 text-mayssa-gold" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                </svg>
-              ))}
-            </div>
-            <h2 className="font-display text-3xl md:text-5xl text-mayssa-brown mb-4">L'avis de nos clients</h2>
-            <p className="text-mayssa-brown/50 font-light tracking-[0.2em] uppercase text-xs">Avis Google</p>
-          </div>
-
-          <div className="relative overflow-hidden -mx-6 px-6">
-            {/* Gradient masks for smooth fade effect on edges */}
-            <div className="absolute top-0 bottom-0 left-0 w-12 md:w-32 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
-            <div className="absolute top-0 bottom-0 right-0 w-12 md:w-32 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
-            
-            <motion.div 
-              className="flex w-max"
-              animate={{ x: ["0%", "-50%"] }}
-              transition={{ duration: 60, ease: "linear", repeat: Infinity }}
-            >
-              {[1, 2].map((setIndex) => (
-                <div key={setIndex} className="flex gap-6 px-3">
-                  {[
-                    { name: 'Sarah M.', text: "Une expérience incroyable ! Les trompe-l'œil sont aussi beaux que bons. Le goût de la mangue est juste exceptionnel, on sent vraiment le fruit frais. Je recommande les yeux fermés." },
-                    { name: 'Thomas L.', text: "Découvert sur Instagram, je n'ai pas été déçu. La qualité est au rendez-vous, c'est très fin et peu sucré. La pistache est une vraie merveille. Service client au top." },
-                    { name: 'Amélie D.', text: "Des pâtisseries d'une rare élégance. C'est le cadeau parfait pour surprendre ses invités. La cabosse de cacao est intense et le praliné est à tomber par terre." },
-                    { name: 'Karim B.', text: "Tout simplement les meilleurs trompe-l'œil que j'ai pu goûter. Le travail artisanal se ressent dans chaque bouchée. Mention spéciale pour la cacahuète qui est incroyable." },
-                    { name: 'Julie R.', text: "Une très belle découverte ! Les textures sont parfaites, le visuel est bluffant. On sent que ce sont des produits de qualité. Hâte de goûter les autres créations." }
-                  ].map((review, i) => (
-                    <div key={i} className="shrink-0 w-[85vw] md:w-[400px] bg-mayssa-soft p-8 md:p-10 rounded-2xl border border-mayssa-brown/5">
-                      <div className="flex items-center gap-1 mb-6">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <svg key={star} className="w-4 h-4 text-mayssa-gold" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                          </svg>
-                        ))}
-                      </div>
-                      <p className="text-mayssa-brown/80 font-light leading-relaxed mb-8 italic">"{review.text}"</p>
-                      <p className="font-display text-lg text-mayssa-brown">{review.name}</p>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </motion.div>
-          </div>
-        </div>
-      </section>
+      <GoogleReviewsCarousel />
 
       <EditorialImageBand
         image={LIFESTYLE.mangueCluster}

@@ -346,7 +346,8 @@
 
   .cart-sheet-field input::placeholder,
   .cart-sheet-field textarea::placeholder {
-    color: color-mix(in srgb, var(--color-mayssa-brown) 38%, transparent);
+    color: color-mix(in srgb, var(--color-mayssa-brown) 52%, transparent);
+    opacity: 1;
   }
 
   .cart-sheet-mode-btn {

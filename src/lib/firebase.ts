@@ -7,7 +7,7 @@ import {
 import { listIndividualTrompeLoeilProducts } from './discoveryBox'
 import { initializeApp } from 'firebase/app'
 import { getDatabase, ref, onValue, set, get, push, update, remove, runTransaction, connectDatabaseEmulator, onDisconnect } from 'firebase/database'
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from 'firebase/auth'
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, sendEmailVerification, reload } from 'firebase/auth'
 import { getFunctions, httpsCallable, connectFunctionsEmulator } from 'firebase/functions'
 import type { User } from 'firebase/auth'
 
@@ -541,6 +541,10 @@ export type Order = {
   referralDiscountAmount?: number
   /** UID du parrain (pour le créditer) */
   referrerUserId?: string
+  /** Moyen de paiement (simulation Stripe / wallets) */
+  paymentMethod?: 'card' | 'apple_pay' | 'google_pay' | 'paypal' | 'cash'
+  /** Statut paiement */
+  paymentStatus?: 'simulated_paid' | 'pending' | 'paid'
   /** Checklist admin (stock vérifié, message envoyé, prêt) */
   adminChecklist?: { stockChecked?: boolean; messageSent?: boolean; ready?: boolean }
 }
@@ -1082,12 +1086,36 @@ export async function clientLogin(email: string, password: string) {
   return signInWithEmailAndPassword(auth, email, password)
 }
 
+/** Connexion avec rechargement du profil Auth (emailVerified à jour). */
+export async function clientLoginFresh(email: string, password: string) {
+  const cred = await signInWithEmailAndPassword(auth, email, password)
+  await reload(cred.user)
+  return cred
+}
+
 export async function clientLogout() {
   return signOut(auth)
 }
 
 export async function resetPassword(email: string) {
   return sendPasswordResetEmail(auth, email)
+}
+
+export async function sendClientEmailVerification(user: User) {
+  const continueUrl = typeof window !== 'undefined' ? `${window.location.origin}/connexion` : undefined
+  return sendEmailVerification(user, continueUrl ? { url: continueUrl } : undefined)
+}
+
+/** Renvoie l'email de vérification (connexion temporaire puis déconnexion). */
+export async function resendClientEmailVerification(email: string, password: string) {
+  const cred = await signInWithEmailAndPassword(auth, email, password)
+  if (cred.user.emailVerified) {
+    await signOut(auth)
+    return { alreadyVerified: true as const }
+  }
+  await sendClientEmailVerification(cred.user)
+  await signOut(auth)
+  return { alreadyVerified: false as const }
 }
 
 // --- Types Profils Clients & Fidélité ---

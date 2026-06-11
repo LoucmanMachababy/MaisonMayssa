@@ -160,7 +160,7 @@ export function AddressAutocomplete({
             }
           }}
           placeholder={placeholder}
-          className="w-full bg-transparent text-sm text-mayssa-brown placeholder:text-mayssa-brown/50 focus:outline-none pl-10 pr-10"
+          className="w-full bg-transparent text-sm text-mayssa-brown placeholder:text-mayssa-brown/55 placeholder:opacity-100 focus:outline-none pl-10 pr-10"
           aria-label={ariaLabel ?? placeholder}
         />
         {value && (

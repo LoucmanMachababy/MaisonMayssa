@@ -1,4 +1,5 @@
-import { Outlet } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Outlet, useLocation } from 'react-router-dom'
 import { PremiumHeader } from './PremiumHeader'
 import { PremiumFooter } from './PremiumFooter'
 import { PremiumGlobalBanner } from './PremiumGlobalBanner'
@@ -10,9 +11,15 @@ import { OrderCheckoutProvider } from '../../contexts/OrderCheckoutContext'
 import { useSettings } from '../../hooks/useSettings'
 
 export function PremiumLayout() {
+  const location = useLocation()
   const settings = useSettings()
   const ordersOpen = (settings?.ordersOpen !== false) && !settings?.eventModeEnabled
   const hasGlobalBanner = !!(settings?.globalMessageEnabled && settings.globalMessage?.trim())
+
+  // Sécurité : le panier mobile peut laisser overflow:hidden sur le body après navigation
+  useEffect(() => {
+    document.body.style.overflow = ''
+  }, [location.pathname])
 
   return (
     <OrderCheckoutProvider>

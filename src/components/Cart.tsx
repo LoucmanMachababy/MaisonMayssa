@@ -11,6 +11,10 @@ import { REWARD_COSTS, REWARD_LABELS } from '../lib/rewards'
 import type { DeliverySlotsMap } from '../lib/firebase'
 import { AddressAutocomplete } from './AddressAutocomplete'
 import { CgvAcceptance } from './legal/CgvAcceptance'
+import { SimulatedPayment } from './checkout/SimulatedPayment'
+import { PaymentUnavailable } from './checkout/PaymentUnavailable'
+import { CLICK_COLLECT_ONLY, SIMULATED_PAYMENT_ENABLED, ONLINE_PAYMENT_UNAVAILABLE } from '../constants/checkout'
+import type { SimulatedPaymentMethod } from '../constants/checkout'
 import {
     ANNECY_GARE,
     DELIVERY_RADIUS_KM,
@@ -85,6 +89,10 @@ interface CartProps {
     /** Canal pour libellés identité (nom/prénom vs pseudo Insta/Snap) */
     orderContactIdentity?: 'whatsapp' | 'instagram' | 'snap'
     onOrderContactIdentityChange?: (v: 'whatsapp' | 'instagram' | 'snap') => void
+    paymentConfirmed?: boolean
+    paymentMethod?: SimulatedPaymentMethod | null
+    onConfirmPayment?: (method: SimulatedPaymentMethod) => void
+    onResetPayment?: () => void
 }
 
 export function Cart({
@@ -129,6 +137,10 @@ export function Cart({
     onAllowAnotherOrder,
     orderContactIdentity = 'whatsapp',
     onOrderContactIdentityChange,
+    paymentConfirmed = true,
+    paymentMethod = null,
+    onConfirmPayment,
+    onResetPayment,
 }: CartProps) {
     const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
     const [dismissSecondOrderPrompt, setDismissSecondOrderPrompt] = useState(false)
@@ -196,9 +208,11 @@ export function Cart({
         }
     }, [customer.wantsDelivery, customer.date, customer.time, deliverySlots, allTimeSlots])
 
-    const minDate = (minDateRetrait != null && minDateLivraison != null)
-      ? (customer.wantsDelivery ? minDateLivraison : minDateRetrait)
-      : (minDateProp && minDateProp.trim() ? minDateProp : getMinDate())
+    const minDate = CLICK_COLLECT_ONLY
+      ? (minDateRetrait ?? (minDateProp && minDateProp.trim() ? minDateProp : getMinDate()))
+      : (minDateRetrait != null && minDateLivraison != null)
+        ? (customer.wantsDelivery ? minDateLivraison : minDateRetrait)
+        : (minDateProp && minDateProp.trim() ? minDateProp : getMinDate())
     const maxDate = maxDateProp && maxDateProp.trim() ? maxDateProp : undefined
     // Précommandes ouvertes si la date+heure d'ouverture est passée (ou si pas configurée)
     const preorderIsOpen = useMemo(() => {
@@ -256,6 +270,7 @@ export function Cart({
       hasItems &&
       isCustomerValid &&
       acceptedTerms &&
+      paymentConfirmed &&
       ordersOpen !== false &&
       !trompeLoeilBeforeMinDate &&
       (!hasNonTrompeLoeil || !orderCutoffPassed || ordersExplicit)
@@ -263,7 +278,7 @@ export function Cart({
     const stepLabels: Record<1 | 2 | 3 | 4, string> = {
         1: 'Options',
         2: 'Infos',
-        3: 'Livraison',
+        3: CLICK_COLLECT_ONLY ? 'Click & collect' : 'Livraison',
         4: 'Validation',
     }
 
@@ -298,7 +313,7 @@ export function Cart({
                         </p>
                         <AnimatePresence mode="popLayout">
                             {hasItems ? (
-                                <div className="space-y-4">
+                                <div className="divide-y divide-mayssa-brown/8">
                                     {items.map((item) => (
                                         <motion.div
                                             key={item.product.id}
@@ -674,15 +689,27 @@ export function Cart({
                         </div>
                             <div className="pt-4 border-t border-mayssa-gold/20">
                                 <button type="button" onClick={() => setStep(3)} className="premium-cart-checkout__btn-primary">
-                                    Suivant : Récupération →
+                                    Suivant : {CLICK_COLLECT_ONLY ? 'Click & collect' : 'Récupération'} →
                                 </button>
                             </div>
                         </div>
 
                         <div className={step === 3 ? 'space-y-6 block' : 'hidden'}>
                         <p className="premium-cart-checkout__section-label border-b border-mayssa-brown/8 pb-3">
-                            Mode de récupération
+                            {CLICK_COLLECT_ONLY ? 'Click & collect' : 'Mode de récupération'}
                         </p>
+                        {CLICK_COLLECT_ONLY ? (
+                            <div className="premium-cart-checkout__panel flex items-start gap-3">
+                                <MapPin size={22} className="text-mayssa-gold shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="text-sm font-semibold text-mayssa-brown">Retrait au point de collecte</p>
+                                    <p className="text-[11px] text-mayssa-brown/65 mt-1 leading-relaxed">
+                                        Choisissez votre créneau de retrait. Vous recevrez une confirmation avec les instructions de collecte.
+                                    </p>
+                                </div>
+                            </div>
+                        ) : (
+                        <>
                         <div className="grid grid-cols-2 gap-3">
                             <button
                                 type="button"
@@ -734,6 +761,8 @@ export function Cart({
                                     />
                                 </div>
                             </div>
+                        )}
+                        </>
                         )}
 
                         <div className="grid grid-cols-2 gap-3">
@@ -1009,15 +1038,30 @@ export function Cart({
                                     <MessageCircle size={14} className="text-mayssa-gold" />
                                     Finaliser la commande
                                 </p>
-                                <div className="premium-cart-checkout__panel max-w-md mx-auto text-[10px] text-mayssa-brown/70 space-y-2">
-                                    <p className="font-bold text-[11px] text-mayssa-brown uppercase tracking-wider border-b border-mayssa-brown/5 pb-2 mb-3">
-                                        Parcours Maison Mayssa
-                                    </p>
-                                    <p className="flex items-start gap-2"><span className="font-bold text-mayssa-gold">1.</span> je remplis mon panier sur le site.</p>
-                                    <p className="flex items-start gap-2"><span className="font-bold text-mayssa-gold">2.</span> j&apos;envoie ma commande sur WhatsApp (ou Insta/Snap).</p>
-                                    <p className="flex items-start gap-2"><span className="font-bold text-mayssa-gold">3.</span> Maison Mayssa me confirme la commande et l&apos;heure.</p>
-                                    <p className="flex items-start gap-2"><span className="font-bold text-mayssa-gold">4.</span> je règle à la livraison/retrait ou par PayPal.</p>
+                                <div className="premium-cart-checkout__journey max-w-md mx-auto">
+                                    <p className="premium-cart-checkout__journey-title">Parcours Maison Mayssa</p>
+                                    <ol className="premium-cart-checkout__journey-steps">
+                                      <li><span>1</span> Je remplis mon panier sur le site.</li>
+                                      <li><span>2</span> J&apos;envoie ma commande sur WhatsApp (ou Insta/Snap).</li>
+                                      <li><span>3</span> Maison Mayssa me confirme la commande et l&apos;heure.</li>
+                                      <li><span>4</span> {SIMULATED_PAYMENT_ENABLED ? 'Paiement en ligne puis confirmation.' : ONLINE_PAYMENT_UNAVAILABLE ? 'Paiement indisponible pour le moment.' : 'Je règle à la collecte ou par PayPal.'}</li>
+                                    </ol>
                                 </div>
+
+                                {ONLINE_PAYMENT_UNAVAILABLE && (
+                                    <PaymentUnavailable className="max-w-md mx-auto" />
+                                )}
+
+                                {SIMULATED_PAYMENT_ENABLED && onConfirmPayment && (
+                                    <SimulatedPayment
+                                        total={finalTotal}
+                                        confirmed={paymentConfirmed}
+                                        selectedMethod={paymentMethod}
+                                        onConfirm={onConfirmPayment}
+                                        onReset={onResetPayment}
+                                        className="max-w-md mx-auto"
+                                    />
+                                )}
 
                                 {hasNonTrompeLoeil && isClassicPreorderPhase && (
                                     <p className="premium-cart-checkout__notice text-mayssa-brown">
@@ -1049,7 +1093,7 @@ export function Cart({
                                     className="premium-cart-checkout__btn-primary premium-cart-checkout__btn-whatsapp"
                                 >
                                     <MessageCircle size={20} />
-                                    <span>{hasItems ? (canSend ? 'WhatsApp' : ordersOpen === false ? 'Fermé' : trompeLoeilBeforeMinDate ? `Dès le ${formatDateLabel(minDate)}` : orderCutoffPassed && hasNonTrompeLoeil ? 'Jusqu\'à 17h' : 'Vérifier Formulaire') : 'Panier Vide'}</span>
+                                    <span>{hasItems ? (canSend ? 'WhatsApp' : ordersOpen === false ? 'Fermé' : !paymentConfirmed && ONLINE_PAYMENT_UNAVAILABLE ? 'Paiement indisponible' : trompeLoeilBeforeMinDate ? `Dès le ${formatDateLabel(minDate)}` : orderCutoffPassed && hasNonTrompeLoeil ? 'Jusqu\'à 17h' : 'Vérifier Formulaire') : 'Panier Vide'}</span>
                                 </button>
 
                                 <div className="grid grid-cols-2 gap-3 mt-4">

@@ -9,10 +9,15 @@ import { AddressAutocomplete } from '../AddressAutocomplete'
 import { ReservationTimer } from '../ReservationTimer'
 import { useAuth } from '../../hooks/useAuth'
 import { useFocusTrap } from '../../hooks/useAccessibility'
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { REWARD_COSTS, REWARD_LABELS } from '../../lib/rewards'
 import type { CartItem, CustomerInfo } from '../../types'
 import type { DeliverySlotsMap } from '../../lib/firebase'
 import { CgvAcceptance } from '../legal/CgvAcceptance'
+import { SimulatedPayment } from '../checkout/SimulatedPayment'
+import { PaymentUnavailable } from '../checkout/PaymentUnavailable'
+import { CLICK_COLLECT_ONLY, SIMULATED_PAYMENT_ENABLED, ONLINE_PAYMENT_UNAVAILABLE } from '../../constants/checkout'
+import type { SimulatedPaymentMethod } from '../../constants/checkout'
 import {
   ANNECY_GARE,
   DELIVERY_RADIUS_KM,
@@ -72,6 +77,10 @@ interface CartSheetProps {
   onAllowAnotherOrder?: () => void
   orderContactIdentity?: 'whatsapp' | 'instagram' | 'snap'
   onOrderContactIdentityChange?: (v: 'whatsapp' | 'instagram' | 'snap') => void
+  paymentConfirmed?: boolean
+  paymentMethod?: SimulatedPaymentMethod | null
+  onConfirmPayment?: (method: SimulatedPaymentMethod) => void
+  onResetPayment?: () => void
 }
 
 type WizardStep = 1 | 2 | 3
@@ -119,6 +128,10 @@ export function CartSheet({
   onAllowAnotherOrder,
   orderContactIdentity = 'whatsapp',
   onOrderContactIdentityChange,
+  paymentConfirmed = true,
+  paymentMethod = null,
+  onConfirmPayment,
+  onResetPayment,
 }: CartSheetProps) {
   const [dismissSecondOrderPrompt, setDismissSecondOrderPrompt] = useState(false)
   const [acceptedTerms, setAcceptedTerms] = useState(false)
@@ -145,17 +158,7 @@ export function CartSheet({
 
   useFocusTrap(sheetRef, isOpen, onClose)
 
-  // Lock body scroll when open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = ''
-    }
-    return () => {
-      document.body.style.overflow = ''
-    }
-  }, [isOpen])
+  useBodyScrollLock(isOpen)
 
   // Touched state for real-time validation
   const [touched, setTouched] = useState<Partial<Record<keyof typeof customer, boolean>>>({})
@@ -197,9 +200,11 @@ export function CartSheet({
   const isSlotFull = (time: string) =>
     Boolean(customer.wantsDelivery && customer.date && (deliverySlots[customer.date]?.[time] ?? 0) >= DELIVERY_SLOT_MAX_CAPACITY)
 
-  const minDate = (minDateRetrait != null && minDateLivraison != null)
-    ? (customer.wantsDelivery ? minDateLivraison : minDateRetrait)
-    : (minDateProp && minDateProp.trim() ? minDateProp : getMinDate())
+  const minDate = CLICK_COLLECT_ONLY
+    ? (minDateRetrait ?? (minDateProp && minDateProp.trim() ? minDateProp : getMinDate()))
+    : (minDateRetrait != null && minDateLivraison != null)
+      ? (customer.wantsDelivery ? minDateLivraison : minDateRetrait)
+      : (minDateProp && minDateProp.trim() ? minDateProp : getMinDate())
   const maxDate = maxDateProp && maxDateProp.trim() ? maxDateProp : undefined
   const preorderIsOpen = useMemo(() => {
     if (!preorderOpenDate) return true
@@ -271,6 +276,7 @@ export function CartSheet({
     hasItems &&
     isCustomerValid &&
     acceptedTerms &&
+    paymentConfirmed &&
     ordersOpen !== false &&
     !trompeLoeilBeforeMinDate &&
     (!hasNonTrompeLoeil || !orderCutoffPassed || ordersExplicit)
@@ -639,11 +645,20 @@ export function CartSheet({
   // ============================================================================
   const renderStep2 = () => (
     <motion.div key="step2" {...stepTransition} className="space-y-4">
-      {/* Delivery Mode */}
+      {/* Click & collect / mode récupération */}
       <div className="space-y-2">
         <p className="cart-sheet-section-label">
-          Mode de récupération
+          {CLICK_COLLECT_ONLY ? 'Click & collect' : 'Mode de récupération'}
         </p>
+        {CLICK_COLLECT_ONLY ? (
+          <div className="cart-sheet-panel flex items-start gap-2.5">
+            <MapPin size={18} className="text-mayssa-caramel shrink-0 mt-0.5" />
+            <p className="text-xs text-mayssa-brown/75 leading-relaxed">
+              Retrait au point de collecte au créneau choisi. Instructions envoyées après confirmation.
+            </p>
+          </div>
+        ) : (
+        <>
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
@@ -697,10 +712,12 @@ export function CartSheet({
                 onChange={(e) => onCustomerChange({ ...customer, deliveryInstructions: e.target.value })}
                 placeholder="Code, étage, sonner 2 fois…"
                 aria-labelledby="cart-sheet-delivery-instructions-label"
-                className="w-full rounded-lg bg-white/80 px-2.5 py-1.5 text-xs text-mayssa-brown placeholder:text-mayssa-brown/40 ring-1 ring-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel/30"
+                className="w-full rounded-lg bg-white/80 px-2.5 py-1.5 text-xs text-mayssa-brown placeholder:text-mayssa-brown/55 placeholder:opacity-100 ring-1 ring-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel/30"
               />
             </div>
           </div>
+        )}
+        </>
         )}
       </div>
 
@@ -762,7 +779,7 @@ export function CartSheet({
           </div>
         </div>
         <p className="text-[9px] text-mayssa-brown/65">
-          {customer.wantsDelivery ? 'Livraison 20h - 2h' : 'Retrait 18h30 - 2h'}
+          {CLICK_COLLECT_ONLY ? 'Click & collect' : customer.wantsDelivery ? 'Livraison 20h - 2h' : 'Retrait 18h30 - 2h'}
         </p>
         {customer.wantsDelivery && customer.date && timeSlots.length === 0 && (
           <p className="text-[10px] text-amber-600 bg-amber-50 rounded-lg px-2 py-1.5">
@@ -808,7 +825,7 @@ export function CartSheet({
                   onBlur={() => markTouched('firstName')}
                   placeholder="Prénom"
                   aria-label="Prénom"
-                  className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
+                  className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/55 placeholder:opacity-100 focus:outline-none"
                 />
               </div>
               {showError('firstName') && <p className="text-[9px] text-red-400 pl-3 mt-0.5">{validationErrors.firstName}</p>}
@@ -822,7 +839,7 @@ export function CartSheet({
                   onBlur={() => markTouched('lastName')}
                   placeholder="Nom"
                   aria-label="Nom"
-                  className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
+                  className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/55 placeholder:opacity-100 focus:outline-none"
                 />
               </div>
               {showError('lastName') && <p className="text-[9px] text-red-400 pl-3 mt-0.5">{validationErrors.lastName}</p>}
@@ -856,7 +873,7 @@ export function CartSheet({
                     ? "Nom d'utilisateur Instagram"
                     : "Nom d'utilisateur Snapchat"
                 }
-                className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
+                className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/55 placeholder:opacity-100 focus:outline-none"
               />
             </div>
             {showError('firstName') && <p className="text-[9px] text-red-400 pl-3 mt-0.5">{validationErrors.firstName}</p>}
@@ -876,7 +893,7 @@ export function CartSheet({
               onBlur={() => markTouched('phone')}
               placeholder="Téléphone"
               aria-label="Téléphone"
-              className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
+              className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/55 placeholder:opacity-100 focus:outline-none"
             />
           </div>
           {showError('phone') && <p className="text-[9px] text-red-400 pl-3 mt-0.5">{validationErrors.phone}</p>}
@@ -890,7 +907,7 @@ export function CartSheet({
               onChange={(e) => onCustomerChange({ ...customer, email: e.target.value.trim() || undefined })}
               placeholder="Email (récap + notif)"
               aria-label="Email pour récap et notifications"
-              className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none"
+              className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/55 placeholder:opacity-100 focus:outline-none"
             />
           </div>
           <p className="text-[9px] text-mayssa-brown/50 pl-3 mt-0.5">Optionnel</p>
@@ -946,7 +963,7 @@ export function CartSheet({
           <div className="flex items-start gap-2">
             {customer.wantsDelivery ? <Truck size={12} className="text-mayssa-caramel mt-0.5 shrink-0" /> : <MapPin size={12} className="text-mayssa-caramel mt-0.5 shrink-0" />}
             <div className="flex-1">
-              <p className="font-bold text-mayssa-brown">{customer.wantsDelivery ? 'Livraison' : 'Retrait sur place'}</p>
+              <p className="font-bold text-mayssa-brown">{CLICK_COLLECT_ONLY ? 'Click & collect' : customer.wantsDelivery ? 'Livraison' : 'Retrait sur place'}</p>
               {customer.wantsDelivery && customer.address && (
                 <p className="text-mayssa-brown/70 text-[11px]">{customer.address}</p>
               )}
@@ -1023,7 +1040,7 @@ export function CartSheet({
         </p>
         <p><span className="font-semibold">1.</span> Tu envoies ta commande sur WhatsApp (ou Insta / Snap).</p>
         <p><span className="font-semibold">2.</span> Maison Mayssa te confirme la commande et l&apos;heure.</p>
-        <p><span className="font-semibold">3.</span> Paiement à la livraison / au retrait ou via PayPal.</p>
+        <p><span className="font-semibold">3.</span> {ONLINE_PAYMENT_UNAVAILABLE ? 'Paiement indisponible pour le moment.' : 'Paiement à la livraison / au retrait ou via PayPal.'}</p>
       </div>
 
       {hasNonTrompeLoeil && isClassicPreorderPhase && (
@@ -1040,6 +1057,18 @@ export function CartSheet({
         <p className="text-[10px] text-amber-700 text-center bg-amber-50 rounded-lg px-2 py-1.5 border border-amber-200">
           Les précommandes trompe l&apos;œil sont possibles à partir du {formatDateLabel(minDate)}.
         </p>
+      )}
+
+      {ONLINE_PAYMENT_UNAVAILABLE && <PaymentUnavailable />}
+
+      {SIMULATED_PAYMENT_ENABLED && onConfirmPayment && (
+        <SimulatedPayment
+          total={finalTotal}
+          confirmed={paymentConfirmed}
+          selectedMethod={paymentMethod}
+          onConfirm={onConfirmPayment}
+          onReset={onResetPayment}
+        />
       )}
 
       <CgvAcceptance checked={acceptedTerms} onChange={setAcceptedTerms} />
@@ -1170,6 +1199,8 @@ export function CartSheet({
                 ? 'Envoyer sur WhatsApp'
                 : ordersOpen === false
                   ? 'Commandes fermées'
+                  : !paymentConfirmed && ONLINE_PAYMENT_UNAVAILABLE
+                  ? 'Paiement indisponible'
                   : trompeLoeilBeforeMinDate
                     ? `À partir du ${formatDateLabel(minDate)}`
                     : orderCutoffPassed && hasNonTrompeLoeil

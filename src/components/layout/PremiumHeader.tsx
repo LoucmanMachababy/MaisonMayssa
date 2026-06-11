@@ -5,6 +5,7 @@ import { useIsAdmin } from '../../hooks/useIsAdmin'
 import { ShoppingBag, Search, User, Menu, X } from 'lucide-react'
 import { useCartStore } from '../../lib/store'
 import { AnimatePresence, motion } from 'framer-motion'
+import { HeaderSearchExpand } from './HeaderSearchExpand'
 
 function sanitizeNavTrack(path: string): string {
   return path.replace(/\//g, '-').replace(/^-|-$/g, '') || 'home'
@@ -18,6 +19,7 @@ interface PremiumHeaderProps {
 export function PremiumHeader({ hasGlobalBanner, ordersOpen = true }: PremiumHeaderProps) {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
   const location = useLocation()
   const { isAuthenticated } = useAuth()
   const { isAdmin } = useIsAdmin()
@@ -36,6 +38,7 @@ export function PremiumHeader({ hasGlobalBanner, ordersOpen = true }: PremiumHea
   // Close mobile menu on route change
   useEffect(() => {
     setIsMobileMenuOpen(false)
+    setIsSearchOpen(false)
   }, [location.pathname])
 
   const navLinks = useMemo(() => {
@@ -89,31 +92,83 @@ export function PremiumHeader({ hasGlobalBanner, ordersOpen = true }: PremiumHea
             Maison Mayssa
           </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center space-x-8">
-            {navLinks.map((link) => (
+          {/* Desktop Navigation + actions */}
+          <div className="hidden lg:flex items-center gap-10 xl:gap-14 ml-auto shrink-0">
+            <nav className="flex items-center space-x-8">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.name}
+                  to={link.path}
+                  data-track={`nav-${sanitizeNavTrack(link.path)}`}
+                  data-track-label={link.name}
+                  data-track-group="navigation"
+                  className={`text-sm tracking-wide uppercase transition-colors hover:text-mayssa-gold whitespace-nowrap ${
+                    location.pathname === link.path
+                      ? (isSolid ? 'text-mayssa-gold font-medium' : 'text-white font-medium')
+                      : (isSolid ? 'text-mayssa-brown/80' : 'text-white/80')
+                  }`}
+                >
+                  {link.name}
+                </Link>
+              ))}
+            </nav>
+
+            <div className="flex items-center space-x-3 lg:space-x-5 shrink-0">
+              <HeaderSearchExpand
+                isSolid={isSolid}
+                open={isSearchOpen}
+                onOpenChange={setIsSearchOpen}
+              />
               <Link
-                key={link.name}
-                to={link.path}
-                data-track={`nav-${sanitizeNavTrack(link.path)}`}
-                data-track-label={link.name}
-                data-track-group="navigation"
-                className={`text-sm tracking-wide uppercase transition-colors hover:text-mayssa-gold ${
-                  location.pathname === link.path
-                    ? (isSolid ? 'text-mayssa-gold font-medium' : 'text-white font-medium')
-                    : (isSolid ? 'text-mayssa-brown/80' : 'text-white/80')
+                to={accountPath}
+                data-track="nav-compte"
+                data-track-label="Mon compte"
+                data-track-group="account"
+                className={`transition-colors hover:text-mayssa-gold ${isSolid ? 'text-mayssa-brown/80' : 'text-white/80'}`}
+                aria-label="Mon compte"
+              >
+                <User size={20} strokeWidth={1.5} />
+              </Link>
+              <Link
+                to="/panier"
+                data-track="nav-panier"
+                data-track-label="Panier"
+                data-track-group="cart"
+                aria-label="Panier"
+                className={`relative transition-colors hover:text-mayssa-gold ${isSolid ? 'text-mayssa-brown/80' : 'text-white/80'}`}
+              >
+                <ShoppingBag size={20} strokeWidth={1.5} />
+                {cartCount > 0 && (
+                  <span className={`absolute -top-2 -right-2 text-[10px] font-bold h-4 w-4 rounded-full flex items-center justify-center ${
+                    isSolid ? 'bg-mayssa-gold text-white' : 'bg-white text-mayssa-brown'
+                  }`}>
+                    {cartCount}
+                  </span>
+                )}
+              </Link>
+              <Link
+                to="/carte"
+                data-track="cta-precommander-header"
+                data-track-label={ordersOpen ? 'Précommander' : 'La carte'}
+                data-track-group="cta"
+                className={`inline-flex items-center justify-center px-6 py-2.5 text-xs tracking-widest uppercase transition-colors duration-300 ${
+                  isSolid 
+                    ? 'bg-mayssa-brown text-white hover:bg-mayssa-espresso' 
+                    : 'bg-white text-mayssa-brown hover:bg-white/90'
                 }`}
               >
-                {link.name}
+                {ordersOpen ? 'Précommander' : 'La carte'}
               </Link>
-            ))}
-          </nav>
+            </div>
+          </div>
 
-          {/* Right Icons */}
-          <div className="flex items-center space-x-4 lg:space-x-6">
-            <button className={`hidden sm:block transition-colors hover:text-mayssa-gold ${isSolid ? 'text-mayssa-brown/80' : 'text-white/80'}`}>
-              <Search size={20} strokeWidth={1.5} />
-            </button>
+          {/* Mobile actions */}
+          <div className="flex lg:hidden items-center space-x-3">
+            <HeaderSearchExpand
+              isSolid={isSolid}
+              open={isSearchOpen}
+              onOpenChange={setIsSearchOpen}
+            />
             <Link
               to={accountPath}
               data-track="nav-compte"
@@ -140,19 +195,6 @@ export function PremiumHeader({ hasGlobalBanner, ordersOpen = true }: PremiumHea
                   {cartCount}
                 </span>
               )}
-            </Link>
-            <Link
-              to="/carte"
-              data-track="cta-precommander-header"
-              data-track-label={ordersOpen ? 'Précommander' : 'La carte'}
-              data-track-group="cta"
-              className={`hidden lg:inline-flex items-center justify-center px-6 py-2.5 text-xs tracking-widest uppercase transition-colors duration-300 ${
-                isSolid 
-                  ? 'bg-mayssa-brown text-white hover:bg-mayssa-espresso' 
-                  : 'bg-white text-mayssa-brown hover:bg-white/90'
-              }`}
-            >
-              {ordersOpen ? 'Précommander' : 'La carte'}
             </Link>
           </div>
         </div>
@@ -188,6 +230,17 @@ export function PremiumHeader({ hasGlobalBanner, ordersOpen = true }: PremiumHea
                 </button>
               </div>
               <nav className="flex-1 overflow-y-auto py-8 px-6 flex flex-col space-y-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false)
+                    setIsSearchOpen(true)
+                  }}
+                  className="flex items-center gap-3 w-full text-left text-mayssa-brown/70 hover:text-mayssa-brown border border-mayssa-brown/15 px-4 py-3 cursor-pointer"
+                >
+                  <Search size={18} strokeWidth={1.5} className="text-mayssa-brown shrink-0" />
+                  <span className="text-sm">Rechercher…</span>
+                </button>
                 {navLinks.map((link) => (
                   <Link
                     key={link.name}

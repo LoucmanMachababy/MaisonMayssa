@@ -7,6 +7,7 @@ import { useProducts } from '../hooks/useProducts'
 import { ProductAddModals } from '../components/product/ProductAddModals'
 import { ProductAllergensBlock } from '../components/product/ProductAllergensBlock'
 import { TrompeLoeilMarquee } from '../components/decorative/TrompeLoeilMarquee'
+import { MenuSidebarSearch } from '../components/menu/MenuSidebarSearch'
 import { LIFESTYLE } from '../lib/decorativeAssets'
 
 const CATEGORIES = [
@@ -93,6 +94,7 @@ export default function PremiumMenu() {
   const addFlow = useProductAddFlow()
   const [searchParams, setSearchParams] = useSearchParams()
   const currentCategory = searchParams.get('categorie') || 'tout'
+  const searchQuery = searchParams.get('q')?.trim() ?? ''
   const headerRef = useRef<HTMLDivElement>(null)
   const { scrollYProgress } = useScroll({
     target: headerRef,
@@ -123,12 +125,21 @@ export default function PremiumMenu() {
   }
 
   const handleCategoryChange = (categoryId: string) => {
+    const next = new URLSearchParams(searchParams)
     if (categoryId === 'tout') {
-      searchParams.delete('categorie')
+      next.delete('categorie')
     } else {
-      searchParams.set('categorie', categoryId)
+      next.set('categorie', categoryId)
     }
-    setSearchParams(searchParams)
+    setSearchParams(next)
+  }
+
+  const handleSearchChange = (value: string) => {
+    const next = new URLSearchParams(searchParams)
+    const trimmed = value.trim()
+    if (trimmed) next.set('q', trimmed)
+    else next.delete('q')
+    setSearchParams(next, { replace: true })
   }
 
   const { catalogProducts } = useProducts()
@@ -143,8 +154,21 @@ export default function PremiumMenu() {
       }
     }
 
+    if (searchQuery) {
+      const q = searchQuery
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+      products = products.filter((p) => {
+        const name = p.name.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
+        const category = p.category.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
+        const description = (p.description ?? '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
+        return name.includes(q) || category.includes(q) || description.includes(q)
+      })
+    }
+
     return products
-  }, [catalogProducts, currentCategory])
+  }, [catalogProducts, currentCategory, searchQuery])
 
   return (
     <div className="min-h-screen bg-mayssa-soft pb-32 pt-[88px] lg:pt-[104px]">
@@ -291,23 +315,48 @@ export default function PremiumMenu() {
       </motion.div>
 
       {/* Filters & Grid Container */}
-      <div className="max-w-[1600px] mx-auto px-6 flex flex-col lg:flex-row gap-12">
+      <div className="max-w-[1600px] mx-auto px-6">
+        {searchQuery && (
+          <div className="w-full flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-white border border-mayssa-brown/10 mb-8">
+            <p className="text-sm text-mayssa-brown/70">
+              Résultats pour « <span className="text-mayssa-brown font-medium">{searchQuery}</span> »
+              {' '}· {filteredProducts.length} produit{filteredProducts.length > 1 ? 's' : ''}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                searchParams.delete('q')
+                setSearchParams(searchParams)
+              }}
+              className="text-[10px] tracking-widest uppercase text-mayssa-gold hover:text-mayssa-brown cursor-pointer"
+            >
+              Effacer la recherche
+            </button>
+          </div>
+        )}
+      <div className="flex flex-col lg:flex-row gap-12">
         {/* Sidebar Filters */}
         <div className="w-full lg:w-64 shrink-0">
-          <div className="sticky top-[120px] flex flex-row lg:flex-col gap-2 overflow-x-auto no-scrollbar pb-4 lg:pb-0">
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => handleCategoryChange(cat.id)}
-                className={`text-left px-4 py-3 text-xs tracking-[0.2em] uppercase transition-all whitespace-nowrap ${
-                  currentCategory === cat.id 
-                    ? 'bg-mayssa-brown text-white' 
-                    : 'text-mayssa-brown/60 hover:bg-mayssa-soft hover:text-mayssa-brown'
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
+          <div className="sticky top-[120px] space-y-4">
+            <MenuSidebarSearch
+              value={searchParams.get('q') ?? ''}
+              onChange={handleSearchChange}
+            />
+            <div className="flex flex-row lg:flex-col gap-2 overflow-x-auto no-scrollbar pb-4 lg:pb-0">
+              {CATEGORIES.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => handleCategoryChange(cat.id)}
+                  className={`text-left px-4 py-3 text-xs tracking-[0.2em] uppercase transition-all whitespace-nowrap ${
+                    currentCategory === cat.id 
+                      ? 'bg-mayssa-brown text-white' 
+                      : 'text-mayssa-brown/60 hover:bg-mayssa-soft hover:text-mayssa-brown'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -385,10 +434,15 @@ export default function PremiumMenu() {
           
           {filteredProducts.length === 0 && (
             <div className="text-center py-32">
-              <p className="text-mayssa-brown/50 text-lg">Aucun produit ne correspond à cette catégorie pour le moment.</p>
+              <p className="text-mayssa-brown/50 text-lg">
+                {searchQuery
+                  ? `Aucun produit trouvé pour « ${searchQuery} ».`
+                  : 'Aucun produit ne correspond à cette catégorie pour le moment.'}
+              </p>
             </div>
           )}
         </div>
+      </div>
       </div>
 
       <TrompeLoeilMarquee variant="dark" />

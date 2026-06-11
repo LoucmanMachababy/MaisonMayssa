@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
-import { useMemo, useState, useRef, useEffect } from 'react'
+import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { useProducts } from '../hooks/useProducts'
 import { Minus, Plus, ArrowLeft, Check, ShoppingBag, ArrowRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -22,7 +22,9 @@ export default function PremiumProduct() {
   const { id } = useParams()
   const { catalogProducts } = useProducts()
   const product = catalogProducts.find((p) => p.id === id)
-  const addFlow = useProductAddFlow()
+  const recommendationsRef = useRef<HTMLElement>(null)
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const recBtnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const addItem = useCartStore((s) => s.addItem)
   const cartCount = useCartStore((s) => s.items.reduce((n, i) => n + i.quantity, 0))
   const [quantity, setQuantity] = useState(1)
@@ -31,8 +33,6 @@ export default function PremiumProduct() {
   const [lastAddedQty, setLastAddedQty] = useState(1)
   const [toastProductName, setToastProductName] = useState<string | null>(null)
   const [addedRecIds, setAddedRecIds] = useState<Set<string>>(() => new Set())
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const recBtnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     return () => {
@@ -62,18 +62,7 @@ export default function PremiumProduct() {
     [recommendations, catalogProducts],
   )
 
-  if (!product || !detail) {
-    return (
-      <div className="min-h-screen bg-mayssa-soft flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="font-display text-3xl text-mayssa-brown mb-4">Produit introuvable</h1>
-          <Link to="/carte" className="text-mayssa-gold hover:underline">Retour à la carte</Link>
-        </div>
-      </div>
-    )
-  }
-
-  const showCartToast = (name: string, recId?: string) => {
+  const showCartToast = useCallback((name: string, recId?: string) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
     if (recBtnTimerRef.current) clearTimeout(recBtnTimerRef.current)
     setToastProductName(name)
@@ -88,29 +77,51 @@ export default function PremiumProduct() {
       }, 2800)
     }
     toastTimerRef.current = setTimeout(() => setToastProductName(null), 4500)
-  }
+  }, [])
 
-  const showAddedSuccess = (qty: number, productName: string) => {
-    setLastAddedQty(qty)
-    setPulseKey((k) => k + 1)
-    setAddedFeedback(true)
-    setQuantity(1)
-    showCartToast(productName)
-    window.setTimeout(() => setAddedFeedback(false), 6000)
+  const scrollToRecommendations = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      const el = recommendationsRef.current
+      if (!el) return
+      const top = el.getBoundingClientRect().top + window.scrollY - 112
+      window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+    })
+  }, [])
+
+  const showAddedSuccess = useCallback(
+    (qty: number, productName: string) => {
+      setLastAddedQty(qty)
+      setPulseKey((k) => k + 1)
+      setAddedFeedback(true)
+      setQuantity(1)
+      showCartToast(productName)
+      window.setTimeout(() => setAddedFeedback(false), 6000)
+      scrollToRecommendations()
+    },
+    [showCartToast, scrollToRecommendations],
+  )
+
+  const addFlow = useProductAddFlow({
+    stayOnPage: true,
+    onAdded: ({ product: addedProduct, quantity }) => {
+      showAddedSuccess(quantity, addedProduct.name)
+    },
+  })
+
+  if (!product || !detail) {
+    return (
+      <div className="min-h-screen bg-mayssa-soft flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="font-display text-3xl text-mayssa-brown mb-4">Produit introuvable</h1>
+          <Link to="/carte" className="text-mayssa-gold hover:underline">Retour à la carte</Link>
+        </div>
+      </div>
+    )
   }
 
   const handleAddToCart = () => {
     if (!product.available) return
-    const needsModal =
-      product.id === BOX_DECOUVERTE_TROMPE_PRODUCT_ID ||
-      isCustomizableTrompeBundleBoxId(product.id) ||
-      (product.sizes && product.sizes.length > 0)
-    if (needsModal) {
-      addFlow.tryAddProduct(product, quantity)
-      return
-    }
-    addItem(product, quantity)
-    showAddedSuccess(quantity, product.name)
+    addFlow.tryAddProduct(product, quantity)
   }
 
   const handleQuickAdd = (rec: Product) => {
@@ -324,7 +335,10 @@ export default function PremiumProduct() {
         </div>
 
         {recommendedProducts.length > 0 && product.available && (
-          <section className="mt-24 pt-16 border-t border-mayssa-brown/8">
+          <section
+            ref={recommendationsRef}
+            className="mt-24 pt-16 border-t border-mayssa-brown/8 scroll-mt-28"
+          >
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
               <div>
                 <span className="text-mayssa-gold text-xs tracking-[0.3em] uppercase mb-3 block">

@@ -15,6 +15,7 @@ import {
   PRODUCTS,
   isTrompeBoxWithStoredSelection,
 } from '../constants'
+import { CLICK_COLLECT_ONLY } from '../constants/checkout'
 import { REWARD_LABELS } from './rewards'
 
 export type BuildOrderMessageParams = {
@@ -114,7 +115,7 @@ export function buildOrderMessage(params: BuildOrderMessageParams): string {
   }
 
   const finalTotal = totalAfterDiscount + deliveryFee + donationAmount
-  const modeTexte = customer.wantsDelivery ? 'Livraison' : 'Retrait sur place'
+  const modeTexte = customer.wantsDelivery ? 'Livraison' : CLICK_COLLECT_ONLY ? 'Click & collect' : 'Retrait sur place'
 
   const lines: string[] = []
 
@@ -282,7 +283,7 @@ export function buildShortSocialPasteMessage(
   }
 
   const finalTotal = totalAfterDiscount + deliveryFee + donationAmount
-  const modeTexte = customer.wantsDelivery ? 'Livraison' : 'Retrait'
+  const modeTexte = customer.wantsDelivery ? 'Livraison' : CLICK_COLLECT_ONLY ? 'Click & collect' : 'Retrait'
   const datePart = customer.date ? formatDateYyyyMmDdToFrench(customer.date) : 'date à confirmer'
   const timePart = customer.time || 'heure à confirmer'
   const livraisonNote =

@@ -16,6 +16,7 @@ import { clientLogout } from '../../lib/firebase'
 import { AddressAutocomplete } from '../AddressAutocomplete'
 import type { Coordinates } from '../../types'
 import { cn } from '../../lib/utils'
+import { trackAttrs } from '../../lib/trackAttrs'
 
 const BADGES: { id: string; label: string; icon: typeof Package; condition: (s: UserOrderStats) => boolean }[] = [
   { id: 'first_order', label: 'Première commande', icon: Package, condition: (s) => s.orderCount >= 1 },
@@ -24,6 +25,19 @@ const BADGES: { id: string; label: string; icon: typeof Package; condition: (s: 
   { id: 'don', label: 'Don au projet', icon: Heart, condition: (s) => s.hasDonated },
   { id: 'promo', label: 'Code promo utilisé', icon: Tag, condition: (s) => s.hasUsedPromo },
 ]
+
+const ACCOUNT_INPUT_CLASS =
+  'w-full p-3 rounded-xl bg-mayssa-soft/30 text-sm text-mayssa-brown placeholder:text-mayssa-brown/55 placeholder:opacity-100 focus:outline-none focus:ring-2 focus:ring-mayssa-gold'
+
+function ProfileFieldText({ value, fallback = 'Non renseigné' }: { value?: string | null; fallback?: string }) {
+  const text = value?.trim() || fallback
+  const empty = !value?.trim()
+  return (
+    <span className={cn('text-sm', empty ? 'text-mayssa-brown/50 italic' : 'text-mayssa-brown')}>
+      {text}
+    </span>
+  )
+}
 
 interface AccountPageProps {
   onClose?: () => void
@@ -222,21 +236,24 @@ export function AccountPage({ onClose }: AccountPageProps) {
 
   return (
     <div className="premium-account max-w-2xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+      <div className="premium-account__header">
         <div>
           <span className="premium-account__section-label block mb-1">Maison Mayssa</span>
           <h1 className="text-2xl font-display font-medium text-mayssa-brown">Mon compte</h1>
           <p className="text-sm text-mayssa-brown/60 font-light">Profil & programme de fidélité</p>
         </div>
         <button
+          type="button"
           onClick={handleLogout}
-          className="premium-account__btn-outline premium-account__btn"
+          className="premium-account__btn-outline premium-account__btn cursor-pointer"
+          {...trackAttrs('account-logout', 'Déconnexion', 'account')}
         >
           <LogOut size={14} />
           Déconnexion
         </button>
       </div>
 
+      <div className="premium-account__stack">
       <div className="premium-account__hero">
         <div className="flex items-center justify-between">
           <div>
@@ -277,7 +294,8 @@ export function AccountPage({ onClose }: AccountPageProps) {
             </div>
             <Link
               to="/admin"
-              className="shrink-0 inline-flex items-center justify-center px-6 py-3 bg-mayssa-gold text-mayssa-brown text-xs tracking-widest uppercase hover:bg-white transition-colors"
+              className="shrink-0 inline-flex items-center justify-center px-6 py-3 bg-mayssa-gold text-mayssa-brown text-xs tracking-widest uppercase hover:bg-white transition-colors cursor-pointer"
+              {...trackAttrs('account-admin', 'Accéder au tableau de bord', 'account')}
             >
               Accéder au tableau de bord
             </Link>
@@ -317,7 +335,7 @@ export function AccountPage({ onClose }: AccountPageProps) {
 
       {/* Parraine un ami */}
       {referralCode && (
-        <div className="rounded-3xl p-5 mb-6 border border-mayssa-gold/20 bg-mayssa-gold/5">
+        <div className="premium-account__card premium-account__card--accent">
           <h3 className="text-sm font-bold uppercase tracking-wider text-mayssa-brown/60 mb-2 flex items-center gap-2">
             <Users size={16} className="text-mayssa-gold" />
             Parraine un ami
@@ -335,7 +353,8 @@ export function AccountPage({ onClose }: AccountPageProps) {
                 const url = `${window.location.origin}${window.location.pathname}?ref=${encodeURIComponent(referralCode)}`
                 navigator.clipboard.writeText(url)
               }}
-              className="rounded-xl bg-mayssa-gold px-3 py-2 text-xs font-bold text-white hover:bg-mayssa-brown"
+              className="rounded-xl bg-mayssa-gold px-3 py-2 text-xs font-bold text-white hover:bg-mayssa-brown cursor-pointer"
+              {...trackAttrs('account-copy-referral', 'Copier le lien parrainage', 'account')}
             >
               Copier le lien
             </button>
@@ -357,7 +376,7 @@ export function AccountPage({ onClose }: AccountPageProps) {
         if (daysUntil > 30) return null
 
         return (
-          <div className="bg-gradient-to-r from-pink-50 to-rose-50 rounded-3xl p-5 mb-6 border border-pink-200">
+          <div className="premium-account__card premium-account__card--birthday">
             <div className="flex items-center gap-3">
               <div className="w-11 h-11 bg-pink-100 rounded-2xl flex items-center justify-center flex-shrink-0">
                 <Cake size={22} className="text-pink-500" />
@@ -384,6 +403,8 @@ export function AccountPage({ onClose }: AccountPageProps) {
         )
       })()}
 
+      </div>
+
       <div className="premium-account__tabs">
         {[
           { id: 'profile', label: 'Profil', icon: User },
@@ -392,8 +413,10 @@ export function AccountPage({ onClose }: AccountPageProps) {
         ].map((tab) => (
           <button
             key={tab.id}
+            type="button"
             onClick={() => setActiveTab(tab.id as 'profile' | 'rewards' | 'history')}
-            className={cn('premium-account__tab', activeTab === tab.id && 'is-active')}
+            className={cn('premium-account__tab cursor-pointer', activeTab === tab.id && 'is-active')}
+            {...trackAttrs(`account-tab-${tab.id}`, tab.label, 'account')}
           >
             <tab.icon size={16} />
             {tab.label}
@@ -403,7 +426,7 @@ export function AccountPage({ onClose }: AccountPageProps) {
 
       {/* Content */}
       {activeTab === 'profile' && (
-        <div className="space-y-6">
+        <div className="premium-account__panel">
           {/* Profile Info */}
           <div className="premium-account__card">
             <div className="flex items-center justify-between mb-4">
@@ -442,7 +465,7 @@ export function AccountPage({ onClose }: AccountPageProps) {
                 <label className="block text-xs font-medium text-mayssa-brown/60 mb-1">Email</label>
                 <div className="flex items-center gap-2 p-3 rounded-xl bg-mayssa-soft/30">
                   <Mail size={16} className="text-mayssa-gold" />
-                  <span className="text-sm text-mayssa-brown/80">{profile.email}</span>
+                  <ProfileFieldText value={profile.email || user?.email} fallback="Non renseigné" />
                 </div>
               </div>
 
@@ -454,12 +477,13 @@ export function AccountPage({ onClose }: AccountPageProps) {
                     type="text"
                     value={editData.firstName}
                     onChange={(e) => setEditData({ ...editData, firstName: e.target.value })}
-                    className="w-full p-3 rounded-xl bg-mayssa-soft/30 text-sm text-mayssa-brown focus:outline-none focus:ring-2 focus:ring-mayssa-gold"
+                    placeholder="Votre prénom"
+                    className={ACCOUNT_INPUT_CLASS}
                   />
                 ) : (
                   <div className="flex items-center gap-2 p-3 rounded-xl bg-mayssa-soft/30">
                     <User size={16} className="text-mayssa-gold" />
-                    <span className="text-sm text-mayssa-brown">{profile.firstName}</span>
+                    <ProfileFieldText value={profile.firstName} />
                   </div>
                 )}
               </div>
@@ -472,12 +496,13 @@ export function AccountPage({ onClose }: AccountPageProps) {
                     type="text"
                     value={editData.lastName}
                     onChange={(e) => setEditData({ ...editData, lastName: e.target.value })}
-                    className="w-full p-3 rounded-xl bg-mayssa-soft/30 text-sm text-mayssa-brown focus:outline-none focus:ring-2 focus:ring-mayssa-gold"
+                    placeholder="Votre nom"
+                    className={ACCOUNT_INPUT_CLASS}
                   />
                 ) : (
                   <div className="flex items-center gap-2 p-3 rounded-xl bg-mayssa-soft/30">
                     <User size={16} className="text-mayssa-gold" />
-                    <span className="text-sm text-mayssa-brown">{profile.lastName}</span>
+                    <ProfileFieldText value={profile.lastName} />
                   </div>
                 )}
               </div>
@@ -492,14 +517,14 @@ export function AccountPage({ onClose }: AccountPageProps) {
                       value={editData.phone}
                       onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
                       placeholder="06 12 34 56 78"
-                      className={`w-full p-3 rounded-xl bg-mayssa-soft/30 text-sm text-mayssa-brown focus:outline-none focus:ring-2 ${editErrors.phone ? 'ring-2 ring-red-300' : 'focus:ring-mayssa-gold'}`}
+                      className={`${ACCOUNT_INPUT_CLASS} ${editErrors.phone ? 'ring-2 ring-red-300' : ''}`}
                     />
                     {editErrors.phone && <p className="text-xs text-red-400 mt-1">{editErrors.phone}</p>}
                   </>
                 ) : (
                   <div className="flex items-center gap-2 p-3 rounded-xl bg-mayssa-soft/30">
                     <Phone size={16} className="text-mayssa-gold" />
-                    <span className="text-sm text-mayssa-brown">{profile.phone || 'Non renseigné'}</span>
+                    <ProfileFieldText value={profile.phone} />
                   </div>
                 )}
               </div>
@@ -515,22 +540,24 @@ export function AccountPage({ onClose }: AccountPageProps) {
                       onChange={(e) => setEditData({ ...editData, birthday: e.target.value })}
                       max={new Date(Date.now() - 13 * 365.25 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
                       min="1920-01-01"
-                      className={`w-full p-3 rounded-xl bg-mayssa-soft/30 text-sm text-mayssa-brown focus:outline-none focus:ring-2 ${editErrors.birthday ? 'ring-2 ring-red-300' : 'focus:ring-mayssa-gold'}`}
+                      aria-label="Date de naissance"
+                      className={`${ACCOUNT_INPUT_CLASS} ${editErrors.birthday ? 'ring-2 ring-red-300' : ''}`}
                     />
                     {editErrors.birthday && <p className="text-xs text-red-400 mt-1">{editErrors.birthday}</p>}
                   </>
                 ) : (
                   <div className="flex items-center gap-2 p-3 rounded-xl bg-mayssa-soft/30">
                     <Calendar size={16} className="text-mayssa-gold" />
-                    <span className="text-sm text-mayssa-brown">
-                      {profile.birthday
-                        ? new Date(profile.birthday).toLocaleDateString('fr-FR', {
-                            day: 'numeric',
-                            month: 'long'
-                          })
-                        : 'Non renseigné'
+                    <ProfileFieldText
+                      value={
+                        profile.birthday
+                          ? new Date(profile.birthday).toLocaleDateString('fr-FR', {
+                              day: 'numeric',
+                              month: 'long',
+                            })
+                          : undefined
                       }
-                    </span>
+                    />
                   </div>
                 )}
               </div>
@@ -549,7 +576,9 @@ export function AccountPage({ onClose }: AccountPageProps) {
                 ) : (
                   <div className="flex items-center gap-2 p-3 rounded-xl bg-mayssa-soft/30">
                     <MapPin size={16} className="text-mayssa-gold flex-shrink-0" />
-                    <span className="text-sm text-mayssa-brown truncate">{profile.address || 'Non renseigné'}</span>
+                    <span className="truncate">
+                      <ProfileFieldText value={profile.address} />
+                    </span>
                   </div>
                 )}
               </div>
@@ -575,7 +604,7 @@ export function AccountPage({ onClose }: AccountPageProps) {
               }}
               placeholder="Ex : sans gluten, allergie aux noix…"
               rows={2}
-              className="w-full rounded-xl border border-mayssa-brown/10 bg-mayssa-soft/20 px-3 py-2 text-sm text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none focus:ring-2 focus:ring-mayssa-gold/30"
+              className="w-full rounded-xl border border-mayssa-brown/10 bg-mayssa-soft/20 px-3 py-2 text-sm text-mayssa-brown placeholder:text-mayssa-brown/55 placeholder:opacity-100 focus:outline-none focus:ring-2 focus:ring-mayssa-gold/30"
             />
             {dietarySaving && <p className="mt-1 text-[10px] text-mayssa-brown/50">Enregistrement…</p>}
           </div>
@@ -705,7 +734,7 @@ export function AccountPage({ onClose }: AccountPageProps) {
       )}
 
       {activeTab === 'rewards' && (
-        <div className="space-y-6">
+        <div className="premium-account__panel">
           {/* Available Rewards */}
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-mayssa-brown/5">
             <h3 className="font-bold text-mayssa-brown mb-4">Récompenses disponibles</h3>
@@ -789,7 +818,8 @@ export function AccountPage({ onClose }: AccountPageProps) {
       )}
 
       {activeTab === 'history' && (
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-mayssa-brown/5">
+        <div className="premium-account__panel">
+        <div className="premium-account__card">
           <h3 className="font-bold text-mayssa-brown mb-4">Historique des points</h3>
           <div className="space-y-3">
             {(profile.loyalty?.history && Array.isArray(profile.loyalty.history) 
@@ -855,6 +885,7 @@ export function AccountPage({ onClose }: AccountPageProps) {
                 )
               })}
           </div>
+        </div>
         </div>
       )}
     </div>

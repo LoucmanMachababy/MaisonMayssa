@@ -78,7 +78,7 @@ function phoneToWhatsApp(phone: string): string {
   return digits
 }
 
-const GOOGLE_REVIEW_LINK = 'https://share.google/PsKmSr5Vx1VXqaNWx'
+const GOOGLE_REVIEW_LINK = 'https://share.google/SnbgYqcKXwUSRqx29'
 
 /** Message WhatsApp "commande validée" pré-rempli */
 function buildValidatedMessage(order: Order): string {

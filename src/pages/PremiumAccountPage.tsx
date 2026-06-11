@@ -30,8 +30,8 @@ export default function PremiumAccountPage() {
         <title>Mon compte — Maison Mayssa</title>
         <meta name="robots" content="noindex, nofollow" />
       </Helmet>
-      <div className="min-h-screen bg-mayssa-soft pt-[104px] pb-24">
-        <div className="max-w-3xl mx-auto px-6">
+      <div className="min-h-screen bg-mayssa-soft pt-[104px] pb-32">
+        <div className="max-w-4xl mx-auto px-6">
           <PremiumBackLink to="/" />
           <AccountPage />
         </div>

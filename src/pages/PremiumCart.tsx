@@ -41,6 +41,10 @@ export default function PremiumCart() {
     handleUpdateQuantity,
     handleApplyPromo,
     handleClearPromo,
+    paymentConfirmed,
+    paymentMethod,
+    confirmSimulatedPayment,
+    resetSimulatedPayment,
   } = checkout
 
   return (
@@ -105,7 +109,20 @@ export default function PremiumCart() {
             </Link>
           </div>
         ) : (
-          <div className="hidden md:block">
+          <div className="hidden md:block premium-cart-page">
+            <Link
+              to="/carte"
+              className="inline-flex items-center gap-2 text-xs tracking-widest uppercase text-mayssa-brown/50 hover:text-mayssa-brown transition-colors mb-10"
+            >
+              ← Continuer mes achats
+            </Link>
+            <header className="premium-cart-page__intro">
+              <span className="premium-cart-page__eyebrow">Maison Mayssa</span>
+              <h1 className="premium-cart-page__title">Votre précommande</h1>
+              <p className="premium-cart-page__lede">
+                Retrait sur créneau · Fabrication artisanale · Quantités limitées
+              </p>
+            </header>
             <Cart
               items={cart}
               total={total}
@@ -147,6 +164,10 @@ export default function PremiumCart() {
               onAllowAnotherOrder={allowAnotherOrder}
               orderContactIdentity={orderContactIdentity}
               onOrderContactIdentityChange={setOrderContactIdentity}
+              paymentConfirmed={paymentConfirmed}
+              paymentMethod={paymentMethod}
+              onConfirmPayment={confirmSimulatedPayment}
+              onResetPayment={resetSimulatedPayment}
             />
           </div>
         )}

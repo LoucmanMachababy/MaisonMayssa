@@ -42,6 +42,13 @@ import {
   getPendingOrder,
   markOrderPlaced,
 } from '../lib/pendingOrder'
+import {
+  CLICK_COLLECT_ONLY,
+  SIMULATED_PAYMENT_ENABLED,
+  ONLINE_PAYMENT_UNAVAILABLE,
+  isPaymentConfirmedByDefault,
+  type SimulatedPaymentMethod,
+} from '../constants/checkout'
 
 const TROMPE_CATEGORIES = ["Trompe l'œil", "Nos trompe-l'œil"] as const
 
@@ -80,7 +87,7 @@ export function useOrderCheckout() {
           email: p.email || '',
           address: p.address || '',
           addressCoordinates: null,
-          wantsDelivery: !!p.wantsDelivery,
+          wantsDelivery: CLICK_COLLECT_ONLY ? false : !!p.wantsDelivery,
           date: '',
           time: '',
           deliveryInstructions: p.deliveryInstructions || '',
@@ -111,6 +118,19 @@ export function useOrderCheckout() {
     type: keyof typeof REWARD_COSTS
     id: string
   } | null>(null)
+
+  const [paymentMethod, setPaymentMethod] = useState<SimulatedPaymentMethod | null>(null)
+  const [paymentConfirmed, setPaymentConfirmed] = useState(isPaymentConfirmedByDefault())
+
+  const confirmSimulatedPayment = useCallback((method: SimulatedPaymentMethod) => {
+    setPaymentMethod(method)
+    setPaymentConfirmed(true)
+  }, [])
+
+  const resetSimulatedPayment = useCallback(() => {
+    setPaymentMethod(null)
+    setPaymentConfirmed(isPaymentConfirmedByDefault())
+  }, [])
 
   const [toasts, setToasts] = useState<Toast[]>([])
   const [orderRecapChannel, setOrderRecapChannel] = useState<OrderRecapSendChannel | null>(null)
@@ -203,7 +223,7 @@ export function useOrderCheckout() {
         phone: customer.phone,
         email: customer.email || '',
         address: customer.address,
-        wantsDelivery: customer.wantsDelivery,
+        wantsDelivery: CLICK_COLLECT_ONLY ? false : customer.wantsDelivery,
         deliveryInstructions: customer.deliveryInstructions || '',
       }),
     )
@@ -442,6 +462,10 @@ export function useOrderCheckout() {
           ...(appliedPromo && { promoCode: appliedPromo.code, discountAmount: appliedPromo.discount }),
           ...(donation > 0 && { donationAmount: donation }),
           ...(user?.uid && { userId: user.uid }),
+          ...(paymentMethod && {
+            paymentMethod,
+            paymentStatus: 'simulated_paid' as const,
+          }),
           ...(referralDiscount > 0 &&
             referrerUid && {
               referralCode: referralCodeInput!.trim(),
@@ -1022,5 +1046,9 @@ export function useOrderCheckout() {
     handleApplyPromo,
     handleClearPromo,
     deliveryFeeForRecap,
+    paymentConfirmed,
+    paymentMethod,
+    confirmSimulatedPayment,
+    resetSimulatedPayment,
   }
 }

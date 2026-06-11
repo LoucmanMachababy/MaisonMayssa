@@ -55,6 +55,10 @@ export function PremiumCartSheetLayer() {
     handleApplyPromo,
     handleClearPromo,
     deliveryFeeForRecap,
+    paymentConfirmed,
+    paymentMethod,
+    confirmSimulatedPayment,
+    resetSimulatedPayment,
   } = useOrderCheckoutContext()
 
   const isPanierPage = location.pathname === '/panier'
@@ -108,6 +112,10 @@ export function PremiumCartSheetLayer() {
     onAllowAnotherOrder: allowAnotherOrder,
     orderContactIdentity,
     onOrderContactIdentityChange: setOrderContactIdentity,
+    paymentConfirmed,
+    paymentMethod,
+    onConfirmPayment: confirmSimulatedPayment,
+    onResetPayment: resetSimulatedPayment,
   }
 
   return (
