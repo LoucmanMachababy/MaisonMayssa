@@ -10,7 +10,7 @@ export function BrowniesAnnecyPage() {
         { name: 'Accueil', url: '/' },
         { name: 'Brownies Annecy' },
       ]}
-      heroImage="/brownie-nutella-oreo.webp"
+      heroImage="/nouvelle-img/cup-dubai-bueno.PNG"
       heroEyebrow="Pâtisserie gourmande Annecy"
       heroTitle="Brownies artisanaux à Annecy"
       heroSubtitle="Ultra fondants, saveurs originales, faits maison à la demande. 9 recettes pour tous les goûts."

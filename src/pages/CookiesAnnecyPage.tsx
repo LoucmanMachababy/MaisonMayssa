@@ -10,7 +10,7 @@ export function CookiesAnnecyPage() {
         { name: 'Accueil', url: '/' },
         { name: 'Cookies Annecy' },
       ]}
-      heroImage="/cookie-kinder-bueno.webp"
+      heroImage="/nouvelle-img/Canette-cake-nutella-oreo.png"
       heroEyebrow="Pâtisserie gourmande Annecy"
       heroTitle="Cookies artisanaux à Annecy"
       heroSubtitle="Moelleux à cœur, croustillants sur les bords, garnitures généreuses. 11 recettes maison."

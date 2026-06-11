@@ -16,6 +16,7 @@ const ALL_CATEGORIES: ProductCategory[] = [
   'Cookies gourmands',
   'Le salé',
   'Fruits frais',
+  'Cup Dubaï',
   'Chocolaterie',
   'Boxes',
 ]

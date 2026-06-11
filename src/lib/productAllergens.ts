@@ -87,6 +87,7 @@ const CATEGORY_ALLERGENS: Partial<Record<ProductCategory, string[]>> = {
   'Nos jus frais': JUS,
   'Le salé': SALE,
   'Fruits frais': FRUITS_FRAIS,
+  'Cup Dubaï': CHOCOLAT,
   Chocolaterie: CHOCOLAT,
   'Cookies gourmands': PATISSERIE,
   Brownies: PATISSERIE,

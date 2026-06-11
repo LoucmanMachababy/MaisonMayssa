@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { TROMPE_FACE_MARQUEE } from '../../lib/decorativeAssets'
+import { PRODUCT_SHOWCASE_MARQUEE } from '../../lib/decorativeAssets'
 
 interface TrompeLoeilMarqueeProps {
   /** dark = fond espresso, light = fond ivoire */
@@ -9,6 +9,7 @@ interface TrompeLoeilMarqueeProps {
 
 export function TrompeLoeilMarquee({ variant = 'light', className = '' }: TrompeLoeilMarqueeProps) {
   const isDark = variant === 'dark'
+  const items = PRODUCT_SHOWCASE_MARQUEE
 
   return (
     <section
@@ -26,7 +27,7 @@ export function TrompeLoeilMarquee({ variant = 'light', className = '' }: Trompe
       >
         {[1, 2].map((set) => (
           <div key={set} className="flex gap-6 md:gap-10">
-            {TROMPE_FACE_MARQUEE.map((item, i) => (
+            {items.map((item, i) => (
               <div
                 key={`${set}-${i}`}
                 className={`relative shrink-0 w-24 h-32 sm:w-28 sm:h-36 md:w-32 md:h-44 overflow-hidden ${

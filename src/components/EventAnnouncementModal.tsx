@@ -74,7 +74,7 @@ export function EventAnnouncementModal() {
 
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
               <img
-                src="/affiche.PNG"
+                src="/nouvelle-img/events-hero-bg.png"
                 alt="Affiche Les Créatives - Maison Mayssa stand trompe-l'œil"
                 className="w-full rounded-2xl border border-mayssa-brown/10 shadow-md object-cover max-h-[50vh]"
               />

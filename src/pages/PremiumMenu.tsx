@@ -8,7 +8,7 @@ import { ProductAddModals } from '../components/product/ProductAddModals'
 import { ProductAllergensBlock } from '../components/product/ProductAllergensBlock'
 import { TrompeLoeilMarquee } from '../components/decorative/TrompeLoeilMarquee'
 import { MenuSidebarSearch } from '../components/menu/MenuSidebarSearch'
-import { LIFESTYLE } from '../lib/decorativeAssets'
+import { LIFESTYLE, CATALOG_MOSAIC_PANELS, CATEGORY_HEADER_IMAGES } from '../lib/decorativeAssets'
 
 const CATEGORIES = [
   { id: 'tout', label: 'Tout' },
@@ -17,6 +17,7 @@ const CATEGORIES = [
   { id: 'sale', label: 'Le salé' },
   { id: 'canette-cake', label: 'Canette Cake' },
   { id: 'fruits', label: 'Fruits frais' },
+  { id: 'cup-dubai', label: 'Cup Dubaï' },
   { id: 'chocolaterie', label: 'Chocolaterie' },
   { id: 'boxes', label: 'Boxes' },
 ]
@@ -27,18 +28,24 @@ const CATEGORY_MAPPING: Record<string, string[]> = {
   'sale': ['Le salé'],
   'canette-cake': ['Canette Cake'],
   'fruits': ['Fruits frais'],
+  'cup-dubai': ['Cup Dubaï'],
   'chocolaterie': ['Chocolaterie'],
   'boxes': ['Boxes'],
 }
 
-const MOSAIC_PANELS = [
-  { src: '/nouvelle-img/mangue-face.png', hover: '/nouvelle-img/mangue-hover-3-face.png' },
-  { src: '/nouvelle-img/Passion-face.png' },
-  { src: '/nouvelle-img/Citron-face.png', hover: '/nouvelle-img/Citron-hover-3-face.png' },
-  { src: '/nouvelle-img/Fraise-face.png' },
-  { src: '/nouvelle-img/Cacahuete-face.png' },
-  { src: '/nouvelle-img/Myrtille-face.png' },
-]
+const MOSAIC_PANELS = CATALOG_MOSAIC_PANELS
+
+const CATEGORY_HEADER_LABELS: Record<string, string> = {
+  tout: 'Toutes nos créations',
+  patisseries: 'Nos trompe-l\'œil',
+  jus: 'Nos jus frais',
+  sale: 'Le salé',
+  'canette-cake': 'Canette Cake',
+  fruits: 'Fruits frais',
+  'cup-dubai': 'Cup Dubaï',
+  chocolaterie: 'Chocolaterie',
+  boxes: 'Boxes',
+}
 
 function MosaicPanel({ src, hover, index }: { src: string; hover?: string; index: number }) {
   return (
@@ -189,15 +196,8 @@ export default function PremiumMenu() {
         onMouseLeave={handleHeaderMouseLeave}
         className="relative w-full overflow-hidden mb-12 mt-4 min-h-[320px] md:min-h-[380px]"
       >
-        {/* Background — image catégorie ou mosaïque trompe-l'œil */}
-        {currentCategory === 'jus' ? (
-          <motion.img
-            src={LIFESTYLE.jusFrais}
-            alt="Limonades et mojitos Maison Mayssa"
-            style={{ y: mosaicY }}
-            className="absolute inset-0 w-full h-full object-cover object-center scale-105"
-          />
-        ) : (
+        {/* Background — mosaïque multi-catégories ou visuel par catégorie */}
+        {currentCategory === 'tout' ? (
           <motion.div
             style={{ y: mosaicY, x: springX, rotateX: tiltX, rotateY: tiltY }}
             className="absolute inset-0 flex scale-105"
@@ -206,6 +206,13 @@ export default function PremiumMenu() {
               <MosaicPanel key={panel.src} src={panel.src} hover={panel.hover} index={i} />
             ))}
           </motion.div>
+        ) : (
+          <motion.img
+            src={CATEGORY_HEADER_IMAGES[currentCategory] ?? LIFESTYLE.catalogSpread}
+            alt={CATEGORY_HEADER_LABELS[currentCategory] ?? 'La carte Maison Mayssa'}
+            style={{ y: mosaicY }}
+            className="absolute inset-0 w-full h-full object-cover object-center scale-105"
+          />
         )}
 
         {/* Warm ambient glow */}

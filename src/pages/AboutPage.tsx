@@ -70,8 +70,8 @@ export function AboutPage() {
             className="mb-12 aspect-[16/10] overflow-hidden bg-mayssa-marble"
           >
             <img
-              src="/nouvelle-img/photo-trompe-loeil-site.png"
-              alt="Box de trompe-l'œil artisanaux Maison Mayssa — cacahuètes et créations pâtissières"
+              src={LIFESTYLE.boxOpen}
+              alt="Box de trompe-l'œil artisanaux Maison Mayssa"
               className="w-full h-full object-cover object-center"
               loading="eager"
             />

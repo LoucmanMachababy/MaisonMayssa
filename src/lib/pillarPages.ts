@@ -21,13 +21,13 @@ export const PILLAR_PAGES: Record<string, RelatedPage> = {
     slug: 'brownies-annecy',
     title: 'Brownies Annecy',
     description: 'Brownies fondants artisanaux, 9 saveurs gourmandes.',
-    image: '/brownie-nutella-oreo.webp',
+    image: '/nouvelle-img/cup-dubai-bueno.PNG',
   },
   'cookies-annecy': {
     slug: 'cookies-annecy',
     title: 'Cookies Annecy',
     description: 'Cookies moelleux fait maison, garnis à la demande.',
-    image: '/cookie-kinder-bueno.webp',
+    image: '/nouvelle-img/Canette-cake-nutella-oreo.png',
   },
   'patisserie-anniversaire-annecy': {
     slug: 'patisserie-anniversaire-annecy',

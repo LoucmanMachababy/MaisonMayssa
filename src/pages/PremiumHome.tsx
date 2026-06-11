@@ -27,13 +27,14 @@ export default function PremiumHome() {
   }, [settings])
 
   const categories = [
-    { name: 'Les Canette Cake', image: '/nouvelle-img/canette-cake-speculos-framboise.png', path: '/carte?categorie=canette-cake' },
-    { name: 'Nos trompe-l\'œil', image: LIFESTYLE.heroSpread, path: '/carte?categorie=patisseries' },
-    { name: 'Le salé', image: '/nouvelle-img/Panuozzo-Italien.png', path: '/carte?categorie=sale' },
-    { name: 'Les Cup de fruits', image: '/nouvelle-img/Cup-de-fruit-mixte.png', path: '/carte?categorie=fruits' },
-    { name: 'La Chocolaterie', image: '/nouvelle-img/tablette-chocolat-dubai-pistache.png', path: '/carte?categorie=chocolaterie' },
+    { name: 'Les Canette Cake', image: LIFESTYLE.canetteCake, path: '/carte?categorie=canette-cake' },
+    { name: 'Nos trompe-l\'œil', image: '/nouvelle-img/mangue-face.png', path: '/carte?categorie=patisseries' },
+    { name: 'Le salé', image: LIFESTYLE.sale, path: '/carte?categorie=sale' },
+    { name: 'Les Cup de fruits', image: LIFESTYLE.fruits, path: '/carte?categorie=fruits' },
+    { name: 'Les Cup Dubaï', image: LIFESTYLE.cupDubai, path: '/carte?categorie=cup-dubai' },
+    { name: 'La Chocolaterie', image: LIFESTYLE.chocolaterie, path: '/carte?categorie=chocolaterie' },
     { name: 'Nos jus frais', image: LIFESTYLE.jusFrais, path: '/carte?categorie=jus' },
-    { name: 'Événements', image: LIFESTYLE.boxAll, path: '/evenements' },
+    { name: 'Événements', image: LIFESTYLE.events, path: '/evenements' },
   ]
 
   const { comingSoonProducts } = useProducts()
@@ -195,7 +196,7 @@ export default function PremiumHome() {
           className="relative aspect-[4/5] sm:aspect-[5/4] lg:aspect-auto lg:min-h-[560px] overflow-hidden"
         >
           <img
-            src="/nouvelle-img/photo-trompe-loeil-site.png"
+            src={LIFESTYLE.boxOpen}
             alt="Box de trompe-l'œil Maison Mayssa — présentation artisanale"
             className="absolute inset-0 w-full h-full object-cover object-center"
             loading="lazy"
@@ -253,14 +254,14 @@ export default function PremiumHome() {
       />
 
       <EditorialImageBand
-        image={LIFESTYLE.boxSeven}
-        imageAlt="Box de 7 trompe-l'œil Maison Mayssa"
+        image="/nouvelle-img/Cup-de-fruit-mixte.png"
+        imageAlt="Cup de fruits frais — Maison Mayssa"
         imagePosition="center"
         eyebrow="Notre philosophie"
-        title="L'illusion parfaite pour une émotion véritable"
-        description="Chaque création est sculptée à la main pour tromper l'œil — mangue, citron, cacahuète, cabosse… — avant de révéler des saveurs authentiques qui marquent les esprits."
-        ctaLabel="Découvrir notre savoir-faire"
-        ctaTo="/a-propos"
+        title="Du sucré, du salé, du frais"
+        description="Cookies fondants, brownies généreux, cups de fruits, tablettes pistache, panuozzo italien… Une carte pensée pour toutes les occasions et tous les goûts."
+        ctaLabel="Découvrir la carte"
+        ctaTo="/carte"
         dark
       />
 
