@@ -5,6 +5,7 @@ import { PremiumGlobalBanner } from './PremiumGlobalBanner'
 import { PremiumCartSheetLayer } from './PremiumCartSheetLayer'
 import { CookieBanner } from '../CookieBanner'
 import { AccessibilityControls } from '../AccessibilityProvider'
+import { SiteAnalyticsTracker } from '../SiteAnalyticsTracker'
 import { OrderCheckoutProvider } from '../../contexts/OrderCheckoutContext'
 import { useSettings } from '../../hooks/useSettings'
 
@@ -25,6 +26,7 @@ export function PremiumLayout() {
         <PremiumCartSheetLayer />
         <CookieBanner />
         <AccessibilityControls />
+        <SiteAnalyticsTracker />
       </div>
     </OrderCheckoutProvider>
   )

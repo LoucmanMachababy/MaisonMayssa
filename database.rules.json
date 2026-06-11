@@ -67,6 +67,10 @@
     "counters": {
       ".read": true,
       ".write": true
+    },
+    "siteAnalytics": {
+      ".read": "auth != null",
+      ".write": true
     }
   }
 }

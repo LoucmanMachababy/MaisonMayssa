@@ -295,6 +295,7 @@ export function AccessibilityControls() {
       {/* Bouton d'ouverture */}
       <button
         onClick={() => setIsOpen(!isOpen)}
+        data-analytics-ignore
         className="fixed bottom-4 left-4 z-50 w-12 h-12 bg-mayssa-brown text-white rounded-full shadow-lg hover:bg-mayssa-caramel focus:outline-none focus:ring-2 focus:ring-mayssa-caramel focus:ring-offset-2 transition-all duration-200"
         aria-label="Ouvrir les options d'accessibilité"
         title="Options d'accessibilité"

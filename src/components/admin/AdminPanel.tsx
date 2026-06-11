@@ -51,6 +51,7 @@ import { AdminRappelsTab } from './AdminRappelsTab'
 import { AdminSessionsTab } from './AdminSessionsTab'
 import { AdminSubscribersTab } from './AdminSubscribersTab'
 import { AdminCommunityTab } from './AdminCommunityTab'
+import { AdminSiteBehaviorSection } from './AdminSiteBehaviorSection'
 import { AdminOffSiteOrderForm } from './AdminOffSiteOrderForm'
 import { PRODUCTS, BOX_DECOUVERTE_TROMPE_PRODUCT_ID, isCustomizableTrompeBundleBoxId } from '../../constants'
 import { AdminEditOrderModal } from './AdminEditOrderModal'
@@ -2976,9 +2977,12 @@ function Dashboard({ user }: { user: User }) {
           >
             <AdminPanelHeader
               title="Analytics & performance"
-              description="Chiffre d'affaires, tendances et produits les plus vendus."
+              description="Chiffre d'affaires, tendances, produits vendus et parcours visiteurs."
               icon={TrendingUp}
             />
+
+            <AdminSiteBehaviorSection />
+
             <div className={cn(adminCard, adminCardPadLg, 'flex flex-col md:flex-row md:items-center justify-between gap-6')}>
               <div>
                 <div className="flex items-center gap-3 text-mayssa-gold mb-2">

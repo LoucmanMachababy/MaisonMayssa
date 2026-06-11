@@ -13,6 +13,7 @@ import {
   getEligibleTrompeIdsForDiscoveryBox,
   listIndividualTrompeLoeilProducts,
 } from '../lib/discoveryBox'
+import { trackAddToCart } from '../lib/siteAnalytics'
 
 export function useProductAddFlow() {
   const navigate = useNavigate()
@@ -47,6 +48,7 @@ export function useProductAddFlow() {
     }
 
     addItem(product, quantity)
+    trackAddToCart(product.id, product.name)
     navigate('/panier')
     return true
   }
@@ -54,6 +56,7 @@ export function useProductAddFlow() {
   const confirmDiscoveryBox = (selectionIds: string[]) => {
     if (!discoveryBoxProduct) return
     addItem(discoveryBoxProduct, 1, { trompeDiscoverySelection: selectionIds })
+    trackAddToCart(discoveryBoxProduct.id, discoveryBoxProduct.name)
     setDiscoveryBoxProduct(null)
     navigate('/panier')
   }
@@ -66,6 +69,7 @@ export function useProductAddFlow() {
       price: size.price,
     }
     addItem(cartProduct, 1)
+    trackAddToCart(cartProduct.id, cartProduct.name)
     setSizeProduct(null)
     navigate('/panier')
   }

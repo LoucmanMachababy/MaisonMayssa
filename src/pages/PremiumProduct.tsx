@@ -16,6 +16,7 @@ import {
   isCustomizableTrompeBundleBoxId,
 } from '../constants'
 import { getProductDetail, getProductRecommendations } from '../lib/productDetails'
+import { trackProductView } from '../lib/siteAnalytics'
 
 export default function PremiumProduct() {
   const { id } = useParams()
@@ -39,6 +40,10 @@ export default function PremiumProduct() {
       if (recBtnTimerRef.current) clearTimeout(recBtnTimerRef.current)
     }
   }, [])
+
+  useEffect(() => {
+    if (product) trackProductView(product.id, product.name)
+  }, [product?.id, product?.name])
 
   const catalogIds = useMemo(() => new Set(catalogProducts.map((p) => p.id)), [catalogProducts])
 

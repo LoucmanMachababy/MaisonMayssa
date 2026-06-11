@@ -6,6 +6,10 @@ import { ShoppingBag, Search, User, Menu, X } from 'lucide-react'
 import { useCartStore } from '../../lib/store'
 import { AnimatePresence, motion } from 'framer-motion'
 
+function sanitizeNavTrack(path: string): string {
+  return path.replace(/\//g, '-').replace(/^-|-$/g, '') || 'home'
+}
+
 interface PremiumHeaderProps {
   hasGlobalBanner?: boolean
   ordersOpen?: boolean
@@ -75,6 +79,9 @@ export function PremiumHeader({ hasGlobalBanner, ordersOpen = true }: PremiumHea
           {/* Logo */}
           <Link
             to="/"
+            data-track="nav-home"
+            data-track-label="Logo Maison Mayssa"
+            data-track-group="navigation"
             className={`absolute left-1/2 -translate-x-1/2 lg:static lg:translate-x-0 font-display text-xl md:text-2xl tracking-[0.2em] uppercase transition-colors ${
               isSolid ? 'text-mayssa-brown hover:text-mayssa-gold' : 'text-white hover:text-white/80'
             }`}
@@ -88,6 +95,9 @@ export function PremiumHeader({ hasGlobalBanner, ordersOpen = true }: PremiumHea
               <Link
                 key={link.name}
                 to={link.path}
+                data-track={`nav-${sanitizeNavTrack(link.path)}`}
+                data-track-label={link.name}
+                data-track-group="navigation"
                 className={`text-sm tracking-wide uppercase transition-colors hover:text-mayssa-gold ${
                   location.pathname === link.path
                     ? (isSolid ? 'text-mayssa-gold font-medium' : 'text-white font-medium')
@@ -106,6 +116,9 @@ export function PremiumHeader({ hasGlobalBanner, ordersOpen = true }: PremiumHea
             </button>
             <Link
               to={accountPath}
+              data-track="nav-compte"
+              data-track-label="Mon compte"
+              data-track-group="account"
               className={`transition-colors hover:text-mayssa-gold ${isSolid ? 'text-mayssa-brown/80' : 'text-white/80'}`}
               aria-label="Mon compte"
             >
@@ -113,6 +126,9 @@ export function PremiumHeader({ hasGlobalBanner, ordersOpen = true }: PremiumHea
             </Link>
             <Link
               to="/panier"
+              data-track="nav-panier"
+              data-track-label="Panier"
+              data-track-group="cart"
               aria-label="Panier"
               className={`relative transition-colors hover:text-mayssa-gold ${isSolid ? 'text-mayssa-brown/80' : 'text-white/80'}`}
             >
@@ -127,6 +143,9 @@ export function PremiumHeader({ hasGlobalBanner, ordersOpen = true }: PremiumHea
             </Link>
             <Link
               to="/carte"
+              data-track="cta-precommander-header"
+              data-track-label={ordersOpen ? 'Précommander' : 'La carte'}
+              data-track-group="cta"
               className={`hidden lg:inline-flex items-center justify-center px-6 py-2.5 text-xs tracking-widest uppercase transition-colors duration-300 ${
                 isSolid 
                   ? 'bg-mayssa-brown text-white hover:bg-mayssa-espresso' 
@@ -173,6 +192,9 @@ export function PremiumHeader({ hasGlobalBanner, ordersOpen = true }: PremiumHea
                   <Link
                     key={link.name}
                     to={link.path}
+                    data-track={`nav-mobile-${sanitizeNavTrack(link.path)}`}
+                    data-track-label={link.name}
+                    data-track-group="navigation"
                     className={`text-lg tracking-wide uppercase transition-colors ${
                       location.pathname === link.path
                         ? 'text-mayssa-gold'

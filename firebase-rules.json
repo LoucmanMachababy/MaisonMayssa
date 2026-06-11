@@ -32,6 +32,10 @@
         ".read": "auth != null && auth.uid === $uid",
         ".write": "auth != null && (auth.uid === $uid || auth.token.email === 'roumayssaghazi213@gmail.com')"
       }
+    },
+    "siteAnalytics": {
+      ".read": "auth != null",
+      ".write": true
     }
   }
 }
