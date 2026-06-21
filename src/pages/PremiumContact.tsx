@@ -23,8 +23,8 @@ export default function PremiumContact() {
   return (
     <div className="min-h-screen bg-mayssa-soft">
       <Helmet>
-        <title>Contact — Maison Mayssa</title>
-        <meta name="description" content="Contactez Maison Mayssa pour vos questions, précommandes ou demandes d'événements sur mesure à Annecy." />
+        <title>Contact — Maison Mayssa, pâtisserie trompe-l&apos;œil Annecy</title>
+        <meta name="description" content="Contactez Maison Mayssa pour vos questions, précommandes ou événements sur mesure à Annecy et alentours (Seynod, Annecy-le-Vieux, Cran-Gevrier…). WhatsApp 7j/7." />
         <link rel="canonical" href="https://maison-mayssa.fr/contact" />
       </Helmet>
 

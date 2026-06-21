@@ -28,7 +28,7 @@ export const FAQ_ITEMS_HOME: FAQItem[] = [
   },
   {
     q: 'Quels sont les horaires de retrait et livraison ?',
-    a: 'Service de 18h30 à 2h du matin, 7 jours sur 7. Livraison sur Annecy et alentours (rayon ~5-10 km). Retrait possible sur place.',
+    a: 'Service de 18h30 à 2h du matin, 7 jours sur 7. Livraison sur Annecy et tout le bassin annécien : Seynod, Annecy-le-Vieux, Cran-Gevrier, Meythet, Pringy, Épagny Metz-Tessy, ainsi que la rive du lac (Sevrier, Veyrier-du-Lac, Saint-Jorioz) et la périphérie (Poisy, Argonay, Chavanod). Retrait possible sur place.',
   },
   {
     q: 'Comment se passe le paiement ?',
@@ -98,7 +98,7 @@ export const FAQ_CATEGORIES: FAQCategory[] = [
       FAQ_ITEMS_HOME[1], // Horaires
       {
         q: 'Quelles zones sont couvertes par la livraison ?',
-        a: 'Nous livrons sur Annecy et ses alentours immédiats (Seynod, Annecy-le-Vieux, Meythet, Pringy, Cran-Gevrier, Épagny) dans un rayon d\'environ 5 km. Pour des secteurs plus éloignés, contacte-nous par WhatsApp pour un devis.',
+        a: 'Nous livrons sur Annecy et tout le Grand Annecy. Cœur d\'agglo : Seynod, Annecy-le-Vieux, Cran-Gevrier, Meythet, Pringy, Épagny Metz-Tessy. Rive du lac : Sevrier, Veyrier-du-Lac, Saint-Jorioz, Menthon-Saint-Bernard. Périphérie élargie : Poisy, Argonay, Chavanod, Montagny-les-Lanches, Alby-sur-Chéran. Soit un rayon d\'environ 10-15 km. Pour un secteur plus éloigné, contacte-nous par WhatsApp pour un devis.',
       },
       {
         q: 'Combien de temps à l\'avance commander ?',

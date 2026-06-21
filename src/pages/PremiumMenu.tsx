@@ -17,7 +17,6 @@ const CATEGORIES = [
   { id: 'sale', label: 'Le salé' },
   { id: 'canette-cake', label: 'Canette Cake' },
   { id: 'fruits', label: 'Fruits frais' },
-  { id: 'cup-dubai', label: 'Cup Dubaï' },
   { id: 'chocolaterie', label: 'Chocolaterie' },
   { id: 'boxes', label: 'Boxes' },
 ]
@@ -28,7 +27,6 @@ const CATEGORY_MAPPING: Record<string, string[]> = {
   'sale': ['Le salé'],
   'canette-cake': ['Canette Cake'],
   'fruits': ['Fruits frais'],
-  'cup-dubai': ['Cup Dubaï'],
   'chocolaterie': ['Chocolaterie'],
   'boxes': ['Boxes'],
 }
@@ -42,7 +40,6 @@ const CATEGORY_HEADER_LABELS: Record<string, string> = {
   sale: 'Le salé',
   'canette-cake': 'Canette Cake',
   fruits: 'Fruits frais',
-  'cup-dubai': 'Cup Dubaï',
   chocolaterie: 'Chocolaterie',
   boxes: 'Boxes',
 }
@@ -180,10 +177,10 @@ export default function PremiumMenu() {
   return (
     <div className="min-h-screen bg-mayssa-soft pb-32 pt-[88px] lg:pt-[104px]">
       <Helmet>
-        <title>La carte — Maison Mayssa | Trompe-l&apos;œil &amp; pâtisseries artisanales</title>
+        <title>La carte — Maison Mayssa | Pâtisseries trompe-l&apos;œil à Annecy</title>
         <meta
           name="description"
-          content="Découvrez la carte Maison Mayssa : trompe-l'œil, canette cakes, cups de fruits, chocolaterie, salé et boxes. Précommande en ligne."
+          content="Découvrez la carte Maison Mayssa : trompe-l'œil, canette cakes, cups de fruits, chocolaterie, salé et boxes. Précommande en ligne, livraison & retrait à Annecy, Seynod, Annecy-le-Vieux et tout le bassin annécien."
         />
         <link rel="canonical" href="https://maison-mayssa.fr/carte" />
       </Helmet>

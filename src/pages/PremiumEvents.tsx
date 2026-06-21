@@ -27,8 +27,8 @@ export default function PremiumEvents() {
   return (
     <div className="min-h-screen bg-mayssa-soft">
       <Helmet>
-        <title>Événements sur mesure — Maison Mayssa</title>
-        <meta name="description" content="Mariages, anniversaires, événements d'entreprise : Maison Mayssa crée des pâtisseries trompe-l'œil sur mesure pour vos moments d'exception." />
+        <title>Événements sur mesure à Annecy — Maison Mayssa</title>
+        <meta name="description" content="Mariages, anniversaires, événements d'entreprise à Annecy et alentours : Maison Mayssa crée des pâtisseries trompe-l'œil sur mesure pour vos moments d'exception. Livraison sur tout le bassin annécien." />
         <link rel="canonical" href="https://maison-mayssa.fr/evenements" />
       </Helmet>
       {/* Hero */}
