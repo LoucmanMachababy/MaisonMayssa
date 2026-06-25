@@ -177,6 +177,21 @@ export default function PremiumMenu() {
     return products
   }, [catalogProducts, currentCategory, searchQuery])
 
+  const displayProducts = useMemo(() => {
+    const candyIds = ['candy-fruit-box', 'candy-fruit-canette', 'candy-fruit-sauce']
+    if (currentCategory === 'candy-fruit') {
+      return [...filteredProducts].sort(
+        (a, b) => candyIds.indexOf(a.id) - candyIds.indexOf(b.id),
+      )
+    }
+    if (currentCategory === 'tout') {
+      const candy = filteredProducts.filter((p) => candyIds.includes(p.id))
+      const rest = filteredProducts.filter((p) => !candyIds.includes(p.id))
+      return [...candy, ...rest]
+    }
+    return filteredProducts
+  }, [filteredProducts, currentCategory])
+
   return (
     <div className="min-h-screen bg-mayssa-soft pb-32 pt-[88px] lg:pt-[104px]">
       <Helmet>
@@ -327,7 +342,7 @@ export default function PremiumMenu() {
           <div className="w-full flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-white border border-mayssa-brown/10 mb-8">
             <p className="text-sm text-mayssa-brown/70">
               Résultats pour « <span className="text-mayssa-brown font-medium">{searchQuery}</span> »
-              {' '}· {filteredProducts.length} produit{filteredProducts.length > 1 ? 's' : ''}
+              {' '}· {displayProducts.length} produit{displayProducts.length > 1 ? 's' : ''}
             </p>
             <button
               type="button"
@@ -374,7 +389,7 @@ export default function PremiumMenu() {
             className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-16"
           >
             <AnimatePresence mode="popLayout">
-              {filteredProducts.map((product) => (
+              {displayProducts.map((product) => (
                 <motion.div
                   key={product.id}
                   layout
@@ -439,7 +454,7 @@ export default function PremiumMenu() {
             </AnimatePresence>
           </motion.div>
           
-          {filteredProducts.length === 0 && (
+          {displayProducts.length === 0 && (
             <div className="text-center py-32">
               <p className="text-mayssa-brown/50 text-lg">
                 {searchQuery

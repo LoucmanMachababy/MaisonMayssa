@@ -54,6 +54,13 @@ export const CATEGORY_SHOWCASE: CategoryShowcase[] = [
     anchor: '#la-carte',
   },
   {
+    id: 'Candy Fruit',
+    title: 'Candy Fruit',
+    subtitle: 'Box, canette & sauce acidulée',
+    image: '/nouvelle-img/candy-bruit-box.jpeg',
+    anchor: '#la-carte',
+  },
+  {
     id: 'Fruits frais',
     title: 'Fruits frais',
     subtitle: 'Cups de fruits de saison',

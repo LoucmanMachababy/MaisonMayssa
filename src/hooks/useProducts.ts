@@ -1,7 +1,18 @@
 import { useState, useEffect, useMemo } from 'react'
 import { PRODUCTS } from '../constants'
+import {
+  CANDY_FRUIT_BOX_PRODUCT_ID,
+  CANDY_FRUIT_CANETTE_PRODUCT_ID,
+  CANDY_FRUIT_SAUCE_PRODUCT_ID,
+} from '../constants/candyFruit'
 import type { Product, ProductOverrideMap } from '../types'
 import { isProductVisible, isProductOrderable } from '../lib/productHelpers'
+
+const FORCE_CATALOG_VISIBLE_IDS = new Set([
+  CANDY_FRUIT_BOX_PRODUCT_ID,
+  CANDY_FRUIT_CANETTE_PRODUCT_ID,
+  CANDY_FRUIT_SAUCE_PRODUCT_ID,
+])
 
 export type ProductWithAvailability = Product & {
   available: boolean
@@ -11,12 +22,17 @@ export type ProductWithAvailability = Product & {
 
 function mergeProduct(p: Product, override?: ProductOverrideMap[string]): ProductWithAvailability {
   if (!override) {
-    return {
+    const base: ProductWithAvailability = {
       ...p,
       available: p.available !== false,
       visible: p.visible !== false,
       pinned: p.pinned ?? false,
     }
+    if (FORCE_CATALOG_VISIBLE_IDS.has(p.id) && p.visible === true) {
+      base.visible = true
+      if (p.available === true) base.available = true
+    }
+    return base
   }
   const isCustom = override.isCustom === true
   // image/images/category exclus : le catalogue reste la source de vérité (évite URLs / catégories obsolètes Firebase)
@@ -45,6 +61,10 @@ function mergeProduct(p: Product, override?: ProductOverrideMap[string]): Produc
     image: isCustom && override.image ? override.image : p.image,
     images: isCustom && override.images?.length ? override.images : p.images,
   } as ProductWithAvailability
+  if (FORCE_CATALOG_VISIBLE_IDS.has(merged.id) && p.visible === true) {
+    merged.visible = true
+    if (p.available === true) merged.available = true
+  }
   return merged
 }
 
