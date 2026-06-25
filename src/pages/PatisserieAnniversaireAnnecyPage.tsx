@@ -3,8 +3,8 @@ import { PillarPageLayout } from '../components/PillarPageLayout'
 export function PatisserieAnniversaireAnnecyPage() {
   return (
     <PillarPageLayout
-      title="Pâtisserie anniversaire Annecy — Maison Mayssa, livrée le soir"
-      description="Pâtisserie d'anniversaire à Annecy : trompe-l'œil spectaculaires, layer cups, boxes mixtes. Livrée le soir 18h30-2h, 7j/7. L'effet wow garanti."
+      title="Pâtisserie anniversaire Annecy — Maison Mayssa, click & collect le soir"
+      description="Pâtisserie d'anniversaire à Annecy : trompe-l'œil spectaculaires, layer cups, boxes mixtes. Retrait le soir 18h30-2h en click & collect, 7j/7. L'effet wow garanti."
       canonical="https://maison-mayssa.fr/patisserie-anniversaire-annecy"
       breadcrumb={[
         { name: 'Accueil', url: '/' },
@@ -35,8 +35,8 @@ export function PatisserieAnniversaireAnnecyPage() {
           a: "Pour les trompe-l'œil et boxes complètes : 3 jours minimum. Pour les brownies, cookies et layer cups : 24h-48h suffisent. Pour une grosse commande événementielle (anniversaire 20+ personnes), contacte-moi directement par WhatsApp pour qu'on s'organise.",
         },
         {
-          q: "Livrez-vous les pâtisseries le soir pour l'anniversaire ?",
-          a: "Oui, service de 18h30 à 2h du matin, 7j/7. Je peux livrer tes pâtisseries juste avant ou pendant la fête sur Annecy et alentours (rayon 5-10 km). Précise ton créneau préféré à la commande.",
+          q: "Puis-je retirer mes pâtisseries le soir pour l'anniversaire ?",
+          a: "Oui, en click & collect avec des créneaux de 18h30 à 2h du matin, 7j/7. Tu commandes et tu paies en ligne, puis tu viens chercher tes pâtisseries à la boutique Maison Mayssa, galerie marchande du Carrefour, 134 avenue de Genève à Annecy. Choisis ton créneau juste avant la fête.",
         },
         {
           q: 'Puis-je personnaliser une pâtisserie pour un anniversaire ?',
@@ -44,7 +44,7 @@ export function PatisserieAnniversaireAnnecyPage() {
         },
         {
           q: "Quel budget pour un anniversaire ?",
-          a: "Tout dépend du nombre d'invités. Un trompe-l'œil = 6 à 8,50 €. Une box de 7 trompe-l'œil = 50 €. Une box mixte brownies + cookies = 25 €. Livraison offerte dès 50 € d'achat.",
+          a: "Tout dépend du nombre d'invités. Un trompe-l'œil = 6 à 8,50 €. Une box de 7 trompe-l'œil = 50 €. Une box mixte brownies + cookies = 25 €. Retrait gratuit en boutique.",
         },
       ]}
       relatedPages={[
@@ -123,24 +123,24 @@ export function PatisserieAnniversaireAnnecyPage() {
 
       <section>
         <h2 className="text-xl sm:text-2xl font-display font-bold text-mayssa-brown mb-4">
-          Livraison le soir de l'anniversaire
+          Retrait le soir de l'anniversaire
         </h2>
         <div className="prose prose-sm sm:prose-base max-w-none text-mayssa-brown/85 space-y-4 leading-relaxed">
           <p>
-            Maison Mayssa livre <strong>de 18h30 à 2h du matin, 7 jours sur 7</strong>, sur
-            Annecy et ses alentours. Cet horaire étendu est pensé pour coller aux moments
-            où les gens fêtent : apéro à 19h, dîner à 20h30, surprise de minuit. Tu me
-            précises ton créneau, je m'organise.
+            Maison Mayssa propose le retrait en click & collect <strong>de 18h30 à 2h du
+            matin, 7 jours sur 7</strong>. Ces créneaux étendus sont pensés pour coller aux
+            moments où les gens fêtent : apéro à 19h, dîner à 20h30, surprise de minuit. Tu
+            choisis ton créneau à la commande, et tes pâtisseries sont prêtes à l'heure dite.
           </p>
           <p>
-            <strong>Zone couverte</strong> : Annecy centre, Annecy-le-Vieux, Seynod,
-            Meythet, Pringy, Cran-Gevrier, Épagny (rayon 5-10 km). Livraison offerte dès
-            50 € d'achat, sinon forfait 5 €. Pour les zones plus éloignées, on s'arrange au
-            cas par cas par WhatsApp.
+            <strong>Point de retrait</strong> : la boutique Maison Mayssa, dans la galerie
+            marchande du centre commercial Carrefour, 134 avenue de Genève à Annecy.
+            Commande et paiement se font 100 % en ligne par carte bancaire ou Apple Pay ; il
+            ne te reste plus qu'à venir chercher ta commande sur ton créneau.
           </p>
           <p>
-            Tu peux aussi opter pour le <strong>retrait sur place</strong> si tu préfères
-            venir chercher toi-même. Je suis flexible sur les créneaux.
+            Le <strong>retrait en boutique</strong> est le mode unique : pratique, rapide et
+            gratuit. Je reste flexible sur les créneaux pour coller au timing de ta fête.
           </p>
         </div>
       </section>
@@ -158,12 +158,15 @@ export function PatisserieAnniversaireAnnecyPage() {
           </p>
           <p>
             Pour les brownies, cookies et layer cups : 24h à 48h avant suffisent. Pour une
-            grosse commande (plus de 20 personnes), contacte-moi par WhatsApp pour qu'on
-            s'organise, je peux faire des devis personnalisés et prévoir l'organisation.
+            grosse commande événementielle (plus de 20 personnes), contacte-moi par WhatsApp
+            pour qu'on s'organise : je peux faire des devis personnalisés et prévoir
+            l'organisation.
           </p>
           <p>
-            Le plus simple : remplis le panier sur le site, choisis ta date, et envoie ta
-            commande par WhatsApp. Je te confirme l'heure et on est bon.
+            Le plus simple : remplis le panier sur le site, choisis ta date et ton créneau
+            de retrait, puis règle ta commande en ligne par carte bancaire ou Apple Pay. Tu
+            reçois ta confirmation et il ne reste plus qu'à venir chercher ta commande en
+            boutique.
           </p>
         </div>
       </section>

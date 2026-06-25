@@ -3,7 +3,7 @@
  * Partagés entre :
  *  - La section FAQ en bas de la home (rendue via LegalPages.FAQSection, 5 Q&A courtes)
  *  - La page dédiée /faq (rendue via FAQPage, 15 Q&A complètes)
- *  - Le schema.org FAQPage dans index.html (rich results Google)
+ *  - Le schema.org FAQPage (rich results Google)
  */
 
 export type FAQItem = {
@@ -19,33 +19,33 @@ export type FAQCategory = {
 
 /**
  * 5 Q&A essentielles affichées dans la home (section FAQ en bas).
- * Même contenu que dans l'index.html schema.org FAQPage.
+ * Même contenu que dans le schema.org FAQPage.
  */
 export const FAQ_ITEMS_HOME: FAQItem[] = [
   {
     q: 'Comment passer commande ?',
-    a: 'Remplis ton panier sur le site, choisis retrait ou livraison, puis clique sur « Envoyer sur WhatsApp ». Le message est pré-rempli : il te suffit de l\'envoyer pour confirmer. Commande par WhatsApp uniquement.',
+    a: 'Remplis ton panier sur le site, choisis ton créneau de retrait, puis règle en ligne par carte bancaire ou Apple Pay. Ta commande est confirmée immédiatement : tu reçois un numéro de commande à présenter au retrait. C\'est du click & collect, 100 % en ligne.',
   },
   {
-    q: 'Quels sont les horaires de retrait et livraison ?',
-    a: 'Service de 18h30 à 2h du matin, 7 jours sur 7. Livraison sur Annecy et tout le bassin annécien : Seynod, Annecy-le-Vieux, Cran-Gevrier, Meythet, Pringy, Épagny Metz-Tessy, ainsi que la rive du lac (Sevrier, Veyrier-du-Lac, Saint-Jorioz) et la périphérie (Poisy, Argonay, Chavanod). Retrait possible sur place.',
+    q: 'Où et quand récupérer ma commande ?',
+    a: 'Retrait en click & collect à la boutique Maison Mayssa, dans la galerie marchande du Carrefour, 134 avenue de Genève, 74000 Annecy. Service de 18h30 à 2h du matin, 7 jours sur 7. Tu choisis ton créneau au moment de la commande.',
   },
   {
     q: 'Comment se passe le paiement ?',
-    a: 'Tu peux régler par PayPal (lien proposé après la commande) ou à la livraison / au retrait. Aucun paiement en ligne obligatoire.',
+    a: 'Le paiement se fait en ligne, au moment de la commande, par carte bancaire (Visa, Mastercard, CB) ou Apple Pay. Paiement 100 % sécurisé. Une fois réglée, ta commande est confirmée et préparée pour ton créneau de retrait.',
   },
   {
     q: "C'est quoi la précommande ?",
     a: "Trompe-l'œil : tu passes ta commande et tu récupères ton gâteau environ 3 jours après (délai de préparation). La date exacte est indiquée dans le formulaire selon les disponibilités. Pâtisseries, cookies, boxes et le reste sont disponibles en permanence (pas de délai fixe).",
   },
   {
-    q: 'Livraison offerte ?',
-    a: "Oui, dès 50 € d'achat sur la zone habituelle (rayon d'environ 5 km depuis Annecy). Sinon forfait 5 €. Pour les secteurs plus éloignés, nous contacter par WhatsApp.",
+    q: 'Faut-il créer un compte pour commander ?',
+    a: "Non, tu peux commander en tant qu'invité. Mais créer un compte te fait gagner des points de fidélité (1 € = 1 point) échangeables contre des cadeaux, et garde l'historique de tes commandes.",
   },
 ]
 
 /**
- * FAQ complète (15 Q&A) regroupées par catégories pour la page /faq.
+ * FAQ complète regroupée par catégories pour la page /faq.
  */
 export const FAQ_CATEGORIES: FAQCategory[] = [
   {
@@ -53,19 +53,16 @@ export const FAQ_CATEGORIES: FAQCategory[] = [
     title: 'Commande & Paiement',
     items: [
       FAQ_ITEMS_HOME[0], // Comment passer commande
-      {
-        q: 'Puis-je commander via Instagram ou Snapchat ?',
-        a: 'Oui ! Remplis ton panier comme d\'habitude, puis clique sur les options Instagram ou Snapchat dans le récap. Le message sera pré-rempli à copier-coller dans ton DM.',
-      },
       FAQ_ITEMS_HOME[2], // Paiement
       {
-        q: 'Comment annuler une commande ?',
-        a: 'Contacte-nous directement par WhatsApp (+33 6 19 87 10 05) dès que possible. Si la préparation n\'a pas commencé (surtout pour les trompe-l\'œil en précommande), nous pouvons annuler sans frais.',
+        q: 'Quels moyens de paiement acceptez-vous ?',
+        a: 'Carte bancaire (Visa, Mastercard, CB) et Apple Pay, directement en ligne via notre paiement sécurisé. La commande est confirmée dès le règlement.',
       },
       {
-        q: 'Ai-je besoin d\'un acompte pour commander ?',
-        a: 'Non, aucun acompte n\'est demandé pour les commandes classiques. Pour les grosses commandes événementielles (mariage, corporate), nous pouvons convenir d\'un acompte par WhatsApp.',
+        q: 'Comment annuler ou modifier une commande ?',
+        a: 'Contacte-nous par WhatsApp (+33 6 19 87 10 05) dès que possible avec ton numéro de commande. Tant que la préparation n\'a pas commencé (surtout pour les trompe-l\'œil en précommande), nous pouvons modifier ou rembourser sans frais.',
       },
+      FAQ_ITEMS_HOME[4], // Compte / fidélité
     ],
   },
   {
@@ -91,18 +88,21 @@ export const FAQ_CATEGORIES: FAQCategory[] = [
     ],
   },
   {
-    id: 'livraison-retrait',
-    title: 'Livraison & Retrait',
+    id: 'retrait-click-collect',
+    title: 'Retrait — Click & collect',
     items: [
-      FAQ_ITEMS_HOME[4], // Livraison offerte
-      FAQ_ITEMS_HOME[1], // Horaires
+      FAQ_ITEMS_HOME[1], // Où et quand récupérer
       {
-        q: 'Quelles zones sont couvertes par la livraison ?',
-        a: 'Nous livrons sur Annecy et tout le Grand Annecy. Cœur d\'agglo : Seynod, Annecy-le-Vieux, Cran-Gevrier, Meythet, Pringy, Épagny Metz-Tessy. Rive du lac : Sevrier, Veyrier-du-Lac, Saint-Jorioz, Menthon-Saint-Bernard. Périphérie élargie : Poisy, Argonay, Chavanod, Montagny-les-Lanches, Alby-sur-Chéran. Soit un rayon d\'environ 10-15 km. Pour un secteur plus éloigné, contacte-nous par WhatsApp pour un devis.',
+        q: 'Comment fonctionne le click & collect ?',
+        a: 'Tu commandes et tu payes en ligne, tu choisis un créneau de retrait, puis tu viens récupérer ta commande déjà prête à la boutique. Présente simplement ton numéro de commande au comptoir — pas d\'attente, pas de paiement sur place.',
+      },
+      {
+        q: 'Quelle est l\'adresse de retrait ?',
+        a: 'Maison Mayssa, galerie marchande du centre commercial Carrefour, 134 avenue de Genève, 74000 Annecy. Ouverture le 4 juillet 2026.',
       },
       {
         q: 'Combien de temps à l\'avance commander ?',
-        a: 'Pour les trompe-l\'œil (précommande) : 3 jours minimum. Pour les pâtisseries classiques (brownies, cookies, layer cups, tiramisus, boxes) : disponibles le jour même selon stock, idéalement 24h à l\'avance.',
+        a: 'Pour les trompe-l\'œil (précommande) : 3 jours minimum. Pour les pâtisseries classiques (brownies, cookies, layer cups, tiramisus, boxes) : disponibles selon le stock, idéalement 24h à l\'avance.',
       },
     ],
   },
@@ -123,7 +123,7 @@ export const FAQ_CATEGORIES: FAQCategory[] = [
     items: [
       {
         q: 'Comment vous joindre ?',
-        a: 'WhatsApp : +33 6 19 87 10 05 (le plus rapide, 18h30-2h 7j/7). Instagram : @maison_mayssa74. Pour toute question, n\'hésite pas !',
+        a: 'WhatsApp : +33 6 19 87 10 05 (le plus rapide pour le service client, 18h30-2h 7j/7). Instagram : @maison_mayssa74. Pour toute question sur ta commande, n\'hésite pas !',
       },
     ],
   },

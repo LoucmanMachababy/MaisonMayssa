@@ -17,6 +17,7 @@ const CATEGORIES = [
   { id: 'sale', label: 'Le salé' },
   { id: 'canette-cake', label: 'Canette Cake' },
   { id: 'fruits', label: 'Fruits frais' },
+  { id: 'candy-fruit', label: 'Candy Fruit' },
   { id: 'chocolaterie', label: 'Chocolaterie' },
   { id: 'boxes', label: 'Boxes' },
 ]
@@ -27,6 +28,7 @@ const CATEGORY_MAPPING: Record<string, string[]> = {
   'sale': ['Le salé'],
   'canette-cake': ['Canette Cake'],
   'fruits': ['Fruits frais'],
+  'candy-fruit': ['Candy Fruit'],
   'chocolaterie': ['Chocolaterie'],
   'boxes': ['Boxes'],
 }
@@ -40,6 +42,7 @@ const CATEGORY_HEADER_LABELS: Record<string, string> = {
   sale: 'Le salé',
   'canette-cake': 'Canette Cake',
   fruits: 'Fruits frais',
+  'candy-fruit': 'Candy Fruit',
   chocolaterie: 'Chocolaterie',
   boxes: 'Boxes',
 }

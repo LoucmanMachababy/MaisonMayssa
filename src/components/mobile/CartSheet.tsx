@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence, useDragControls, useReducedMotion } from 'framer-motion'
-import { X, Minus, Plus, Trash2, ShoppingBag, MessageCircle, User, Phone, Mail, MapPin, Truck, Calendar, Clock, Star, Gift, Instagram, Tag, Heart, ChevronDown, ChevronLeft, ChevronRight, Check } from 'lucide-react'
-import { SnapIcon } from '../SnapIcon'
+import { X, Minus, Plus, Trash2, ShoppingBag, User, Phone, Mail, MapPin, Calendar, Clock, Star, Gift, Tag, Heart, ChevronDown, ChevronLeft, ChevronRight, Check, Lock } from 'lucide-react'
 import { hapticFeedback } from '../../lib/haptics'
 import { cn, isBeforeOrderCutoff, isBeforeFirstPickupDate, normalizeOrderProductBaseId, trompeSelectionDisplayLabels } from '../../lib/utils'
 import { FIRST_PICKUP_DATE_CLASSIC, FIRST_PICKUP_DATE_CLASSIC_LABEL, DELIVERY_SLOT_MAX_CAPACITY, isTrompeBoxWithStoredSelection } from '../../constants'
-import { AddressAutocomplete } from '../AddressAutocomplete'
 import { ReservationTimer } from '../ReservationTimer'
 import { useAuth } from '../../hooks/useAuth'
 import { useFocusTrap } from '../../hooks/useAccessibility'
@@ -14,23 +12,18 @@ import { REWARD_COSTS, REWARD_LABELS } from '../../lib/rewards'
 import type { CartItem, CustomerInfo } from '../../types'
 import type { DeliverySlotsMap } from '../../lib/firebase'
 import { CgvAcceptance } from '../legal/CgvAcceptance'
-import { SimulatedPayment } from '../checkout/SimulatedPayment'
-import { PaymentUnavailable } from '../checkout/PaymentUnavailable'
-import { CLICK_COLLECT_ONLY, SIMULATED_PAYMENT_ENABLED, ONLINE_PAYMENT_UNAVAILABLE } from '../../constants/checkout'
-import type { SimulatedPaymentMethod } from '../../constants/checkout'
+import { PaymentSection } from '../checkout/PaymentSection'
+import { CLICK_COLLECT_ONLY, PAYMENT_ENABLED } from '../../constants/checkout'
+import type { PaymentMethod } from '../../constants/checkout'
+import { STORE_ADDRESS_LINE } from '../../constants/store'
 import {
-  ANNECY_GARE,
-  DELIVERY_RADIUS_KM,
-  DELIVERY_FEE,
-  FREE_DELIVERY_THRESHOLD,
-  calculateDistance,
-  generateTimeSlots,
+  getPickupSlotsForDate,
+  OPENING_HOURS_LABEL,
   getMinDate,
   getSelectableDates,
   formatDateLabel,
   validateCustomer,
   computeDeliveryFee,
-  normalizeInstagramHandle,
 } from '../../lib/delivery'
 
 interface CartSheetProps {
@@ -43,9 +36,8 @@ interface CartSheetProps {
   onUpdateQuantity: (id: string, quantity: number) => void
   onNoteChange: (note: string) => void
   onCustomerChange: (customer: CustomerInfo) => void
+  /** Valide la commande (paiement Stripe + réservation du créneau click & collect). */
   onSend: () => void
-  onSendInstagram: () => void
-  onSendSnap: () => void
   onAccountClick?: () => void
   selectedReward?: { type: keyof typeof REWARD_COSTS; id: string } | null
   onSelectReward?: (reward: { type: keyof typeof REWARD_COSTS; id: string } | null) => void
@@ -75,11 +67,9 @@ interface CartSheetProps {
   mysteryFraiseDiscount?: number
   pendingOrder?: { orderNumber?: number; placedAt: number } | null
   onAllowAnotherOrder?: () => void
-  orderContactIdentity?: 'whatsapp' | 'instagram' | 'snap'
-  onOrderContactIdentityChange?: (v: 'whatsapp' | 'instagram' | 'snap') => void
   paymentConfirmed?: boolean
-  paymentMethod?: SimulatedPaymentMethod | null
-  onConfirmPayment?: (method: SimulatedPaymentMethod) => void
+  paymentMethod?: PaymentMethod | null
+  onConfirmPayment?: (method: PaymentMethod) => void
   onResetPayment?: () => void
 }
 
@@ -96,8 +86,6 @@ export function CartSheet({
   onNoteChange,
   onCustomerChange,
   onSend,
-  onSendInstagram,
-  onSendSnap,
   onAccountClick,
   selectedReward,
   onSelectReward,
@@ -110,8 +98,6 @@ export function CartSheet({
   pickupDates,
   preorderOpenDate,
   preorderOpenTime,
-  retraitTimeSlots,
-  livraisonTimeSlots,
   ordersOpen = true,
   ordersExplicit = false,
   promoCodeInput = '',
@@ -126,9 +112,7 @@ export function CartSheet({
   mysteryFraiseDiscount = 0,
   pendingOrder = null,
   onAllowAnotherOrder,
-  orderContactIdentity = 'whatsapp',
-  onOrderContactIdentityChange,
-  paymentConfirmed = true,
+  paymentConfirmed = false,
   paymentMethod = null,
   onConfirmPayment,
   onResetPayment,
@@ -165,13 +149,6 @@ export function CartSheet({
   const markTouched = (field: keyof typeof customer) =>
     setTouched(prev => ({ ...prev, [field]: true }))
 
-  // Distance calculation
-  const distanceFromAnnecy = useMemo(() => {
-    return calculateDistance(customer.addressCoordinates, ANNECY_GARE)
-  }, [customer.addressCoordinates])
-
-  const isWithinDeliveryZone = distanceFromAnnecy !== null && distanceFromAnnecy <= DELIVERY_RADIUS_KM
-
   const totalAfterDiscount = total - (appliedPromo?.discount ?? 0)
   const deliveryFee = useMemo(() => computeDeliveryFee(customer, totalAfterDiscount), [customer, totalAfterDiscount])
   const finalTotal = totalAfterDiscount + (deliveryFee ?? 0) + donationAmount
@@ -182,17 +159,11 @@ export function CartSheet({
     ? Object.entries(REWARD_COSTS).filter(([, cost]) => profile.loyalty.points >= cost)
     : []
 
-  const allTimeSlots = useMemo(() => {
-    if (customer.wantsDelivery && livraisonTimeSlots && livraisonTimeSlots.length > 0) return livraisonTimeSlots
-    if (!customer.wantsDelivery && retraitTimeSlots && retraitTimeSlots.length > 0) return retraitTimeSlots
-    return generateTimeSlots(customer.wantsDelivery)
-  }, [customer.wantsDelivery, retraitTimeSlots, livraisonTimeSlots])
-  const timeSlots = useMemo(() => {
-    if (!customer.wantsDelivery || !customer.date) return allTimeSlots
-    const taken = deliverySlots[customer.date]
-    if (!taken) return allTimeSlots
-    return allTimeSlots.filter((t) => (taken[t] ?? 0) < DELIVERY_SLOT_MAX_CAPACITY)
-  }, [customer.wantsDelivery, customer.date, deliverySlots, allTimeSlots])
+  // Créneaux de retrait selon les horaires boutique (Lun-Sam 11h-21h30, Dim 9h-12h).
+  const allTimeSlots = useMemo(
+    () => getPickupSlotsForDate(customer.date),
+    [customer.date],
+  )
   const getPlacesLeft = (time: string) =>
     customer.wantsDelivery && customer.date
       ? Math.max(0, DELIVERY_SLOT_MAX_CAPACITY - (deliverySlots[customer.date]?.[time] ?? 0))
@@ -252,16 +223,9 @@ export function CartSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customer.wantsDelivery, customer.date, customer.time, deliverySlots, allTimeSlots])
 
-  const handleContactIdentityChange = (v: 'whatsapp' | 'instagram' | 'snap') => {
-    if (v === 'instagram' || v === 'snap') {
-      onCustomerChange({ ...customer, lastName: '' })
-    }
-    onOrderContactIdentityChange?.(v)
-  }
-
   const validationErrors = useMemo(
-    () => validateCustomer(customer, { identityMode: orderContactIdentity }),
-    [customer, orderContactIdentity],
+    () => validateCustomer(customer),
+    [customer],
   )
   const showError = (field: keyof typeof customer) =>
     touched[field] && validationErrors[field as keyof CustomerInfo]
@@ -272,14 +236,16 @@ export function CartSheet({
   const trompeLoeilBeforeMinDate = hasTrompeLoeil && !!customer.date && customer.date < minDate
   const orderCutoffPassed = !isBeforeOrderCutoff()
   const isClassicPreorderPhase = isBeforeFirstPickupDate(FIRST_PICKUP_DATE_CLASSIC)
-  const canSend =
+  // Conditions pour AFFICHER le paiement (hors paiement lui-même) : on ne doit
+  // pas pouvoir encaisser si la commande ne peut aboutir (commandes fermées…).
+  const canPay =
     hasItems &&
     isCustomerValid &&
     acceptedTerms &&
-    paymentConfirmed &&
     ordersOpen !== false &&
     !trompeLoeilBeforeMinDate &&
     (!hasNonTrompeLoeil || !orderCutoffPassed || ordersExplicit)
+  const canSend = canPay && paymentConfirmed
 
   // --- Wizard step validation ---
   const canAdvanceFromStep1 = hasItems
@@ -645,80 +611,17 @@ export function CartSheet({
   // ============================================================================
   const renderStep2 = () => (
     <motion.div key="step2" {...stepTransition} className="space-y-4">
-      {/* Click & collect / mode récupération */}
+      {/* Click & collect */}
       <div className="space-y-2">
-        <p className="cart-sheet-section-label">
-          {CLICK_COLLECT_ONLY ? 'Click & collect' : 'Mode de récupération'}
-        </p>
-        {CLICK_COLLECT_ONLY ? (
-          <div className="cart-sheet-panel flex items-start gap-2.5">
-            <MapPin size={18} className="text-mayssa-caramel shrink-0 mt-0.5" />
-            <p className="text-xs text-mayssa-brown/75 leading-relaxed">
-              Retrait au point de collecte au créneau choisi. Instructions envoyées après confirmation.
-            </p>
-          </div>
-        ) : (
-        <>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => { hapticFeedback('light'); onCustomerChange({ ...customer, wantsDelivery: false }) }}
-            aria-label="Choisir retrait sur place"
-            className={cn(
-              'cart-sheet-mode-btn cursor-pointer',
-              !customer.wantsDelivery && 'is-active',
-            )}
-          >
-            <MapPin size={18} />
-            <span>Retrait</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => { hapticFeedback('light'); onCustomerChange({ ...customer, wantsDelivery: true }) }}
-            aria-label="Choisir livraison"
-            className={cn(
-              'cart-sheet-mode-btn cursor-pointer',
-              customer.wantsDelivery && 'is-active',
-            )}
-          >
-            <Truck size={18} />
-            <span>Livraison</span>
-          </button>
-        </div>
-
-        {customer.wantsDelivery && (
+        <p className="cart-sheet-section-label">Click &amp; collect</p>
+        <div className="cart-sheet-panel flex items-start gap-2.5">
+          <MapPin size={18} className="text-mayssa-caramel shrink-0 mt-0.5" />
           <div>
-            <div className={cn('cart-sheet-field', showError('address') && 'is-error')}>
-              <AddressAutocomplete
-                value={customer.address}
-                onChange={(address, coordinates) => onCustomerChange({ ...customer, address, addressCoordinates: coordinates })}
-                placeholder="Tape ton adresse..."
-                ariaLabel="Adresse de livraison"
-              />
-            </div>
-            {showError('address') && <p className="text-[9px] text-red-400 pl-3 mt-0.5">{validationErrors.address}</p>}
-            {isAuthenticated && profile?.address && customer.address === profile.address && (
-              <p className="mt-1.5 text-[10px] text-emerald-600 bg-emerald-50 rounded-lg px-2 py-1 flex items-center gap-1">
-                <MapPin size={10} />
-                Adresse pré-remplie depuis ton profil
-              </p>
-            )}
-            <div className="mt-2">
-              <label id="cart-sheet-delivery-instructions-label" className="block text-[9px] font-medium text-mayssa-brown/70 mb-0.5">Instructions livreur</label>
-              <input
-                id="cart-sheet-delivery-instructions"
-                type="text"
-                value={customer.deliveryInstructions ?? ''}
-                onChange={(e) => onCustomerChange({ ...customer, deliveryInstructions: e.target.value })}
-                placeholder="Code, étage, sonner 2 fois…"
-                aria-labelledby="cart-sheet-delivery-instructions-label"
-                className="w-full rounded-lg bg-white/80 px-2.5 py-1.5 text-xs text-mayssa-brown placeholder:text-mayssa-brown/55 placeholder:opacity-100 ring-1 ring-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel/30"
-              />
-            </div>
+            <p className="text-xs font-semibold text-mayssa-brown">Retrait à la boutique</p>
+            <p className="text-[11px] text-mayssa-brown/75 mt-1 font-medium">Galerie marchande du Carrefour — {STORE_ADDRESS_LINE}</p>
+            <p className="text-[10px] text-mayssa-brown/60 mt-1 leading-relaxed">Choisissez votre créneau de retrait. Votre commande payée vous attend au comptoir, prête à emporter.</p>
           </div>
-        )}
-        </>
-        )}
+        </div>
       </div>
 
       {/* Date & Time */}
@@ -734,7 +637,7 @@ export function CartSheet({
                 value={selectableDates.includes(customer.date) ? customer.date : selectableDates[0] ?? ''}
                 onChange={(e) => { markTouched('date'); onCustomerChange({ ...customer, date: e.target.value, time: '' }) }}
                 className="w-full bg-transparent text-xs font-medium text-mayssa-brown focus:outline-none cursor-pointer"
-                aria-label="Date de retrait ou livraison"
+                aria-label="Date de retrait"
               >
                 <option value="">Choisir une date</option>
                 {selectableDates.map((d) => (
@@ -753,7 +656,7 @@ export function CartSheet({
                 value={customer.date}
                 onChange={(e) => { markTouched('date'); onCustomerChange({ ...customer, date: e.target.value }) }}
                 className="w-full bg-transparent text-xs font-medium text-mayssa-brown focus:outline-none"
-                aria-label="Date de retrait ou livraison"
+                aria-label="Date de retrait"
               />
             )}
           </div>
@@ -763,7 +666,7 @@ export function CartSheet({
               value={customer.time}
               onChange={(e) => { markTouched('time'); onCustomerChange({ ...customer, time: e.target.value }) }}
               className="w-full bg-transparent text-xs font-medium text-mayssa-brown focus:outline-none cursor-pointer"
-              aria-label="Heure de retrait ou livraison"
+              aria-label="Heure de retrait"
             >
               <option value="">Heure</option>
               {allTimeSlots.map((time) => {
@@ -779,13 +682,8 @@ export function CartSheet({
           </div>
         </div>
         <p className="text-[9px] text-mayssa-brown/65">
-          {CLICK_COLLECT_ONLY ? 'Click & collect' : customer.wantsDelivery ? 'Livraison 20h - 2h' : 'Retrait 18h30 - 2h'}
+          Click &amp; collect · {OPENING_HOURS_LABEL}
         </p>
-        {customer.wantsDelivery && customer.date && timeSlots.length === 0 && (
-          <p className="text-[10px] text-amber-600 bg-amber-50 rounded-lg px-2 py-1.5">
-            Plus de créneaux disponibles pour cette date en livraison. Choisissez une autre date ou heure.
-          </p>
-        )}
       </div>
 
       {/* Customer Info — identité + contact */}
@@ -793,92 +691,36 @@ export function CartSheet({
         <p className="cart-sheet-section-label">
           Vos informations *
         </p>
-        <div className="space-y-2">
-          <p className="text-[9px] font-semibold text-mayssa-brown/70">Tu finalises par</p>
-          <div className="cart-sheet-segment">
-            {(['whatsapp', 'instagram', 'snap'] as const).map((id) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => { hapticFeedback('light'); handleContactIdentityChange(id) }}
-                className={cn(
-                  'cart-sheet-segment-btn inline-flex items-center justify-center gap-1 cursor-pointer',
-                  orderContactIdentity === id && 'is-active',
-                )}
-              >
-                {id === 'whatsapp' && <MessageCircle size={12} />}
-                {id === 'instagram' && <Instagram size={12} />}
-                {id === 'snap' && <SnapIcon size={12} />}
-                {id === 'whatsapp' ? 'WA' : id === 'instagram' ? 'Insta' : 'Snap'}
-              </button>
-            ))}
-          </div>
-        </div>
-        {orderContactIdentity === 'whatsapp' ? (
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <div className={cn('cart-sheet-field', showError('firstName') && 'is-error')}>
-                <User size={14} className="text-mayssa-caramel flex-shrink-0" />
-                <input
-                  value={customer.firstName}
-                  onChange={(e) => onCustomerChange({ ...customer, firstName: e.target.value })}
-                  onBlur={() => markTouched('firstName')}
-                  placeholder="Prénom"
-                  aria-label="Prénom"
-                  className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/55 placeholder:opacity-100 focus:outline-none"
-                />
-              </div>
-              {showError('firstName') && <p className="text-[9px] text-red-400 pl-3 mt-0.5">{validationErrors.firstName}</p>}
-            </div>
-            <div>
-              <div className={cn('cart-sheet-field', showError('lastName') && 'is-error')}>
-                <User size={14} className="text-mayssa-caramel flex-shrink-0" />
-                <input
-                  value={customer.lastName}
-                  onChange={(e) => onCustomerChange({ ...customer, lastName: e.target.value })}
-                  onBlur={() => markTouched('lastName')}
-                  placeholder="Nom"
-                  aria-label="Nom"
-                  className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/55 placeholder:opacity-100 focus:outline-none"
-                />
-              </div>
-              {showError('lastName') && <p className="text-[9px] text-red-400 pl-3 mt-0.5">{validationErrors.lastName}</p>}
-            </div>
-          </div>
-        ) : (
+        <div className="grid grid-cols-2 gap-2">
           <div>
             <div className={cn('cart-sheet-field', showError('firstName') && 'is-error')}>
-              {orderContactIdentity === 'instagram' ? (
-                <Instagram size={14} className="text-mayssa-caramel flex-shrink-0" />
-              ) : (
-                <SnapIcon size={14} className="text-mayssa-caramel flex-shrink-0" />
-              )}
+              <User size={14} className="text-mayssa-caramel flex-shrink-0" />
               <input
                 value={customer.firstName}
                 onChange={(e) => onCustomerChange({ ...customer, firstName: e.target.value })}
-                onBlur={() => {
-                  markTouched('firstName')
-                  if (orderContactIdentity === 'instagram') {
-                    const n = normalizeInstagramHandle(customer.firstName)
-                    if (n !== customer.firstName) onCustomerChange({ ...customer, firstName: n })
-                  }
-                }}
-                placeholder={
-                  orderContactIdentity === 'instagram'
-                    ? '@pseudo Instagram *'
-                    : "Nom d'utilisateur Snapchat"
-                }
-                aria-label={
-                  orderContactIdentity === 'instagram'
-                    ? "Nom d'utilisateur Instagram"
-                    : "Nom d'utilisateur Snapchat"
-                }
+                onBlur={() => markTouched('firstName')}
+                placeholder="Prénom"
+                aria-label="Prénom"
                 className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/55 placeholder:opacity-100 focus:outline-none"
               />
             </div>
             {showError('firstName') && <p className="text-[9px] text-red-400 pl-3 mt-0.5">{validationErrors.firstName}</p>}
           </div>
-        )}
+          <div>
+            <div className={cn('cart-sheet-field', showError('lastName') && 'is-error')}>
+              <User size={14} className="text-mayssa-caramel flex-shrink-0" />
+              <input
+                value={customer.lastName}
+                onChange={(e) => onCustomerChange({ ...customer, lastName: e.target.value })}
+                onBlur={() => markTouched('lastName')}
+                placeholder="Nom"
+                aria-label="Nom"
+                className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/55 placeholder:opacity-100 focus:outline-none"
+              />
+            </div>
+            {showError('lastName') && <p className="text-[9px] text-red-400 pl-3 mt-0.5">{validationErrors.lastName}</p>}
+          </div>
+        </div>
         <div>
           <div className={cn('cart-sheet-field', showError('phone') && 'is-error')}>
             <Phone size={14} className="text-mayssa-caramel flex-shrink-0" />
@@ -899,18 +741,21 @@ export function CartSheet({
           {showError('phone') && <p className="text-[9px] text-red-400 pl-3 mt-0.5">{validationErrors.phone}</p>}
         </div>
         <div>
-          <div className="cart-sheet-field">
+          <div className={cn('cart-sheet-field', showError('email') && 'is-error')}>
             <Mail size={14} className="text-mayssa-caramel flex-shrink-0" aria-hidden />
             <input
               type="email"
               value={customer.email ?? ''}
               onChange={(e) => onCustomerChange({ ...customer, email: e.target.value.trim() || undefined })}
-              placeholder="Email (récap + notif)"
-              aria-label="Email pour récap et notifications"
+              onBlur={() => markTouched('email')}
+              placeholder="Email *"
+              aria-label="Email pour la confirmation de commande"
               className="w-full bg-transparent text-xs font-medium text-mayssa-brown placeholder:text-mayssa-brown/55 placeholder:opacity-100 focus:outline-none"
             />
           </div>
-          <p className="text-[9px] text-mayssa-brown/50 pl-3 mt-0.5">Optionnel</p>
+          {showError('email')
+            ? <p className="text-[9px] text-red-400 pl-3 mt-0.5">{validationErrors.email}</p>
+            : <p className="text-[9px] text-mayssa-brown/50 pl-3 mt-0.5">Pour recevoir ta confirmation</p>}
         </div>
       </div>
 
@@ -961,12 +806,10 @@ export function CartSheet({
         </p>
         <div className="cart-sheet-panel space-y-2 text-xs">
           <div className="flex items-start gap-2">
-            {customer.wantsDelivery ? <Truck size={12} className="text-mayssa-caramel mt-0.5 shrink-0" /> : <MapPin size={12} className="text-mayssa-caramel mt-0.5 shrink-0" />}
+            <MapPin size={12} className="text-mayssa-caramel mt-0.5 shrink-0" />
             <div className="flex-1">
-              <p className="font-bold text-mayssa-brown">{CLICK_COLLECT_ONLY ? 'Click & collect' : customer.wantsDelivery ? 'Livraison' : 'Retrait sur place'}</p>
-              {customer.wantsDelivery && customer.address && (
-                <p className="text-mayssa-brown/70 text-[11px]">{customer.address}</p>
-              )}
+              <p className="font-bold text-mayssa-brown">Click &amp; collect</p>
+              <p className="text-mayssa-brown/70 text-[11px]">Galerie Carrefour — {STORE_ADDRESS_LINE}</p>
             </div>
           </div>
           <div className="flex items-start gap-2">
@@ -977,9 +820,9 @@ export function CartSheet({
             </p>
           </div>
           <div className="flex items-start gap-2">
-            {orderContactIdentity === 'instagram' ? <Instagram size={12} className="text-mayssa-caramel mt-0.5 shrink-0" /> : orderContactIdentity === 'snap' ? <SnapIcon size={12} className="text-mayssa-caramel mt-0.5 shrink-0" /> : <MessageCircle size={12} className="text-mayssa-caramel mt-0.5 shrink-0" />}
+            <User size={12} className="text-mayssa-caramel mt-0.5 shrink-0" />
             <p className="text-mayssa-brown/80">
-              {orderContactIdentity === 'whatsapp' ? `${customer.firstName} ${customer.lastName}` : customer.firstName}
+              {`${customer.firstName} ${customer.lastName}`.trim()}
               {customer.phone && ` · ${customer.phone}`}
             </p>
           </div>
@@ -1009,12 +852,6 @@ export function CartSheet({
             <span>-{mysteryFraiseDiscount.toFixed(2).replace('.', ',')} €</span>
           </div>
         )}
-        {customer.wantsDelivery && deliveryFee !== null && deliveryFee > 0 && (
-          <div className="flex justify-between text-mayssa-brown/70">
-            <span>Livraison</span>
-            <span>+{DELIVERY_FEE.toFixed(2).replace('.', ',')} €</span>
-          </div>
-        )}
         {donationAmount > 0 && (
           <div className="flex justify-between text-mayssa-rose">
             <span>Don au projet</span>
@@ -1027,20 +864,14 @@ export function CartSheet({
         </div>
       </div>
 
-      {/* Messages infos */}
-      {customer.wantsDelivery && totalAfterDiscount > 0 && totalAfterDiscount < FREE_DELIVERY_THRESHOLD && isWithinDeliveryZone && (
-        <p className="text-center text-[10px] font-semibold text-mayssa-caramel bg-mayssa-caramel/10 rounded-lg py-1.5">
-          Plus que {(FREE_DELIVERY_THRESHOLD - totalAfterDiscount).toFixed(2).replace('.', ',')} € pour la livraison offerte !
-        </p>
-      )}
-
+      {/* Comment se passe la commande */}
       <div className="rounded-xl bg-mayssa-soft/60 border border-mayssa-brown/10 px-3 py-2.5 text-[9px] text-mayssa-brown/80 space-y-1">
         <p className="font-semibold text-[10px] text-mayssa-brown text-center">
-          Comment se passe la commande ?
+          Click &amp; collect en 3 étapes
         </p>
-        <p><span className="font-semibold">1.</span> Tu envoies ta commande sur WhatsApp (ou Insta / Snap).</p>
-        <p><span className="font-semibold">2.</span> Maison Mayssa te confirme la commande et l&apos;heure.</p>
-        <p><span className="font-semibold">3.</span> {ONLINE_PAYMENT_UNAVAILABLE ? 'Paiement indisponible pour le moment.' : 'Paiement à la livraison / au retrait ou via PayPal.'}</p>
+        <p><span className="font-semibold">1.</span> Tu choisis ton créneau de retrait.</p>
+        <p><span className="font-semibold">2.</span> Tu règles en ligne (carte ou Apple Pay).</p>
+        <p><span className="font-semibold">3.</span> Tu récupères ta commande à la boutique — {STORE_ADDRESS_LINE}.</p>
       </div>
 
       {hasNonTrompeLoeil && isClassicPreorderPhase && (
@@ -1059,16 +890,31 @@ export function CartSheet({
         </p>
       )}
 
-      {ONLINE_PAYMENT_UNAVAILABLE && <PaymentUnavailable />}
-
-      {SIMULATED_PAYMENT_ENABLED && onConfirmPayment && (
-        <SimulatedPayment
-          total={finalTotal}
-          confirmed={paymentConfirmed}
-          selectedMethod={paymentMethod}
-          onConfirm={onConfirmPayment}
-          onReset={onResetPayment}
-        />
+      {/* Le paiement ne s'affiche QUE si la commande peut aboutir (sinon on encaisserait sans honorer). */}
+      {canPay ? (
+        PAYMENT_ENABLED && onConfirmPayment && (
+          <PaymentSection
+            total={finalTotal}
+            confirmed={paymentConfirmed}
+            selectedMethod={paymentMethod}
+            onConfirm={onConfirmPayment}
+            onReset={onResetPayment}
+            items={items.map((i) => ({ price: i.product.price, quantity: i.quantity }))}
+            discountAmount={(appliedPromo?.discount ?? 0) + mysteryFraiseDiscount}
+            donationAmount={donationAmount}
+            phone={customer.phone}
+          />
+        )
+      ) : (
+        <p className="text-[11px] text-amber-700 text-center bg-amber-50 rounded-lg px-3 py-2 border border-amber-200">
+          {ordersOpen === false
+            ? 'Commandes fermées — le paiement est indisponible.'
+            : !isCustomerValid
+              ? 'Complète tes infos (nom, email, téléphone, créneau) pour payer.'
+              : !acceptedTerms
+                ? 'Accepte les CGV pour accéder au paiement.'
+                : 'Finalise ta commande pour accéder au paiement.'}
+        </p>
       )}
 
       <CgvAcceptance checked={acceptedTerms} onChange={setAcceptedTerms} />
@@ -1187,83 +1033,39 @@ export function CartSheet({
               }
             }}
             disabled={!canSend}
-            aria-label={hasItems && canSend ? 'Envoyer la commande sur WhatsApp' : hasItems ? 'Complète tes infos pour envoyer' : 'Panier vide'}
+            aria-label={hasItems && canSend ? 'Valider et payer ma commande click and collect' : hasItems ? 'Complète tes infos pour payer' : 'Panier vide'}
             className={cn(
               'cart-sheet-btn-primary cursor-pointer',
-              canSend ? 'is-enabled !bg-[#25D366] hover:!bg-[#20bd5a]' : 'is-disabled',
+              canSend ? 'is-enabled' : 'is-disabled',
             )}
           >
-            <MessageCircle size={18} aria-hidden="true" />
+            <Lock size={18} aria-hidden="true" />
             {hasItems
               ? canSend
-                ? 'Envoyer sur WhatsApp'
+                ? `Payer ${finalTotal.toFixed(2).replace('.', ',')} € · réserver`
                 : ordersOpen === false
                   ? 'Commandes fermées'
-                  : !paymentConfirmed && ONLINE_PAYMENT_UNAVAILABLE
-                  ? 'Paiement indisponible'
-                  : trompeLoeilBeforeMinDate
-                    ? `À partir du ${formatDateLabel(minDate)}`
-                    : orderCutoffPassed && hasNonTrompeLoeil
-                      ? "Jusqu'à 17h"
-                      : 'Complète tes infos'
+                  : !paymentConfirmed
+                  ? 'Choisis un paiement'
+                  : !acceptedTerms
+                    ? 'Accepte les CGV'
+                    : trompeLoeilBeforeMinDate
+                      ? `À partir du ${formatDateLabel(minDate)}`
+                      : orderCutoffPassed && hasNonTrompeLoeil
+                        ? "Jusqu'à 17h"
+                        : 'Complète tes infos'
               : 'Panier vide'}
           </motion.button>
 
-          <div className="grid grid-cols-3 gap-2">
-            <button
-              type="button"
-              onClick={goBack}
-              aria-label="Revenir à l'étape précédente"
-              className="cart-sheet-btn-ghost cursor-pointer"
-            >
-              <ChevronLeft size={14} />
-              Retour
-            </button>
-            <motion.button
-              type="button"
-              whileTap={{ scale: 0.98 }}
-              onClick={() => {
-                if (canSend) {
-                  hapticFeedback('success')
-                  onSendInstagram()
-                  onClose()
-                }
-              }}
-              disabled={!canSend}
-              aria-label={canSend ? 'Envoyer la commande sur Instagram' : 'Complète tes infos pour envoyer'}
-              className={cn(
-                "flex items-center justify-center gap-1 py-3 rounded-xl font-bold text-[11px] shadow-lg transition-all cursor-pointer",
-                canSend
-                  ? "bg-gradient-to-r from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white"
-                  : "bg-mayssa-brown/20 text-mayssa-cream/70"
-              )}
-            >
-              <Instagram size={14} aria-hidden="true" />
-              Insta
-            </motion.button>
-            <motion.button
-              type="button"
-              whileTap={{ scale: 0.98 }}
-              onClick={() => {
-                if (canSend) {
-                  hapticFeedback('success')
-                  onSendSnap()
-                  onClose()
-                }
-              }}
-              disabled={!canSend}
-              aria-label={canSend ? 'Envoyer la commande sur Snapchat' : 'Complète tes infos pour envoyer'}
-              className={cn(
-                "flex items-center justify-center gap-1 py-3 rounded-xl font-bold text-[11px] shadow-lg transition-all cursor-pointer",
-                canSend
-                  ? "bg-[#FFFC00] text-black"
-                  : "bg-mayssa-brown/20 text-mayssa-cream/70"
-              )}
-            >
-              <SnapIcon size={14} aria-hidden="true" />
-              Snap
-            </motion.button>
-          </div>
+          <button
+            type="button"
+            onClick={goBack}
+            aria-label="Revenir à l'étape précédente"
+            className="cart-sheet-btn-ghost cursor-pointer w-full"
+          >
+            <ChevronLeft size={14} />
+            Retour
+          </button>
         </div>
       )
     }

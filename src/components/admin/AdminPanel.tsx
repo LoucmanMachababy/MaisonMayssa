@@ -446,7 +446,8 @@ function Dashboard({ user }: { user: User }) {
   const [showNotifications, setShowNotifications] = useState(false)
   const [showDailyReport, setShowDailyReport] = useState(false)
   const [selectedClientUid, setSelectedClientUid] = useState<string | null>(null)
-  const [livraisonMode, setLivraisonMode] = useState<'livraison' | 'retrait'>('livraison')
+  // Click & collect : seul le mode retrait est exposé (la livraison reste en base pour les archives).
+  const [livraisonMode] = useState<'livraison' | 'retrait'>('retrait')
   const [catalogueSection, setCatalogueSection] = useState<'stock' | 'produits' | 'promos'>('stock')
   const [clientsSection, setClientsSection] = useState<'inscrits' | 'avis' | 'anniversaires' | 'alertes' | 'abonnes'>('inscrits')
   const [clientsSearch, setClientsSearch] = useState('')
@@ -2939,25 +2940,12 @@ function Dashboard({ user }: { user: User }) {
           />
         )}
 
-        {/* ===== LIVRET (Livraison + Retrait fusionnés) ===== */}
-        {tab === 'livret' && (() => {
-          const delivInPrep = Object.values(orders).filter(o => o.deliveryMode === 'livraison' && o.status === 'en_preparation').length
-          const retrInPrep = Object.values(orders).filter(o => o.deliveryMode === 'retrait' && o.status === 'en_preparation').length
-          return (
-            <div className="space-y-4">
-              <AdminSubNav
-                isDark={isDark}
-                active={livraisonMode}
-                onChange={setLivraisonMode}
-                items={[
-                  { id: 'livraison', icon: Truck, label: 'Livraison', badge: delivInPrep },
-                  { id: 'retrait', icon: MapPin, label: 'Retrait', badge: retrInPrep },
-                ]}
-              />
-              <AdminLivraisonTab orders={orders} onEditOrder={(id) => setEditingOrderId(id)} mode={livraisonMode} />
-            </div>
-          )
-        })()}
+        {/* ===== LIVRET — Journalier des retraits (click & collect) ===== */}
+        {tab === 'livret' && (
+          <div className="space-y-4">
+            <AdminLivraisonTab orders={orders} onEditOrder={(id) => setEditingOrderId(id)} mode={livraisonMode} />
+          </div>
+        )}
 
         {/* ===== LIVRAISON / RETRAIT (onglets individuels conservés) ===== */}
         {tab === 'livraison' && (

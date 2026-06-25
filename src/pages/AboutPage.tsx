@@ -134,9 +134,9 @@ export function AboutPage() {
                   <strong>3 jours</strong> entre ta commande et la récupération.
                 </p>
                 <p>
-                  Les commandes se passent par <strong>WhatsApp, Instagram ou Snapchat</strong>.
-                  Tu remplis ton panier sur le site, tu choisis ton créneau, et un message pré-rempli
-                  est généré pour m'envoyer ta commande en un clic.
+                  Tout se passe en ligne : tu remplis ton panier sur le site, tu choisis ton
+                  créneau de retrait, et tu <strong>règles par carte ou Apple Pay</strong>.
+                  Ta commande est confirmée aussitôt, prête à récupérer en click &amp; collect.
                 </p>
               </PremiumProse>
             </PremiumCard>
@@ -144,13 +144,13 @@ export function AboutPage() {
             <PremiumCard>
               <div className="flex items-center gap-3 mb-4">
                 <MapPin size={20} className="text-mayssa-gold" />
-                <PremiumSectionTitle>Pourquoi Annecy ?</PremiumSectionTitle>
+                <PremiumSectionTitle>Où me trouver ?</PremiumSectionTitle>
               </div>
               <PremiumProse>
                 <p>
-                  Annecy, c'est chez moi. Je couvre la ville et ses alentours dans un rayon d'environ{' '}
-                  <strong>5 à 10 km</strong>. La <strong>livraison est offerte dès 50 € d'achat</strong>{' '}
-                  sur la zone habituelle.
+                  Tu récupères tes commandes en <strong>click &amp; collect</strong> dans la{' '}
+                  <strong>galerie marchande du Carrefour, 134 avenue de Genève à Annecy</strong>.
+                  Ouverture le <strong>4 juillet 2026</strong> — au cœur de la Haute-Savoie.
                 </p>
               </PremiumProse>
             </PremiumCard>
@@ -172,7 +172,7 @@ export function AboutPage() {
           </motion.article>
 
           <p className="mt-12 text-center text-sm text-mayssa-brown/60">
-            Des questions sur la commande ou la livraison ?{' '}
+            Des questions sur la commande ou le click &amp; collect ?{' '}
             <Link to="/faq" className="text-mayssa-gold hover:text-mayssa-brown transition-colors tracking-widest uppercase text-xs">
               Consulter la FAQ →
             </Link>

@@ -6,9 +6,12 @@ import { useStock } from '../hooks/useStock'
 import { useProducts } from '../hooks/useProducts'
 import {
   BOX_DECOUVERTE_TROMPE_PRODUCT_ID,
+  CANDY_FRUIT_SAUCE_PRODUCT_ID,
+  isCandyFruitFlavorProductId,
   isCustomizableTrompeBundleBoxId,
   getTrompeBundleSelectionSlotCount,
 } from '../constants'
+import type { CandyFruitFlavor } from '../constants/candyFruit'
 import {
   getEligibleTrompeIdsForDiscoveryBox,
   listIndividualTrompeLoeilProducts,
@@ -35,6 +38,7 @@ export function useProductAddFlow(options?: UseProductAddFlowOptions) {
 
   const [discoveryBoxProduct, setDiscoveryBoxProduct] = useState<Product | null>(null)
   const [sizeProduct, setSizeProduct] = useState<Product | null>(null)
+  const [candyFruitProduct, setCandyFruitProduct] = useState<Product | null>(null)
 
   const discoveryEligibleTrompes = useMemo(() => {
     const ids = new Set(
@@ -69,6 +73,18 @@ export function useProductAddFlow(options?: UseProductAddFlowOptions) {
       return true
     }
 
+    if (isCandyFruitFlavorProductId(product.id)) {
+      setCandyFruitProduct(product)
+      return true
+    }
+
+    if (product.id === CANDY_FRUIT_SAUCE_PRODUCT_ID) {
+      addItem(product, quantity)
+      trackAddToCart(product.id, product.name)
+      afterAdd(product, quantity)
+      return true
+    }
+
     addItem(product, quantity)
     trackAddToCart(product.id, product.name)
     afterAdd(product, quantity)
@@ -97,6 +113,22 @@ export function useProductAddFlow(options?: UseProductAddFlowOptions) {
     afterAdd(cartProduct, 1)
   }
 
+  const confirmCandyFruit = (product: Product, flavor: CandyFruitFlavor, quantity: number) => {
+    const formatLabel = product.id.includes('canette') ? 'Canette' : 'Box'
+    const cartProduct: Product = {
+      ...product,
+      id: `${product.id}-${flavor.id}`,
+      name: `Candy Fruit ${formatLabel} — ${flavor.label}`,
+      image: flavor.image,
+      images: [flavor.image],
+      category: 'Candy Fruit',
+    }
+    addItem(cartProduct, quantity)
+    trackAddToCart(cartProduct.id, cartProduct.name)
+    setCandyFruitProduct(null)
+    afterAdd(cartProduct, quantity)
+  }
+
   const discoverySlotCount = discoveryBoxProduct
     ? getTrompeBundleSelectionSlotCount(discoveryBoxProduct.id)
     : undefined
@@ -111,6 +143,9 @@ export function useProductAddFlow(options?: UseProductAddFlowOptions) {
     sizeProduct,
     setSizeProduct,
     confirmSize,
+    candyFruitProduct,
+    setCandyFruitProduct,
+    confirmCandyFruit,
     getStock,
   }
 }

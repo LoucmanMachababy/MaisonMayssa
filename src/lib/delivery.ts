@@ -22,6 +22,39 @@ export function calculateDistance(coord1: Coordinates, coord2: NonNullable<Coord
   return R * c
 }
 
+// ── Horaires d'ouverture boutique (click & collect) ───────────────
+/**
+ * Horaires de retrait par jour de semaine (0=dimanche … 6=samedi).
+ * Lun-Sam : 11h00 → 21h30. Dimanche : 9h00 → 12h00.
+ */
+export const OPENING_HOURS: Record<number, { from: string; to: string } | null> = {
+  0: { from: '09:00', to: '12:00' }, // dimanche
+  1: { from: '11:00', to: '21:30' }, // lundi
+  2: { from: '11:00', to: '21:30' },
+  3: { from: '11:00', to: '21:30' },
+  4: { from: '11:00', to: '21:30' },
+  5: { from: '11:00', to: '21:30' },
+  6: { from: '11:00', to: '21:30' }, // samedi
+}
+
+/** Libellé lisible des horaires d'ouverture. */
+export const OPENING_HOURS_LABEL = 'Lun-Sam : 11h-21h30 · Dim : 9h-12h'
+
+/**
+ * Créneaux de retrait disponibles pour une date donnée (YYYY-MM-DD),
+ * selon les horaires d'ouverture de la boutique (pas de 30 min).
+ * Retourne [] si la boutique est fermée ce jour-là.
+ */
+export function getPickupSlotsForDate(ymd: string): string[] {
+  if (!ymd) return []
+  const [y, m, d] = ymd.split('-').map(Number)
+  if (!y || !m || !d) return []
+  const weekday = new Date(y, m - 1, d).getDay()
+  const hours = OPENING_HOURS[weekday]
+  if (!hours) return []
+  return generateTimeSlotsFromWindow(hours.from, hours.to, 30, false)
+}
+
 // ── Créneaux horaires ─────────────────────────────────────────────
 export function generateTimeSlots(wantsDelivery: boolean): string[] {
   const slots: string[] = []
@@ -184,36 +217,30 @@ export function isValidInstagramUsernameHandle(raw: string): boolean {
   return INSTAGRAM_USERNAME_RE.test(h)
 }
 
+/** Validation email simple (suffisante côté front ; format RFC pragmatique). */
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 export function validateCustomer(
   customer: CustomerInfo,
-  options?: { identityMode?: 'whatsapp' | 'instagram' | 'snap' },
 ): Partial<Record<keyof CustomerInfo, string>> {
   const errors: Partial<Record<keyof CustomerInfo, string>> = {}
-  const identityMode = options?.identityMode ?? 'whatsapp'
 
-  if (identityMode === 'whatsapp') {
-    if (!customer.firstName.trim()) errors.firstName = 'Le prénom est requis'
-    if (!customer.lastName.trim()) errors.lastName = 'Le nom est requis'
-  } else if (identityMode === 'instagram') {
-    if (!customer.firstName.trim()) {
-      errors.firstName = 'Ton @ Instagram est requis (pseudo, pas ton nom)'
-    } else if (!isValidInstagramUsernameHandle(customer.firstName)) {
-      errors.firstName =
-        'Pseudo Instagram invalide (lettres, chiffres, point et underscore ; 1 à 30 caractères)'
-    }
-  } else if (identityMode === 'snap') {
-    if (!customer.firstName.trim()) {
-      errors.firstName = "Le nom d'utilisateur Snapchat est requis"
-    }
-  }
+  if (!customer.firstName.trim()) errors.firstName = 'Le prénom est requis'
+  if (!customer.lastName.trim()) errors.lastName = 'Le nom est requis'
+
   if (!customer.phone.trim()) {
     errors.phone = 'Le téléphone est requis'
   } else if (!PHONE_REGEX.test(customer.phone.replace(/\s/g, ''))) {
     errors.phone = 'Format de téléphone invalide'
   }
-  if (customer.wantsDelivery && !customer.address.trim()) {
-    errors.address = "L'adresse est requise pour la livraison"
+
+  // Email requis : c'est le reçu + la confirmation de retrait (click & collect).
+  if (!customer.email?.trim()) {
+    errors.email = "L'email est requis pour recevoir la confirmation"
+  } else if (!EMAIL_REGEX.test(customer.email.trim())) {
+    errors.email = 'Format d\'email invalide'
   }
+
   if (!customer.date.trim()) errors.date = 'La date est requise'
   if (!customer.time.trim()) errors.time = "L'heure est requise"
   if (customer.date && customer.time && isSelectedDateTimeInPast(customer.date, customer.time)) {

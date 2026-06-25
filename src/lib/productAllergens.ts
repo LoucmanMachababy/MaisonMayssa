@@ -78,6 +78,10 @@ export const PRODUCT_ALLERGENS: Record<string, string[]> = {
   'mini-tablette-dubai-pistache': [...CHOCOLAT, 'Fruits à coque (pistache)'],
   'mini-tablette-dubai-speculoos': CHOCOLAT,
   'mini-tablette-dubai-framboise': CHOCOLAT,
+  // Candy Fruit
+  'candy-fruit-box': PATISSERIE,
+  'candy-fruit-canette': PATISSERIE,
+  'candy-fruit-sauce': PATISSERIE,
 }
 
 const CATEGORY_ALLERGENS: Partial<Record<ProductCategory, string[]>> = {
@@ -87,8 +91,8 @@ const CATEGORY_ALLERGENS: Partial<Record<ProductCategory, string[]>> = {
   'Nos jus frais': JUS,
   'Le salé': SALE,
   'Fruits frais': FRUITS_FRAIS,
-  'Cup Dubaï': CHOCOLAT,
   Chocolaterie: CHOCOLAT,
+  'Candy Fruit': PATISSERIE,
   'Cookies gourmands': PATISSERIE,
   Brownies: PATISSERIE,
   Cookies: PATISSERIE,

@@ -6,10 +6,14 @@ import { LIFESTYLE } from '../lib/decorativeAssets'
 import { Helmet } from 'react-helmet-async'
 import { Cart } from '../components/Cart'
 import { useOrderCheckoutContext } from '../contexts/OrderCheckoutContext'
+import { STRIPE_LIVE } from '../constants/checkout'
+import { STRIPE_PUBLISHABLE_KEY } from '../lib/stripe'
 
 export default function PremiumCart() {
   const { openAccount } = usePremiumAuth()
   const checkout = useOrderCheckoutContext()
+  /** En Stripe réel, le paiement réussi crée la commande directement (→ email). */
+  const useRealStripe = STRIPE_LIVE && !!STRIPE_PUBLISHABLE_KEY
 
   const {
     cart,
@@ -35,8 +39,6 @@ export default function PremiumCart() {
     setSelectedReward,
     pendingOrder,
     allowAnotherOrder,
-    orderContactIdentity,
-    setOrderContactIdentity,
     openOrderRecap,
     handleUpdateQuantity,
     handleApplyPromo,
@@ -44,11 +46,12 @@ export default function PremiumCart() {
     paymentConfirmed,
     paymentMethod,
     confirmSimulatedPayment,
+    confirmPaymentAndPlaceOrder,
     resetSimulatedPayment,
   } = checkout
 
   return (
-    <div className="min-h-screen bg-mayssa-soft pb-32">
+    <div className="min-h-screen bg-gradient-to-b from-mayssa-soft via-[#faf6f1] to-mayssa-soft pb-32">
       <Helmet>
         <title>Panier — Maison Mayssa</title>
         <meta name="description" content="Finalisez votre précommande Maison Mayssa : retrait sur créneau, paiement et confirmation." />
@@ -132,8 +135,6 @@ export default function PremiumCart() {
               onNoteChange={setNote}
               onCustomerChange={setCustomer}
               onSend={() => openOrderRecap('whatsapp')}
-              onSendInstagram={() => openOrderRecap('instagram')}
-              onSendSnap={() => openOrderRecap('snap')}
               onAccountClick={openAccount}
               selectedReward={selectedReward}
               onSelectReward={setSelectedReward}
@@ -162,11 +163,9 @@ export default function PremiumCart() {
               setReferralCodeInput={setReferralCodeInput}
               pendingOrder={pendingOrder}
               onAllowAnotherOrder={allowAnotherOrder}
-              orderContactIdentity={orderContactIdentity}
-              onOrderContactIdentityChange={setOrderContactIdentity}
               paymentConfirmed={paymentConfirmed}
               paymentMethod={paymentMethod}
-              onConfirmPayment={confirmSimulatedPayment}
+              onConfirmPayment={useRealStripe ? confirmPaymentAndPlaceOrder : confirmSimulatedPayment}
               onResetPayment={resetSimulatedPayment}
             />
           </div>

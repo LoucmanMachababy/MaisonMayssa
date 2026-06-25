@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
-import { Instagram } from 'lucide-react'
+import { Instagram, MapPin } from 'lucide-react'
 import { trackAttrs } from '../../lib/trackAttrs'
+import { STORE_ADDRESS, STORE_MAPS_URL } from '../../constants/store'
 
 export function PremiumFooter() {
   return (
@@ -36,6 +37,22 @@ export function PremiumFooter() {
           <div className="flex flex-col items-center md:items-start">
             <h4 className="font-display tracking-widest uppercase text-sm mb-6 text-mayssa-gold">Contact</h4>
             <ul className="space-y-4 text-sm text-mayssa-soft/80 text-center md:text-left">
+              <li>
+                <a
+                  href={STORE_MAPS_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-start gap-2 hover:text-mayssa-gold transition-colors cursor-pointer not-italic"
+                  {...trackAttrs('footer-address', 'Adresse boutique', 'footer')}
+                >
+                  <MapPin size={15} className="text-mayssa-gold shrink-0 mt-0.5" />
+                  <address className="not-italic leading-relaxed">
+                    Galerie marchande Carrefour<br />
+                    {STORE_ADDRESS.street}<br />
+                    {STORE_ADDRESS.postalCode} {STORE_ADDRESS.city}
+                  </address>
+                </a>
+              </li>
               <li><a href="mailto:contact@maison-mayssa.fr" className="hover:text-mayssa-gold transition-colors cursor-pointer" {...trackAttrs('footer-email', 'contact@maison-mayssa.fr', 'footer')}>contact@maison-mayssa.fr</a></li>
               <li><Link to="/contact" className="hover:text-mayssa-gold transition-colors cursor-pointer" {...trackAttrs('footer-contact', 'Nous écrire', 'footer')}>Nous écrire</Link></li>
             </ul>

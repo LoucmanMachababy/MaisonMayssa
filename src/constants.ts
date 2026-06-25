@@ -3,12 +3,20 @@ import { CATALOG_PRODUCTS } from './constants/catalog'
 
 export const PHONE_E164 = '33619871005'
 
-/** PayPal.Me : paiement optionnel après commande */
-export const PAYPAL_ME_USER = 'RoumayssaGhazi'
-
 /** Parrainage : réduction 1ère commande du filleul (€) et points offerts au parrain */
 export const REFERRAL_DISCOUNT_EUR = 5
 export const REFERRAL_POINTS_TO_REFERRER = 15
+
+export {
+  CANDY_FRUIT_BOX_PRODUCT_ID,
+  CANDY_FRUIT_CANETTE_PRODUCT_ID,
+  CANDY_FRUIT_SAUCE_PRODUCT_ID,
+  CANDY_FRUIT_PRODUCT_ID,
+  CANDY_FRUIT_BOX_FLAVORS,
+  CANDY_FRUIT_CANETTE_FLAVORS,
+  isCandyFruitFlavorProductId,
+} from './constants/candyFruit'
+export type { CandyFruitFlavor, CandyFruitFormat } from './constants/candyFruit'
 
 /** Nombre max de commandes par créneau de livraison (affiche "Plus que X places") */
 export const DELIVERY_SLOT_MAX_CAPACITY = 5

@@ -4,7 +4,7 @@ export function TrompeLoeilAnnecyPage() {
   return (
     <PillarPageLayout
       title="Trompe-l'œil pâtissier Annecy — Maison Mayssa, créations artisanales"
-      description="Trompe-l'œil pâtissier à Annecy : mangue, pistache, passion, amande, cabosse de cacao… Créations artisanales Maison Mayssa, précommande 3 jours, livraison offerte dès 50€."
+      description="Trompe-l'œil pâtissier à Annecy : mangue, pistache, passion, amande, cabosse de cacao… Créations artisanales Maison Mayssa, précommande 3 jours, click & collect à Annecy."
       canonical="https://maison-mayssa.fr/trompe-loeil-annecy"
       breadcrumb={[
         { name: 'Accueil', url: '/' },
@@ -44,8 +44,8 @@ export function TrompeLoeilAnnecyPage() {
           a: "Actuellement 13 saveurs : mangue, citron, pistache, passion, framboise, fraise, myrtille, café, vanille, cacahuète, noix de pécan, amande et cabosse de cacao. La gamme évolue régulièrement, consulte la carte à jour sur le site.",
         },
         {
-          q: "Livrez-vous les trompe-l'œil à Annecy ?",
-          a: "Oui, livraison sur Annecy et alentours (rayon 5-10 km : Seynod, Annecy-le-Vieux, Meythet, Pringy, Cran-Gevrier, Épagny). Livraison offerte dès 50 € d'achat, sinon forfait 5 €. Retrait sur place possible.",
+          q: "Où récupérer mes trompe-l'œil à Annecy ?",
+          a: "En click & collect à la boutique Maison Mayssa, dans la galerie marchande du centre commercial Carrefour, 134 avenue de Genève à Annecy. Tu commandes et tu paies en ligne par carte bancaire ou Apple Pay, puis tu choisis ton créneau de retrait entre 18h30 et 2h, 7j/7. Il ne reste plus qu'à venir chercher ta box en boutique.",
         },
         {
           q: "Combien coûte un trompe-l'œil ?",
@@ -94,15 +94,16 @@ export function TrompeLoeilAnnecyPage() {
           <p>
             Ce choix de la précommande n'est pas un hasard. Il me permet de garantir
             la <strong>fraîcheur absolue</strong> au moment de la dégustation : les coulis
-            sont préparés peu avant la livraison, les ganaches montées à la minute, les
+            sont préparés peu avant le retrait, les ganaches montées à la minute, les
             coques sont assemblées dans les heures qui précèdent la récupération. Le
             résultat, c'est une pâtisserie qui n'a rien à voir avec ce que tu trouves
             dans le commerce : textures vivantes, goûts intenses, sensations authentiques.
           </p>
           <p>
-            Je livre sur <strong>Annecy et alentours</strong> dans un rayon d'environ 5 à
-            10 km : Annecy centre, Annecy-le-Vieux, Seynod, Meythet, Pringy, Cran-Gevrier,
-            Épagny. Service de 18h30 à 2h du matin, 7 jours sur 7.
+            La récupération se fait en <strong>click & collect à Annecy</strong> : tu
+            commandes et tu règles en ligne, puis tu viens chercher ta box à la boutique
+            Maison Mayssa, dans la galerie marchande du centre commercial Carrefour, 134
+            avenue de Genève. Créneaux de retrait de 18h30 à 2h du matin, 7 jours sur 7.
           </p>
         </div>
       </section>
@@ -226,20 +227,21 @@ export function TrompeLoeilAnnecyPage() {
               ou 7). Ajoute au panier.
             </li>
             <li>
-              <strong>Remplis tes infos</strong> — mode retrait ou livraison, date et heure
-              de récupération (3 jours minimum pour les trompe-l'œil), numéro de téléphone.
+              <strong>Choisis ton créneau de retrait</strong> — date et heure de
+              récupération (3 jours minimum pour les trompe-l'œil) à la boutique du
+              Carrefour, avenue de Genève.
             </li>
             <li>
-              <strong>Envoie ta commande</strong> via WhatsApp, Instagram ou Snapchat. Le
-              message est pré-rempli, il suffit de l'envoyer.
+              <strong>Règle ta commande en ligne</strong> par carte bancaire ou Apple Pay.
+              Le paiement sécurisé valide ta précommande en quelques secondes.
             </li>
             <li>
-              <strong>Je te confirme</strong> rapidement par message la commande et l'heure
-              exacte.
+              <strong>Tu reçois ta confirmation</strong> avec ton numéro de commande et
+              l'heure exacte de retrait.
             </li>
             <li>
-              <strong>Paiement à la livraison / au retrait</strong> ou via PayPal. Aucun
-              paiement en ligne obligatoire.
+              <strong>Retire ta box en boutique</strong> sur ton créneau, en click &
+              collect, dans la galerie marchande du Carrefour, 134 avenue de Genève à Annecy.
             </li>
           </ol>
         </div>

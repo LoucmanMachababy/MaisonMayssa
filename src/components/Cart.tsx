@@ -1,33 +1,26 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ShoppingBag, Minus, Plus, MessageCircle, User, Phone, Mail, MapPin, Truck, Calendar, Clock, Star, Gift, Instagram, Tag, Heart } from 'lucide-react'
-import { SnapIcon } from './SnapIcon'
+import { ShoppingBag, Minus, Plus, User, Phone, Mail, MapPin, Calendar, Clock, Star, Gift, Tag, Heart, Lock, ChevronLeft, ChevronRight, Sparkles, CreditCard, Check } from 'lucide-react'
 import type { CartItem, CustomerInfo } from '../types'
 import { cn, isBeforeOrderCutoff, isBeforeFirstPickupDate, normalizeOrderProductBaseId, trompeSelectionDisplayLabels } from '../lib/utils'
 import { FIRST_PICKUP_DATE_CLASSIC, FIRST_PICKUP_DATE_CLASSIC_LABEL, DELIVERY_SLOT_MAX_CAPACITY, isTrompeBoxWithStoredSelection } from '../constants'
+import { STORE_ADDRESS_LINE } from '../constants/store'
 import { ReservationTimer } from './ReservationTimer'
 import { useAuth } from '../hooks/useAuth'
 import { REWARD_COSTS, REWARD_LABELS } from '../lib/rewards'
 import type { DeliverySlotsMap } from '../lib/firebase'
-import { AddressAutocomplete } from './AddressAutocomplete'
 import { CgvAcceptance } from './legal/CgvAcceptance'
-import { SimulatedPayment } from './checkout/SimulatedPayment'
-import { PaymentUnavailable } from './checkout/PaymentUnavailable'
-import { CLICK_COLLECT_ONLY, SIMULATED_PAYMENT_ENABLED, ONLINE_PAYMENT_UNAVAILABLE } from '../constants/checkout'
-import type { SimulatedPaymentMethod } from '../constants/checkout'
+import { PaymentSection } from './checkout/PaymentSection'
+import { PAYMENT_ENABLED, CLICK_COLLECT_ONLY } from '../constants/checkout'
+import type { PaymentMethod } from '../constants/checkout'
 import {
-    ANNECY_GARE,
-    DELIVERY_RADIUS_KM,
-    DELIVERY_FEE,
-    FREE_DELIVERY_THRESHOLD,
-    calculateDistance,
-    generateTimeSlots,
+    getPickupSlotsForDate,
+    OPENING_HOURS_LABEL,
     getMinDate,
     getSelectableDates,
     formatDateLabel,
     validateCustomer,
     computeDeliveryFee,
-    normalizeInstagramHandle,
 } from '../lib/delivery'
 
 interface CartProps {
@@ -38,9 +31,8 @@ interface CartProps {
     onUpdateQuantity: (id: string, quantity: number) => void
     onNoteChange: (note: string) => void
     onCustomerChange: (customer: CustomerInfo) => void
+    /** Valide la commande (paiement Stripe + réservation du créneau click & collect). */
     onSend: () => void
-    onSendInstagram: () => void
-    onSendSnap: () => void
     onAccountClick?: () => void
     selectedReward?: { type: keyof typeof REWARD_COSTS; id: string } | null
     onSelectReward?: (reward: { type: keyof typeof REWARD_COSTS; id: string } | null) => void
@@ -86,12 +78,9 @@ interface CartProps {
     pendingOrder?: { orderNumber?: number; placedAt: number } | null
     /** Lève le rappel local (48 h) pour permettre une nouvelle commande avec le même numéro */
     onAllowAnotherOrder?: () => void
-    /** Canal pour libellés identité (nom/prénom vs pseudo Insta/Snap) */
-    orderContactIdentity?: 'whatsapp' | 'instagram' | 'snap'
-    onOrderContactIdentityChange?: (v: 'whatsapp' | 'instagram' | 'snap') => void
     paymentConfirmed?: boolean
-    paymentMethod?: SimulatedPaymentMethod | null
-    onConfirmPayment?: (method: SimulatedPaymentMethod) => void
+    paymentMethod?: PaymentMethod | null
+    onConfirmPayment?: (method: PaymentMethod) => void
     onResetPayment?: () => void
 }
 
@@ -104,8 +93,6 @@ export function Cart({
     onNoteChange,
     onCustomerChange,
     onSend,
-    onSendInstagram,
-    onSendSnap,
     onAccountClick,
     selectedReward,
     onSelectReward,
@@ -118,8 +105,6 @@ export function Cart({
     pickupDates,
     preorderOpenDate,
     preorderOpenTime,
-    retraitTimeSlots,
-    livraisonTimeSlots,
     ordersOpen = true,
     ordersExplicit = false,
     ordersClosedMessage = '',
@@ -135,15 +120,19 @@ export function Cart({
     mysteryFraiseDiscount = 0,
     pendingOrder = null,
     onAllowAnotherOrder,
-    orderContactIdentity = 'whatsapp',
-    onOrderContactIdentityChange,
-    paymentConfirmed = true,
+    paymentConfirmed = false,
     paymentMethod = null,
     onConfirmPayment,
     onResetPayment,
 }: CartProps) {
     const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
+    const [stepDirection, setStepDirection] = useState(1)
     const [dismissSecondOrderPrompt, setDismissSecondOrderPrompt] = useState(false)
+
+    const goToStep = (next: 1 | 2 | 3 | 4) => {
+        setStepDirection(next > step ? 1 : -1)
+        setStep(next)
+    }
     const [acceptedTerms, setAcceptedTerms] = useState(false)
     useEffect(() => {
         setDismissSecondOrderPrompt(false)
@@ -158,12 +147,6 @@ export function Cart({
     const markTouched = (field: keyof typeof customer) =>
         setTouched(prev => ({ ...prev, [field]: true }))
 
-    const distanceFromAnnecy = useMemo(() => {
-        return calculateDistance(customer.addressCoordinates, ANNECY_GARE)
-    }, [customer.addressCoordinates])
-
-    const isWithinDeliveryZone = distanceFromAnnecy !== null && distanceFromAnnecy <= DELIVERY_RADIUS_KM
-
     const totalAfterDiscount = total - (appliedPromo?.discount ?? 0)
     const deliveryFee = useMemo(() => computeDeliveryFee(customer, totalAfterDiscount), [customer, totalAfterDiscount])
     const finalTotal = totalAfterDiscount + (deliveryFee ?? 0) + donationAmount
@@ -174,17 +157,12 @@ export function Cart({
       ? Object.entries(REWARD_COSTS).filter(([_, cost]) => profile.loyalty.points >= cost)
       : []
 
-    const allTimeSlots = useMemo(() => {
-      if (customer.wantsDelivery && livraisonTimeSlots && livraisonTimeSlots.length > 0) return livraisonTimeSlots
-      if (!customer.wantsDelivery && retraitTimeSlots && retraitTimeSlots.length > 0) return retraitTimeSlots
-      return generateTimeSlots(customer.wantsDelivery)
-    }, [customer.wantsDelivery, retraitTimeSlots, livraisonTimeSlots])
-    const timeSlots = useMemo(() => {
-      if (!customer.wantsDelivery || !customer.date) return allTimeSlots
-      const taken = deliverySlots[customer.date]
-      if (!taken) return allTimeSlots
-      return allTimeSlots.filter((t) => (taken[t] ?? 0) < DELIVERY_SLOT_MAX_CAPACITY)
-    }, [customer.wantsDelivery, customer.date, deliverySlots, allTimeSlots])
+    // Créneaux de retrait selon les horaires d'ouverture de la boutique
+    // (Lun-Sam 11h-21h30, Dim 9h-12h) pour la date choisie.
+    const allTimeSlots = useMemo(
+      () => getPickupSlotsForDate(customer.date),
+      [customer.date],
+    )
     const getPlacesLeft = (time: string) =>
       customer.wantsDelivery && customer.date
         ? Math.max(0, DELIVERY_SLOT_MAX_CAPACITY - (deliverySlots[customer.date]?.[time] ?? 0))
@@ -244,16 +222,9 @@ export function Cart({
       }
     }, [useDateSelect, selectableDates, customer.date])
 
-    const handleContactIdentityChange = (v: 'whatsapp' | 'instagram' | 'snap') => {
-        if (v === 'instagram' || v === 'snap') {
-            onCustomerChange({ ...customer, lastName: '' })
-        }
-        onOrderContactIdentityChange?.(v)
-    }
-
     const validationErrors = useMemo(
-        () => validateCustomer(customer, { identityMode: orderContactIdentity }),
-        [customer, orderContactIdentity],
+        () => validateCustomer(customer),
+        [customer],
     )
     // Show error only for fields the user has interacted with
     const showError = (field: keyof typeof customer) =>
@@ -266,20 +237,35 @@ export function Cart({
     const trompeLoeilBeforeMinDate = hasTrompeLoeil && !!customer.date && customer.date < minDate
     const orderCutoffPassed = !isBeforeOrderCutoff()
     const isClassicPreorderPhase = isBeforeFirstPickupDate(FIRST_PICKUP_DATE_CLASSIC)
-    const canSend =
+    // Conditions pour accéder au paiement (hors paiement lui-même) : tout doit
+    // être prêt AVANT d'afficher le bloc Stripe, sinon on encaisserait sans
+    // pouvoir honorer (ex. commandes fermées).
+    const canPay =
       hasItems &&
       isCustomerValid &&
       acceptedTerms &&
-      paymentConfirmed &&
       ordersOpen !== false &&
       !trompeLoeilBeforeMinDate &&
       (!hasNonTrompeLoeil || !orderCutoffPassed || ordersExplicit)
 
     const stepLabels: Record<1 | 2 | 3 | 4, string> = {
         1: 'Options',
-        2: 'Infos',
+        2: 'Informations',
         3: CLICK_COLLECT_ONLY ? 'Click & collect' : 'Livraison',
-        4: 'Validation',
+        4: 'Paiement',
+    }
+
+    const stepIcons: Record<1 | 2 | 3 | 4, typeof Sparkles> = {
+        1: Sparkles,
+        2: User,
+        3: MapPin,
+        4: CreditCard,
+    }
+
+    const stepMotion = {
+        initial: (direction: number) => ({ opacity: 0, x: direction > 0 ? 28 : -28, filter: 'blur(4px)' }),
+        animate: { opacity: 1, x: 0, filter: 'blur(0px)' },
+        exit: (direction: number) => ({ opacity: 0, x: direction > 0 ? -28 : 28, filter: 'blur(4px)' }),
     }
 
     return (
@@ -419,35 +405,74 @@ export function Cart({
                         <textarea
                             value={note}
                             onChange={(e) => onNoteChange(e.target.value)}
-                            placeholder="Allergies ou instructions livraison"
+                            placeholder="Allergies ou demande particulière"
                             className="premium-cart-checkout__textarea"
                         />
                     </div>
                 </div>
 
-                {/* Right Column: Info & Totals */}
-                <div className="premium-cart-checkout__flow space-y-6 min-w-0">
-                        {/* Étapes */}
-                        <div className="premium-cart-checkout__steps">
-                           {([1, 2, 3, 4] as const).map((s) => (
-                             <button
-                               key={s}
-                               type="button"
-                               disabled={s > step && s !== step}
-                               onClick={() => { if (s <= step) setStep(s) }}
-                               className={cn(
-                                 'premium-cart-checkout__step',
-                                 step === s && 'is-active',
-                                 step > s && 'is-done',
-                               )}
-                             >
-                               <span className={cn('premium-cart-checkout__step-bar', (step >= s) && 'is-done')} />
-                               <span className="premium-cart-checkout__step-label">{stepLabels[s]}</span>
-                             </button>
-                           ))}
+                {/* Right Column: Wizard */}
+                <div className="premium-cart-checkout__flow min-w-0">
+                    {/* Progress header */}
+                    <div className="premium-cart-checkout__progress-head">
+                        <div className="premium-cart-checkout__progress-meta">
+                            <span className="premium-cart-checkout__progress-eyebrow">
+                                Étape {step} sur 4
+                            </span>
+                            <h3 className="premium-cart-checkout__progress-title">
+                                {stepLabels[step]}
+                            </h3>
                         </div>
+                        <div className="premium-cart-checkout__progress-track" aria-hidden="true">
+                            <motion.div
+                                className="premium-cart-checkout__progress-fill"
+                                initial={false}
+                                animate={{ width: `${(step / 4) * 100}%` }}
+                                transition={{ type: 'spring', stiffness: 280, damping: 28 }}
+                            />
+                        </div>
+                        <div className="premium-cart-checkout__pills" role="tablist" aria-label="Étapes de commande">
+                            {([1, 2, 3, 4] as const).map((s) => {
+                                const Icon = stepIcons[s]
+                                return (
+                                    <button
+                                        key={s}
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={step === s}
+                                        aria-label={stepLabels[s]}
+                                        disabled={s > step}
+                                        onClick={() => { if (s <= step) goToStep(s) }}
+                                        className={cn(
+                                            'premium-cart-checkout__pill',
+                                            step === s && 'is-active',
+                                            step > s && 'is-done',
+                                        )}
+                                    >
+                                        <span className="premium-cart-checkout__pill-icon">
+                                            {step > s ? <Check size={14} strokeWidth={2.5} /> : <Icon size={14} strokeWidth={1.75} />}
+                                        </span>
+                                        <span className="premium-cart-checkout__pill-label">{stepLabels[s]}</span>
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    </div>
 
-                        <div className={step === 1 ? 'space-y-6 block' : 'hidden'}>
+                    {/* Animated step content */}
+                    <div className="premium-cart-checkout__step-viewport">
+                        <AnimatePresence mode="wait" custom={stepDirection}>
+                            {step === 1 && (
+                                <motion.div
+                                    key="step-1"
+                                    custom={stepDirection}
+                                    variants={stepMotion}
+                                    initial="initial"
+                                    animate="animate"
+                                    exit="exit"
+                                    transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+                                    className="premium-cart-checkout__step-panel space-y-6"
+                                >
                         {/* Code promo */}
                         {setPromoCodeInput != null && onApplyPromo != null && onClearPromo != null && (
                             <div className="space-y-2">
@@ -496,7 +521,7 @@ export function Cart({
                         {setReferralCodeInput != null && isAuthenticated && profile && (profile.orderStats?.orderCount ?? 0) === 0 && !profile.referredByCode && (
                             <div className="space-y-2">
                                 <p className="premium-cart-checkout__section-label">Code parrain</p>
-                                <p className="text-[10px] text-mayssa-brown/60">Un ami t&apos;a parrainé ? Saisis son code pour avoir -5 € sur ta 1ère commande.</p>
+                                <p className="premium-cart-checkout__muted">Un ami t&apos;a parrainé ? Saisis son code pour avoir -5 € sur ta 1ère commande.</p>
                                 <div className="premium-cart-checkout__field">
                                     <Gift size={16} className="text-mayssa-gold shrink-0" />
                                     <input
@@ -515,7 +540,7 @@ export function Cart({
                                 <p className="premium-cart-checkout__section-label flex items-center gap-1.5">
                                     <Heart size={12} /> Soutenir le projet
                                 </p>
-                                <p className="text-[10px] text-mayssa-brown/60">Montant libre (optionnel)</p>
+                                <p className="premium-cart-checkout__muted">Montant libre (optionnel)</p>
                                 <div className="premium-cart-checkout__segment">
                                     {[2, 5, 10, 15].map((amount) => (
                                         <button
@@ -533,7 +558,7 @@ export function Cart({
                                     ))}
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-sm text-mayssa-brown/60">Autre :</span>
+                                    <span className="text-sm text-white/55">Autre :</span>
                                     <input
                                         type="number"
                                         min={0}
@@ -546,53 +571,29 @@ export function Cart({
                                         placeholder="0"
                                         className="w-20 rounded-xl bg-white px-3 py-2 text-sm ring-1 ring-mayssa-brown/10"
                                     />
-                                    <span className="text-sm text-mayssa-brown/60">€</span>
+                                    <span className="text-sm text-white/55">€</span>
                                 </div>
                             </div>
                         )}
 
-                            <div className="pt-4 border-t border-mayssa-gold/20">
-                                <button type="button" onClick={() => setStep(2)} className="premium-cart-checkout__btn-primary">
-                                    Suivant : Mes informations →
-                                </button>
-                            </div>
-                        </div>
+                                </motion.div>
+                            )}
 
-                        <div className={step === 2 ? 'space-y-6 block' : 'hidden'}>
-                        <p className="premium-cart-checkout__section-label border-b border-mayssa-brown/8 pb-3">
-                            Informations de livraison
+                            {step === 2 && (
+                                <motion.div
+                                    key="step-2"
+                                    custom={stepDirection}
+                                    variants={stepMotion}
+                                    initial="initial"
+                                    animate="animate"
+                                    exit="exit"
+                                    transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+                                    className="premium-cart-checkout__step-panel space-y-6"
+                                >
+                        <p className="premium-cart-checkout__section-label border-b border-white/10 pb-3">
+                            Vos informations
                         </p>
 
-                        <div className="space-y-2">
-                            <p className="text-[10px] font-semibold text-mayssa-brown/70">Tu finalises par</p>
-                            <div className="premium-cart-checkout__segment">
-                                {(['whatsapp', 'instagram', 'snap'] as const).map((id) => (
-                                    <button
-                                        key={id}
-                                        type="button"
-                                        onClick={() => handleContactIdentityChange(id)}
-                                        className={cn(
-                                            'premium-cart-checkout__chip inline-flex items-center gap-1.5',
-                                            orderContactIdentity === id && 'is-active',
-                                        )}
-                                    >
-                                        {id === 'whatsapp' && <MessageCircle size={14} />}
-                                        {id === 'instagram' && <Instagram size={14} />}
-                                        {id === 'snap' && <SnapIcon size={14} />}
-                                        {id === 'whatsapp' ? 'WhatsApp' : id === 'instagram' ? 'Instagram' : 'Snapchat'}
-                                    </button>
-                                ))}
-                            </div>
-                            <p className="text-[10px] text-mayssa-brown/55 leading-relaxed">
-                                {orderContactIdentity === 'whatsapp'
-                                    ? 'Nom et prénom pour te recontacter.'
-                                    : orderContactIdentity === 'instagram'
-                                      ? 'Ton @ Instagram (pseudo du compte, pas ton nom ni prénom) — pour te retrouver en DM.'
-                                      : 'Pseudo Snapchat pour t’envoyer la commande.'}
-                            </p>
-                        </div>
-
-                        {orderContactIdentity === 'whatsapp' ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-1.5">
                                 <div className={cn('premium-cart-checkout__field', showError('firstName') && 'is-error')}>
@@ -621,39 +622,6 @@ export function Cart({
                                 {showError('lastName') && <p className="text-[10px] text-red-500 pl-4">{validationErrors.lastName}</p>}
                             </div>
                         </div>
-                        ) : (
-                        <div className="space-y-1.5">
-                            <div className={cn('premium-cart-checkout__field', showError('firstName') && 'is-error')}>
-                                {orderContactIdentity === 'instagram' ? (
-                                    <Instagram size={18} className="text-mayssa-gold flex-shrink-0" />
-                                ) : (
-                                    <SnapIcon size={18} className="text-mayssa-gold flex-shrink-0" />
-                                )}
-                                <input
-                                    value={customer.firstName}
-                                    onChange={(e) => onCustomerChange({ ...customer, firstName: e.target.value })}
-                                    onBlur={() => {
-                                        markTouched('firstName')
-                                        if (orderContactIdentity === 'instagram') {
-                                            const n = normalizeInstagramHandle(customer.firstName)
-                                            if (n !== customer.firstName) onCustomerChange({ ...customer, firstName: n })
-                                        }
-                                    }}
-                                    placeholder={
-                                        orderContactIdentity === 'instagram'
-                                            ? '@pseudo Instagram *'
-                                            : "Nom d'utilisateur Snapchat *"
-                                    }
-                                    aria-label={
-                                        orderContactIdentity === 'instagram'
-                                            ? "Nom d'utilisateur Instagram"
-                                            : "Nom d'utilisateur Snapchat"
-                                    }
-                                />
-                            </div>
-                            {showError('firstName') && <p className="text-[10px] text-red-500 pl-4">{validationErrors.firstName}</p>}
-                        </div>
-                        )}
 
                         <div className="space-y-1.5">
                             <div className={cn('premium-cart-checkout__field', showError('phone') && 'is-error')}>
@@ -675,95 +643,53 @@ export function Cart({
                         </div>
 
                         <div className="space-y-1.5">
-                            <div className="premium-cart-checkout__field">
+                            <div className={cn('premium-cart-checkout__field', showError('email') && 'is-error')}>
                                 <Mail size={18} className="text-mayssa-gold flex-shrink-0" />
                                 <input
                                     type="email"
                                     value={customer.email ?? ''}
                                     onChange={(e) => onCustomerChange({ ...customer, email: e.target.value.trim() || undefined })}
-                                    placeholder="Email (récap + notifs)"
-                                    aria-label="Email pour récap de commande"
+                                    onBlur={() => markTouched('email')}
+                                    placeholder="Email *"
+                                    aria-label="Email pour la confirmation de commande"
                                 />
                             </div>
-                            <p className="text-[10px] text-mayssa-brown/50 pl-4">Optionnel. Tu recevras le récap et un mail quand ta commande est validée.</p>
+                            {showError('email')
+                                ? <p className="text-[10px] text-red-500 pl-4">{validationErrors.email}</p>
+                                : <p className="premium-cart-checkout__muted pl-1">Pour recevoir ta confirmation de commande et de retrait.</p>}
                         </div>
-                            <div className="pt-4 border-t border-mayssa-gold/20">
-                                <button type="button" onClick={() => setStep(3)} className="premium-cart-checkout__btn-primary">
-                                    Suivant : {CLICK_COLLECT_ONLY ? 'Click & collect' : 'Récupération'} →
-                                </button>
-                            </div>
-                        </div>
+                                </motion.div>
+                            )}
 
-                        <div className={step === 3 ? 'space-y-6 block' : 'hidden'}>
-                        <p className="premium-cart-checkout__section-label border-b border-mayssa-brown/8 pb-3">
-                            {CLICK_COLLECT_ONLY ? 'Click & collect' : 'Mode de récupération'}
+                            {step === 3 && (
+                                <motion.div
+                                    key="step-3"
+                                    custom={stepDirection}
+                                    variants={stepMotion}
+                                    initial="initial"
+                                    animate="animate"
+                                    exit="exit"
+                                    transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+                                    className="premium-cart-checkout__step-panel space-y-6"
+                                >
+                        <p className="premium-cart-checkout__section-label border-b border-white/10 pb-3">
+                            Click &amp; collect
                         </p>
-                        {CLICK_COLLECT_ONLY ? (
-                            <div className="premium-cart-checkout__panel flex items-start gap-3">
-                                <MapPin size={22} className="text-mayssa-gold shrink-0 mt-0.5" />
-                                <div>
-                                    <p className="text-sm font-semibold text-mayssa-brown">Retrait au point de collecte</p>
-                                    <p className="text-[11px] text-mayssa-brown/65 mt-1 leading-relaxed">
-                                        Choisissez votre créneau de retrait. Vous recevrez une confirmation avec les instructions de collecte.
-                                    </p>
-                                </div>
-                            </div>
-                        ) : (
-                        <>
-                        <div className="grid grid-cols-2 gap-3">
-                            <button
-                                type="button"
-                                onClick={() => onCustomerChange({ ...customer, wantsDelivery: false })}
-                                aria-label="Choisir retrait sur place"
-                                className={cn('premium-cart-checkout__mode', !customer.wantsDelivery && 'is-active')}
-                            >
-                                <MapPin size={22} />
-                                <span>Retrait</span>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => onCustomerChange({ ...customer, wantsDelivery: true })}
-                                aria-label="Choisir livraison"
-                                className={cn('premium-cart-checkout__mode', customer.wantsDelivery && 'is-active')}
-                            >
-                                <Truck size={22} />
-                                <span>Livraison</span>
-                            </button>
-                        </div>
-
-                        {customer.wantsDelivery && (
-                            <div className={cn(
-                                'premium-cart-checkout__panel',
-                                validationErrors.address && 'border-red-300',
-                            )}>
-                                <AddressAutocomplete
-                                    value={customer.address}
-                                    onChange={(address, coordinates) => onCustomerChange({ ...customer, address, addressCoordinates: coordinates })}
-                                    placeholder="Votre adresse complète..."
-                                />
-                                <p className="mt-3 text-[10px] text-mayssa-brown/60 leading-relaxed italic">
-                                    🚗 Livraison gratuite dès {FREE_DELIVERY_THRESHOLD}€ (rayon {DELIVERY_RADIUS_KM}km).
+                        <div className="premium-cart-checkout__panel flex items-start gap-3">
+                            <MapPin size={22} className="text-mayssa-gold shrink-0 mt-0.5" />
+                            <div>
+                                <p className="text-sm font-semibold text-white/90">Retrait à la boutique</p>
+                                <p className="text-[12px] text-white/75 mt-1 font-medium">
+                                    Galerie marchande du Carrefour — {STORE_ADDRESS_LINE}
                                 </p>
-                                {isAuthenticated && profile?.address && customer.address === profile.address && (
-                                    <p className="mt-2 text-[10px] text-emerald-700 bg-emerald-50/80 rounded-lg px-2 py-1.5 flex items-center gap-1 border border-emerald-100">
-                                        <MapPin size={10} />
-                                        Adresse pré-remplie depuis votre profil
-                                    </p>
-                                )}
-                                <div className="mt-4">
-                                    <label className="block text-[10px] uppercase tracking-widest font-bold text-mayssa-brown/60 mb-2">Instructions pour le livreur</label>
-                                    <input
-                                        type="text"
-                                        value={customer.deliveryInstructions ?? ''}
-                                        onChange={(e) => onCustomerChange({ ...customer, deliveryInstructions: e.target.value })}
-                                        placeholder="Code immeuble, étage, sonner 2 fois…"
-                                        className="w-full rounded-2xl border border-mayssa-brown/10 bg-white/50 px-4 py-3 text-xs text-mayssa-brown placeholder:text-mayssa-brown/40 focus:outline-none focus:ring-1 focus:ring-mayssa-gold transition-all"
-                                    />
-                                </div>
+                                <p className="text-[11px] text-mayssa-gold mt-1 font-semibold">
+                                    {OPENING_HOURS_LABEL}
+                                </p>
+                                <p className="premium-cart-checkout__muted mt-1.5">
+                                    Choisissez votre créneau de retrait. Votre commande payée vous attend au comptoir, prête à emporter.
+                                </p>
                             </div>
-                        )}
-                        </>
-                        )}
+                        </div>
 
                         <div className="grid grid-cols-2 gap-3">
                             <div className={cn('premium-cart-checkout__field', validationErrors.date && 'is-error')}>
@@ -774,7 +700,7 @@ export function Cart({
                                     value={selectableDates.includes(customer.date) ? customer.date : selectableDates[0] ?? ''}
                                     onChange={(e) => onCustomerChange({ ...customer, date: e.target.value, time: '' })}
                                     className="w-full bg-transparent text-xs font-bold text-mayssa-brown focus:outline-none cursor-pointer"
-                                    aria-label="Date de retrait ou livraison"
+                                    aria-label="Date de retrait"
                                   >
                                     <option value="">Choisir une date</option>
                                     {selectableDates.map((d) => (
@@ -794,7 +720,7 @@ export function Cart({
                                     value={customer.date}
                                     onChange={(e) => onCustomerChange({ ...customer, date: e.target.value })}
                                     className="w-full bg-transparent text-xs font-bold text-mayssa-brown focus:outline-none"
-                                    aria-label="Date de retrait ou livraison"
+                                    aria-label="Date de retrait"
                                   />
                                 )}
                             </div>
@@ -805,7 +731,7 @@ export function Cart({
                                     value={customer.time}
                                     onChange={(e) => onCustomerChange({ ...customer, time: e.target.value })}
                                     className="w-full bg-transparent text-xs font-bold text-mayssa-brown focus:outline-none cursor-pointer"
-                                    aria-label="Heure de retrait ou livraison"
+                                    aria-label="Heure de retrait"
                                 >
                                     <option value="">L'heure</option>
                                     {allTimeSlots.map((t) => {
@@ -820,48 +746,29 @@ export function Cart({
                                 </select>
                             </div>
                         </div>
-                        {customer.wantsDelivery && customer.date && timeSlots.length === 0 && (
-                            <p className="text-xs text-amber-700 bg-amber-50 rounded-xl px-3 py-2 border border-amber-200">
-                                Plus de créneaux disponibles pour cette date en livraison. Choisissez une autre date ou heure.
-                            </p>
-                        )}
+                                </motion.div>
+                            )}
 
-                        {/* Free delivery progress banner */}
-                        {customer.wantsDelivery && totalAfterDiscount > 0 && totalAfterDiscount < FREE_DELIVERY_THRESHOLD && isWithinDeliveryZone && (
-                            <div className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-mayssa-gold/10 to-mayssa-brown/5 p-4 border border-mayssa-gold/20 shadow-sm">
-                                <Truck size={18} className="text-mayssa-gold flex-shrink-0" />
-                                <div className="flex-1">
-                                    <p className="text-[11px] uppercase tracking-wider font-bold text-mayssa-brown">
-                                        Plus que {(FREE_DELIVERY_THRESHOLD - totalAfterDiscount).toFixed(2).replace('.', ',')} €
-                                    </p>
-                                    <p className="text-[10px] text-mayssa-brown/60 mt-0.5 mb-2">pour la livraison offerte !</p>
-                                    <div className="h-1.5 rounded-full bg-white/50 overflow-hidden shadow-inner">
-                                        <div
-                                            className="h-full rounded-full bg-gradient-to-r from-mayssa-gold to-[#D4AF37] transition-all"
-                                            style={{ width: `${Math.min(100, (totalAfterDiscount / FREE_DELIVERY_THRESHOLD) * 100)}%` }}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                            <div className="pt-4 mt-4 border-t border-mayssa-gold/20">
-                                <button type="button" onClick={() => setStep(4)} className="premium-cart-checkout__btn-primary">
-                                    Suivant : Validation →
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className={step === 4 ? 'space-y-6 block' : 'hidden'}>
-                        <p className="premium-cart-checkout__section-label border-b border-mayssa-brown/8 pb-3">
-                            Validation
+                            {step === 4 && (
+                                <motion.div
+                                    key="step-4"
+                                    custom={stepDirection}
+                                    variants={stepMotion}
+                                    initial="initial"
+                                    animate="animate"
+                                    exit="exit"
+                                    transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+                                    className="premium-cart-checkout__step-panel space-y-6"
+                                >
+                        <p className="premium-cart-checkout__section-label border-b border-white/10 pb-3">
+                            Paiement
                         </p>
 
                         <div className="space-y-4 pt-4 mt-4 border-t border-mayssa-gold/10">
                             <div className="flex flex-col gap-3">
                                 <div className="flex items-center justify-between text-sm">
-                                    <span className="text-mayssa-brown/60">Sous-total</span>
-                                    <span className="font-bold text-mayssa-brown">{(total + mysteryFraiseDiscount).toFixed(2)} €</span>
+                                    <span className="text-white/60">Sous-total</span>
+                                    <span className="font-bold text-white/90">{(total + mysteryFraiseDiscount).toFixed(2)} €</span>
                                 </div>
                                 {appliedPromo && appliedPromo.discount > 0 && (
                                     <div className="flex items-center justify-between text-sm text-[#2D5A2D]">
@@ -873,14 +780,6 @@ export function Cart({
                                     <div className="flex items-center justify-between text-sm text-amber-600">
                                         <span>Réduction mystère Fraise (10 %)</span>
                                         <span className="font-bold">-{mysteryFraiseDiscount.toFixed(2)} €</span>
-                                    </div>
-                                )}
-                                {customer.wantsDelivery && (
-                                    <div className="flex items-center justify-between text-sm">
-                                        <span className="text-mayssa-brown/60">Livraison</span>
-                                        <span className="font-bold text-mayssa-brown">
-                                            {!customer.addressCoordinates ? 'À définir' : deliveryFee === 0 ? 'Gratuite' : `${DELIVERY_FEE.toFixed(2)} €`}
-                                        </span>
                                     </div>
                                 )}
                                 {donationAmount > 0 && (
@@ -904,12 +803,12 @@ export function Cart({
                                             <div className="bg-white/50 p-1.5 rounded-full shadow-inner">
                                                 <Star size={16} className="text-mayssa-gold" />
                                             </div>
-                                            <span className="text-sm font-medium text-mayssa-brown">
+                                            <span className="text-sm font-medium text-white/85">
                                                 Tu gagneras <span className="font-bold text-mayssa-gold">{pointsToEarn} points</span>
                                             </span>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-[10px] uppercase tracking-wider text-mayssa-brown/60">Solde actuel</p>
+                                            <p className="text-[10px] uppercase tracking-wider text-white/50">Solde actuel</p>
                                             <p className="font-bold text-lg text-mayssa-gold drop-shadow-sm">{profile.loyalty.points} pts</p>
                                         </div>
                                     </div>
@@ -917,7 +816,7 @@ export function Cart({
                                     {/* Récompenses disponibles */}
                                     {availableRewards.length > 0 && (
                                         <div className="space-y-3 mt-4">
-                                            <p className="text-xs uppercase tracking-widest font-bold text-mayssa-brown/60">
+                                            <p className="text-xs uppercase tracking-widest font-bold text-white/50">
                                                 Récompenses
                                             </p>
                                             <div className="grid gap-2">
@@ -942,12 +841,12 @@ export function Cart({
                                                             <div className={`p-1.5 rounded-full transition-colors ${selectedReward?.type === rewardType ? 'bg-mayssa-gold text-white shadow-md' : 'bg-transparent text-mayssa-gold group-hover:bg-mayssa-gold/10'}`}>
                                                                 <Gift size={14} />
                                                             </div>
-                                                            <span className="text-xs font-bold text-mayssa-brown">
+                                                            <span className="text-xs font-bold text-white/85">
                                                                 {REWARD_LABELS[rewardType as keyof typeof REWARD_LABELS]}
                                                             </span>
                                                         </div>
                                                         <div className="flex items-center gap-3">
-                                                            <span className="text-[11px] font-medium text-mayssa-brown/60">{cost} pts</span>
+                                                            <span className="text-[11px] font-medium text-white/50">{cost} pts</span>
                                                             {selectedReward?.type === rewardType && (
                                                                 <div className="w-5 h-5 rounded-full bg-mayssa-brown flex items-center justify-center shadow-lg transform scale-110 transition-transform">
                                                                     <span className="text-mayssa-gold text-[10px] font-bold">✓</span>
@@ -974,11 +873,11 @@ export function Cart({
                                         <div className="bg-mayssa-gold/10 p-1.5 rounded-full">
                                             <Star size={16} className="text-mayssa-gold drop-shadow-sm" />
                                         </div>
-                                        <span className="text-sm font-bold text-mayssa-brown">
+                                        <span className="text-sm font-bold text-white/90">
                                             Gagne {pointsToEarn} points avec cette commande !
                                         </span>
                                     </div>
-                                    <p className="text-[11px] text-mayssa-brown/60 leading-relaxed mb-3">
+                                    <p className="premium-cart-checkout__muted mb-3">
                                         1 € dépensé = 1 point. Cadeaux à 60, 100, 150 ou 250 pts (surprise, 5€, mini box, box).
                                     </p>
                                     <button
@@ -1034,37 +933,22 @@ export function Cart({
                                     </div>
                                 ) : (
                                 <>
-                                <p className="text-[10px] uppercase tracking-widest text-mayssa-brown/50 text-center font-bold flex items-center justify-center gap-1.5 mb-2">
-                                    <MessageCircle size={14} className="text-mayssa-gold" />
-                                    Finaliser la commande
+                                <p className="text-[10px] uppercase tracking-widest text-white/45 text-center font-bold flex items-center justify-center gap-1.5 mb-2">
+                                    <Lock size={14} className="text-mayssa-gold" />
+                                    Paiement &amp; retrait
                                 </p>
                                 <div className="premium-cart-checkout__journey max-w-md mx-auto">
-                                    <p className="premium-cart-checkout__journey-title">Parcours Maison Mayssa</p>
+                                    <p className="premium-cart-checkout__journey-title">Click &amp; collect Maison Mayssa</p>
                                     <ol className="premium-cart-checkout__journey-steps">
-                                      <li><span>1</span> Je remplis mon panier sur le site.</li>
-                                      <li><span>2</span> J&apos;envoie ma commande sur WhatsApp (ou Insta/Snap).</li>
-                                      <li><span>3</span> Maison Mayssa me confirme la commande et l&apos;heure.</li>
-                                      <li><span>4</span> {SIMULATED_PAYMENT_ENABLED ? 'Paiement en ligne puis confirmation.' : ONLINE_PAYMENT_UNAVAILABLE ? 'Paiement indisponible pour le moment.' : 'Je règle à la collecte ou par PayPal.'}</li>
+                                      <li><span>1</span> Je choisis mes créations et mon créneau de retrait.</li>
+                                      <li><span>2</span> Je règle en ligne par carte ou Apple Pay (paiement sécurisé).</li>
+                                      <li><span>3</span> Je reçois ma confirmation et mon numéro de commande.</li>
+                                      <li><span>4</span> Je récupère ma commande à la boutique — {STORE_ADDRESS_LINE}.</li>
                                     </ol>
                                 </div>
 
-                                {ONLINE_PAYMENT_UNAVAILABLE && (
-                                    <PaymentUnavailable className="max-w-md mx-auto" />
-                                )}
-
-                                {SIMULATED_PAYMENT_ENABLED && onConfirmPayment && (
-                                    <SimulatedPayment
-                                        total={finalTotal}
-                                        confirmed={paymentConfirmed}
-                                        selectedMethod={paymentMethod}
-                                        onConfirm={onConfirmPayment}
-                                        onReset={onResetPayment}
-                                        className="max-w-md mx-auto"
-                                    />
-                                )}
-
                                 {hasNonTrompeLoeil && isClassicPreorderPhase && (
-                                    <p className="premium-cart-checkout__notice text-mayssa-brown">
+                                    <p className="premium-cart-checkout__notice">
                                         Précommandes — récupération à partir du <span className="font-bold text-mayssa-gold">{FIRST_PICKUP_DATE_CLASSIC_LABEL}</span>.
                                     </p>
                                 )}
@@ -1085,47 +969,103 @@ export function Cart({
                                     className="max-w-md mx-auto px-1"
                                 />
 
-                                <button
-                                    type="button"
-                                    onClick={onSend}
-                                    disabled={!canSend}
-                                    aria-label="Envoyer la commande sur WhatsApp"
-                                    className="premium-cart-checkout__btn-primary premium-cart-checkout__btn-whatsapp"
-                                >
-                                    <MessageCircle size={20} />
-                                    <span>{hasItems ? (canSend ? 'WhatsApp' : ordersOpen === false ? 'Fermé' : !paymentConfirmed && ONLINE_PAYMENT_UNAVAILABLE ? 'Paiement indisponible' : trompeLoeilBeforeMinDate ? `Dès le ${formatDateLabel(minDate)}` : orderCutoffPassed && hasNonTrompeLoeil ? 'Jusqu\'à 17h' : 'Vérifier Formulaire') : 'Panier Vide'}</span>
-                                </button>
+                                {/* Le paiement ne s'affiche QUE si la commande peut aboutir
+                                    (commandes ouvertes, infos valides, CGV, créneau OK) —
+                                    sinon on ne doit pas pouvoir encaisser. */}
+                                {canPay ? (
+                                    PAYMENT_ENABLED && onConfirmPayment && (
+                                        <PaymentSection
+                                            total={finalTotal}
+                                            confirmed={paymentConfirmed}
+                                            selectedMethod={paymentMethod}
+                                            onConfirm={onConfirmPayment}
+                                            onReset={onResetPayment}
+                                            items={items.map((i) => ({ price: i.product.price, quantity: i.quantity }))}
+                                            discountAmount={(appliedPromo?.discount ?? 0) + mysteryFraiseDiscount}
+                                            donationAmount={donationAmount}
+                                            phone={customer.phone}
+                                            className="max-w-md mx-auto"
+                                        />
+                                    )
+                                ) : (
+                                    <div className="premium-cart-checkout__notice is-warning text-center max-w-md mx-auto">
+                                        {hasItems
+                                            ? ordersOpen === false
+                                                ? 'Les commandes sont fermées pour le moment — le paiement est indisponible.'
+                                                : !isCustomerValid
+                                                    ? 'Complétez vos informations (nom, email, téléphone, créneau) pour payer.'
+                                                    : !acceptedTerms
+                                                        ? 'Acceptez les CGV pour accéder au paiement.'
+                                                        : trompeLoeilBeforeMinDate
+                                                            ? `Les trompe-l'œil sont disponibles à partir du ${formatDateLabel(minDate)}.`
+                                                            : orderCutoffPassed && hasNonTrompeLoeil
+                                                                ? 'Commandes (pâtisseries, cookies…) possibles jusqu\'à 17h.'
+                                                                : 'Finalisez votre commande pour accéder au paiement.'
+                                            : 'Votre panier est vide.'}
+                                    </div>
+                                )}
 
-                                <div className="grid grid-cols-2 gap-3 mt-4">
+                                {/* Validation finale — utile au mode paiement simulé
+                                    (Stripe réel place la commande automatiquement au paiement). */}
+                                {canPay && paymentConfirmed && (
                                     <button
                                         type="button"
-                                        onClick={onSendInstagram}
-                                        disabled={!canSend}
-                                        aria-label="Envoyer la commande sur Instagram"
-                                        className="premium-cart-checkout__btn-primary premium-cart-checkout__btn-instagram"
+                                        onClick={onSend}
+                                        aria-label="Valider et réserver ma commande click and collect"
+                                        className="premium-cart-checkout__btn-primary"
                                     >
-                                        <Instagram size={18} />
-                                        <span>Insta</span>
+                                        <Lock size={18} />
+                                        <span>Réserver mon retrait</span>
                                     </button>
-                                    <button
-                                        type="button"
-                                        onClick={onSendSnap}
-                                        disabled={!canSend}
-                                        aria-label="Envoyer la commande sur Snapchat"
-                                        className="premium-cart-checkout__btn-primary premium-cart-checkout__btn-snap"
-                                    >
-                                        <SnapIcon size={18} />
-                                        <span>Snap</span>
-                                    </button>
-                                </div>
+                                )}
                                 </>
                                 )}
                             </div>
                         </div>
-                        </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
+
+                    {/* Sticky footer navigation */}
+                    {!pendingOrder && (
+                        <motion.div
+                            layout
+                            className="premium-cart-checkout__footer"
+                        >
+                            <div className="premium-cart-checkout__footer-total">
+                                <span className="premium-cart-checkout__footer-total-label">Total</span>
+                                <span className="premium-cart-checkout__footer-total-value">
+                                    {finalTotal.toFixed(2).replace('.', ',')} €
+                                </span>
+                            </div>
+                            <div className="premium-cart-checkout__footer-actions">
+                                {step > 1 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => goToStep((step - 1) as 1 | 2 | 3 | 4)}
+                                        className="premium-cart-checkout__btn-ghost"
+                                    >
+                                        <ChevronLeft size={16} />
+                                        Retour
+                                    </button>
+                                )}
+                                {step < 4 ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => goToStep((step + 1) as 1 | 2 | 3 | 4)}
+                                        className="premium-cart-checkout__btn-primary premium-cart-checkout__btn-primary--gold"
+                                    >
+                                        Continuer
+                                        <ChevronRight size={16} />
+                                    </button>
+                                ) : null}
+                            </div>
+                        </motion.div>
+                    )}
                 </div>
             </div>
+        </div>
         </div>
     )
 }

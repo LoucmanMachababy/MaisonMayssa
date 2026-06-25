@@ -3,6 +3,7 @@ import { Helmet } from 'react-helmet-async'
 import { motion } from 'framer-motion'
 import { Instagram, Mail, MapPin } from 'lucide-react'
 import { PHONE_E164 } from '../constants'
+import { STORE_ADDRESS_FULL, STORE_MAPS_URL, STORE_OPENING_DATE_LABEL } from '../constants/store'
 import { TrompeLoeilMarquee } from '../components/decorative/TrompeLoeilMarquee'
 import { LIFESTYLE } from '../lib/decorativeAssets'
 
@@ -24,7 +25,7 @@ export default function PremiumContact() {
     <div className="min-h-screen bg-mayssa-soft">
       <Helmet>
         <title>Contact — Maison Mayssa, pâtisserie trompe-l&apos;œil Annecy</title>
-        <meta name="description" content="Contactez Maison Mayssa pour vos questions, précommandes ou événements sur mesure à Annecy et alentours (Seynod, Annecy-le-Vieux, Cran-Gevrier…). WhatsApp 7j/7." />
+        <meta name="description" content="Contactez Maison Mayssa pour vos questions, commandes click & collect ou événements sur mesure à Annecy. Boutique : galerie marchande du Carrefour, 134 avenue de Genève. WhatsApp 7j/7." />
         <link rel="canonical" href="https://maison-mayssa.fr/contact" />
       </Helmet>
 
@@ -60,11 +61,25 @@ export default function PremiumContact() {
               contact@maison-mayssa.fr
             </a>
             <a
+              href={STORE_MAPS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-start gap-4 text-mayssa-brown hover:text-mayssa-gold transition-colors"
+            >
+              <MapPin size={20} className="text-mayssa-gold shrink-0 mt-0.5" />
+              <span>
+                {STORE_ADDRESS_FULL}
+                <span className="block text-xs text-mayssa-brown/50 mt-1">
+                  Click &amp; collect — ouverture le {STORE_OPENING_DATE_LABEL}
+                </span>
+              </span>
+            </a>
+            <a
               href={`tel:+${PHONE_E164}`}
               className="flex items-center gap-4 text-mayssa-brown hover:text-mayssa-gold transition-colors"
             >
-              <MapPin size={20} className="text-mayssa-gold" />
-              Annecy — Haute-Savoie
+              <span className="w-5 shrink-0 text-center text-mayssa-gold">☎</span>
+              +33 6 19 87 10 05
             </a>
             <a
               href="https://instagram.com/maison_mayssa74"

@@ -14,19 +14,41 @@
  */
 
 import { onValueCreated, onValueUpdated } from 'firebase-functions/v2/database'
-import { onCall, HttpsError } from 'firebase-functions/v2/https'
-import { defineString } from 'firebase-functions/params'
+import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https'
+import { defineString, defineSecret } from 'firebase-functions/params'
 import admin from 'firebase-admin'
+import Stripe from 'stripe'
 
 admin.initializeApp()
 
 const db = admin.database()
 
-const RESEND_API_KEY = defineString('RESEND_API_KEY')
+/**
+ * Secrets (chiffrés via Secret Manager) — à configurer avec :
+ *   firebase functions:secrets:set RESEND_API_KEY
+ *   firebase functions:secrets:set STRIPE_SECRET_KEY
+ *   firebase functions:secrets:set STRIPE_WEBHOOK_SECRET
+ * En émulateur local, ils sont lus depuis functions/.env.
+ * Chaque function qui les utilise doit les lister dans son option `secrets`.
+ */
+const RESEND_API_KEY = defineSecret('RESEND_API_KEY')
+const STRIPE_SECRET_KEY = defineSecret('STRIPE_SECRET_KEY')
+const STRIPE_WEBHOOK_SECRET = defineSecret('STRIPE_WEBHOOK_SECRET')
+
+// Params non sensibles (valeurs en clair, défauts fournis).
 const ADMIN_EMAIL = defineString('ADMIN_EMAIL', { default: 'roumayssaghazi213@gmail.com' })
 const SITE_URL = defineString('SITE_URL', { default: 'https://maison-mayssa.fr' })
-/** Expéditeur des emails (doit être un domaine vérifié dans Resend, sinon laisser par défaut) */
-const FROM_EMAIL = defineString('FROM_EMAIL', { default: 'Maison Mayssa <onboarding@resend.dev>' })
+/** Expéditeur des emails — domaine maison-mayssa.fr vérifié dans Resend. */
+const FROM_EMAIL = defineString('FROM_EMAIL', { default: 'Maison Mayssa <contact@maison-mayssa.fr>' })
+
+let _stripe = null
+/** Client Stripe paresseux (réutilisé entre invocations chaudes). */
+function getStripe() {
+  const key = STRIPE_SECRET_KEY.value()
+  if (!key) throw new HttpsError('failed-precondition', 'Stripe non configuré (STRIPE_SECRET_KEY manquante)')
+  if (!_stripe) _stripe = new Stripe(key, { apiVersion: '2024-12-18.acacia' })
+  return _stripe
+}
 
 /** Envoyer un email via l'API Resend */
 async function sendEmail({ to, subject, html, from }) {
@@ -102,28 +124,146 @@ function escapeHtml(s) {
     .replace(/"/g, '&quot;')
 }
 
-/** Récap commande en HTML pour le client */
+// ── Identité visuelle email (couleurs marque + adresse boutique) ───────────
+const BRAND = {
+  brown: '#1E120D',
+  espresso: '#2A1B12',
+  gold: '#B8860B',
+  goldLight: '#C5A059',
+  ivory: '#FDFCFB',
+  soft: '#FBF6EF',
+  cream: '#F5EAD8',
+  line: '#EFE3D0',
+  muted: '#8A7A6B',
+}
+const STORE = {
+  name: 'galerie marchande du centre commercial Carrefour',
+  address: '134 avenue de Genève, 74000 Annecy',
+  mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Carrefour+134+avenue+de+Geneve+74000+Annecy',
+}
+
+/** Date "samedi 4 juillet" à partir d'un YYYY-MM-DD (sans dépendance, locale FR). */
+function formatPickupDate(ymd) {
+  if (!ymd || typeof ymd !== 'string') return ''
+  const [y, m, d] = ymd.split('-').map(Number)
+  if (!y || !m || !d) return ''
+  try {
+    const date = new Date(Date.UTC(y, m - 1, d))
+    const label = date.toLocaleDateString('fr-FR', {
+      weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC',
+    })
+    return label.charAt(0).toUpperCase() + label.slice(1)
+  } catch {
+    return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`
+  }
+}
+
+/** En-tête de marque (logo texte + filet doré) réutilisable. */
+function emailHeader() {
+  return `
+  <tr><td style="padding:32px 32px 0;text-align:center;">
+    <div style="font-family:Georgia,'Times New Roman',serif;font-size:26px;letter-spacing:3px;color:${BRAND.brown};text-transform:uppercase;">Maison&nbsp;Mayssa</div>
+    <div style="font-size:11px;letter-spacing:2px;color:${BRAND.gold};text-transform:uppercase;margin-top:6px;">Pâtisserie artisanale · Annecy</div>
+    <div style="width:48px;height:2px;background:${BRAND.gold};margin:18px auto 0;"></div>
+  </td></tr>`
+}
+
+/** Pied de page email réutilisable. */
+function emailFooter() {
+  return `
+  <tr><td style="padding:24px 32px 32px;text-align:center;border-top:1px solid ${BRAND.line};">
+    <div style="font-size:12px;color:${BRAND.muted};line-height:1.7;">
+      Maison Mayssa — ${escapeHtml(STORE.address)}<br/>
+      Click &amp; collect · de 18h30 à 2h, 7j/7<br/>
+      <a href="https://instagram.com/maison_mayssa74" style="color:${BRAND.gold};text-decoration:none;">@maison_mayssa74</a>
+    </div>
+  </td></tr>`
+}
+
+/** Récap commande en HTML pour le client — click & collect, design marque. */
 function buildClientRecapHtml(order, orderId, orderNumber, statusUrl) {
   const c = order.customer || {}
-  const name = [c.firstName, c.lastName].filter(Boolean).join(' ')
-  const items = (order.items || [])
-    .map((i) => `<tr><td>${escapeHtml(i.quantity)}</td><td>${escapeHtml(i.name)}</td><td style="text-align:right">${(i.price * i.quantity).toFixed(2)} €</td></tr>`)
-    .join('')
-  const total = (order.total ?? 0).toFixed(2)
+  const name = [c.firstName, c.lastName].filter(Boolean).join(' ').trim() || 'cher gourmand'
   const num = orderNumber != null ? `#${orderNumber}` : orderId
+  const total = (order.total ?? 0).toFixed(2).replace('.', ',')
+
+  const items = (order.items || [])
+    .map((i, idx) => {
+      const line = (i.price * i.quantity).toFixed(2).replace('.', ',')
+      const bg = idx % 2 === 0 ? BRAND.ivory : BRAND.soft
+      return `<tr style="background:${bg};">
+        <td style="padding:12px 16px;font-size:14px;color:${BRAND.brown};">
+          <span style="display:inline-block;min-width:22px;font-weight:700;color:${BRAND.gold};">${escapeHtml(i.quantity)}×</span>
+          ${escapeHtml(i.name)}
+        </td>
+        <td style="padding:12px 16px;font-size:14px;color:${BRAND.brown};text-align:right;white-space:nowrap;font-weight:600;">${line} €</td>
+      </tr>`
+    })
+    .join('')
+
+  const pickupDate = formatPickupDate(order.requestedDate)
+  const pickupTime = order.requestedTime || ''
+  const pickupLine = [pickupDate, pickupTime ? `à ${pickupTime}` : ''].filter(Boolean).join(' ')
+
   return `
 <!DOCTYPE html>
-<html><body style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:16px;">
-  <h2 style="color:#5b3a29;">Commande enregistrée</h2>
-  <p>Bonjour ${escapeHtml(name)},</p>
-  <p>Ta commande <strong>${escapeHtml(num)}</strong> a bien été enregistrée.</p>
-  <table style="width:100%;border-collapse:collapse;margin:16px 0;">
-    <thead><tr style="background:#fef5ec;"><th style="text-align:left;padding:8px;">Qté</th><th style="text-align:left;padding:8px;">Article</th><th style="text-align:right;padding:8px;">Montant</th></tr></thead>
-    <tbody>${items}</tbody>
-    <tfoot><tr style="font-weight:bold;border-top:1px solid #ddd;"><td colspan="2" style="padding:8px;">Total</td><td style="text-align:right;padding:8px;">${total} €</td></tr></tfoot>
+<html lang="fr">
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Commande ${escapeHtml(String(num))} — Maison Mayssa</title></head>
+<body style="margin:0;padding:0;background:${BRAND.cream};">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">Ta commande ${escapeHtml(String(num))} est confirmée — récap et retrait click &amp; collect.</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BRAND.cream};padding:24px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:${BRAND.ivory};border-radius:18px;overflow:hidden;box-shadow:0 8px 30px rgba(30,18,13,0.08);">
+
+        ${emailHeader()}
+
+        <tr><td style="padding:28px 32px 0;text-align:center;">
+          <div style="display:inline-block;background:${BRAND.gold};color:#fff;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:7px 16px;border-radius:999px;">✓ Commande confirmée &amp; payée</div>
+          <h1 style="font-family:Georgia,serif;font-size:24px;color:${BRAND.brown};margin:18px 0 4px;">Merci ${escapeHtml(name)} !</h1>
+          <p style="font-size:14px;color:${BRAND.muted};margin:0;">Ta commande <strong style="color:${BRAND.brown};">${escapeHtml(String(num))}</strong> est bien enregistrée.</p>
+        </td></tr>
+
+        <!-- Bloc retrait click & collect -->
+        <tr><td style="padding:24px 32px 0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BRAND.soft};border:1px solid ${BRAND.line};border-radius:14px;">
+            <tr><td style="padding:18px 20px;">
+              <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${BRAND.gold};margin-bottom:8px;">📍 Votre retrait — Click &amp; collect</div>
+              ${pickupLine ? `<div style="font-size:16px;font-weight:700;color:${BRAND.brown};margin-bottom:4px;">${escapeHtml(pickupLine)}</div>` : ''}
+              <div style="font-size:14px;color:${BRAND.brown};line-height:1.5;">
+                ${escapeHtml(STORE.name)}<br/>
+                <a href="${escapeHtml(STORE.mapsUrl)}" style="color:${BRAND.gold};text-decoration:none;">${escapeHtml(STORE.address)}</a>
+              </div>
+              <div style="font-size:12px;color:${BRAND.muted};margin-top:10px;">Présentez votre numéro <strong>${escapeHtml(String(num))}</strong> au comptoir. Aucun paiement sur place : c'est déjà réglé.</div>
+            </td></tr>
+          </table>
+        </td></tr>
+
+        <!-- Articles -->
+        <tr><td style="padding:24px 32px 0;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${BRAND.muted};margin-bottom:10px;">Votre commande</div>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${BRAND.line};border-radius:12px;overflow:hidden;">
+            ${items}
+            <tr style="background:${BRAND.espresso};">
+              <td style="padding:14px 16px;font-size:15px;font-weight:700;color:${BRAND.ivory};">Total payé</td>
+              <td style="padding:14px 16px;font-size:16px;font-weight:700;color:${BRAND.goldLight};text-align:right;">${total} €</td>
+            </tr>
+          </table>
+        </td></tr>
+
+        <!-- CTA suivi -->
+        <tr><td style="padding:28px 32px 8px;text-align:center;">
+          <a href="${escapeHtml(statusUrl)}" style="display:inline-block;background:${BRAND.brown};color:#fff;font-size:14px;font-weight:700;letter-spacing:0.5px;text-decoration:none;padding:14px 36px;border-radius:12px;">Suivre ma commande</a>
+        </td></tr>
+        <tr><td style="padding:0 32px 24px;text-align:center;">
+          <p style="font-size:12px;color:${BRAND.muted};margin:8px 0 0;">Une question ? Réponds à cet email ou écris-nous sur Instagram.</p>
+        </td></tr>
+
+        ${emailFooter()}
+
+      </table>
+    </td></tr>
   </table>
-  <p><a href="${escapeHtml(statusUrl)}" style="color:#b8860b;">Suivre ma commande</a></p>
-  <p style="color:#666;font-size:12px;">À bientôt,<br/>Maison Mayssa</p>
 </body></html>`
 }
 
@@ -157,7 +297,7 @@ function buildReviewRequestHtml(orderNumber, orderId, customerName, reviewUrl) {
 
 /** Trigger : nouvelle commande → email client (récap) + email admin (alerte) */
 export const onOrderCreated = onValueCreated(
-  { ref: 'orders/{orderId}', region: 'europe-west1' },
+  { ref: 'orders/{orderId}', region: 'europe-west1', secrets: [RESEND_API_KEY] },
   async (event) => {
     const orderId = event.params.orderId
     const order = event.data.val()
@@ -181,7 +321,7 @@ export const onOrderCreated = onValueCreated(
       promises.push(
         sendEmailWithRetry({
           to: order.customer.email.trim(),
-          subject: `Commande ${orderNumber != null ? `#${orderNumber}` : orderId} enregistrée – Maison Mayssa`,
+          subject: `Votre commande ${orderNumber != null ? `#${orderNumber}` : orderId} est confirmée 🎂 – Maison Mayssa`,
           html: htmlRecap,
         }).catch((err) => console.error('[onOrderCreated] email client:', err))
       )
@@ -252,7 +392,7 @@ function buildGoogleReviewEmailHtml(customerName) {
  * Retourne { sent: number } — le nombre d'emails envoyés.
  */
 export const sendBulkGoogleReviewEmails = onCall(
-  { region: 'europe-west1' },
+  { region: 'europe-west1', secrets: [RESEND_API_KEY] },
   async () => {
     const ordersSnap = await db.ref('orders').once('value')
     const orders = ordersSnap.val() || {}
@@ -284,7 +424,7 @@ export const sendBulkGoogleReviewEmails = onCall(
 
 /** Trigger : commande mise à jour → si statut passé à "validee", email client pour noter */
 export const onOrderUpdated = onValueUpdated(
-  { ref: 'orders/{orderId}', region: 'europe-west1' },
+  { ref: 'orders/{orderId}', region: 'europe-west1', secrets: [RESEND_API_KEY] },
   async (event) => {
     const before = event.data.before.val()
     const after = event.data.after.val()
@@ -340,7 +480,7 @@ function buildRestockEmailHtml(productName, productUrl) {
  * Supprime les entries après envoi (succès ou échec) pour éviter boucle infinie.
  */
 export const onStockAvailable = onValueUpdated(
-  { ref: 'stock/{productId}', region: 'europe-west1' },
+  { ref: 'stock/{productId}', region: 'europe-west1', secrets: [RESEND_API_KEY] },
   async (event) => {
     const productId = event.params.productId
     const before = event.data.before.val()
@@ -656,6 +796,108 @@ export const createOrder = onCall(
 
     console.log(`[createOrder] order ${orderId} (#${orderNumber}) created for ${data.customer.phone}`)
     return { orderId, orderNumber }
+  }
+)
+
+// ============================================================================
+// Stripe — createPaymentIntent (callable) + webhook de confirmation
+// ============================================================================
+
+/**
+ * Callable : crée un PaymentIntent Stripe pour le panier en cours.
+ * Le montant est recalculé côté serveur à partir des items (jamais de confiance
+ * dans un total envoyé par le client). Retourne le clientSecret pour le
+ * Payment Element. La commande n'est créée qu'après confirmation du paiement
+ * (côté front via createOrder, ou via le webhook si tu passes en mode webhook-first).
+ *
+ * @returns {{ clientSecret: string, amount: number }}
+ */
+export const createPaymentIntent = onCall(
+  { region: 'europe-west1', secrets: [STRIPE_SECRET_KEY] },
+  async (request) => {
+    const data = request.data || {}
+    const items = Array.isArray(data.items) ? data.items : []
+    if (items.length === 0) throw new HttpsError('invalid-argument', 'Panier vide')
+
+    // Recalcul du montant côté serveur (en centimes) — source de vérité.
+    let amount = 0
+    for (const it of items) {
+      const price = Number(it.price)
+      const qty = Number(it.quantity)
+      if (!Number.isFinite(price) || price < 0 || price > 10000) {
+        throw new HttpsError('invalid-argument', 'Prix invalide')
+      }
+      if (!Number.isInteger(qty) || qty < 1 || qty > 100) {
+        throw new HttpsError('invalid-argument', 'Quantité invalide')
+      }
+      amount += Math.round(price * 100) * qty
+    }
+    // Remises éventuelles transmises (promo / parrainage / don) — bornées.
+    const discount = Math.max(0, Math.round(Number(data.discountAmount || 0) * 100))
+    const donation = Math.max(0, Math.round(Number(data.donationAmount || 0) * 100))
+    amount = Math.max(0, amount - discount) + donation
+    if (amount < 50) throw new HttpsError('invalid-argument', 'Montant trop faible (min 0,50 €)')
+
+    const stripe = getStripe()
+    const intent = await stripe.paymentIntents.create({
+      amount,
+      currency: 'eur',
+      // Moyens de paiement EXPLICITES : Carte (+ Apple Pay / Google Pay servis
+      // automatiquement avec « card » sur les appareils compatibles) et Revolut Pay.
+      // On exclut volontairement Link et PayPal.
+      payment_method_types: ['card', 'revolut_pay'],
+      metadata: {
+        ...(request.auth?.uid ? { userId: request.auth.uid } : {}),
+        ...(data.phone ? { phone: String(data.phone).slice(0, 30) } : {}),
+        source: 'click-and-collect',
+      },
+    })
+
+    return { clientSecret: intent.client_secret, amount }
+  }
+)
+
+/**
+ * Webhook Stripe : reçoit les événements de paiement (signature vérifiée).
+ * Sert de filet de sécurité / journal (la commande est créée côté front après
+ * confirmation). On loggue payment_intent.succeeded ; étendable plus tard pour
+ * réconcilier les paiements orphelins.
+ *
+ * Configurer l'URL de ce webhook dans le dashboard Stripe → Développeurs →
+ * Webhooks, et renseigner STRIPE_WEBHOOK_SECRET (whsec_…).
+ */
+export const stripeWebhook = onRequest(
+  { region: 'europe-west1', secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET] },
+  async (req, res) => {
+    const whSecret = STRIPE_WEBHOOK_SECRET.value()
+    if (!whSecret) {
+      console.warn('[stripeWebhook] STRIPE_WEBHOOK_SECRET manquant')
+      res.status(500).send('webhook non configuré')
+      return
+    }
+    const stripe = getStripe()
+    let evt
+    try {
+      // onRequest fournit le corps brut dans req.rawBody (requis pour la signature).
+      evt = stripe.webhooks.constructEvent(req.rawBody, req.headers['stripe-signature'], whSecret)
+    } catch (err) {
+      console.error('[stripeWebhook] signature invalide:', err.message)
+      res.status(400).send(`Webhook signature error: ${err.message}`)
+      return
+    }
+
+    switch (evt.type) {
+      case 'payment_intent.succeeded':
+        console.log(`[stripeWebhook] paiement réussi: ${evt.data.object.id} (${evt.data.object.amount} ${evt.data.object.currency})`)
+        break
+      case 'payment_intent.payment_failed':
+        console.warn(`[stripeWebhook] paiement échoué: ${evt.data.object.id}`)
+        break
+      default:
+        // autres événements ignorés pour l'instant
+        break
+    }
+    res.status(200).json({ received: true })
   }
 )
 

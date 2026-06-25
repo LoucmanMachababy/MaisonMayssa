@@ -1,3 +1,5 @@
+import { ORDER_LIMIT_ENABLED } from '../constants/checkout'
+
 export const MM_PENDING_ORDER_KEY = 'mm_pending_order'
 const PENDING_ORDER_BLOCK_MS = 48 * 60 * 60 * 1000 // 48 h
 
@@ -8,6 +10,7 @@ export function normalizePhone(phone: string): string {
 }
 
 export function markOrderPlaced(phone: string, orderNumber?: number): void {
+  if (!ORDER_LIMIT_ENABLED) return
   const entry: PendingOrderEntry = { phone: normalizePhone(phone), placedAt: Date.now(), orderNumber }
   try {
     localStorage.setItem(MM_PENDING_ORDER_KEY, JSON.stringify(entry))
@@ -17,6 +20,8 @@ export function markOrderPlaced(phone: string, orderNumber?: number): void {
 }
 
 export function getPendingOrder(phone: string): PendingOrderEntry | null {
+  // Limite désactivée → aucune commande « en attente » bloquante.
+  if (!ORDER_LIMIT_ENABLED) return null
   try {
     const raw = localStorage.getItem(MM_PENDING_ORDER_KEY)
     if (!raw) return null

@@ -4,7 +4,7 @@ export function CookiesAnnecyPage() {
   return (
     <PillarPageLayout
       title="Cookies artisanaux Annecy — Maison Mayssa, faits maison 7j/7"
-      description="Cookies artisanaux à Annecy : Kinder Bueno, Nutella Oreo, Spéculoos Framboise, Caramel Daim… 11 saveurs moelleuses faites maison. Livraison et retrait 7j/7."
+      description="Cookies artisanaux à Annecy : Kinder Bueno, Nutella Oreo, Spéculoos Framboise, Caramel Daim… 11 saveurs moelleuses faites maison. Click & collect 7j/7 à Annecy."
       canonical="https://maison-mayssa.fr/cookies-annecy"
       breadcrumb={[
         { name: 'Accueil', url: '/' },
@@ -160,7 +160,7 @@ export function CookiesAnnecyPage() {
               quelques minutes de moins et c'est cru. Je surveille au four.
             </li>
             <li>
-              <strong>Fraîcheur</strong> — cuits la journée même ou la veille, livrés / récupérés
+              <strong>Fraîcheur</strong> — cuits la journée même ou la veille, à récupérer
               dans les heures qui suivent.
             </li>
           </ul>
@@ -183,9 +183,10 @@ export function CookiesAnnecyPage() {
             plaisir solo en fin de journée.
           </p>
           <p>
-            Commande avant 17h pour récupération le soir même (service 18h30-2h du matin,
-            7j/7). Livraison sur <strong>Annecy et alentours</strong> (rayon 5-10 km),
-            offerte dès 50 € d'achat. Retrait sur place également possible.
+            Commande avant 17h pour récupération le soir même (créneaux 18h30-2h du matin,
+            7j/7). Retrait en <strong>click & collect</strong> à la boutique Maison Mayssa,
+            galerie marchande du Carrefour, 134 avenue de Genève à Annecy. Commande et
+            paiement en ligne.
           </p>
           <p>
             Compose ta box en panachant plusieurs saveurs, ou ajoute des brownies et

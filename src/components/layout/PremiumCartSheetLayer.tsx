@@ -9,6 +9,8 @@ import { SnapInstructionModal } from '../SnapInstructionModal'
 import { ToastContainer } from '../Toast'
 import { useOrderCheckoutContext } from '../../contexts/OrderCheckoutContext'
 import { usePremiumAuth } from './PremiumAuthLayer'
+import { STRIPE_LIVE } from '../../constants/checkout'
+import { STRIPE_PUBLISHABLE_KEY } from '../../lib/stripe'
 
 export function PremiumCartSheetLayer() {
   const location = useLocation()
@@ -58,8 +60,12 @@ export function PremiumCartSheetLayer() {
     paymentConfirmed,
     paymentMethod,
     confirmSimulatedPayment,
+    confirmPaymentAndPlaceOrder,
     resetSimulatedPayment,
   } = useOrderCheckoutContext()
+
+  /** En Stripe réel, le paiement réussi crée la commande directement (→ email). */
+  const useRealStripe = STRIPE_LIVE && !!STRIPE_PUBLISHABLE_KEY
 
   const isPanierPage = location.pathname === '/panier'
   const hasItems = cart.length > 0
@@ -81,8 +87,6 @@ export function PremiumCartSheetLayer() {
     onNoteChange: setNote,
     onCustomerChange: setCustomer,
     onSend: () => openOrderRecap('whatsapp'),
-    onSendInstagram: () => openOrderRecap('instagram'),
-    onSendSnap: () => openOrderRecap('snap'),
     onAccountClick: openAccount,
     selectedReward,
     onSelectReward: setSelectedReward,
@@ -114,7 +118,7 @@ export function PremiumCartSheetLayer() {
     onOrderContactIdentityChange: setOrderContactIdentity,
     paymentConfirmed,
     paymentMethod,
-    onConfirmPayment: confirmSimulatedPayment,
+    onConfirmPayment: useRealStripe ? confirmPaymentAndPlaceOrder : confirmSimulatedPayment,
     onResetPayment: resetSimulatedPayment,
   }
 

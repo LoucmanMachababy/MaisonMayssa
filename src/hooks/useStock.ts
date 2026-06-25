@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { isPreorderOpenNow, type StockMap, type Settings, type PreorderOpening } from '../lib/firebase'
+import { STOCK_ENABLED } from '../constants/checkout'
 
 export function useStock() {
   const [stock, setStock] = useState<StockMap>({})
@@ -74,6 +75,8 @@ export function useStock() {
   }, [settings.preorderOpenings, settings.preorderDays])
 
   const getStock = (productId: string): number | null => {
+    // Stock désactivé → tout est illimité (null = pas de stock géré).
+    if (!STOCK_ENABLED) return null
     // Returns null if product doesn't have managed stock
     if (productId in stock) return stock[productId]
     return null

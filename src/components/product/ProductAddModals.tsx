@@ -1,4 +1,5 @@
 import { BoxDecouverteTrompeModal } from '../BoxDecouverteTrompeModal'
+import { CandyFruitModal } from '../CandyFruitModal'
 import { SizeSelectorModal } from '../SizeSelectorModal'
 import type { useProductAddFlow } from '../../hooks/useProductAddFlow'
 
@@ -19,6 +20,11 @@ export function ProductAddModals({ flow }: { flow: Flow }) {
         product={flow.sizeProduct}
         onClose={() => flow.setSizeProduct(null)}
         onSelect={(product, size) => flow.confirmSize(product, size)}
+      />
+      <CandyFruitModal
+        product={flow.candyFruitProduct}
+        onClose={() => flow.setCandyFruitProduct(null)}
+        onSelect={(product, flavor, quantity) => flow.confirmCandyFruit(product, flavor, quantity)}
       />
     </>
   )

@@ -17,7 +17,6 @@ import {
 } from '../lib/firebase'
 import {
   PRODUCTS,
-  PHONE_E164,
   REFERRAL_DISCOUNT_EUR,
   BOX_DECOUVERTE_TROMPE_PRODUCT_ID,
   DISCOVERY_BOX_TROMPE_SLOT_COUNT,
@@ -34,7 +33,6 @@ import {
   normalizeInstagramHandle,
 } from '../lib/delivery'
 import { buildOrderMessage, buildShortSocialPasteMessage } from '../lib/orderMessage'
-import { openWhatsAppWithPrefilledMessage } from '../lib/whatsappOpen'
 import { isBeforeOrderCutoff } from '../lib/utils'
 import { REWARD_COSTS, REWARD_LABELS } from '../lib/rewards'
 import {
@@ -44,10 +42,8 @@ import {
 } from '../lib/pendingOrder'
 import {
   CLICK_COLLECT_ONLY,
-  SIMULATED_PAYMENT_ENABLED,
-  ONLINE_PAYMENT_UNAVAILABLE,
   isPaymentConfirmedByDefault,
-  type SimulatedPaymentMethod,
+  type PaymentMethod,
 } from '../constants/checkout'
 
 const TROMPE_CATEGORIES = ["Trompe l'œil", "Nos trompe-l'œil"] as const
@@ -119,10 +115,10 @@ export function useOrderCheckout() {
     id: string
   } | null>(null)
 
-  const [paymentMethod, setPaymentMethod] = useState<SimulatedPaymentMethod | null>(null)
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null)
   const [paymentConfirmed, setPaymentConfirmed] = useState(isPaymentConfirmedByDefault())
 
-  const confirmSimulatedPayment = useCallback((method: SimulatedPaymentMethod) => {
+  const confirmSimulatedPayment = useCallback((method: PaymentMethod) => {
     setPaymentMethod(method)
     setPaymentConfirmed(true)
   }, [])
@@ -130,6 +126,18 @@ export function useOrderCheckout() {
   const resetSimulatedPayment = useCallback(() => {
     setPaymentMethod(null)
     setPaymentConfirmed(isPaymentConfirmedByDefault())
+  }, [])
+
+  /**
+   * Appelé quand le paiement (Stripe réel) a réussi : enregistre la méthode,
+   * marque payé, PUIS crée la commande immédiatement (→ trigger email).
+   * `handleSend` est défini plus bas ; on passe par une ref pour l'appeler.
+   */
+  const handleSendRef = useRef<(() => Promise<void>) | null>(null)
+  const confirmPaymentAndPlaceOrder = useCallback(async (method: PaymentMethod) => {
+    setPaymentMethod(method)
+    setPaymentConfirmed(true)
+    await handleSendRef.current?.()
   }, [])
 
   const [toasts, setToasts] = useState<Toast[]>([])
@@ -372,37 +380,17 @@ export function useOrderCheckout() {
         createOrder,
         incrementPromoCodeUsage,
         applyReferralAfterOrder,
-        decrementStockBatchStrict,
-        incrementStockBatch,
-        getStockDecrementItems: getDecrItems,
       } = await import('../lib/firebase')
       const distanceKm =
         customer.wantsDelivery && customer.addressCoordinates
           ? calculateDistance(customer.addressCoordinates, ANNECY_GARE)
           : undefined
 
-      const itemsToDecrement = cart.flatMap((item) => {
-        if (isTrompeLoeilCartItem(item) && item.reservationConfirmed) return []
-        if (isTrompeLoeilCartItem(item) && isAuthenticated && item.reservationExpiresAt) return []
-        return getDecrItems(getOriginalProductId(item.product.id), item.quantity, PRODUCTS, {
-          trompeDiscoverySelection: item.trompeDiscoverySelection,
-        }).map((d: { productId: string; quantity: number }) => ({
-          ...d,
-          label: item.product.name,
-        }))
-      })
-
-      if (itemsToDecrement.length > 0) {
-        await decrementStockBatchStrict(itemsToDecrement)
-      }
-
+      // Gestion de stock désactivée : la production se fait à la commande,
+      // aucune limite de quantité ne bloque le passage d'une commande,
+      // donc plus rien à décrémenter ni à restaurer.
       let result: { orderId: string; orderNumber: number } | null
-      const rollbackStock = async () => {
-        if (itemsToDecrement.length === 0) return
-        await incrementStockBatch(
-          itemsToDecrement.map((i) => ({ productId: i.productId, quantity: i.quantity })),
-        ).catch(() => {})
-      }
+      const rollbackStock = async () => {}
       try {
         result = await createOrder({
           items: cart.map((item) => {
@@ -687,29 +675,17 @@ export function useOrderCheckout() {
     )
   }
 
+  /**
+   * Valide la commande en click & collect : enregistre la commande payée
+   * (paiement Stripe confirmé en amont), affiche la confirmation, puis vide
+   * le panier. Plus d'ouverture WhatsApp — le parcours est 100 % en ligne.
+   */
   const handleSend = async () => {
-    let whatsAppDraftTab: Window | null = null
-    const abortWhatsAppDraft = () => {
-      try {
-        if (whatsAppDraftTab && !whatsAppDraftTab.closed) whatsAppDraftTab.close()
-      } catch {
-        /* ignore */
-      }
-      whatsAppDraftTab = null
-    }
-
     if (!validateBeforeSend()) return
-
-    try {
-      whatsAppDraftTab = window.open('about:blank', '_blank')
-    } catch {
-      whatsAppDraftTab = null
-    }
 
     const referralDiscountAmount = await getReferralDiscount()
     const orderResult = await saveOrderToFirebase('whatsapp')
     if (!orderResult.ok) {
-      abortWhatsAppDraft()
       if (orderResult.reason === 'stock') {
         showToast(
           'Un ou plusieurs produits ne sont plus disponibles en quantité suffisante. Mets à jour ton panier puis réessaie.',
@@ -723,25 +699,6 @@ export function useOrderCheckout() {
     }
     const { orderId, orderNumber } = orderResult
     recordPlacedOrder(customer.phone, orderNumber)
-
-    const message = buildOrderMessage({
-      cart,
-      customer,
-      total,
-      note,
-      selectedReward,
-      isAuthenticated,
-      discountAmount: appliedPromo?.discount ?? 0,
-      referralDiscountAmount,
-      donationAmount: donationAmount ?? 0,
-      dietaryPreferences: profile?.dietaryPreferences,
-      contactIdentity: 'whatsapp',
-      orderNumber,
-    })
-    if (!message) {
-      abortWhatsAppDraft()
-      return
-    }
 
     try {
       const { AnalyticsEvents } = await import('../lib/analytics')
@@ -782,35 +739,11 @@ export function useOrderCheckout() {
           productId: orig,
         }
       }),
-      deliveryMode: customer.wantsDelivery ? 'livraison' : 'retrait',
+      deliveryMode: 'retrait',
       requestedDate: customer.date || undefined,
       requestedTime: customer.time || undefined,
-      whatsappMessage: message,
+      whatsappMessage: '',
     })
-
-    const waFallback =
-      orderNumber != null
-        ? `Commande Maison Mayssa n°${orderNumber} — le message détaillé a été copié : dans WhatsApp, appuie longuement dans le champ texte puis « Coller ».`
-        : 'Commande Maison Mayssa — le message détaillé a été copié : colle-le dans WhatsApp.'
-    const { usedClipboardFallback, opened } = openWhatsAppWithPrefilledMessage(
-      PHONE_E164,
-      message,
-      waFallback,
-      whatsAppDraftTab,
-    )
-    if (usedClipboardFallback) {
-      showToast(
-        'Le texte était trop long pour le lien WhatsApp : le message complet a été copié. Colle-le dans la conversation.',
-        'info',
-        9000,
-      )
-    } else if (!opened) {
-      showToast(
-        "Autorise les pop-ups pour ce site ou utilise le bouton « Envoyer sur WhatsApp » sur l'écran de confirmation.",
-        'info',
-        8000,
-      )
-    }
 
     confirmTrompeReservations()
     await claimSelectedReward()
@@ -820,6 +753,11 @@ export function useOrderCheckout() {
     await removeActiveSession(sessionId)
     clearCart()
   }
+
+  // Garde la ref à jour pour confirmPaymentAndPlaceOrder (défini avant handleSend).
+  useEffect(() => {
+    handleSendRef.current = handleSend
+  })
 
   const handleSendInstagram = async () => {
     if (!validateBeforeSend()) return
@@ -1049,6 +987,7 @@ export function useOrderCheckout() {
     paymentConfirmed,
     paymentMethod,
     confirmSimulatedPayment,
+    confirmPaymentAndPlaceOrder,
     resetSimulatedPayment,
   }
 }

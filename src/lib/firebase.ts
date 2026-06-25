@@ -143,6 +143,28 @@ export async function submitMysteryGuess(guess: string): Promise<{
   return res.data
 }
 
+/** Item minimal envoyé au serveur pour recalculer le montant Stripe. */
+export type PaymentIntentItem = { price: number; quantity: number }
+
+/**
+ * Crée un PaymentIntent Stripe côté serveur (le montant est recalculé là-bas).
+ * Retourne le clientSecret pour le Stripe Payment Element.
+ */
+export async function createPaymentIntent(input: {
+  items: PaymentIntentItem[]
+  discountAmount?: number
+  donationAmount?: number
+  phone?: string
+}): Promise<{ clientSecret: string; amount: number }> {
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable<typeof input, { clientSecret: string; amount: number }>(
+    functions,
+    'createPaymentIntent',
+  )
+  const res = await fn(input)
+  return res.data
+}
+
 // --- Stock ---
 export type StockMap = Record<string, number>
 

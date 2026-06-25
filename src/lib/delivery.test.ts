@@ -37,9 +37,10 @@ describe('validateCustomer', () => {
     firstName: 'Jean',
     lastName: 'Dupont',
     phone: '0612345678',
-    address: '1 rue Test 74000 Annecy',
-    addressCoordinates: { lat: 45.9, lng: 6.12 },
-    wantsDelivery: true,
+    email: 'jean@exemple.fr',
+    address: '',
+    addressCoordinates: null,
+    wantsDelivery: false,
     date: '2025-02-15',
     time: '20:00',
   }
@@ -56,9 +57,10 @@ describe('validateCustomer', () => {
     expect(validateCustomer({ ...base, phone: '123' }).phone).toBeDefined()
   })
 
-  it('exige l\'adresse si livraison', () => {
-    const withDelivery = { ...base, wantsDelivery: true, address: '' }
-    expect(validateCustomer(withDelivery).address).toBe("L'adresse est requise pour la livraison")
+  it('exige un email valide', () => {
+    expect(validateCustomer({ ...base, email: '' }).email).toBe("L'email est requis pour recevoir la confirmation")
+    expect(validateCustomer({ ...base, email: 'pasunemail' }).email).toBe("Format d'email invalide")
+    expect(validateCustomer({ ...base, email: 'jean@exemple.fr' }).email).toBeUndefined()
   })
 
   it('exige date et heure', () => {

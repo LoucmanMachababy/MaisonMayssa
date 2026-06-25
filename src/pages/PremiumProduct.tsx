@@ -13,6 +13,8 @@ import { cn } from '../lib/utils'
 import type { Product } from '../types'
 import {
   BOX_DECOUVERTE_TROMPE_PRODUCT_ID,
+  CANDY_FRUIT_SAUCE_PRODUCT_ID,
+  isCandyFruitFlavorProductId,
   isCustomizableTrompeBundleBoxId,
 } from '../constants'
 import { getProductDetail, getProductRecommendations } from '../lib/productDetails'
@@ -128,6 +130,7 @@ export default function PremiumProduct() {
     if (!rec.available) return
     const needsModal =
       rec.id === BOX_DECOUVERTE_TROMPE_PRODUCT_ID ||
+      isCandyFruitFlavorProductId(rec.id) ||
       isCustomizableTrompeBundleBoxId(rec.id) ||
       (rec.sizes && rec.sizes.length > 0)
     if (needsModal) {

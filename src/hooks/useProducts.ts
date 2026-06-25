@@ -19,16 +19,26 @@ function mergeProduct(p: Product, override?: ProductOverrideMap[string]): Produc
     }
   }
   const isCustom = override.isCustom === true
-  // image/images exclus : l'admin ne gère pas les visuels des produits catalogue (évite les URLs obsolètes Firebase)
-  const { isCustom: _, image: _img, images: _imgs, ...rawOverride } = override
+  // image/images/category exclus : le catalogue reste la source de vérité (évite URLs / catégories obsolètes Firebase)
+  const { isCustom: _, image: _img, images: _imgs, category: _cat, ...rawOverride } = override
   const overrideFields = Object.fromEntries(
     Object.entries(rawOverride).filter(([, v]) => v !== null && v !== undefined),
   )
   const merged = {
     ...p,
     ...overrideFields,
-    available: override.available !== undefined ? override.available : (p.available !== false),
-    visible: override.visible !== undefined ? override.visible : (p.visible !== false),
+    category: isCustom && override.category ? override.category : p.category,
+    available: p.available === true
+      ? true
+      : override.available !== undefined
+        ? override.available
+        : (p.available !== false),
+    // visible:true dans le catalogue = toujours afficher (admin peut masquer le reste)
+    visible: p.visible === true
+      ? true
+      : override.visible !== undefined
+        ? override.visible
+        : (p.visible !== false),
     pinned: override.pinned ?? p.pinned ?? false,
     highlightAsNew:
       override.highlightAsNew != null ? Boolean(override.highlightAsNew) : (p.highlightAsNew ?? false),

@@ -4,7 +4,7 @@ export function BrowniesAnnecyPage() {
   return (
     <PillarPageLayout
       title="Brownies artisanaux Annecy — Maison Mayssa, fondants faits maison"
-      description="Brownies artisanaux à Annecy : Nutella Oreo, Pistache Framboise, El Mordjene, Caramel Cacahuète… 9 saveurs ultra fondantes. Livraison et retrait 7j/7."
+      description="Brownies artisanaux à Annecy : Nutella Oreo, Pistache Framboise, El Mordjene, Caramel Cacahuète… 9 saveurs ultra fondantes. Click & collect 7j/7 à la galerie marchande du Carrefour, av. de Genève."
       canonical="https://maison-mayssa.fr/brownies-annecy"
       breadcrumb={[
         { name: 'Accueil', url: '/' },
@@ -147,9 +147,9 @@ export function BrowniesAnnecyPage() {
             mille : la surface craque sous la dent, et le cœur se libère en bouche.
           </p>
           <p>
-            Chaque brownie est fait à la commande, emballé soigneusement, livré ou remis
-            dans les heures qui suivent. Aucun stock, aucune attente en rayon. Fraîcheur
-            absolue.
+            Chaque brownie est fait à la commande, emballé soigneusement, prêt à être
+            retiré dans les heures qui suivent. Aucun stock, aucune attente en rayon.
+            Fraîcheur absolue.
           </p>
         </div>
       </section>
@@ -166,9 +166,10 @@ export function BrowniesAnnecyPage() {
             c'est le lendemain au plus tôt.
           </p>
           <p>
-            <strong>Zone de livraison</strong> : Annecy centre, Annecy-le-Vieux, Seynod,
-            Meythet, Pringy, Cran-Gevrier, Épagny (rayon 5-10 km). Livraison offerte dès
-            50 € d'achat, sinon 5 € de forfait. Retrait sur place également possible.
+            <strong>Retrait en click &amp; collect</strong> à la boutique Maison Mayssa,
+            dans la galerie marchande du Carrefour, 134 avenue de Genève à Annecy. Tu
+            commandes et règles en ligne (carte ou Apple Pay), puis tu récupères ta commande
+            au créneau choisi — retrait gratuit, sans attente.
           </p>
           <p>
             Tu peux composer une <strong>box mixte</strong> en panachant plusieurs saveurs,

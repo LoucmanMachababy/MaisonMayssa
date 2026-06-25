@@ -42,14 +42,14 @@ export default function PremiumHome() {
   return (
     <div className="w-full">
       <Helmet>
-        <title>Trompe-l&apos;œil pâtissier Annecy &amp; alentours | Maison Mayssa</title>
+        <title>Trompe-l&apos;œil pâtissier Annecy · Click &amp; collect | Maison Mayssa</title>
         <meta
           name="description"
-          content="Maison Mayssa : trompe-l'œil pâtissiers artisanaux, canette cakes, chocolaterie et événements. Livraison & retrait à Annecy, Seynod, Annecy-le-Vieux, Cran-Gevrier et tout le bassin annécien. Précommande en ligne 7j/7."
+          content="Maison Mayssa : trompe-l'œil pâtissiers artisanaux, canette cakes, chocolaterie et événements. Commande en ligne et click & collect à Annecy — galerie marchande du Carrefour, 134 avenue de Genève. Paiement carte & Apple Pay, 7j/7."
         />
         <link rel="canonical" href="https://maison-mayssa.fr/" />
-        <meta property="og:title" content="Trompe-l'œil pâtissier Annecy & alentours — Maison Mayssa" />
-        <meta property="og:description" content="Pâtisseries artisanales qui trompent l'œil, livrées sur Annecy et tout le bassin annécien (Seynod, Annecy-le-Vieux, Cran-Gevrier, Sevrier, Veyrier-du-Lac…). Précommande 7j/7." />
+        <meta property="og:title" content="Trompe-l'œil pâtissier Annecy · Click & collect — Maison Mayssa" />
+        <meta property="og:description" content="Pâtisseries artisanales qui trompent l'œil, à commander en ligne et à retirer en click & collect à Annecy (galerie marchande du Carrefour, avenue de Genève). Paiement sécurisé, 7j/7." />
         <script type="application/ld+json">
           {JSON.stringify({
             '@context': 'https://schema.org',
@@ -333,14 +333,14 @@ export default function PremiumHome() {
         </section>
       )}
 
-      {/* Bloc SEO local : Annecy + bassin annécien (signaux géographiques pour Google) */}
+      {/* Bloc SEO local : click & collect Annecy (signaux géographiques pour Google) */}
       <section className="py-20 md:py-28 px-6 bg-mayssa-soft border-t border-mayssa-brown/5">
         <div className="max-w-4xl mx-auto">
           <span className="text-mayssa-gold text-xs tracking-[0.3em] uppercase mb-5 block text-center">
-            Annecy & alentours
+            Click &amp; collect · Annecy
           </span>
           <h2 className="font-display text-3xl md:text-4xl lg:text-5xl text-mayssa-brown mb-8 text-center leading-tight">
-            Pâtisserie artisanale livrée sur tout le bassin annécien
+            Votre pâtisserie artisanale à retirer à Annecy
           </h2>
           <div className="space-y-5 text-mayssa-brown/75 font-light leading-relaxed text-base md:text-lg max-w-3xl mx-auto">
             <p>
@@ -348,24 +348,20 @@ export default function PremiumHome() {
               pâtisserie artisanale de référence pour les{' '}
               <strong className="font-medium text-mayssa-brown">trompe-l&apos;œil pâtissiers à Annecy</strong>.
               Mangue, pistache, citron, passion, framboise, cabosse de cacao… des fruits qui trompent
-              l&apos;œil et régalent les papilles, façonnés à la main et en précommande pour une
-              fraîcheur absolue.
+              l&apos;œil et régalent les papilles, façonnés à la main pour une fraîcheur absolue.
             </p>
             <p>
-              Nous livrons sur <strong className="font-medium text-mayssa-brown">Annecy</strong> et
-              tout le <strong className="font-medium text-mayssa-brown">Grand Annecy</strong> :{' '}
-              <strong className="font-medium text-mayssa-brown">Seynod</strong>,{' '}
-              <strong className="font-medium text-mayssa-brown">Annecy-le-Vieux</strong>,{' '}
-              <strong className="font-medium text-mayssa-brown">Cran-Gevrier</strong>, Meythet,
-              Pringy et Épagny Metz-Tessy, ainsi que la rive du lac —{' '}
-              <strong className="font-medium text-mayssa-brown">Sevrier</strong>,{' '}
-              <strong className="font-medium text-mayssa-brown">Veyrier-du-Lac</strong>,
-              Saint-Jorioz, Menthon-Saint-Bernard — et la périphérie (Poisy, Argonay, Chavanod).
-              Une gourmandise de proximité au cœur de la <strong className="font-medium text-mayssa-brown">Haute-Savoie (74)</strong>.
+              Commandez et payez en ligne, puis récupérez votre commande en{' '}
+              <strong className="font-medium text-mayssa-brown">click &amp; collect</strong> à notre
+              boutique : <strong className="font-medium text-mayssa-brown">galerie marchande du centre
+              commercial Carrefour, 134 avenue de Genève à Annecy</strong>. Ouverture le{' '}
+              <strong className="font-medium text-mayssa-brown">4 juillet 2026</strong> — au cœur de la{' '}
+              <strong className="font-medium text-mayssa-brown">Haute-Savoie (74)</strong>, à deux pas
+              de Seynod, Annecy-le-Vieux et Cran-Gevrier.
             </p>
             <p>
               Au-delà des trompe-l&apos;œil, retrouvez nos brownies fondants, cookies moelleux,
-              canette cakes, cups de fruits frais et notre chocolaterie — livrés de 18h30 à 2h du
+              canette cakes, cups de fruits frais et notre chocolaterie — à retirer de 18h30 à 2h du
               matin, 7 jours sur 7. <Link to="/trompe-loeil-annecy" className="text-mayssa-gold underline underline-offset-2 hover:text-mayssa-brown transition-colors">Découvrir les trompe-l&apos;œil</Link>{' '}
               ou <Link to="/carte" className="text-mayssa-gold underline underline-offset-2 hover:text-mayssa-brown transition-colors">voir toute la carte</Link>.
             </p>

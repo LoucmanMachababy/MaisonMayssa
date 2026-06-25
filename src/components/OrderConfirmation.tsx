@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { CheckCircle2, MessageSquare, CreditCard, Copy, Star } from 'lucide-react'
-import { PAYPAL_ME_USER, PHONE_E164 } from '../constants'
+import { CheckCircle2, Copy, Star, MapPin } from 'lucide-react'
 import { getReviewByOrderId } from '../lib/firebase'
 import { formatOrderItemName } from '../lib/utils'
+import { STORE_ADDRESS_LINE, STORE_MAPS_URL } from '../constants/store'
 import { ReviewForm, type OrderItemForReview } from './ReviewForm'
 
 export type OrderConfirmationData = {
@@ -21,11 +21,12 @@ export type OrderConfirmationData = {
 
 interface OrderConfirmationProps {
   data: OrderConfirmationData
-  whatsappMessage: string
+  /** @deprecated conservé pour rétrocompat ; n'est plus utilisé en click & collect. */
+  whatsappMessage?: string
   onClose: () => void
 }
 
-export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfirmationProps) {
+export function OrderConfirmation({ data, onClose }: OrderConfirmationProps) {
   const [showReviewForm, setShowReviewForm] = useState(true)
   const [reviewAlreadySubmitted, setReviewAlreadySubmitted] = useState<boolean | null>(null)
 
@@ -38,7 +39,6 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
   }, [data.orderId])
 
   const finalTotal = data.total + (data.deliveryFee ?? 0)
-  const paypalUrl = `https://www.paypal.me/${PAYPAL_ME_USER}/${finalTotal.toFixed(2).replace('.', ',')}`
   const statusUrl = `${window.location.origin}/commande/${data.orderId}`
 
   const copyStatusLink = () => {
@@ -47,12 +47,14 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
 
   const displayOrderRef = data.orderNumber != null ? `#${data.orderNumber}` : data.orderId
 
-  const copyPaypalNote = () => {
-    // Dans le récap client, on évite d'afficher les descriptions optionnelles,
-    // pour ne garder que "quantité + nom du produit".
-    const note = `Commande ${displayOrderRef} - ${data.customer.firstName} ${data.customer.lastName}\n${data.items.map(i => `${i.quantity}× ${formatOrderItemName(i)}`).join(', ')}\nTotal: ${finalTotal.toFixed(2)} €`
-    navigator.clipboard.writeText(note)
-  }
+  const pickupWhen = [
+    data.requestedDate
+      ? new Date(data.requestedDate).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+      : null,
+    data.requestedTime ? `à ${data.requestedTime}` : null,
+  ]
+    .filter(Boolean)
+    .join(' ')
 
   return (
     <motion.div
@@ -69,7 +71,7 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
       >
         <div className="bg-mayssa-espresso px-6 py-8 text-center text-white">
           <CheckCircle2 size={56} className="mx-auto mb-3" />
-          <h2 className="text-xl font-display font-bold">Commande enregistrée !</h2>
+          <h2 className="text-xl font-display font-bold">Commande confirmée &amp; payée !</h2>
           <p className="text-emerald-100 text-sm mt-1">Numéro de commande</p>
           <p className="text-2xl font-mono font-bold mt-2 tracking-wider">{displayOrderRef}</p>
         </div>
@@ -84,70 +86,44 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
                   <span className="font-medium">{(item.price * item.quantity).toFixed(2).replace('.', ',')} €</span>
                 </div>
               ))}
-              {data.deliveryFee != null && data.deliveryFee > 0 && (
-                <div className="flex justify-between pt-2 border-t border-mayssa-brown/10">
-                  <span>Livraison</span>
-                  <span>+{data.deliveryFee.toFixed(2).replace('.', ',')} €</span>
-                </div>
-              )}
-              <div className="flex justify-between font-bold text-mayssa-gold pt-2">
-                <span>Total</span>
+              <div className="flex justify-between font-bold text-mayssa-gold pt-2 border-t border-mayssa-brown/10">
+                <span>Payé</span>
                 <span>{finalTotal.toFixed(2).replace('.', ',')} €</span>
               </div>
             </div>
           </div>
 
-          <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-mayssa-brown/75 mb-2">Prochaines étapes</h3>
-            <ol className="space-y-2 text-sm text-mayssa-brown">
-              <li className="flex gap-2">
-                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-mayssa-gold/20 text-mayssa-gold flex items-center justify-center text-xs font-bold">1</span>
-                <span><strong>Envoyez le message</strong> sur WhatsApp pour confirmer votre commande</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-mayssa-gold/20 text-mayssa-gold flex items-center justify-center text-xs font-bold">2</span>
-                <span><strong>Réglez</strong> par PayPal ou à la récupération</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-mayssa-gold/20 text-mayssa-gold flex items-center justify-center text-xs font-bold">3</span>
-                <span><strong>Suivez votre commande</strong> avec le lien ci-dessous</span>
-              </li>
-            </ol>
+          <div className="rounded-xl border border-mayssa-gold/30 bg-mayssa-soft/60 p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <MapPin size={16} className="text-mayssa-gold shrink-0" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-mayssa-brown/75">Votre retrait en click &amp; collect</h3>
+            </div>
+            <p className="text-sm text-mayssa-brown leading-relaxed">
+              {pickupWhen && (
+                <>
+                  <strong>{pickupWhen}</strong>
+                  <br />
+                </>
+              )}
+              Galerie marchande du Carrefour
+              <br />
+              {STORE_ADDRESS_LINE}
+            </p>
+            <a
+              href={STORE_MAPS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 mt-2 text-xs text-mayssa-gold font-medium hover:underline"
+            >
+              <MapPin size={12} /> Itinéraire
+            </a>
+            <p className="text-[11px] text-mayssa-brown/60 mt-3 leading-relaxed">
+              Présentez votre numéro de commande <strong>{displayOrderRef}</strong> au comptoir.
+              Un email de confirmation vous a été envoyé.
+            </p>
           </div>
 
           <div className="flex flex-col gap-3">
-            <a
-              href={`https://wa.me/${PHONE_E164}?text=${encodeURIComponent(whatsappMessage)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-4 bg-mayssa-brown text-white text-sm tracking-widest uppercase hover:bg-mayssa-espresso transition-colors"
-            >
-              <MessageSquare size={20} />
-              Envoyer sur WhatsApp
-            </a>
-
-            <a
-              href={paypalUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#003087] text-white font-bold hover:bg-[#003087]/90 transition-colors border-2 border-[#0070ba]"
-            >
-              <CreditCard size={20} />
-              Commander via PayPal — {finalTotal.toFixed(2).replace('.', ',')} €
-            </a>
-            <p className="text-[10px] text-mayssa-brown/65 text-center -mt-1">
-              Indiquez &quot;Commande {displayOrderRef}&quot; dans la note PayPal.
-            </p>
-            <button
-              type="button"
-              onClick={copyPaypalNote}
-              aria-label="Copier la note à inclure sur PayPal"
-              className="flex items-center justify-center gap-1 text-[10px] text-mayssa-gold hover:underline cursor-pointer"
-            >
-              <Copy size={12} aria-hidden="true" />
-              Copier la note à inclure sur PayPal
-            </button>
-
             <div className="border border-mayssa-brown/10 rounded-xl p-3 bg-slate-50">
               <p className="text-[10px] font-bold text-mayssa-brown/75 mb-2">Ma commande du {data.requestedDate ? new Date(data.requestedDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }) : 'jour'}</p>
               <div className="flex gap-3 items-start">
@@ -169,7 +145,7 @@ export function OrderConfirmation({ data, whatsappMessage, onClose }: OrderConfi
                   />
                 </a>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] text-mayssa-brown/65 mb-1">Lien à partager (retrait / livraison)</p>
+                  <p className="text-[10px] text-mayssa-brown/65 mb-1">Lien de suivi à partager</p>
                   <div className="flex items-center gap-2">
                     <a
                       href={statusUrl}

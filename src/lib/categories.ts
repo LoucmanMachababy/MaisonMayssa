@@ -10,7 +10,7 @@ export const CATALOG_FILTERS: CatalogFilter[] = [
   'Cookies gourmands',
   'Le salé',
   'Fruits frais',
-  'Cup Dubaï',
+  'Candy Fruit',
   'Chocolaterie',
   'Boxes',
 ]
@@ -47,17 +47,10 @@ export const CATEGORY_SHOWCASE: CategoryShowcase[] = [
     anchor: '#la-carte',
   },
   {
-    id: 'Cup Dubaï',
-    title: 'Cup Dubaï',
-    subtitle: 'Créations gourmandes au kataïfi',
-    image: '/nouvelle-img/cup-dubai-bueno.PNG',
-    anchor: '#la-carte',
-  },
-  {
     id: 'Chocolaterie',
     title: 'Chocolaterie',
-    subtitle: 'Tablettes artisanales',
-    image: '/nouvelle-img/tablette-chocolat-dubai-pistache.png',
+    subtitle: 'Cups Dubaï & tablettes artisanales',
+    image: '/nouvelle-img/cup-dubai-bueno.PNG',
     anchor: '#la-carte',
   },
   {
@@ -95,6 +88,8 @@ export const COMING_SOON_FEATURED_IDS = [
   'new-york-roll-steak',
   'panuozzo-maison-mayssa',
   'cup-dubai-pistache-chocolat-fraise',
+  'cup-dubai-pistache-chocolatblanc-fraise',
+  'cup-dubai-bueno',
   'tablette-dubai-pistache',
   'tablette-dubai-speculoos',
   'cup-fruits-mix-maison',

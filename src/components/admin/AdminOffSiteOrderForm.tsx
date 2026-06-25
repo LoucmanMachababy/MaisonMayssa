@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
-import { X, Minus, Plus, Search, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
-import { createOffSiteOrder, decrementStockBatch, isTrompeLoeilProductId, getStockDecrementItems, reserveDeliverySlot, validatePromoCode, incrementPromoCodeUsage, updateUserOrderStats, type OrderSource, type OrderItem, type DeliveryMode, type StockMap } from '../../lib/firebase'
+import { X, Minus, Plus, Search, Trash2, ChevronDown, ChevronUp, MapPin } from 'lucide-react'
+import { createOffSiteOrder, decrementStockBatch, isTrompeLoeilProductId, getStockDecrementItems, validatePromoCode, incrementPromoCodeUsage, updateUserOrderStats, type OrderSource, type OrderItem, type DeliveryMode, type StockMap } from '../../lib/firebase'
 import type { ProductWithAvailability } from '../../hooks/useProducts'
 import type { Product, ProductCategory, ProductSize } from '../../types'
 import { TiramisuCustomizationModal } from '../TiramisuCustomizationModal'
@@ -106,8 +106,8 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
   const [phone, setPhone] = useState('')
   const [contactHandle, setContactHandle] = useState('')
   const [cart, setCart] = useState<CartEntry[]>([])
-  const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>('retrait')
-  const [address, setAddress] = useState('')
+  // Click & collect uniquement : mode figé (plus de livraison à domicile).
+  const deliveryMode: DeliveryMode = 'retrait'
   const [requestedDate, setRequestedDate] = useState('')
   const [requestedTime, setRequestedTime] = useState('')
   const [adminNote, setAdminNote] = useState('')
@@ -127,7 +127,6 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
   const [promoCodeInput, setPromoCodeInput] = useState('')
   const [appliedPromo, setAppliedPromo] = useState<{ code: string; discount: number } | null>(null)
   const [manualDiscount, setManualDiscount] = useState<number>(0)
-  const [deliveryFee, setDeliveryFee] = useState(0)
   const [promoError, setPromoError] = useState('')
 
   useEffect(() => {
@@ -135,13 +134,12 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
       setFirstName(presetClient.firstName || '')
       setLastName(presetClient.lastName || '')
       setPhone(presetClient.phone || '')
-      setAddress(presetClient.address || '')
     }
   }, [presetClient])
 
   const subtotal = cart.reduce((sum, entry) => sum + entry.unitPrice * entry.quantity, 0)
   const discountAmount = appliedPromo ? appliedPromo.discount : (manualDiscount > 0 ? Math.min(manualDiscount, subtotal) : 0)
-  const total = Math.max(0, subtotal - discountAmount + (deliveryMode === 'livraison' ? deliveryFee : 0))
+  const total = Math.max(0, subtotal - discountAmount)
 
   const availableProducts = useMemo(() => {
     return allProducts.filter(p => p.available !== false)
@@ -349,7 +347,6 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
     if (needsPhone && !phone.trim()) { setError('Le téléphone est obligatoire pour WhatsApp'); return }
     if (!needsPhone && !contactHandle.trim()) { setError(source === 'snap' ? 'Le pseudo Snapchat est obligatoire' : 'Le pseudo Instagram est obligatoire'); return }
     if (cart.length === 0) { setError('Ajoutez au moins un produit'); return }
-    if (deliveryMode === 'livraison' && !address.trim()) { setError('L\'adresse est obligatoire pour une livraison'); return }
 
     setSaving(true)
     try {
@@ -379,7 +376,6 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
           phone: needsPhone ? phone.trim() : '',
           ...(!needsPhone && { contactPlatform: source === 'snap' ? 'snap' : 'instagram', contactHandle: contactHandle.trim() }),
           ...(presetClient?.email?.trim() && { email: presetClient.email.trim() }),
-          ...(deliveryMode === 'livraison' && address.trim() && { address: address.trim() }),
         },
         total,
         status: 'en_attente',
@@ -391,12 +387,7 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
         ...(adminNote.trim() && { adminNote: adminNote.trim() }),
         ...(appliedPromo && { promoCode: appliedPromo.code, discountAmount: appliedPromo.discount }),
         ...(!appliedPromo && discountAmount > 0 && { discountAmount }),
-        ...(deliveryMode === 'livraison' && deliveryFee > 0 ? { deliveryFee } : {}),
       })
-
-      if (deliveryMode === 'livraison' && requestedDate && requestedTime) {
-        reserveDeliverySlot(requestedDate, requestedTime).catch(console.error)
-      }
 
       // Ne déduire que les produits dont le stock doit être mis à jour (exclure trompes l'oeil si coché)
       // Les bundles sont développés en leurs composants individuels
@@ -713,12 +704,6 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
                   {promoError && <p className="text-[10px] text-red-500">{promoError}</p>}
                 </>
               )}
-              {deliveryMode === 'livraison' && deliveryFee > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-xs text-mayssa-brown/70">Frais de livraison</span>
-                  <span className="text-xs font-bold text-mayssa-brown">+{deliveryFee.toFixed(2).replace('.', ',')} €</span>
-                </div>
-              )}
               <div className="border-t border-mayssa-brown/10 pt-2 flex justify-between">
                 <span className="text-xs font-bold text-mayssa-brown">Total</span>
                 <span className="text-sm font-bold text-mayssa-caramel">{total.toFixed(2).replace('.', ',')} €</span>
@@ -726,62 +711,14 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
             </div>
           )}
 
-          {/* Mode */}
+          {/* Mode — click & collect uniquement */}
           <div>
             <label className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60 mb-2 block">Mode</label>
-            <div className="flex gap-2">
-              {(['retrait', 'livraison'] as const).map(mode => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setDeliveryMode(mode)}
-                  className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                    deliveryMode === mode
-                      ? 'bg-mayssa-brown text-white border-mayssa-brown'
-                      : 'bg-white border-mayssa-brown/10 text-mayssa-brown/50'
-                  }`}
-                >
-                  {mode === 'retrait' ? 'Retrait' : 'Livraison'}
-                </button>
-              ))}
+            <div className="flex items-center gap-2 rounded-xl bg-mayssa-soft/60 border border-mayssa-brown/10 px-3 py-2.5 text-xs font-bold text-mayssa-brown">
+              <MapPin size={14} className="text-mayssa-caramel" />
+              Retrait — Click &amp; collect
             </div>
           </div>
-
-          {deliveryMode === 'livraison' && (
-            <>
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60 mb-2 block">Adresse de livraison (obligatoire)</label>
-                <input
-                  type="text"
-                  placeholder="Adresse complète..."
-                  value={address}
-                  onChange={e => setAddress(e.target.value)}
-                  className="w-full rounded-xl bg-mayssa-soft/50 px-3 py-2.5 text-sm text-mayssa-brown border border-mayssa-brown/10 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/60 mb-2 block">Frais de livraison (€)</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {[0, 3, 5, 8].map(fee => (
-                    <button key={fee} type="button"
-                      onClick={() => setDeliveryFee(fee)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
-                        deliveryFee === fee ? 'bg-mayssa-caramel text-white' : 'bg-mayssa-soft text-mayssa-brown hover:bg-mayssa-caramel/20'
-                      }`}
-                    >
-                      {fee === 0 ? 'Offerts' : `${fee} €`}
-                    </button>
-                  ))}
-                  <input type="number" min={0} step={0.5}
-                    value={[0, 3, 5, 8].includes(deliveryFee) ? '' : deliveryFee || ''}
-                    onChange={e => setDeliveryFee(parseFloat(e.target.value) || 0)}
-                    placeholder="Autre"
-                    className="w-20 rounded-xl border border-mayssa-brown/10 px-2 py-1.5 text-xs text-mayssa-brown bg-mayssa-soft/50 focus:outline-none focus:ring-2 focus:ring-mayssa-caramel [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  />
-                </div>
-              </div>
-            </>
-          )}
 
           {/* Date / Heure */}
           <div>

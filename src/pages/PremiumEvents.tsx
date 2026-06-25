@@ -28,7 +28,7 @@ export default function PremiumEvents() {
     <div className="min-h-screen bg-mayssa-soft">
       <Helmet>
         <title>Événements sur mesure à Annecy — Maison Mayssa</title>
-        <meta name="description" content="Mariages, anniversaires, événements d'entreprise à Annecy et alentours : Maison Mayssa crée des pâtisseries trompe-l'œil sur mesure pour vos moments d'exception. Livraison sur tout le bassin annécien." />
+        <meta name="description" content="Mariages, anniversaires, événements d'entreprise à Annecy : Maison Mayssa crée des pâtisseries trompe-l'œil sur mesure pour vos moments d'exception. Commande sur devis, retrait à la boutique (galerie marchande Carrefour, av. de Genève)." />
         <link rel="canonical" href="https://maison-mayssa.fr/evenements" />
       </Helmet>
       {/* Hero */}

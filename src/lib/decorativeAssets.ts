@@ -20,10 +20,9 @@ export const LIFESTYLE = {
   /** Catégories — photos produits */
   jusFrais: '/nouvelle-img/limonade-bresilienne.png',
   canetteCake: '/nouvelle-img/canette-cake-speculos-framboise.png',
-  chocolaterie: '/nouvelle-img/tablette-chocolat-dubai-pistache.png',
+  chocolaterie: '/nouvelle-img/cup-dubai-bueno.PNG',
   sale: '/nouvelle-img/Panuozzo-Italien.png',
   fruits: '/nouvelle-img/Cup-de-fruit-mixte.png',
-  cupDubai: '/nouvelle-img/cup-dubai-bueno.PNG',
   boxes: '/nouvelle-img/boxe-de-tout.png',
 } as const
 
@@ -46,7 +45,7 @@ export const CATEGORY_HEADER_IMAGES: Record<string, string> = {
   sale: LIFESTYLE.sale,
   'canette-cake': LIFESTYLE.canetteCake,
   fruits: LIFESTYLE.fruits,
-  'cup-dubai': LIFESTYLE.cupDubai,
+  'candy-fruit': '/nouvelle-img/candy-bruit-box.jpeg',
   chocolaterie: LIFESTYLE.chocolaterie,
   boxes: LIFESTYLE.boxes,
 }

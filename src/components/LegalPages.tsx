@@ -2,11 +2,11 @@ import { PremiumCard, PremiumProse, PremiumSectionTitle } from './layout/Premium
 import { LEGAL, LEGAL_LAST_UPDATE } from '../lib/legalInfo'
 
 const FAQ_ITEMS = [
-  { q: 'Comment commander des pâtisseries en trompe-l\'œil sur Annecy ?', a: 'Ajoutez vos créations artisanales au panier, choisissez le retrait sur Annecy ou la livraison à domicile, puis validez via WhatsApp ou Instagram. La commande est confirmée par notre équipe.' },
-  { q: 'Quels sont vos secteurs et horaires de livraison ?', a: 'Notre service de livraison de pâtisserie haut de gamme opère de 18h30 à 2h du matin sur le bassin annécien (Annecy et ses alentours, dans un rayon de 5 km). Retrait sur place également disponible.' },
-  { q: 'Comment régler ma commande de pâtisseries ?', a: 'Le paiement s\'effectue à la livraison ou au retrait (espèces) ou via un lien PayPal sécurisé envoyé après confirmation. Aucun paiement n\'est exigé en ligne lors de la commande sur le site.' },
+  { q: 'Comment commander des pâtisseries en trompe-l\'œil sur Annecy ?', a: 'Ajoutez vos créations artisanales au panier, choisissez votre créneau de retrait, puis réglez en ligne par carte bancaire ou Apple Pay. La commande est confirmée immédiatement après paiement (click & collect).' },
+  { q: 'Où et quand récupérer ma commande ?', a: 'Retrait en click & collect à la boutique Maison Mayssa, galerie marchande du centre commercial Carrefour, 134 avenue de Genève, 74000 Annecy, de 18h30 à 2h du matin, 7 jours sur 7.' },
+  { q: 'Comment régler ma commande de pâtisseries ?', a: 'Le paiement s\'effectue en ligne au moment de la commande, par carte bancaire (Visa, Mastercard, CB) ou Apple Pay, via un paiement sécurisé. La commande est confirmée dès le règlement.' },
   { q: 'Quel est le délai pour une précommande de trompe-l\'œil ?', a: 'Nos trompe-l\'œil sont des pâtisseries artisanales nécessitant environ 3 jours de préparation (selon la collection). Les disponibilités exactes sont affichées dans le calendrier de commande.' },
-  { q: 'Quels sont les tarifs de livraison autour d\'Annecy ?', a: 'La livraison est offerte dès 50 € d\'achat sur notre zone (bassin annécien). Pour les commandes inférieures, un forfait de 5 € s\'applique. Pour les zones plus éloignées, contactez-nous directement.' },
+  { q: 'Le retrait est-il gratuit ?', a: 'Oui, le retrait en click & collect à la boutique est sans frais supplémentaires. Vous ne réglez que le montant de vos créations.' },
 ]
 
 function LegalUpdate() {
@@ -51,31 +51,33 @@ export function CGVSection() {
 
           <h3 className="font-display text-lg text-mayssa-brown mt-6 mb-2">3. Commande</h3>
           <p>
-            Le client compose son panier sur le site, renseigne ses coordonnées et choisit un créneau de retrait ou de livraison.
-            La commande est envoyée via WhatsApp, Instagram ou Snapchat ; elle n&apos;est définitive qu&apos;après confirmation
-            expresse de {LEGAL.brand}. Nous nous réservons le droit de refuser ou d&apos;ajuster une commande en cas
-            d&apos;indisponibilité, d&apos;erreur manifeste de prix ou d&apos;impossibilité de livraison.
+            Le client compose son panier sur le site, renseigne ses coordonnées et choisit un créneau de retrait,
+            puis procède au paiement en ligne (click &amp; collect). La commande est définitive après confirmation
+            du paiement. {LEGAL.brand} se réserve le droit de refuser ou d&apos;ajuster une commande en cas
+            d&apos;indisponibilité ou d&apos;erreur manifeste de prix ; le cas échéant, le client est remboursé.
           </p>
 
           <h3 className="font-display text-lg text-mayssa-brown mt-6 mb-2">4. Prix et paiement</h3>
           <p>
-            Les prix sont indiqués en euros TTC sur le site au moment de la commande. Les frais de livraison s&apos;élèvent
-            à 5 € (offerts dès 50 € d&apos;achat sur la zone de livraison annécienne). Le paiement s&apos;effectue au retrait,
-            à la livraison (espèces) ou via PayPal sur lien sécurisé, sauf accord contraire.
+            Les prix sont indiqués en euros TTC sur le site au moment de la commande. Le retrait en click &amp; collect
+            est sans frais. Le paiement s&apos;effectue en ligne au moment de la commande, par carte bancaire
+            (Visa, Mastercard, CB) ou Apple Pay, via un prestataire de paiement sécurisé. Aucun débit n&apos;intervient
+            avant la validation de la commande.
           </p>
 
           <h3 className="font-display text-lg text-mayssa-brown mt-6 mb-2">5. Délais et exécution</h3>
           <p>
             Les trompe-l&apos;œil et certaines créations nécessitent un délai de préparation (environ 3 jours, selon les
             disponibilités affichées). Les autres produits sont préparés selon les stocks et créneaux ouverts. Le client
-            s&apos;engage à être disponible au créneau choisi ou à prévenir en cas d&apos;empêchement.
+            s&apos;engage à se présenter au créneau de retrait choisi ou à prévenir en cas d&apos;empêchement.
           </p>
 
-          <h3 className="font-display text-lg text-mayssa-brown mt-6 mb-2">6. Livraison et retrait</h3>
+          <h3 className="font-display text-lg text-mayssa-brown mt-6 mb-2">6. Retrait — Click &amp; collect</h3>
           <p>
-            Livraison sur le bassin annécien (rayon d&apos;environ 5 km), généralement entre 18h30 et 2h du matin.
-            Retrait sur place possible selon les créneaux proposés. En cas d&apos;absence du client à la livraison,
-            un nouveau passage pourra être facturé.
+            Retrait à la boutique {LEGAL.brand}, galerie marchande du centre commercial Carrefour, 134 avenue de Genève,
+            74000 Annecy, selon les créneaux proposés (généralement entre 18h30 et 2h du matin, 7 j/7). La commande payée
+            est tenue à disposition du client au comptoir, sur présentation du numéro de commande. Aucune livraison à
+            domicile n&apos;est assurée.
           </p>
 
           <h3 className="font-display text-lg text-mayssa-brown mt-6 mb-2">7. Droit de rétractation</h3>
@@ -150,7 +152,8 @@ export function MentionsLegalesSection() {
             Téléphone : {LEGAL.phone}<br />
             Email : {LEGAL.email}<br />
             Instagram : {LEGAL.instagram}<br />
-            Commandes : WhatsApp, Instagram ou Snapchat
+            Boutique : galerie marchande du Carrefour, 134 avenue de Genève, 74000 Annecy<br />
+            Commandes : en ligne sur ce site (click &amp; collect)
           </p>
 
           <h3 className="font-display text-lg text-mayssa-brown mt-6 mb-2">Hébergement</h3>
@@ -195,8 +198,8 @@ export function ConfidentialiteSection() {
 
           <h3 className="font-display text-lg text-mayssa-brown mt-6 mb-2">Données collectées</h3>
           <p>
-            <strong className="text-mayssa-brown font-medium">Commande</strong> : prénom, nom, téléphone, adresse (si livraison),
-            date et heure de retrait/livraison, contenu du panier, instructions éventuelles.<br />
+            <strong className="text-mayssa-brown font-medium">Commande</strong> : prénom, nom, téléphone, email,
+            date et heure de retrait, contenu du panier, instructions éventuelles.<br />
             <strong className="text-mayssa-brown font-medium">Compte client</strong> (optionnel) : email, mot de passe (haché),
             téléphone, date de naissance (programme fidélité), historique de commandes et points.<br />
             <strong className="text-mayssa-brown font-medium">Navigation</strong> : stockage local (panier, préférences cookies),
@@ -220,8 +223,8 @@ export function ConfidentialiteSection() {
           <h3 className="font-display text-lg text-mayssa-brown mt-6 mb-2">Destinataires et sous-traitants</h3>
           <p>
             Vos données peuvent être traitées par : Google Firebase (hébergement base de données, authentification, analytics) —
-            Vercel (hébergement du site) — PayPal (paiement, si utilisé). Ces prestataires sont situés hors UE ; des garanties
-            appropriées (clauses contractuelles types) s&apos;appliquent. Vos données ne sont jamais vendues à des tiers.
+            Vercel (hébergement du site) — Stripe (paiement en ligne sécurisé). Ces prestataires peuvent être situés hors UE ;
+            des garanties appropriées (clauses contractuelles types) s&apos;appliquent. Vos données ne sont jamais vendues à des tiers.
           </p>
 
           <h3 className="font-display text-lg text-mayssa-brown mt-6 mb-2">Cookies et stockage local</h3>

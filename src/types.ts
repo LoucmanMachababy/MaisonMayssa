@@ -11,8 +11,8 @@ export type ProductCategory =
     | 'Cookies gourmands'
     | 'Le salé'
     | 'Fruits frais'
-    | 'Cup Dubaï'
     | 'Chocolaterie'
+    | 'Candy Fruit'
     | 'Boxes'
     /** @deprecated Conservé pour rétrocompat admin / commandes historiques */
     | "Trompe l'œil"

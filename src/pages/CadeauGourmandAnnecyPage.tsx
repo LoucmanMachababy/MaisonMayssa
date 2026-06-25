@@ -4,7 +4,7 @@ export function CadeauGourmandAnnecyPage() {
   return (
     <PillarPageLayout
       title="Cadeau gourmand Annecy — Coffrets pâtissiers Maison Mayssa"
-      description="Cadeau gourmand original à Annecy : coffrets trompe-l'œil, boxes mixtes brownies & cookies, assortiments pâtissiers artisanaux. Livraison offerte dès 50€."
+      description="Cadeau gourmand original à Annecy : coffrets trompe-l'œil, boxes mixtes brownies & cookies, assortiments pâtissiers artisanaux. Click & collect à Annecy."
       canonical="https://maison-mayssa.fr/cadeau-gourmand-annecy"
       breadcrumb={[
         { name: 'Accueil', url: '/' },
@@ -35,8 +35,8 @@ export function CadeauGourmandAnnecyPage() {
           a: "Oui, nos boxes sont présentées dans un packaging soigné qui donne envie. Tu peux l'offrir directement, pas besoin de paquet cadeau supplémentaire. Sur demande, je peux ajouter un petit mot manuscrit.",
         },
         {
-          q: "Puis-je livrer le cadeau directement à la personne ?",
-          a: "Bien sûr ! Indique l'adresse du destinataire à la commande et j'irai livrer directement chez elle/lui. Précise le créneau horaire idéal (18h30-2h, 7j/7 sur Annecy et alentours).",
+          q: "Puis-je faire récupérer le cadeau par quelqu'un d'autre ?",
+          a: "Oui ! La commande se retire en click & collect à la boutique Maison Mayssa (galerie marchande du Carrefour, 134 avenue de Genève à Annecy). N'importe qui peut venir chercher le cadeau sur le créneau choisi (18h30-2h, 7j/7) en présentant le numéro de commande. Pratique pour offrir une surprise.",
         },
         {
           q: "Combien à l'avance faut-il commander ?",
@@ -131,19 +131,21 @@ export function CadeauGourmandAnnecyPage() {
 
       <section>
         <h2 className="text-xl sm:text-2xl font-display font-bold text-mayssa-brown mb-4">
-          Livraison cadeau directement chez le destinataire
+          Un cadeau prêt à offrir, à récupérer en boutique
         </h2>
         <div className="prose prose-sm sm:prose-base max-w-none text-mayssa-brown/85 space-y-4 leading-relaxed">
           <p>
-            Tu peux m'indiquer <strong>l'adresse du destinataire</strong> directement à la
-            commande, et je livre chez lui / elle dans le créneau que tu précises. Service
-            de <strong>18h30 à 2h du matin, 7 jours sur 7</strong>, sur Annecy et alentours
-            (rayon 5-10 km : Seynod, Annecy-le-Vieux, Meythet, Pringy, Cran-Gevrier,
-            Épagny).
+            Tu commandes et tu paies <strong>100 % en ligne</strong> par carte bancaire ou
+            Apple Pay, puis tu viens chercher ton coffret en click & collect à la boutique
+            Maison Mayssa, dans la galerie marchande du centre commercial Carrefour, 134
+            avenue de Genève à Annecy. Créneaux de retrait de <strong>18h30 à 2h du matin,
+            7 jours sur 7</strong>.
           </p>
           <p>
-            <strong>Livraison offerte dès 50 € d'achat</strong>. Sinon forfait de 5 €.
-            Pour les zones plus éloignées, contacte-moi par WhatsApp pour qu'on s'arrange.
+            <strong>Retrait gratuit en boutique</strong>. Chaque coffret est présenté dans
+            un packaging soigné, prêt à offrir : tu n'as plus qu'à le remettre à la personne.
+            Et si tu préfères, quelqu'un d'autre peut venir le récupérer avec ton numéro de
+            commande.
           </p>
           <p>
             Option : je peux ajouter <strong>un petit mot manuscrit</strong> de ta part
@@ -183,7 +185,7 @@ export function CadeauGourmandAnnecyPage() {
             <li>
               <strong>Occasion spéciale (mariage, naissance)</strong> → Contacte-moi par
               WhatsApp pour un devis personnalisé. Je peux faire des assortiments sur
-              mesure, adapter les quantités, prévoir une livraison coordonnée.
+              mesure, adapter les quantités et organiser le retrait pour les gros volumes.
             </li>
           </ul>
         </div>

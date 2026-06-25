@@ -1,21 +1,21 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, MessageCircle, MapPin, Calendar, Instagram } from 'lucide-react'
+import { X, MapPin, Calendar, Lock } from 'lucide-react'
 import type { CartItem, CustomerInfo } from '../types'
 import { PRODUCTS, isTrompeBoxWithStoredSelection } from '../constants'
+import { STORE_ADDRESS_LINE } from '../constants/store'
 import { formatDateYyyyMmDdToFrench } from '../lib/utils'
-import { normalizeInstagramHandle } from '../lib/delivery'
 import { useFocusTrap } from '../hooks/useAccessibility'
 import { useRef, useState, useEffect } from 'react'
-import { SnapIcon } from './SnapIcon'
 
+/** @deprecated le canal n'est plus pertinent (click & collect), conservé pour rétrocompat de signature. */
 export type OrderRecapSendChannel = 'whatsapp' | 'instagram' | 'snap'
 
 interface OrderRecapModalProps {
   isOpen: boolean
   onClose: () => void
-  /** Le canal affiché est passé ici pour éviter une closure périmée sur l’état parent. */
+  /** Confirme la commande (le canal est ignoré en click & collect). */
   onConfirm: (channel: OrderRecapSendChannel) => void | Promise<void>
-  /** Canal d’envoi après validation (texte du bouton et consigne). */
+  /** @deprecated conservé pour rétrocompat ; le parcours est unique (click & collect). */
   channel?: OrderRecapSendChannel
   customer: CustomerInfo
   items: CartItem[]
@@ -23,28 +23,6 @@ interface OrderRecapModalProps {
   deliveryFee: number
   discountAmount?: number
   donationAmount?: number
-}
-
-const CHANNEL_COPY: Record<
-  OrderRecapSendChannel,
-  { hint: string; confirmLabel: string; buttonClass: string }
-> = {
-  whatsapp: {
-    hint: "Vérifie les infos avant d'envoyer sur WhatsApp.",
-    confirmLabel: 'Oui, envoyer sur WhatsApp',
-    buttonClass: 'bg-[#25D366] text-white shadow-lg hover:bg-[#20bd5a]',
-  },
-  instagram: {
-    hint: 'Vérifie les infos. Ensuite tu pourras copier le message pour Instagram.',
-    confirmLabel: 'Oui, confirmer (Instagram)',
-    buttonClass:
-      'bg-gradient-to-r from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white shadow-lg hover:opacity-95',
-  },
-  snap: {
-    hint: 'Vérifie les infos. Ensuite tu pourras copier le message pour Snapchat.',
-    confirmLabel: 'Oui, confirmer (Snapchat)',
-    buttonClass: 'bg-[#FFFC00] text-black shadow-lg hover:brightness-95',
-  },
 }
 
 export function OrderRecapModal({
@@ -68,8 +46,6 @@ export function OrderRecapModal({
   }, [isOpen])
 
   const finalTotal = total - discountAmount + deliveryFee + donationAmount
-  const modeLabel = customer.wantsDelivery ? 'Livraison' : 'Retrait sur place'
-  const copy = CHANNEL_COPY[channel]
 
   const handleConfirm = async () => {
     if (submitting) return
@@ -117,28 +93,15 @@ export function OrderRecapModal({
               <X size={18} />
             </button>
           </div>
-          <p className="text-xs text-mayssa-brown/60 mt-1">{copy.hint}</p>
+          <p className="text-xs text-mayssa-brown/60 mt-1">Vérifie les infos avant de valider et payer ta commande.</p>
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          {channel === 'instagram' && (
-            <div className="flex items-start gap-3 text-sm">
-              <Instagram size={18} className="text-mayssa-caramel shrink-0 mt-0.5" />
-              <div>
-                <p className="font-semibold text-mayssa-brown">Compte Instagram</p>
-                <p className="text-mayssa-brown/80">@{normalizeInstagramHandle(customer.firstName)}</p>
-              </div>
-            </div>
-          )}
           <div className="flex items-start gap-3 text-sm">
             <MapPin size={18} className="text-mayssa-caramel shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-mayssa-brown">{modeLabel}</p>
-              {customer.wantsDelivery && customer.address ? (
-                <p className="text-mayssa-brown/80">{customer.address}</p>
-              ) : (
-                <p className="text-mayssa-brown/80">Retrait sur place (Annecy)</p>
-              )}
+              <p className="font-semibold text-mayssa-brown">Retrait en click &amp; collect</p>
+              <p className="text-mayssa-brown/80">Galerie marchande du Carrefour — {STORE_ADDRESS_LINE}</p>
             </div>
           </div>
 
@@ -211,12 +174,10 @@ export function OrderRecapModal({
             type="button"
             onClick={handleConfirm}
             disabled={submitting}
-            className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${copy.buttonClass}`}
+            className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed bg-mayssa-brown text-white shadow-lg hover:bg-mayssa-espresso"
           >
-            {channel === 'whatsapp' && <MessageCircle size={20} />}
-            {channel === 'instagram' && <Instagram size={20} />}
-            {channel === 'snap' && <SnapIcon size={20} />}
-            {submitting ? 'Envoi…' : copy.confirmLabel}
+            <Lock size={20} />
+            {submitting ? 'Validation…' : `Confirmer · ${finalTotal.toFixed(2).replace('.', ',')} €`}
           </button>
           <button
             type="button"
