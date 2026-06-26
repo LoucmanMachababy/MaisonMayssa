@@ -2,6 +2,10 @@ import { useState } from 'react'
 import { CreditCard, Check, Loader2, Lock } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { STRIPE_LIVE, type PaymentMethod } from '../../constants/checkout'
+import {
+  SimulatedApplePayButton,
+  SimulatedGooglePayButton,
+} from './PaymentWalletBadges'
 
 interface SimulatedPaymentProps {
   total: number
@@ -12,19 +16,16 @@ interface SimulatedPaymentProps {
   className?: string
 }
 
-const METHODS: { id: PaymentMethod; label: string; sub: string }[] = [
-  { id: 'card', label: 'Carte bancaire', sub: 'Visa · Mastercard · CB' },
-  { id: 'apple_pay', label: 'Apple Pay', sub: 'Paiement express' },
-]
+const METHOD_LABELS: Record<PaymentMethod, string> = {
+  card: 'Carte bancaire',
+  apple_pay: 'Apple Pay',
+  google_pay: 'Google Pay',
+  paypal: 'PayPal',
+}
 
 /**
- * Bloc de paiement Stripe (carte + Apple Pay).
- *
- * Tant que {@link STRIPE_LIVE} est `false`, le paiement est *simulé* : la
- * commande est confirmée sans débit réel pour ne pas bloquer la mise en
- * ligne. Pour brancher le vrai Stripe : remplacer le `setTimeout` de
- * `handlePay` par un appel à l'endpoint serveur (Payment Intent) puis
- * confirmer via `@stripe/stripe-js`, et passer `STRIPE_LIVE` à `true`.
+ * Paiement simulé (démo) quand Stripe n'est pas configuré.
+ * Affiche Apple Pay et Google Pay de façon visible.
  */
 export function SimulatedPayment({
   total,
@@ -39,14 +40,13 @@ export function SimulatedPayment({
   const handlePay = async (method: PaymentMethod) => {
     if (confirmed || loading) return
     setLoading(method)
-    // TODO Stripe : créer le PaymentIntent côté serveur puis confirmer ici.
     await new Promise((r) => setTimeout(r, 1200))
     setLoading(null)
     onConfirm(method)
   }
 
   if (confirmed && selectedMethod) {
-    const label = METHODS.find((m) => m.id === selectedMethod)?.label ?? 'Paiement'
+    const label = METHOD_LABELS[selectedMethod] ?? 'Paiement'
     return (
       <div className={cn('rounded-xl border border-emerald-200 bg-emerald-50/90 p-4 space-y-2', className)}>
         <div className="flex items-center gap-2 text-emerald-800">
@@ -69,8 +69,10 @@ export function SimulatedPayment({
     )
   }
 
+  const busy = !!loading
+
   return (
-    <div className={cn('space-y-3', className)}>
+    <div className={cn('space-y-4', className)}>
       <div className="flex items-center gap-2 text-mayssa-brown">
         <CreditCard size={16} className="text-mayssa-gold" />
         <p className="text-[10px] font-bold uppercase tracking-widest">Paiement sécurisé</p>
@@ -78,36 +80,55 @@ export function SimulatedPayment({
           <Lock size={9} /> Stripe
         </span>
       </div>
+
       <p className="text-[10px] text-mayssa-brown/60 leading-relaxed">
         Réglez votre commande en ligne pour réserver votre retrait en click &amp; collect.
         {!STRIPE_LIVE && ' Paiement de démonstration — aucun montant débité pour le moment.'}
       </p>
+
+      <p className="text-center text-[10px] font-bold uppercase tracking-[0.2em] text-mayssa-brown/55">
+        Paiement express
+      </p>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        {METHODS.map((method) => (
-          <button
-            key={method.id}
-            type="button"
-            disabled={!!loading}
-            onClick={() => handlePay(method.id)}
-            className={cn(
-              'flex flex-col items-center justify-center gap-1 rounded-xl border-2 px-3 py-4 transition-all cursor-pointer min-h-[72px]',
-              loading === method.id
-                ? 'border-mayssa-gold bg-mayssa-gold/10'
-                : 'border-mayssa-brown/10 bg-white hover:border-mayssa-gold/50 hover:bg-mayssa-soft/50',
-            )}
-          >
-            {loading === method.id ? (
-              <Loader2 size={20} className="animate-spin text-mayssa-gold" />
-            ) : method.id === 'apple_pay' ? (
-              <span className="text-sm font-semibold tracking-tight"> Pay</span>
-            ) : (
-              <CreditCard size={20} className="text-mayssa-brown" />
-            )}
-            <span className="text-[10px] font-bold text-mayssa-brown text-center leading-tight">{method.label}</span>
-            <span className="text-[9px] text-mayssa-brown/45">{method.sub}</span>
-          </button>
-        ))}
+        <SimulatedApplePayButton
+          loading={loading === 'apple_pay'}
+          disabled={busy}
+          onClick={() => handlePay('apple_pay')}
+        />
+        <SimulatedGooglePayButton
+          loading={loading === 'google_pay'}
+          disabled={busy}
+          onClick={() => handlePay('google_pay')}
+        />
       </div>
+
+      <div className="flex items-center gap-3 text-[10px] uppercase tracking-wider text-mayssa-brown/45">
+        <span className="flex-1 h-px bg-mayssa-brown/10" />
+        ou par carte
+        <span className="flex-1 h-px bg-mayssa-brown/10" />
+      </div>
+
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => handlePay('card')}
+        className={cn(
+          'flex w-full flex-col items-center justify-center gap-1 rounded-xl border-2 px-3 py-4 transition-all cursor-pointer min-h-[72px]',
+          loading === 'card'
+            ? 'border-mayssa-gold bg-mayssa-gold/10'
+            : 'border-mayssa-brown/10 bg-white hover:border-mayssa-gold/50 hover:bg-mayssa-soft/50',
+        )}
+      >
+        {loading === 'card' ? (
+          <Loader2 size={20} className="animate-spin text-mayssa-gold" />
+        ) : (
+          <CreditCard size={20} className="text-mayssa-brown" />
+        )}
+        <span className="text-[10px] font-bold text-mayssa-brown text-center leading-tight">Carte bancaire</span>
+        <span className="text-[9px] text-mayssa-brown/45">Visa · Mastercard · CB</span>
+      </button>
+
       <p className="text-[9px] text-mayssa-brown/45 text-center">
         Total à régler : <strong className="text-mayssa-brown">{total.toFixed(2).replace('.', ',')} €</strong>
       </p>

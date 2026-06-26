@@ -55,8 +55,8 @@ export const CATEGORY_SHOWCASE: CategoryShowcase[] = [
   },
   {
     id: 'Candy Fruit',
-    title: 'Candy Fruit',
-    subtitle: 'Box, canette & sauce acidulée',
+    title: 'Candy Fruit Chez Mima',
+    subtitle: 'Box, canette & sauce · @chezmima-74',
     image: '/nouvelle-img/candy-bruit-box.jpeg',
     anchor: '#la-carte',
   },

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Plus, Minus, ShoppingBag, ChevronDown } from 'lucide-react'
 import type { Product } from '../types'
 import {
+  CANDY_FRUIT_BRAND,
   getCandyFruitFlavors,
   getCandyFruitFormat,
   getCandyFruitFormatLabel,
@@ -77,7 +78,7 @@ export function CandyFruitModal({ product, onClose, onSelect }: CandyFruitModalP
                   <X size={18} />
                 </button>
                 <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-mayssa-gold">
-                  Candy Fruit · {formatLabel} · {product.price.toFixed(0)} €
+                  {CANDY_FRUIT_BRAND} · Candy Fruit · {formatLabel} · {product.price.toFixed(0)} €
                 </p>
                 <h2
                   id="candy-fruit-modal-title"
@@ -85,6 +86,11 @@ export function CandyFruitModal({ product, onClose, onSelect }: CandyFruitModalP
                 >
                   {product.name}
                 </h2>
+                {product.description && (
+                  <p className="text-xs text-mayssa-brown/60 mt-1 leading-snug">
+                    {product.description}
+                  </p>
+                )}
               </div>
 
               {/* Zone scrollable : goûts en premier */}

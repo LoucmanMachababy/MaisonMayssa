@@ -118,7 +118,7 @@ export function useProductAddFlow(options?: UseProductAddFlowOptions) {
     const cartProduct: Product = {
       ...product,
       id: `${product.id}-${flavor.id}`,
-      name: `Candy Fruit ${formatLabel} — ${flavor.label}`,
+      name: `Candy Fruit Chez Mima ${formatLabel} — ${flavor.label}`,
       image: flavor.image,
       images: [flavor.image],
       category: 'Candy Fruit',
