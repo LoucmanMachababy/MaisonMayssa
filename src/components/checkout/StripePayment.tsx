@@ -10,11 +10,12 @@ import type {
   StripeElementsOptions,
   StripeExpressCheckoutElementClickEvent,
   StripeExpressCheckoutElementConfirmEvent,
+  StripeExpressCheckoutElementReadyEvent,
 } from '@stripe/stripe-js'
 import type { PaymentIntent } from '@stripe/stripe-js'
 import { Check, Loader2, Lock, AlertCircle } from 'lucide-react'
 import { cn } from '../../lib/utils'
-import { getStripePromise } from '../../lib/stripe'
+import { getStripePromise, STRIPE_PUBLISHABLE_KEY } from '../../lib/stripe'
 import { createPaymentIntent, type PaymentIntentItem } from '../../lib/firebase'
 import type { PaymentMethod } from '../../constants/checkout'
 
@@ -26,7 +27,6 @@ export type StripePaymentConfirmHandler = (
 export interface StripePaymentProps {
   total: number
   confirmed: boolean
-  /** Données pour recalculer le montant côté serveur (source de vérité). */
   items: PaymentIntentItem[]
   discountAmount?: number
   donationAmount?: number
@@ -66,17 +66,6 @@ const PAYMENT_ELEMENT_OPTIONS = {
   },
 }
 
-const elementsAppearance: StripeElementsOptions['appearance'] = {
-  theme: 'flat',
-  variables: {
-    colorPrimary: '#B8860B',
-    colorText: '#1E120D',
-    colorBackground: '#ffffff',
-    fontFamily: 'system-ui, sans-serif',
-    borderRadius: '12px',
-  },
-}
-
 function methodFromIntent(pi: PaymentIntent): PaymentMethod {
   const pm = pi.payment_method
   if (pm && typeof pm === 'object') {
@@ -94,15 +83,34 @@ function itemsKey(items: PaymentIntentItem[]) {
   return items.map((i) => `${i.price}:${i.quantity}`).join('|')
 }
 
-function useReturnUrl() {
-  return `${window.location.origin}${window.location.pathname}`
+function hasExpressWallets(event: StripeExpressCheckoutElementReadyEvent): boolean {
+  const methods = event.availablePaymentMethods
+  if (!methods) return false
+  return Boolean(methods.applePay || methods.googlePay)
 }
 
-function usePaymentRedirectHandler(
-  stripe: ReturnType<typeof useStripe>,
-  finalizePayment: (pi: PaymentIntent) => Promise<void>,
-  setError: (msg: string) => void,
-) {
+function StripePaymentForm({
+  total,
+  onConfirm,
+  setPaymentError,
+}: {
+  total: number
+  onConfirm: StripePaymentConfirmHandler
+  setPaymentError: (msg: string) => void
+}) {
+  const stripe = useStripe()
+  const elements = useElements()
+  const [submitting, setSubmitting] = useState(false)
+  const [expressState, setExpressState] = useState<'loading' | 'ready' | 'hidden'>('loading')
+  const returnUrl = `${window.location.origin}${window.location.pathname}`
+
+  const finalizePayment = useCallback(
+    async (paymentIntent: PaymentIntent) => {
+      await onConfirm(methodFromIntent(paymentIntent), paymentIntent.id)
+    },
+    [onConfirm],
+  )
+
   useEffect(() => {
     if (!stripe) return
     const params = new URLSearchParams(window.location.search)
@@ -119,42 +127,27 @@ function usePaymentRedirectHandler(
           url.searchParams.delete('redirect_status')
           window.history.replaceState({}, '', url.pathname + url.search)
         } catch {
-          setError('Paiement reçu mais la commande n\'a pas pu être finalisée. Contacte-nous.')
+          setPaymentError('Paiement reçu mais la commande n\'a pas pu être finalisée. Contacte-nous.')
         }
       } else if (paymentIntent?.status === 'requires_payment_method') {
-        setError('Le paiement a été annulé ou refusé. Réessaie.')
+        setPaymentError('Le paiement a été annulé ou refusé. Réessaie.')
       }
     })
-  }, [stripe, finalizePayment, setError])
-}
+  }, [stripe, finalizePayment, setPaymentError])
 
-/**
- * Apple Pay / Google Pay — Elements séparé pour éviter les conflits avec PaymentElement.
- */
-function ExpressCheckoutBlock({
-  onConfirm,
-  setError,
-}: {
-  onConfirm: StripePaymentConfirmHandler
-  setError: (msg: string) => void
-}) {
-  const stripe = useStripe()
-  const elements = useElements()
-  const [submitting, setSubmitting] = useState(false)
-  const [expressReady, setExpressReady] = useState(false)
-  const returnUrl = useReturnUrl()
+  // Ne pas bloquer l'UI si onReady ne se déclenche pas (ex. environnement sans wallet).
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setExpressState((prev) => (prev === 'loading' ? 'hidden' : prev))
+    }, 6000)
+    return () => window.clearTimeout(timer)
+  }, [])
 
-  const finalizePayment = useCallback(
-    async (paymentIntent: PaymentIntent) => {
-      await onConfirm(methodFromIntent(paymentIntent), paymentIntent.id)
-    },
-    [onConfirm],
-  )
+  const handleExpressReady = useCallback((event: StripeExpressCheckoutElementReadyEvent) => {
+    setExpressState(hasExpressWallets(event) ? 'ready' : 'hidden')
+  }, [])
 
-  usePaymentRedirectHandler(stripe, finalizePayment, setError)
-
-  const handleClick = useCallback((event: StripeExpressCheckoutElementClickEvent) => {
-    // Obligatoire : sans resolve(), Apple Pay / Google Pay ne s'ouvrent pas.
+  const handleExpressClick = useCallback((event: StripeExpressCheckoutElementClickEvent) => {
     event.resolve()
   }, [])
 
@@ -165,11 +158,9 @@ function ExpressCheckoutBlock({
         return
       }
       setSubmitting(true)
-      setError('')
+      setPaymentError('')
 
       try {
-        // Ne pas appeler elements.submit() ici : avec PaymentElement dans un autre
-        // Elements, cela déclenche la validation carte et bloque les wallets.
         const { error: payError, paymentIntent } = await stripe.confirmPayment({
           elements,
           confirmParams: { return_url: returnUrl },
@@ -177,7 +168,7 @@ function ExpressCheckoutBlock({
         })
 
         if (payError) {
-          setError(payError.message ?? 'Le paiement a échoué.')
+          setPaymentError(payError.message ?? 'Le paiement a échoué.')
           event.paymentFailed({ reason: 'fail', message: payError.message })
           return
         }
@@ -187,82 +178,33 @@ function ExpressCheckoutBlock({
             await finalizePayment(paymentIntent)
           } catch (err) {
             console.error('[Stripe] post-payment order:', err)
-            setError('Paiement reçu mais la commande n\'a pas pu être finalisée. Contacte-nous.')
+            setPaymentError('Paiement reçu mais la commande n\'a pas pu être finalisée. Contacte-nous.')
           }
           return
         }
 
-        setError("Le paiement n'a pas pu être confirmé. Réessaie.")
+        setPaymentError("Le paiement n'a pas pu être confirmé. Réessaie.")
         event.paymentFailed({ reason: 'fail' })
       } catch (err) {
         console.error('[Stripe] express checkout:', err)
-        setError('Une erreur est survenue lors du paiement. Réessaie.')
+        setPaymentError('Une erreur est survenue lors du paiement. Réessaie.')
         event.paymentFailed({ reason: 'fail' })
       } finally {
         setSubmitting(false)
       }
     },
-    [elements, finalizePayment, returnUrl, setError, stripe, submitting],
+    [elements, finalizePayment, returnUrl, setPaymentError, stripe, submitting],
   )
-
-  return (
-    <div className="space-y-2">
-      <div className="min-h-[52px] relative z-[1]">
-        <ExpressCheckoutElement
-          options={EXPRESS_CHECKOUT_OPTIONS}
-          onReady={() => setExpressReady(true)}
-          onClick={handleClick}
-          onConfirm={handleExpressConfirm}
-          onLoadError={(e) => {
-            console.error('[Stripe] ExpressCheckout load error:', e.error)
-            setError('Apple Pay / Google Pay indisponibles sur cet appareil.')
-          }}
-        />
-      </div>
-      {!expressReady && (
-        <p className="text-center text-[10px] text-mayssa-brown/45 animate-pulse">
-          Chargement Apple Pay &amp; Google Pay…
-        </p>
-      )}
-    </div>
-  )
-}
-
-/**
- * Paiement par carte — Elements dédié (séparé d'Express Checkout).
- */
-function CardPaymentBlock({
-  total,
-  onConfirm,
-  setError,
-}: {
-  total: number
-  onConfirm: StripePaymentConfirmHandler
-  setError: (msg: string) => void
-}) {
-  const stripe = useStripe()
-  const elements = useElements()
-  const [submitting, setSubmitting] = useState(false)
-  const returnUrl = useReturnUrl()
-
-  const finalizePayment = useCallback(
-    async (paymentIntent: PaymentIntent) => {
-      await onConfirm(methodFromIntent(paymentIntent), paymentIntent.id)
-    },
-    [onConfirm],
-  )
-
-  usePaymentRedirectHandler(stripe, finalizePayment, setError)
 
   const handleCardPay = async () => {
     if (submitting || !stripe || !elements) return
     setSubmitting(true)
-    setError('')
+    setPaymentError('')
 
     try {
       const { error: submitError } = await elements.submit()
       if (submitError) {
-        setError(submitError.message ?? 'Vérifie tes informations de paiement.')
+        setPaymentError(submitError.message ?? 'Vérifie tes informations de paiement.')
         return
       }
 
@@ -273,7 +215,7 @@ function CardPaymentBlock({
       })
 
       if (payError) {
-        setError(payError.message ?? 'Le paiement a échoué. Vérifie tes informations.')
+        setPaymentError(payError.message ?? 'Le paiement a échoué. Vérifie tes informations.')
         return
       }
 
@@ -282,15 +224,57 @@ function CardPaymentBlock({
         return
       }
 
-      setError("Le paiement n'a pas pu être confirmé. Réessaie.")
+      setPaymentError("Le paiement n'a pas pu être confirmé. Réessaie.")
     } finally {
       setSubmitting(false)
     }
   }
 
+  const showExpressSection = expressState !== 'hidden'
+
   return (
-    <>
+    <div className="space-y-4">
+      {showExpressSection && (
+        <>
+          <p className="text-center text-[10px] font-bold uppercase tracking-[0.2em] text-mayssa-brown/55">
+            Paiement express
+          </p>
+          <div className="min-h-[52px]">
+            <ExpressCheckoutElement
+              options={EXPRESS_CHECKOUT_OPTIONS}
+              onReady={handleExpressReady}
+              onClick={handleExpressClick}
+              onConfirm={handleExpressConfirm}
+              onLoadError={(e) => {
+                console.error('[Stripe] ExpressCheckout load error:', e.error)
+                setExpressState('hidden')
+              }}
+            />
+          </div>
+          {expressState === 'loading' && (
+            <p className="text-center text-[10px] text-mayssa-brown/45">
+              Vérification Apple Pay &amp; Google Pay…
+            </p>
+          )}
+        </>
+      )}
+
+      {showExpressSection && expressState === 'ready' && (
+        <div className="flex items-center gap-3 text-[10px] uppercase tracking-wider text-mayssa-brown/45">
+          <span className="flex-1 h-px bg-mayssa-brown/10" />
+          ou par carte
+          <span className="flex-1 h-px bg-mayssa-brown/10" />
+        </div>
+      )}
+
+      {!showExpressSection && (
+        <p className="text-center text-[10px] font-bold uppercase tracking-[0.2em] text-mayssa-brown/55">
+          Paiement par carte
+        </p>
+      )}
+
       <PaymentElement options={PAYMENT_ELEMENT_OPTIONS} />
+
       <button
         type="button"
         onClick={handleCardPay}
@@ -300,13 +284,15 @@ function CardPaymentBlock({
         {submitting ? <Loader2 size={22} className="animate-spin" /> : <Lock size={20} />}
         <span>{submitting ? 'Paiement en cours…' : `Payer ${total.toFixed(2).replace('.', ',')} €`}</span>
       </button>
-    </>
+
+      <p className="flex items-center justify-center gap-1.5 text-[11px] text-mayssa-brown/55">
+        <Lock size={11} className="text-mayssa-gold" />
+        Paiement 100&nbsp;% sécurisé
+      </p>
+    </div>
   )
 }
 
-/**
- * Bloc de paiement Stripe réel (Apple Pay / Google Pay en tête + carte).
- */
 export function StripePayment(props: StripePaymentProps) {
   const { total, confirmed, items, discountAmount, donationAmount, phone, onReset, className = '' } = props
   const [clientSecret, setClientSecret] = useState<string | null>(null)
@@ -353,7 +339,17 @@ export function StripePayment(props: StripePaymentProps) {
       .finally(() => {
         if (intentVersionRef.current === version) setLoading(false)
       })
-  }, [confirmed, paymentKey, items, discountAmount, donationAmount, phone])
+    // paymentKey résume items + remises — évite les re-fetch si la référence items change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confirmed, paymentKey])
+
+  if (!STRIPE_PUBLISHABLE_KEY) {
+    return (
+      <div className={cn('rounded-xl border border-amber-200 bg-amber-50 p-4', className)}>
+        <p className="text-xs text-amber-900">Clé Stripe manquante — paiement indisponible.</p>
+      </div>
+    )
+  }
 
   if (confirmed) {
     return (
@@ -387,18 +383,25 @@ export function StripePayment(props: StripePaymentProps) {
 
   if (!clientSecret || loading) {
     return (
-      <div className={cn('space-y-3', className)}>
-        <div className="flex items-center justify-center gap-2 py-4 text-mayssa-brown/60">
-          <Loader2 size={18} className="animate-spin text-mayssa-gold" />
-          <span className="text-xs">Initialisation du paiement sécurisé…</span>
-        </div>
+      <div className={cn('flex items-center justify-center gap-2 py-4 text-mayssa-brown/60', className)}>
+        <Loader2 size={18} className="animate-spin text-mayssa-gold" />
+        <span className="text-xs">Initialisation du paiement sécurisé…</span>
       </div>
     )
   }
 
   const elementsOptions: StripeElementsOptions = {
     clientSecret,
-    appearance: elementsAppearance,
+    appearance: {
+      theme: 'flat',
+      variables: {
+        colorPrimary: '#B8860B',
+        colorText: '#1E120D',
+        colorBackground: '#ffffff',
+        fontFamily: 'system-ui, sans-serif',
+        borderRadius: '12px',
+      },
+    },
   }
 
   return (
@@ -411,37 +414,16 @@ export function StripePayment(props: StripePaymentProps) {
         </span>
       </div>
 
-      <div className="space-y-4">
-        <p className="text-center text-[10px] font-bold uppercase tracking-[0.2em] text-mayssa-brown/55">
-          Paiement express
+      <Elements key={clientSecret} stripe={stripePromise} options={elementsOptions}>
+        <StripePaymentForm total={total} onConfirm={props.onConfirm} setPaymentError={setPaymentError} />
+      </Elements>
+
+      {paymentError && (
+        <p className="flex items-start gap-1.5 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          <AlertCircle size={14} className="shrink-0 mt-0.5" />
+          {paymentError}
         </p>
-
-        <Elements key={`express-${clientSecret}`} stripe={stripePromise} options={elementsOptions}>
-          <ExpressCheckoutBlock onConfirm={props.onConfirm} setError={setPaymentError} />
-        </Elements>
-
-        <div className="flex items-center gap-3 text-[10px] uppercase tracking-wider text-mayssa-brown/45">
-          <span className="flex-1 h-px bg-mayssa-brown/10" />
-          ou par carte
-          <span className="flex-1 h-px bg-mayssa-brown/10" />
-        </div>
-
-        <Elements key={`card-${clientSecret}`} stripe={stripePromise} options={elementsOptions}>
-          <CardPaymentBlock total={total} onConfirm={props.onConfirm} setError={setPaymentError} />
-        </Elements>
-
-        {paymentError && (
-          <p className="flex items-start gap-1.5 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-            <AlertCircle size={14} className="shrink-0 mt-0.5" />
-            {paymentError}
-          </p>
-        )}
-
-        <p className="flex items-center justify-center gap-1.5 text-[11px] text-mayssa-brown/55">
-          <Lock size={11} className="text-mayssa-gold" />
-          Paiement 100&nbsp;% sécurisé · Apple&nbsp;Pay, Google&nbsp;Pay &amp; carte bancaire
-        </p>
-      </div>
+      )}
     </div>
   )
 }
