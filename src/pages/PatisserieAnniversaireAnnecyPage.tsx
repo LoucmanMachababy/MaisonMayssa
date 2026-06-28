@@ -10,25 +10,24 @@ export function PatisserieAnniversaireAnnecyPage() {
         { name: 'Accueil', url: '/' },
         { name: 'Anniversaire Annecy' },
       ]}
-      heroImage="/nouvelle-img/boxe-de-tout.png"
+      heroImage="/nouvelle-img/boite-5-trompe-loeil.png"
       heroEyebrow="Occasion spéciale"
       heroTitle="Pâtisserie d'anniversaire à Annecy"
-      heroSubtitle="Trompe-l'œil, layer cups, boxes gourmandes — des pâtisseries qui font l'effet wow le jour J."
+      heroSubtitle="Trompe-l'œil, layer cups, box découverte — des pâtisseries qui font l'effet wow le jour J."
       categoryProductIds={[
-        'box-trompe-loeil',
+        'box-decouverte-trompe-5',
         'trompe-loeil-mangue',
         'trompe-loeil-cabosse',
         'layer-mangue-passion',
         'layer-nutella-oreo',
         'layer-pistache-fraise',
         'box-mixte',
-        'box-fruitee',
       ]}
       maxCatalogProducts={6}
       faqItems={[
         {
           q: "Quelle pâtisserie d'anniversaire choisir ?",
-          a: "Pour un effet wow garanti, je recommande un trompe-l'œil (mangue, cabosse de cacao, noix de pécan) ou une box de 7 trompe-l'œil à partager. Pour un public plus jeune, une layer cup (Nutella Oreo, Pistache Fraise) fait toujours son effet. Pour un mix de saveurs : une box mixte brownies + cookies + trompe-l'œil.",
+          a: "Pour un effet wow garanti, je recommande un trompe-l'œil (mangue, cabosse de cacao, noix de pécan) ou une box découverte de 5 trompe-l'œil à composer. Pour un public plus jeune, une layer cup (Nutella Oreo, Pistache Fraise) fait toujours son effet. Pour un mix de saveurs : une box mixte brownies + cookies + trompe-l'œil.",
         },
         {
           q: "Combien de temps à l'avance commander pour un anniversaire ?",
@@ -82,13 +81,13 @@ export function PatisserieAnniversaireAnnecyPage() {
         </h2>
         <div className="prose prose-sm sm:prose-base max-w-none text-mayssa-brown/85 space-y-4 leading-relaxed">
           <h3 className="text-base font-bold text-mayssa-brown mt-4">
-            🎂 Box de 7 trompe-l'œil — L'effet wow absolu
+            🎂 Box Découverte — 5 trompe-l'œil à composer
           </h3>
           <p>
-            Sept trompe-l'œil différents dans une box présentable. Quand tu l'offres ou que
-            tu la poses sur la table, c'est un moment suspendu. Chacun choisit le fruit qui
-            lui fait envie. 50 € (au lieu de 55,50 € à l'unité). Parfait pour un groupe de 7
-            personnes, ou pour créer un moment de dégustation collective à 10-15.
+            Cinq trompe-l'œil différents au choix dans une box présentable. Quand tu l'offres
+            ou que tu la poses sur la table, c'est un moment suspendu. Chacun choisit le fruit
+            qui lui fait envie. 40 € — parfait pour un groupe de 5 à 10 personnes, ou pour
+            créer un moment de dégustation collective.
           </p>
 
           <h3 className="text-base font-bold text-mayssa-brown mt-4">
@@ -108,15 +107,6 @@ export function PatisserieAnniversaireAnnecyPage() {
             La Box Mini Mixte réunit mini brownies, mini cookies et mini pancakes dans un
             assortiment généreux. Idéal pour un buffet d'anniversaire, pour varier les
             plaisirs, et pour que personne ne reste sur sa faim. Les enfants adorent.
-          </p>
-
-          <h3 className="text-base font-bold text-mayssa-brown mt-4">
-            🍓 Box Fruitée — Pour les amateurs de fraîcheur
-          </h3>
-          <p>
-            6 trompe-l'œil fruités au choix parmi mangue, passion, fraise, framboise,
-            myrtille, citron, banane. Plus léger, plus frais, idéal en fin de repas copieux
-            ou pour un anniversaire de printemps / été.
           </p>
         </div>
       </section>

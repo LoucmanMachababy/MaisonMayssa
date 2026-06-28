@@ -423,25 +423,20 @@ const DEFAULT_TROMPE_RECS = ['trompe-loeil-passion', 'trompe-loeil-citron', 'box
 /** Produits souvent commandés ensemble */
 export const PRODUCT_RECOMMENDATIONS: Record<string, string[]> = {
   'trompe-loeil-mangue': ['trompe-loeil-passion', 'trompe-loeil-citron', 'box-decouverte-trompe-5'],
-  'trompe-loeil-passion': ['trompe-loeil-mangue', 'trompe-loeil-framboise', 'box-fruitee'],
-  'trompe-loeil-citron': ['trompe-loeil-fraise', 'trompe-loeil-myrtille', 'box-fruitee'],
+  'trompe-loeil-passion': ['trompe-loeil-mangue', 'trompe-loeil-framboise', 'box-decouverte-trompe-5'],
+  'trompe-loeil-citron': ['trompe-loeil-fraise', 'trompe-loeil-myrtille', 'box-decouverte-trompe-5'],
   'trompe-loeil-framboise': ['trompe-loeil-fraise', 'trompe-loeil-passion', 'box-decouverte-trompe-5'],
-  'trompe-loeil-fraise': ['trompe-loeil-framboise', 'trompe-loeil-mangue', 'box-fruitee'],
-  'trompe-loeil-pistache': ['trompe-loeil-vanille', 'trompe-loeil-cacahuete', 'box-trompe-loeil'],
-  'trompe-loeil-cacahuete': ['trompe-loeil-pecan', 'trompe-loeil-cabosse', 'box-trompe-loeil'],
+  'trompe-loeil-fraise': ['trompe-loeil-framboise', 'trompe-loeil-mangue', 'box-decouverte-trompe-5'],
+  'trompe-loeil-pistache': ['trompe-loeil-vanille', 'trompe-loeil-cacahuete', 'box-decouverte-trompe-5'],
+  'trompe-loeil-cacahuete': ['trompe-loeil-pecan', 'trompe-loeil-cabosse', 'box-decouverte-trompe-5'],
   'trompe-loeil-pecan': ['trompe-loeil-cacahuete', 'trompe-loeil-amande', 'trompe-loeil-cabosse'],
   'trompe-loeil-amande': ['trompe-loeil-vanille', 'trompe-loeil-pecan', 'box-decouverte-trompe-5'],
-  'trompe-loeil-cabosse': ['trompe-loeil-cacahuete', 'trompe-loeil-cafe', 'box-de-tout'],
+  'trompe-loeil-cabosse': ['trompe-loeil-cacahuete', 'trompe-loeil-cafe', 'box-decouverte-trompe-5'],
   'trompe-loeil-vanille': ['trompe-loeil-amande', 'trompe-loeil-pistache', 'trompe-loeil-cafe'],
-  'trompe-loeil-myrtille': ['trompe-loeil-framboise', 'trompe-loeil-citron', 'box-fruitee'],
+  'trompe-loeil-myrtille': ['trompe-loeil-framboise', 'trompe-loeil-citron', 'box-decouverte-trompe-5'],
   'trompe-loeil-cafe': ['trompe-loeil-cabosse', 'trompe-loeil-vanille', 'trompe-loeil-cacahuete'],
   'trompe-loeil-popcorn': ['trompe-loeil-cacahuete', 'trompe-loeil-pecan', 'box-decouverte-trompe-5'],
-  'box-trompe-loeil': ['trompe-loeil-mangue', 'trompe-loeil-cacahuete', 'trompe-loeil-cabosse'],
-  'box-fruitee': ['trompe-loeil-mangue', 'trompe-loeil-passion', 'trompe-loeil-citron'],
-  'box-decouverte-trompe-5': ['trompe-loeil-mangue', 'trompe-loeil-framboise', 'box-trompe-loeil'],
-  'mini-box-trompe-loeil-5': ['trompe-loeil-mangue', 'trompe-loeil-citron', 'box-decouverte-trompe-5'],
-  'box-de-tout': ['trompe-loeil-mangue', 'trompe-loeil-cabosse', 'trompe-loeil-cacahuete'],
-  'box-surprise': ['trompe-loeil-mangue', 'box-trompe-loeil', 'box-decouverte-trompe-5'],
+  'box-decouverte-trompe-5': ['trompe-loeil-mangue', 'trompe-loeil-framboise', 'trompe-loeil-cabosse'],
 }
 
 export function getProductDetail(productId: string, shortDescription?: string): ProductDetailContent {

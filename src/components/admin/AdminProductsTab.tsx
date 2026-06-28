@@ -7,18 +7,10 @@ import type { ProductOverrideMap, ProductOverride, ProductCategory, ProductBadge
 import type { ProductWithAvailability } from '../../hooks/useProducts'
 
 import { getProductAvailabilityState, type ProductAvailabilityState } from '../../lib/productHelpers'
+import { ADMIN_CATALOG_CATEGORIES } from '../../lib/categories'
 import { AdminPanelHeader, AdminBtn } from './ui/AdminUi'
 
-const ALL_CATEGORIES: ProductCategory[] = [
-  'Nos trompe-l\'œil',
-  'Nos jus frais',
-  'Canette Cake',
-  'Cookies gourmands',
-  'Le salé',
-  'Fruits frais',
-  'Chocolaterie',
-  'Boxes',
-]
+const ALL_CATEGORIES = ADMIN_CATALOG_CATEGORIES
 
 const ALL_BADGES: { value: ProductBadge; label: string }[] = [
   { value: 'best-seller', label: 'Best seller' },
@@ -53,10 +45,22 @@ export function AdminProductsTab({
   const productsByCategory = useMemo(() => {
     const grouped: Record<string, ProductWithAvailability[]> = {}
     for (const cat of ALL_CATEGORIES) {
-      grouped[cat] = allProducts.filter(p => p.category === cat)
+      grouped[cat] = []
+    }
+    for (const product of allProducts) {
+      const cat = product.category
+      if (!grouped[cat]) grouped[cat] = []
+      grouped[cat].push(product)
     }
     return grouped
   }, [allProducts])
+
+  const adminCategoryOrder = useMemo(() => {
+    const extras = Object.keys(productsByCategory).filter(
+      (cat) => !ALL_CATEGORIES.includes(cat as ProductCategory),
+    )
+    return [...ALL_CATEGORIES, ...extras]
+  }, [productsByCategory])
 
   const toggleCategory = (cat: string) => {
     setExpandedCategories(prev => {
@@ -119,7 +123,7 @@ export function AdminProductsTab({
       )}
 
       {/* Products by category */}
-      {ALL_CATEGORIES.map(cat => {
+      {adminCategoryOrder.map(cat => {
         const products = productsByCategory[cat] || []
         if (products.length === 0) return null
         const isExpanded = expandedCategories.has(cat)

@@ -15,20 +15,18 @@ export function CadeauGourmandAnnecyPage() {
       heroTitle="Cadeau gourmand à Annecy"
       heroSubtitle="Boxes et coffrets artisanaux à offrir — un cadeau qui marque, plus qu'une simple boîte de chocolats."
       categoryProductIds={[
-        'box-trompe-loeil',
-        'box-mixte',
         'box-decouverte-trompe-5',
-        'box-fruitee',
-        'box-de-tout',
+        'box-mixte',
         'box-brownies',
         'box-cookies',
         'mini-box-mixte',
+        'trompe-loeil-mangue',
       ]}
       maxCatalogProducts={6}
       faqItems={[
         {
           q: "Quel coffret offrir comme cadeau gourmand ?",
-          a: "Pour impressionner : la Box 7 Trompe-l'œil (50 €) ou la Box Découverte 5 Trompe-l'œil au choix (40 €). Pour un cadeau plus accessible : la Box Mixte brownies + cookies (25 €). Pour une touche fruitée : la Box Fruitée (35 €). Je panache avec plaisir selon le budget.",
+          a: "Pour impressionner : la Box Découverte — 5 trompe-l'œil au choix (40 €). Pour un cadeau plus accessible : la Box Mixte brownies + cookies (25 €). Je panache avec plaisir selon le budget.",
         },
         {
           q: "Le cadeau est-il présentable à offrir tel quel ?",
@@ -40,7 +38,7 @@ export function CadeauGourmandAnnecyPage() {
         },
         {
           q: "Combien à l'avance faut-il commander ?",
-          a: "Pour les boxes avec trompe-l'œil (Box 7, Box Découverte, Box Fruitée) : 3 jours minimum. Pour les boxes brownies / cookies / mixtes : 24h à 48h avant. Pour un cadeau urgent : contacte-moi par WhatsApp, je fais au mieux.",
+          a: "Pour les boxes avec trompe-l'œil (Box Découverte) : 3 jours minimum. Pour les boxes brownies / cookies / mixtes : 24h à 48h avant. Pour un cadeau urgent : contacte-moi par WhatsApp, je fais au mieux.",
         },
         {
           q: "Y a-t-il une option avec un message personnalisé ?",
@@ -80,41 +78,14 @@ export function CadeauGourmandAnnecyPage() {
         </h2>
         <div className="prose prose-sm sm:prose-base max-w-none text-mayssa-brown/85 space-y-4 leading-relaxed">
           <h3 className="text-base font-bold text-mayssa-brown mt-4">
-            🎁 Box 7 Trompe-l'œil — Le cadeau signature
-          </h3>
-          <p>
-            L'intégrale des 7 saveurs classiques de trompe-l'œil : mangue, citron, pistache,
-            passion, framboise, cacahuète, fraise. 50 € (au lieu de 55,50 € à l'unité).
-            Présentée dans une boîte qui donne envie. C'est le cadeau signature Maison
-            Mayssa, celui qui marque les esprits.
-          </p>
-
-          <h3 className="text-base font-bold text-mayssa-brown mt-4">
-            🍫 Box de tout — La box signature au choix
-          </h3>
-          <p>
-            Un assortiment généreux de trompe-l'œil, brownies et cookies. Pour les grands
-            gourmands qui veulent tout goûter. À panacher selon les préférences du destinataire.
-          </p>
-
-          <h3 className="text-base font-bold text-mayssa-brown mt-4">
-            🎲 Box Découverte 5 Trompe-l'œil — À composer
+            🎲 Box Découverte — 5 trompe-l'œil à composer
           </h3>
           <p>
             40 € — Choisis 5 trompe-l'œil parmi toute notre gamme (13 saveurs). Idéal
             quand tu connais les goûts de la personne et que tu veux sélectionner ses
             préférés. Ou au contraire quand tu veux lui faire découvrir des saveurs
-            originales (amande, cabosse de cacao, noix de pécan).
-          </p>
-
-          <h3 className="text-base font-bold text-mayssa-brown mt-4">
-            🍓 Box Fruitée — Légèreté et fraîcheur
-          </h3>
-          <p>
-            35 € — 6 trompe-l'œil fruités au choix parmi mangue, passion, fraise, framboise,
-            myrtille, citron, grappe de banane. Plus léger, parfait pour un cadeau de
-            printemps / été ou pour quelqu'un qui préfère les saveurs fruitées aux
-            chocolats lourds.
+            originales (amande, cabosse de cacao, noix de pécan). C'est notre box
+            signature trompe-l'œil, présentée dans un coffret soigné prêt à offrir.
           </p>
 
           <h3 className="text-base font-bold text-mayssa-brown mt-4">
@@ -162,8 +133,8 @@ export function CadeauGourmandAnnecyPage() {
         <div className="prose prose-sm sm:prose-base max-w-none text-mayssa-brown/85 space-y-4 leading-relaxed">
           <ul className="space-y-3 list-none p-0">
             <li>
-              <strong>Tu veux impressionner</strong> → Box 7 Trompe-l'œil (50 €). L'effet wow
-              est garanti, même pour quelqu'un qui pense tout avoir déjà goûté.
+              <strong>Tu veux impressionner</strong> → Box Découverte (40 €). Compose 5
+              trompe-l'œil au choix — l'effet wow est garanti.
             </li>
             <li>
               <strong>La personne aime le chocolat</strong> → Box Brownies (9 saveurs, dont
@@ -171,8 +142,8 @@ export function CadeauGourmandAnnecyPage() {
               cacao pour un combo wow + chocolat.
             </li>
             <li>
-              <strong>La personne préfère les saveurs fruitées</strong> → Box Fruitée (35 €)
-              ou Box Découverte avec mangue, passion, framboise, fraise.
+              <strong>La personne préfère les saveurs fruitées</strong> → Box Découverte avec
+              mangue, passion, framboise, fraise.
             </li>
             <li>
               <strong>Tu ne connais pas ses goûts</strong> → Box Mixte. Il y a forcément

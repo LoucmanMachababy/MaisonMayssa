@@ -23,7 +23,7 @@ export const LIFESTYLE = {
   chocolaterie: '/nouvelle-img/cup-dubai-bueno.PNG',
   sale: '/nouvelle-img/Panuozzo-Italien.png',
   fruits: '/nouvelle-img/Cup-de-fruit-mixte.png',
-  boxes: '/nouvelle-img/boxe-de-tout.png',
+  boxes: '/nouvelle-img/boite-5-trompe-loeil.png',
 } as const
 
 /** Mosaïque header carte — un aperçu de chaque univers */

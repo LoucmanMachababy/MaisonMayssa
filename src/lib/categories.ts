@@ -15,6 +15,11 @@ export const CATALOG_FILTERS: CatalogFilter[] = [
   'Boxes',
 ]
 
+/** Catégories du catalogue admin — alignées sur la carte client (sans « Tout »). */
+export const ADMIN_CATALOG_CATEGORIES: ProductCategory[] = CATALOG_FILTERS.filter(
+  (f): f is ProductCategory => f !== 'Tout',
+)
+
 export type CategoryShowcase = {
   id: CatalogFilter
   title: string
