@@ -371,7 +371,20 @@
   .premium-cart-checkout__step-viewport {
     flex: 1;
     padding: 1.5rem 1.5rem 0;
-    overflow: hidden;
+    overflow-x: visible;
+    overflow-y: auto;
+  }
+
+  /* Apple Pay / Google Pay : pas de overflow/transform qui bloque la feuille native */
+  .premium-cart-checkout__step-viewport--payment {
+    overflow: visible;
+  }
+
+  .stripe-payment-shell,
+  .stripe-payment-root {
+    overflow: visible;
+    position: relative;
+    z-index: 2;
   }
 
   @media (min-width: 1024px) {

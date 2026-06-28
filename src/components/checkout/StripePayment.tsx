@@ -1,17 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Elements,
-  ExpressCheckoutElement,
   PaymentElement,
   useStripe,
   useElements,
 } from '@stripe/react-stripe-js'
-import type {
-  StripeElementsOptions,
-  StripeExpressCheckoutElementClickEvent,
-  StripeExpressCheckoutElementConfirmEvent,
-  StripeExpressCheckoutElementReadyEvent,
-} from '@stripe/stripe-js'
+import type { StripeElementsOptions } from '@stripe/stripe-js'
 import type { PaymentIntent } from '@stripe/stripe-js'
 import { Check, Loader2, Lock, AlertCircle } from 'lucide-react'
 import { cn } from '../../lib/utils'
@@ -38,31 +32,13 @@ export interface StripePaymentProps {
 
 const stripePromise = getStripePromise()
 
-const EXPRESS_CHECKOUT_OPTIONS = {
-  paymentMethods: {
+/** Apple Pay / Google Pay intégrés au Payment Element (plus fiable qu'Express Checkout séparé). */
+const PAYMENT_ELEMENT_OPTIONS = {
+  layout: 'tabs' as const,
+  paymentMethodOrder: ['apple_pay', 'google_pay', 'card'],
+  wallets: {
     applePay: 'auto' as const,
     googlePay: 'auto' as const,
-    link: 'never' as const,
-    paypal: 'never' as const,
-    amazonPay: 'never' as const,
-    klarna: 'never' as const,
-  },
-  layout: {
-    maxColumns: 2,
-    maxRows: 1,
-    overflow: 'never' as const,
-  },
-  buttonType: {
-    applePay: 'buy' as const,
-    googlePay: 'buy' as const,
-  },
-}
-
-const PAYMENT_ELEMENT_OPTIONS = {
-  layout: 'accordion' as const,
-  wallets: {
-    applePay: 'never' as const,
-    googlePay: 'never' as const,
   },
 }
 
@@ -83,12 +59,6 @@ function itemsKey(items: PaymentIntentItem[]) {
   return items.map((i) => `${i.price}:${i.quantity}`).join('|')
 }
 
-function hasExpressWallets(event: StripeExpressCheckoutElementReadyEvent): boolean {
-  const methods = event.availablePaymentMethods
-  if (!methods) return false
-  return Boolean(methods.applePay || methods.googlePay)
-}
-
 function StripePaymentForm({
   total,
   onConfirm,
@@ -101,7 +71,7 @@ function StripePaymentForm({
   const stripe = useStripe()
   const elements = useElements()
   const [submitting, setSubmitting] = useState(false)
-  const [expressState, setExpressState] = useState<'loading' | 'ready' | 'hidden'>('loading')
+  const [elementReady, setElementReady] = useState(false)
   const returnUrl = `${window.location.origin}${window.location.pathname}`
 
   const finalizePayment = useCallback(
@@ -135,68 +105,7 @@ function StripePaymentForm({
     })
   }, [stripe, finalizePayment, setPaymentError])
 
-  // Ne pas bloquer l'UI si onReady ne se déclenche pas (ex. environnement sans wallet).
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setExpressState((prev) => (prev === 'loading' ? 'hidden' : prev))
-    }, 6000)
-    return () => window.clearTimeout(timer)
-  }, [])
-
-  const handleExpressReady = useCallback((event: StripeExpressCheckoutElementReadyEvent) => {
-    setExpressState(hasExpressWallets(event) ? 'ready' : 'hidden')
-  }, [])
-
-  const handleExpressClick = useCallback((event: StripeExpressCheckoutElementClickEvent) => {
-    event.resolve()
-  }, [])
-
-  const handleExpressConfirm = useCallback(
-    async (event: StripeExpressCheckoutElementConfirmEvent) => {
-      if (submitting || !stripe || !elements) {
-        event.paymentFailed({ reason: 'fail' })
-        return
-      }
-      setSubmitting(true)
-      setPaymentError('')
-
-      try {
-        const { error: payError, paymentIntent } = await stripe.confirmPayment({
-          elements,
-          confirmParams: { return_url: returnUrl },
-          redirect: 'if_required',
-        })
-
-        if (payError) {
-          setPaymentError(payError.message ?? 'Le paiement a échoué.')
-          event.paymentFailed({ reason: 'fail', message: payError.message })
-          return
-        }
-
-        if (paymentIntent && (paymentIntent.status === 'succeeded' || paymentIntent.status === 'processing')) {
-          try {
-            await finalizePayment(paymentIntent)
-          } catch (err) {
-            console.error('[Stripe] post-payment order:', err)
-            setPaymentError('Paiement reçu mais la commande n\'a pas pu être finalisée. Contacte-nous.')
-          }
-          return
-        }
-
-        setPaymentError("Le paiement n'a pas pu être confirmé. Réessaie.")
-        event.paymentFailed({ reason: 'fail' })
-      } catch (err) {
-        console.error('[Stripe] express checkout:', err)
-        setPaymentError('Une erreur est survenue lors du paiement. Réessaie.')
-        event.paymentFailed({ reason: 'fail' })
-      } finally {
-        setSubmitting(false)
-      }
-    },
-    [elements, finalizePayment, returnUrl, setPaymentError, stripe, submitting],
-  )
-
-  const handleCardPay = async () => {
+  const handlePay = async () => {
     if (submitting || !stripe || !elements) return
     setSubmitting(true)
     setPaymentError('')
@@ -230,55 +139,28 @@ function StripePaymentForm({
     }
   }
 
-  const showExpressSection = expressState !== 'hidden'
-
   return (
-    <div className="space-y-4">
-      {showExpressSection && (
-        <>
-          <p className="text-center text-[10px] font-bold uppercase tracking-[0.2em] text-mayssa-brown/55">
-            Paiement express
-          </p>
-          <div className="min-h-[52px]">
-            <ExpressCheckoutElement
-              options={EXPRESS_CHECKOUT_OPTIONS}
-              onReady={handleExpressReady}
-              onClick={handleExpressClick}
-              onConfirm={handleExpressConfirm}
-              onLoadError={(e) => {
-                console.error('[Stripe] ExpressCheckout load error:', e.error)
-                setExpressState('hidden')
-              }}
-            />
-          </div>
-          {expressState === 'loading' && (
-            <p className="text-center text-[10px] text-mayssa-brown/45">
-              Vérification Apple Pay &amp; Google Pay…
-            </p>
-          )}
-        </>
-      )}
-
-      {showExpressSection && expressState === 'ready' && (
-        <div className="flex items-center gap-3 text-[10px] uppercase tracking-wider text-mayssa-brown/45">
-          <span className="flex-1 h-px bg-mayssa-brown/10" />
-          ou par carte
-          <span className="flex-1 h-px bg-mayssa-brown/10" />
+    <div className="stripe-payment-root space-y-4">
+      {!elementReady && (
+        <div className="flex items-center justify-center gap-2 py-3 text-mayssa-brown/50">
+          <Loader2 size={16} className="animate-spin text-mayssa-gold" />
+          <span className="text-xs">Chargement des moyens de paiement…</span>
         </div>
       )}
 
-      {!showExpressSection && (
-        <p className="text-center text-[10px] font-bold uppercase tracking-[0.2em] text-mayssa-brown/55">
-          Paiement par carte
-        </p>
-      )}
-
-      <PaymentElement options={PAYMENT_ELEMENT_OPTIONS} />
+      <PaymentElement
+        options={PAYMENT_ELEMENT_OPTIONS}
+        onReady={() => setElementReady(true)}
+        onLoadError={(e) => {
+          console.error('[Stripe] PaymentElement load error:', e.error)
+          setPaymentError('Impossible de charger le formulaire de paiement.')
+        }}
+      />
 
       <button
         type="button"
-        onClick={handleCardPay}
-        disabled={!stripe || submitting}
+        onClick={handlePay}
+        disabled={!stripe || !elementReady || submitting}
         className="group relative w-full flex items-center justify-center gap-2.5 py-5 rounded-2xl bg-gradient-to-r from-mayssa-gold to-[#d4a23f] text-white text-base font-extrabold tracking-wide shadow-[0_8px_24px_rgba(184,134,11,0.35)] hover:shadow-[0_10px_30px_rgba(184,134,11,0.5)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:shadow-none cursor-pointer"
       >
         {submitting ? <Loader2 size={22} className="animate-spin" /> : <Lock size={20} />}
@@ -287,7 +169,7 @@ function StripePaymentForm({
 
       <p className="flex items-center justify-center gap-1.5 text-[11px] text-mayssa-brown/55">
         <Lock size={11} className="text-mayssa-gold" />
-        Paiement 100&nbsp;% sécurisé
+        Apple&nbsp;Pay, Google&nbsp;Pay &amp; carte — paiement sécurisé Stripe
       </p>
     </div>
   )
@@ -339,7 +221,6 @@ export function StripePayment(props: StripePaymentProps) {
       .finally(() => {
         if (intentVersionRef.current === version) setLoading(false)
       })
-    // paymentKey résume items + remises — évite les re-fetch si la référence items change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [confirmed, paymentKey])
 
@@ -393,7 +274,7 @@ export function StripePayment(props: StripePaymentProps) {
   const elementsOptions: StripeElementsOptions = {
     clientSecret,
     appearance: {
-      theme: 'flat',
+      theme: 'stripe',
       variables: {
         colorPrimary: '#B8860B',
         colorText: '#1E120D',
@@ -405,7 +286,7 @@ export function StripePayment(props: StripePaymentProps) {
   }
 
   return (
-    <div className={cn('space-y-3', className)}>
+    <div className={cn('space-y-3 stripe-payment-shell', className)}>
       <div className="flex items-center gap-2 text-mayssa-brown">
         <Lock size={16} className="text-mayssa-gold" />
         <p className="text-[10px] font-bold uppercase tracking-widest">Paiement sécurisé</p>

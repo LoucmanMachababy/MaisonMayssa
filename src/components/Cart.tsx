@@ -464,7 +464,7 @@ export function Cart({
                     </div>
 
                     {/* Animated step content */}
-                    <div className="premium-cart-checkout__step-viewport">
+                    <div className={cn('premium-cart-checkout__step-viewport', step === 4 && 'premium-cart-checkout__step-viewport--payment')}>
                         <AnimatePresence mode="wait" custom={stepDirection}>
                             {step === 1 && (
                                 <motion.div
@@ -754,14 +754,8 @@ export function Cart({
                             )}
 
                             {step === 4 && (
-                                <motion.div
+                                <div
                                     key="step-4"
-                                    custom={stepDirection}
-                                    variants={stepMotion}
-                                    initial="initial"
-                                    animate="animate"
-                                    exit="exit"
-                                    transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
                                     className="premium-cart-checkout__step-panel space-y-6"
                                 >
                         <p className="premium-cart-checkout__section-label border-b border-white/10 pb-3">
@@ -1025,7 +1019,7 @@ export function Cart({
                                 )}
                             </div>
                         </div>
-                                </motion.div>
+                                </div>
                             )}
                         </AnimatePresence>
                     </div>
