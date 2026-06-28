@@ -9,9 +9,16 @@ import { ReservationTimer } from './ReservationTimer'
 import { useAuth } from '../hooks/useAuth'
 import { REWARD_COSTS, REWARD_LABELS } from '../lib/rewards'
 import type { DeliverySlotsMap } from '../lib/firebase'
-import { CgvAcceptance } from './legal/CgvAcceptance'
 import { PaymentSection } from './checkout/PaymentSection'
 import type { StripePaymentConfirmHandler } from './checkout/StripePayment'
+import {
+    CheckoutAlerts,
+    CheckoutCgv,
+    CheckoutJourneyCard,
+    CheckoutOrderSummary,
+    CheckoutPayGate,
+    CheckoutPaymentIntro,
+} from './checkout/CheckoutUi'
 import { PAYMENT_ENABLED, CLICK_COLLECT_ONLY } from '../constants/checkout'
 import type { PaymentMethod } from '../constants/checkout'
 import {
@@ -254,8 +261,8 @@ export function Cart({
 
     const stepLabels: Record<1 | 2 | 3 | 4, string> = {
         1: 'Options',
-        2: 'Informations',
-        3: CLICK_COLLECT_ONLY ? 'Click & collect' : 'Livraison',
+        2: 'Coordonnées',
+        3: CLICK_COLLECT_ONLY ? 'Créneau' : 'Livraison',
         4: 'Paiement',
     }
 
@@ -562,7 +569,7 @@ export function Cart({
                                     ))}
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-sm text-white/55">Autre :</span>
+                                    <span className="text-sm text-mayssa-brown/55">Autre :</span>
                                     <input
                                         type="number"
                                         min={0}
@@ -575,7 +582,7 @@ export function Cart({
                                         placeholder="0"
                                         className="w-20 rounded-xl bg-white px-3 py-2 text-sm ring-1 ring-mayssa-brown/10"
                                     />
-                                    <span className="text-sm text-white/55">€</span>
+                                    <span className="text-sm text-mayssa-brown/55">€</span>
                                 </div>
                             </div>
                         )}
@@ -594,8 +601,8 @@ export function Cart({
                                     transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
                                     className="premium-cart-checkout__step-panel space-y-6"
                                 >
-                        <p className="premium-cart-checkout__section-label border-b border-white/10 pb-3">
-                            Vos informations
+                        <p className="premium-cart-checkout__section-label border-b border-mayssa-brown/10 pb-3">
+                            Vos coordonnées
                         </p>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -676,14 +683,14 @@ export function Cart({
                                     transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
                                     className="premium-cart-checkout__step-panel space-y-6"
                                 >
-                        <p className="premium-cart-checkout__section-label border-b border-white/10 pb-3">
-                            Click &amp; collect
+                        <p className="premium-cart-checkout__section-label border-b border-mayssa-brown/10 pb-3">
+                            Créneau de retrait
                         </p>
                         <div className="premium-cart-checkout__panel flex items-start gap-3">
                             <MapPin size={22} className="text-mayssa-gold shrink-0 mt-0.5" />
                             <div>
-                                <p className="text-sm font-semibold text-white/90">Retrait à la boutique</p>
-                                <p className="text-[12px] text-white/75 mt-1 font-medium">
+                                <p className="text-sm font-semibold text-mayssa-brown">Retrait à la boutique</p>
+                                <p className="text-[12px] text-mayssa-brown/75 mt-1 font-medium">
                                     Galerie marchande du Carrefour — {STORE_ADDRESS_LINE}
                                 </p>
                                 <p className="text-[11px] text-mayssa-gold mt-1 font-semibold">
@@ -758,63 +765,40 @@ export function Cart({
                                     key="step-4"
                                     className="premium-cart-checkout__step-panel space-y-6"
                                 >
-                        <p className="premium-cart-checkout__section-label border-b border-white/10 pb-3">
-                            Paiement
-                        </p>
+                        <CheckoutPaymentIntro />
 
-                        <div className="space-y-4 pt-4 mt-4 border-t border-mayssa-gold/10">
-                            <div className="flex flex-col gap-3">
-                                <div className="flex items-center justify-between text-sm">
-                                    <span className="text-white/60">Sous-total</span>
-                                    <span className="font-bold text-white/90">{(total + mysteryFraiseDiscount).toFixed(2)} €</span>
-                                </div>
-                                {appliedPromo && appliedPromo.discount > 0 && (
-                                    <div className="flex items-center justify-between text-sm text-[#2D5A2D]">
-                                        <span>Code promo ({appliedPromo.code})</span>
-                                        <span className="font-bold">-{appliedPromo.discount.toFixed(2)} €</span>
-                                    </div>
-                                )}
-                                {mysteryFraiseDiscount > 0 && (
-                                    <div className="flex items-center justify-between text-sm text-amber-600">
-                                        <span>Réduction mystère Fraise (10 %)</span>
-                                        <span className="font-bold">-{mysteryFraiseDiscount.toFixed(2)} €</span>
-                                    </div>
-                                )}
-                                {donationAmount > 0 && (
-                                    <div className="flex items-center justify-between text-sm text-mayssa-rose">
-                                        <span>Don au projet</span>
-                                        <span className="font-bold">+{donationAmount.toFixed(2)} €</span>
-                                    </div>
-                                )}
-                                <div className="premium-cart-checkout__total">
-                                    <span className="premium-cart-checkout__total-label">Total</span>
-                                    <span className="premium-cart-checkout__total-value">{finalTotal.toFixed(2).replace('.', ',')} €</span>
-                                </div>
-                            </div>
+                        <CheckoutOrderSummary
+                            subtotal={total + mysteryFraiseDiscount}
+                            promoDiscount={appliedPromo?.discount}
+                            promoCode={appliedPromo?.code}
+                            mysteryDiscount={mysteryFraiseDiscount}
+                            donation={donationAmount}
+                            total={finalTotal}
+                        />
 
                             {/* Points & Récompenses */}
                             {isAuthenticated && profile && hasItems && (
-                                <div className="space-y-3 pt-5 mt-5 border-t border-mayssa-gold/10">
+                                <div className="space-y-3 pt-5 mt-5 border-t border-mayssa-brown/10">
                                     {/* Points à gagner */}
                                     <div className="premium-cart-checkout__loyalty">
                                         <div className="flex items-center gap-3">
-                                            <div className="bg-white/50 p-1.5 rounded-full shadow-inner">
+                                            <div className="bg-mayssa-soft p-1.5 rounded-full">
                                                 <Star size={16} className="text-mayssa-gold" />
                                             </div>
-                                            <span className="text-sm font-medium text-white/85">
-                                                Tu gagneras <span className="font-bold text-mayssa-gold">{pointsToEarn} points</span>
+                                            <span className="text-sm font-medium text-mayssa-brown">
+                                                Vous gagnerez <span className="font-bold text-mayssa-gold">{pointsToEarn} points</span>
                                             </span>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-[10px] uppercase tracking-wider text-white/50">Solde actuel</p>
-                                            <p className="font-bold text-lg text-mayssa-gold drop-shadow-sm">{profile.loyalty.points} pts</p>
+                                            <p className="text-[10px] uppercase tracking-wider text-mayssa-brown/50">Solde actuel</p>
+                                            <p className="font-bold text-lg text-mayssa-gold">{profile.loyalty.points} pts</p>
                                         </div>
                                     </div>
 
                                     {/* Récompenses disponibles */}
                                     {availableRewards.length > 0 && (
                                         <div className="space-y-3 mt-4">
-                                            <p className="text-xs uppercase tracking-widest font-bold text-white/50">
+                                            <p className="text-xs uppercase tracking-widest font-bold text-mayssa-brown/50">
                                                 Récompenses
                                             </p>
                                             <div className="grid gap-2">
@@ -839,12 +823,12 @@ export function Cart({
                                                             <div className={`p-1.5 rounded-full transition-colors ${selectedReward?.type === rewardType ? 'bg-mayssa-gold text-white shadow-md' : 'bg-transparent text-mayssa-gold group-hover:bg-mayssa-gold/10'}`}>
                                                                 <Gift size={14} />
                                                             </div>
-                                                            <span className="text-xs font-bold text-white/85">
+                                                            <span className="text-xs font-bold text-mayssa-brown">
                                                                 {REWARD_LABELS[rewardType as keyof typeof REWARD_LABELS]}
                                                             </span>
                                                         </div>
                                                         <div className="flex items-center gap-3">
-                                                            <span className="text-[11px] font-medium text-white/50">{cost} pts</span>
+                                                            <span className="text-[11px] font-medium text-mayssa-brown/50">{cost} pts</span>
                                                             {selectedReward?.type === rewardType && (
                                                                 <div className="w-5 h-5 rounded-full bg-mayssa-brown flex items-center justify-center shadow-lg transform scale-110 transition-transform">
                                                                     <span className="text-mayssa-gold text-[10px] font-bold">✓</span>
@@ -871,8 +855,8 @@ export function Cart({
                                         <div className="bg-mayssa-gold/10 p-1.5 rounded-full">
                                             <Star size={16} className="text-mayssa-gold drop-shadow-sm" />
                                         </div>
-                                        <span className="text-sm font-bold text-white/90">
-                                            Gagne {pointsToEarn} points avec cette commande !
+                                        <span className="text-sm font-bold text-mayssa-brown">
+                                            Gagnez {pointsToEarn} points avec cette commande !
                                         </span>
                                     </div>
                                     <p className="premium-cart-checkout__muted mb-3">
@@ -931,37 +915,18 @@ export function Cart({
                                     </div>
                                 ) : (
                                 <>
-                                <p className="text-[10px] uppercase tracking-widest text-white/45 text-center font-bold flex items-center justify-center gap-1.5 mb-2">
-                                    <Lock size={14} className="text-mayssa-gold" />
-                                    Paiement &amp; retrait
-                                </p>
-                                <div className="premium-cart-checkout__journey max-w-md mx-auto">
-                                    <p className="premium-cart-checkout__journey-title">Click &amp; collect Maison Mayssa</p>
-                                    <ol className="premium-cart-checkout__journey-steps">
-                                      <li><span>1</span> Je choisis mes créations et mon créneau de retrait.</li>
-                                      <li><span>2</span> Je règle en ligne par carte ou Apple Pay (paiement sécurisé).</li>
-                                      <li><span>3</span> Je reçois ma confirmation et mon numéro de commande.</li>
-                                      <li><span>4</span> Je récupère ma commande à la boutique — {STORE_ADDRESS_LINE}.</li>
-                                    </ol>
-                                </div>
+                                <CheckoutJourneyCard className="max-w-md mx-auto" />
 
-                                {hasNonTrompeLoeil && isClassicPreorderPhase && (
-                                    <p className="premium-cart-checkout__notice">
-                                        Précommandes — récupération à partir du <span className="font-bold text-mayssa-gold">{FIRST_PICKUP_DATE_CLASSIC_LABEL}</span>.
-                                    </p>
-                                )}
-                                {orderCutoffPassed && hasNonTrompeLoeil && (
-                                    <p className="premium-cart-checkout__notice is-warning">
-                                        Commandes (pâtisseries, cookies…) possibles jusqu&apos;à 17h. Les précommandes trompe-l&apos;œil restent disponibles.
-                                    </p>
-                                )}
-                                {trompeLoeilBeforeMinDate && (
-                                    <p className="premium-cart-checkout__notice is-warning">
-                                        Les précommandes trompe l&apos;œil sont possibles à partir du {formatDateLabel(minDate)}.
-                                    </p>
-                                )}
+                                <CheckoutAlerts
+                                    hasNonTrompeLoeil={hasNonTrompeLoeil}
+                                    isClassicPreorderPhase={isClassicPreorderPhase}
+                                    firstPickupLabel={FIRST_PICKUP_DATE_CLASSIC_LABEL}
+                                    orderCutoffPassed={orderCutoffPassed}
+                                    trompeLoeilBeforeMinDate={trompeLoeilBeforeMinDate}
+                                    minDateLabel={formatDateLabel(minDate)}
+                                />
 
-                                <CgvAcceptance
+                                <CheckoutCgv
                                     checked={acceptedTerms}
                                     onChange={setAcceptedTerms}
                                     className="max-w-md mx-auto px-1"
@@ -986,21 +951,24 @@ export function Cart({
                                         />
                                     )
                                 ) : (
-                                    <div className="premium-cart-checkout__notice is-warning text-center max-w-md mx-auto">
-                                        {hasItems
-                                            ? ordersOpen === false
-                                                ? 'Les commandes sont fermées pour le moment — le paiement est indisponible.'
-                                                : !isCustomerValid
-                                                    ? 'Complétez vos informations (nom, email, téléphone, créneau) pour payer.'
-                                                    : !acceptedTerms
-                                                        ? 'Acceptez les CGV pour accéder au paiement.'
-                                                        : trompeLoeilBeforeMinDate
-                                                            ? `Les trompe-l'œil sont disponibles à partir du ${formatDateLabel(minDate)}.`
-                                                            : orderCutoffPassed && hasNonTrompeLoeil
-                                                                ? 'Commandes (pâtisseries, cookies…) possibles jusqu\'à 17h.'
-                                                                : 'Finalisez votre commande pour accéder au paiement.'
-                                            : 'Votre panier est vide.'}
-                                    </div>
+                                    <CheckoutPayGate
+                                        className="max-w-md mx-auto"
+                                        message={
+                                            hasItems
+                                                ? ordersOpen === false
+                                                    ? 'Les commandes sont fermées pour le moment — le paiement est indisponible.'
+                                                    : !isCustomerValid
+                                                        ? 'Complétez vos coordonnées (nom, email, téléphone, créneau) pour payer.'
+                                                        : !acceptedTerms
+                                                            ? 'Acceptez les CGV pour accéder au paiement.'
+                                                            : trompeLoeilBeforeMinDate
+                                                                ? `Les trompe-l'œil sont disponibles à partir du ${formatDateLabel(minDate)}.`
+                                                                : orderCutoffPassed && hasNonTrompeLoeil
+                                                                    ? 'Commandes (pâtisseries, cookies…) possibles jusqu\'à 17h.'
+                                                                    : 'Finalisez votre commande pour accéder au paiement.'
+                                                : 'Votre panier est vide.'
+                                        }
+                                    />
                                 )}
 
                                 {/* Validation finale — mode paiement simulé uniquement */}
@@ -1018,7 +986,6 @@ export function Cart({
                                 </>
                                 )}
                             </div>
-                        </div>
                                 </div>
                             )}
                         </AnimatePresence>

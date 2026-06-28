@@ -169,12 +169,6 @@ export default function PremiumCart() {
           </div>
         )}
 
-        {/* Mobile : le panier s'ouvre en sheet (PremiumCartSheetLayer) */}
-        {cart.length > 0 && !eventModeEnabled && (
-          <p className="md:hidden text-center text-xs text-mayssa-brown/50 py-8 tracking-wide">
-            Votre précommande s&apos;affiche ci-dessus en panneau coulissant
-          </p>
-        )}
       </div>
     </div>
   )

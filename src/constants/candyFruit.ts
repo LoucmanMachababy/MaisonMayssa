@@ -2,6 +2,8 @@
 export const CANDY_FRUIT_BRAND = 'Chez Mima'
 export const CANDY_FRUIT_SNAPCHAT = 'chezmima-74'
 export const CANDY_FRUIT_SNAPCHAT_MENTION = `Snapchat : @${CANDY_FRUIT_SNAPCHAT}`
+export const CANDY_FRUIT_COMPOSITION =
+  'Raisins confits enrobés de colorant alimentaire et sucre (Chez Mima).'
 
 /** IDs catalogue Candy Fruit */
 export const CANDY_FRUIT_BOX_PRODUCT_ID = 'candy-fruit-box'

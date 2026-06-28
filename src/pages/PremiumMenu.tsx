@@ -9,6 +9,9 @@ import { ProductAllergensBlock } from '../components/product/ProductAllergensBlo
 import { TrompeLoeilMarquee } from '../components/decorative/TrompeLoeilMarquee'
 import { MenuSidebarSearch } from '../components/menu/MenuSidebarSearch'
 import { LIFESTYLE, CATALOG_MOSAIC_PANELS, CATEGORY_HEADER_IMAGES } from '../lib/decorativeAssets'
+import { isTrompeLoeilProduct } from '../lib/productHelpers'
+
+const TROMPE_CATEGORY = "Nos trompe-l'œil"
 
 const CATEGORIES = [
   { id: 'tout', label: 'Tout' },
@@ -185,9 +188,13 @@ export default function PremiumMenu() {
       )
     }
     if (currentCategory === 'tout') {
-      const candy = filteredProducts.filter((p) => candyIds.includes(p.id))
-      const rest = filteredProducts.filter((p) => !candyIds.includes(p.id))
-      return [...candy, ...rest]
+      const trompe = filteredProducts.filter(
+        (p) => p.category === TROMPE_CATEGORY || isTrompeLoeilProduct(p),
+      )
+      const rest = filteredProducts.filter(
+        (p) => p.category !== TROMPE_CATEGORY && !isTrompeLoeilProduct(p),
+      )
+      return [...trompe, ...rest]
     }
     return filteredProducts
   }, [filteredProducts, currentCategory])

@@ -1,5 +1,5 @@
 import type { Product } from '../types'
-import { CANDY_FRUIT_BRAND, CANDY_FRUIT_SNAPCHAT_MENTION } from './candyFruit'
+import { CANDY_FRUIT_BRAND, CANDY_FRUIT_SNAPCHAT_MENTION, CANDY_FRUIT_COMPOSITION } from './candyFruit'
 
 export const TROMPE_PREORDER = { availableFrom: '2026-02-13', daysToPickup: 3 }
 
@@ -202,7 +202,7 @@ export const CATALOG_PRODUCTS: Product[] = [
   {
     id: 'candy-fruit-box',
     name: `Candy Fruit ${CANDY_FRUIT_BRAND} — Box`,
-    description: `Créations fruitées et bonbons par ${CANDY_FRUIT_BRAND}. Choisissez parmi 7 goûts en box. ${CANDY_FRUIT_SNAPCHAT_MENTION}`,
+    description: `${CANDY_FRUIT_COMPOSITION} Choisissez parmi 7 goûts en box. ${CANDY_FRUIT_SNAPCHAT_MENTION}`,
     price: 15,
     category: 'Candy Fruit',
     image: '/nouvelle-img/candy-bruit-box.jpeg',
@@ -213,7 +213,7 @@ export const CATALOG_PRODUCTS: Product[] = [
   {
     id: 'candy-fruit-canette',
     name: `Candy Fruit ${CANDY_FRUIT_BRAND} — Canette`,
-    description: `Format canette par ${CANDY_FRUIT_BRAND} : barbe à papa, bubble gum, melon, fraise ou coca cherry. ${CANDY_FRUIT_SNAPCHAT_MENTION}`,
+    description: `${CANDY_FRUIT_COMPOSITION} Format canette : barbe à papa, bubble gum, melon, fraise ou coca cherry. ${CANDY_FRUIT_SNAPCHAT_MENTION}`,
     price: 10,
     category: 'Candy Fruit',
     image: '/nouvelle-img/candy-fruit-canette-bubble-gum.jpeg',
@@ -224,7 +224,7 @@ export const CATALOG_PRODUCTS: Product[] = [
   {
     id: 'candy-fruit-sauce',
     name: `Sauce acidulée ${CANDY_FRUIT_BRAND}`,
-    description: `Sauce acidulée en complément de votre Candy Fruit, par ${CANDY_FRUIT_BRAND}. ${CANDY_FRUIT_SNAPCHAT_MENTION}`,
+    description: `Sauce acidulée en complément de votre Candy Fruit. ${CANDY_FRUIT_COMPOSITION} ${CANDY_FRUIT_SNAPCHAT_MENTION}`,
     price: 1,
     category: 'Candy Fruit',
     image: '/nouvelle-img/candy-fruit-coca-cherry.JPG',

@@ -10,6 +10,8 @@ const TROMPE_PEANUT = ['Gluten', 'Lait', 'Œufs', 'Soja', 'Arachides', 'Fruits �
 const TROMPE_CHOCO = ['Gluten', 'Lait', 'Œufs', 'Soja']
 const BOX_ALL = ['Gluten', 'Lait', 'Œufs', 'Soja', 'Fruits à coque', 'Arachides']
 const PATISSERIE = ['Gluten', 'Lait', 'Œufs', 'Soja', 'Fruits à coque (traces)']
+/** Candy Fruit Chez Mima — raisins confits enrobés de colorant et sucre. */
+const CANDY_FRUIT = ['Sulfites']
 const CHOCOLAT = ['Lait', 'Soja', 'Fruits à coque', 'Gluten (traces)']
 const SALE = ['Gluten', 'Lait', 'Œufs', 'Moutarde', 'Soja']
 const FRUITS_FRAIS = ['Fruits à coque (traces)', 'Gluten (traces)', 'Lait (traces)']
@@ -78,10 +80,10 @@ export const PRODUCT_ALLERGENS: Record<string, string[]> = {
   'mini-tablette-dubai-pistache': [...CHOCOLAT, 'Fruits à coque (pistache)'],
   'mini-tablette-dubai-speculoos': CHOCOLAT,
   'mini-tablette-dubai-framboise': CHOCOLAT,
-  // Candy Fruit
-  'candy-fruit-box': PATISSERIE,
-  'candy-fruit-canette': PATISSERIE,
-  'candy-fruit-sauce': PATISSERIE,
+  // Candy Fruit (raisins confits, colorants alimentaires, sucre)
+  'candy-fruit-box': CANDY_FRUIT,
+  'candy-fruit-canette': CANDY_FRUIT,
+  'candy-fruit-sauce': CANDY_FRUIT,
 }
 
 const CATEGORY_ALLERGENS: Partial<Record<ProductCategory, string[]>> = {
@@ -92,7 +94,7 @@ const CATEGORY_ALLERGENS: Partial<Record<ProductCategory, string[]>> = {
   'Le salé': SALE,
   'Fruits frais': FRUITS_FRAIS,
   Chocolaterie: CHOCOLAT,
-  'Candy Fruit': PATISSERIE,
+  'Candy Fruit': CANDY_FRUIT,
   'Cookies gourmands': PATISSERIE,
   Brownies: PATISSERIE,
   Cookies: PATISSERIE,
@@ -103,6 +105,9 @@ const CATEGORY_ALLERGENS: Partial<Record<ProductCategory, string[]>> = {
 export function getProductAllergens(productId: string, category: ProductCategory): string[] {
   if (PRODUCT_ALLERGENS[productId]) {
     return [...new Set(PRODUCT_ALLERGENS[productId])]
+  }
+  if (category === 'Candy Fruit' || productId.startsWith('candy-fruit-')) {
+    return [...CANDY_FRUIT]
   }
   return [...new Set(CATEGORY_ALLERGENS[category] ?? PATISSERIE)]
 }

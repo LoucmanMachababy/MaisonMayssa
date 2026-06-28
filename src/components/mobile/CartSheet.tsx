@@ -11,7 +11,14 @@ import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { REWARD_COSTS, REWARD_LABELS } from '../../lib/rewards'
 import type { CartItem, CustomerInfo } from '../../types'
 import type { DeliverySlotsMap } from '../../lib/firebase'
-import { CgvAcceptance } from '../legal/CgvAcceptance'
+import {
+  CheckoutAlerts,
+  CheckoutCgv,
+  CheckoutJourneyCard,
+  CheckoutOrderSummary,
+  CheckoutPayGate,
+  CheckoutPaymentIntro,
+} from '../checkout/CheckoutUi'
 import { PaymentSection } from '../checkout/PaymentSection'
 import type { StripePaymentConfirmHandler } from '../checkout/StripePayment'
 import { CLICK_COLLECT_ONLY, PAYMENT_ENABLED } from '../../constants/checkout'
@@ -291,8 +298,8 @@ export function CartSheet({
   // Step labels
   const stepLabels: Record<WizardStep, string> = {
     1: 'Panier',
-    2: 'Infos',
-    3: 'Récap',
+    2: 'Coordonnées',
+    3: 'Paiement',
   }
 
   // Motion variants pour transitions horizontales (ou fade si reduced-motion)
@@ -779,7 +786,7 @@ export function CartSheet({
   )
 
   // ============================================================================
-  // STEP 3 — Récap & Envoi
+  // STEP 3 — Paiement & validation
   // ============================================================================
   const renderStep3 = () => (
     <motion.div key="step3" {...stepTransition} className="space-y-4">
@@ -838,63 +845,30 @@ export function CartSheet({
         </div>
       </div>
 
-      {/* Totaux détaillés */}
-      <div className="rounded-xl bg-mayssa-cream/40 border border-mayssa-brown/10 p-3 space-y-1 text-xs">
-        <div className="flex justify-between text-mayssa-brown/80">
-          <span>Sous-total</span>
-          <span>{total.toFixed(2).replace('.', ',')} €</span>
-        </div>
-        {appliedPromo && appliedPromo.discount > 0 && (
-          <div className="flex justify-between text-emerald-600">
-            <span>Promo {appliedPromo.code}</span>
-            <span>-{appliedPromo.discount.toFixed(2).replace('.', ',')} €</span>
-          </div>
-        )}
-        {mysteryFraiseDiscount > 0 && (
-          <div className="flex justify-between text-amber-600">
-            <span>Mystère Fraise</span>
-            <span>-{mysteryFraiseDiscount.toFixed(2).replace('.', ',')} €</span>
-          </div>
-        )}
-        {donationAmount > 0 && (
-          <div className="flex justify-between text-mayssa-rose">
-            <span>Don au projet</span>
-            <span>+{donationAmount.toFixed(2).replace('.', ',')} €</span>
-          </div>
-        )}
-        <div className="flex justify-between text-base font-bold text-mayssa-brown pt-1.5 border-t border-mayssa-brown/10 mt-1">
-          <span>Total</span>
-          <span>{finalTotal.toFixed(2).replace('.', ',')} €</span>
-        </div>
-      </div>
+      <CheckoutPaymentIntro />
 
-      {/* Comment se passe la commande */}
-      <div className="rounded-xl bg-mayssa-soft/60 border border-mayssa-brown/10 px-3 py-2.5 text-[9px] text-mayssa-brown/80 space-y-1">
-        <p className="font-semibold text-[10px] text-mayssa-brown text-center">
-          Click &amp; collect en 3 étapes
-        </p>
-        <p><span className="font-semibold">1.</span> Tu choisis ton créneau de retrait.</p>
-        <p><span className="font-semibold">2.</span> Tu règles en ligne (carte ou Apple Pay).</p>
-        <p><span className="font-semibold">3.</span> Tu récupères ta commande à la boutique — {STORE_ADDRESS_LINE}.</p>
-      </div>
+      <CheckoutOrderSummary
+        subtotal={total + mysteryFraiseDiscount}
+        promoDiscount={appliedPromo?.discount}
+        promoCode={appliedPromo?.code}
+        mysteryDiscount={mysteryFraiseDiscount}
+        donation={donationAmount}
+        total={finalTotal}
+      />
 
-      {hasNonTrompeLoeil && isClassicPreorderPhase && (
-        <p className="text-[10px] text-mayssa-brown/80 text-center bg-mayssa-cream/80 rounded-lg px-2 py-1.5 border border-mayssa-caramel/30">
-          Précommandes — récup. à partir du {FIRST_PICKUP_DATE_CLASSIC_LABEL}.
-        </p>
-      )}
-      {orderCutoffPassed && hasNonTrompeLoeil && (
-        <p className="text-[10px] text-amber-700 text-center bg-amber-50 rounded-lg px-2 py-1.5 border border-amber-200">
-          Commandes (pâtisseries, cookies…) jusqu&apos;à 17h. Trompe-l&apos;œil toujours dispo.
-        </p>
-      )}
-      {trompeLoeilBeforeMinDate && (
-        <p className="text-[10px] text-amber-700 text-center bg-amber-50 rounded-lg px-2 py-1.5 border border-amber-200">
-          Les précommandes trompe l&apos;œil sont possibles à partir du {formatDateLabel(minDate)}.
-        </p>
-      )}
+      <CheckoutJourneyCard />
 
-      {/* Le paiement ne s'affiche QUE si la commande peut aboutir (sinon on encaisserait sans honorer). */}
+      <CheckoutAlerts
+        hasNonTrompeLoeil={hasNonTrompeLoeil}
+        isClassicPreorderPhase={isClassicPreorderPhase}
+        firstPickupLabel={FIRST_PICKUP_DATE_CLASSIC_LABEL}
+        orderCutoffPassed={orderCutoffPassed}
+        trompeLoeilBeforeMinDate={trompeLoeilBeforeMinDate}
+        minDateLabel={formatDateLabel(minDate)}
+      />
+
+      <CheckoutCgv checked={acceptedTerms} onChange={setAcceptedTerms} />
+
       {canPay ? (
         PAYMENT_ENABLED && onConfirmPayment && (
           <PaymentSection
@@ -910,18 +884,19 @@ export function CartSheet({
           />
         )
       ) : (
-        <p className="text-[11px] text-amber-700 text-center bg-amber-50 rounded-lg px-3 py-2 border border-amber-200">
-          {ordersOpen === false
-            ? 'Commandes fermées — le paiement est indisponible.'
-            : !isCustomerValid
-              ? 'Complète tes infos (nom, email, téléphone, créneau) pour payer.'
-              : !acceptedTerms
-                ? 'Accepte les CGV pour accéder au paiement.'
-                : 'Finalise ta commande pour accéder au paiement.'}
-        </p>
+        <CheckoutPayGate
+          message={
+            ordersOpen === false
+              ? 'Commandes fermées — le paiement est indisponible.'
+              : !isCustomerValid
+                ? 'Complète tes coordonnées (nom, email, téléphone, créneau) pour payer.'
+                : !acceptedTerms
+                  ? 'Accepte les CGV pour accéder au paiement.'
+                  : 'Finalise ta commande pour accéder au paiement.'
+          }
+        />
       )}
 
-      <CgvAcceptance checked={acceptedTerms} onChange={setAcceptedTerms} />
     </motion.div>
   )
 

@@ -4,6 +4,7 @@
 @import "./components/admin/ui/admin-v2.css";
 @import "./components/mobile/cart-sheet.css";
 @import "./components/checkout/premium-cart-checkout.css";
+@import "./components/checkout/checkout-ui.css";
 @import "./components/account/premium-account.css";
 
 @theme {

@@ -437,6 +437,7 @@ export const PRODUCT_RECOMMENDATIONS: Record<string, string[]> = {
   'trompe-loeil-cafe': ['trompe-loeil-cabosse', 'trompe-loeil-vanille', 'trompe-loeil-cacahuete'],
   'trompe-loeil-popcorn': ['trompe-loeil-cacahuete', 'trompe-loeil-pecan', 'box-decouverte-trompe-5'],
   'box-decouverte-trompe-5': ['trompe-loeil-mangue', 'trompe-loeil-framboise', 'trompe-loeil-cabosse'],
+  'cup-dubai-pistache-chocolat-fraise': ['cup-dubai-bueno', 'tablette-dubai-pistache', 'trompe-loeil-cabosse'],
 }
 
 export function getProductDetail(productId: string, shortDescription?: string): ProductDetailContent {
