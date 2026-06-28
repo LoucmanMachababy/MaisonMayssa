@@ -77,7 +77,7 @@ export function AdminProductsTab({
     } else if (state === 'coming_soon') {
       await updateProductOverride(product.id, { available: false, visible: true })
     } else {
-      await updateProductOverride(product.id, { visible: false })
+      await updateProductOverride(product.id, { visible: false, available: false })
     }
     setSaving(null)
   }

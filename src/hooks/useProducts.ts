@@ -1,18 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { PRODUCTS } from '../constants'
-import {
-  CANDY_FRUIT_BOX_PRODUCT_ID,
-  CANDY_FRUIT_CANETTE_PRODUCT_ID,
-  CANDY_FRUIT_SAUCE_PRODUCT_ID,
-} from '../constants/candyFruit'
 import type { Product, ProductOverrideMap } from '../types'
 import { isProductVisible, isProductOrderable } from '../lib/productHelpers'
-
-const FORCE_CATALOG_VISIBLE_IDS = new Set([
-  CANDY_FRUIT_BOX_PRODUCT_ID,
-  CANDY_FRUIT_CANETTE_PRODUCT_ID,
-  CANDY_FRUIT_SAUCE_PRODUCT_ID,
-])
 
 export type ProductWithAvailability = Product & {
   available: boolean
@@ -22,17 +11,12 @@ export type ProductWithAvailability = Product & {
 
 function mergeProduct(p: Product, override?: ProductOverrideMap[string]): ProductWithAvailability {
   if (!override) {
-    const base: ProductWithAvailability = {
+    return {
       ...p,
       available: p.available !== false,
       visible: p.visible !== false,
       pinned: p.pinned ?? false,
     }
-    if (FORCE_CATALOG_VISIBLE_IDS.has(p.id) && p.visible === true) {
-      base.visible = true
-      if (p.available === true) base.available = true
-    }
-    return base
   }
   const isCustom = override.isCustom === true
   // image/images/category exclus : le catalogue reste la source de vérité (évite URLs / catégories obsolètes Firebase)
@@ -40,32 +24,25 @@ function mergeProduct(p: Product, override?: ProductOverrideMap[string]): Produc
   const overrideFields = Object.fromEntries(
     Object.entries(rawOverride).filter(([, v]) => v !== null && v !== undefined),
   )
-  const merged = {
+  const hasVisibleOverride = override.visible !== undefined && override.visible !== null
+  const hasAvailableOverride = override.available !== undefined && override.available !== null
+
+  return {
     ...p,
     ...overrideFields,
     category: isCustom && override.category ? override.category : p.category,
-    available: p.available === true
-      ? true
-      : override.available !== undefined
-        ? override.available
-        : (p.available !== false),
-    // visible:true dans le catalogue = toujours afficher (admin peut masquer le reste)
-    visible: p.visible === true
-      ? true
-      : override.visible !== undefined
-        ? override.visible
-        : (p.visible !== false),
+    available: hasAvailableOverride
+      ? Boolean(override.available)
+      : (p.available !== false),
+    visible: hasVisibleOverride
+      ? Boolean(override.visible)
+      : (p.visible !== false),
     pinned: override.pinned ?? p.pinned ?? false,
     highlightAsNew:
       override.highlightAsNew != null ? Boolean(override.highlightAsNew) : (p.highlightAsNew ?? false),
     image: isCustom && override.image ? override.image : p.image,
     images: isCustom && override.images?.length ? override.images : p.images,
   } as ProductWithAvailability
-  if (FORCE_CATALOG_VISIBLE_IDS.has(merged.id) && p.visible === true) {
-    merged.visible = true
-    if (p.available === true) merged.available = true
-  }
-  return merged
 }
 
 export function useProducts() {
