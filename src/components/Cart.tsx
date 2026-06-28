@@ -11,6 +11,7 @@ import { REWARD_COSTS, REWARD_LABELS } from '../lib/rewards'
 import type { DeliverySlotsMap } from '../lib/firebase'
 import { CgvAcceptance } from './legal/CgvAcceptance'
 import { PaymentSection } from './checkout/PaymentSection'
+import type { StripePaymentConfirmHandler } from './checkout/StripePayment'
 import { PAYMENT_ENABLED, CLICK_COLLECT_ONLY } from '../constants/checkout'
 import type { PaymentMethod } from '../constants/checkout'
 import {
@@ -80,8 +81,10 @@ interface CartProps {
     onAllowAnotherOrder?: () => void
     paymentConfirmed?: boolean
     paymentMethod?: PaymentMethod | null
-    onConfirmPayment?: (method: PaymentMethod) => void
+    onConfirmPayment?: StripePaymentConfirmHandler
     onResetPayment?: () => void
+    /** Stripe réel : la commande est créée automatiquement au paiement (pas de bouton « Réserver »). */
+    autoPlaceOrderOnPayment?: boolean
 }
 
 export function Cart({
@@ -124,6 +127,7 @@ export function Cart({
     paymentMethod = null,
     onConfirmPayment,
     onResetPayment,
+    autoPlaceOrderOnPayment = false,
 }: CartProps) {
     const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
     const [stepDirection, setStepDirection] = useState(1)
@@ -1005,9 +1009,8 @@ export function Cart({
                                     </div>
                                 )}
 
-                                {/* Validation finale — utile au mode paiement simulé
-                                    (Stripe réel place la commande automatiquement au paiement). */}
-                                {canPay && paymentConfirmed && (
+                                {/* Validation finale — mode paiement simulé uniquement */}
+                                {canPay && paymentConfirmed && !autoPlaceOrderOnPayment && (
                                     <button
                                         type="button"
                                         onClick={onSend}

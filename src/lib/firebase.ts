@@ -590,6 +590,8 @@ export type Order = {
   paymentMethod?: 'card' | 'apple_pay' | 'google_pay' | 'paypal' | 'cash'
   /** Statut paiement */
   paymentStatus?: 'simulated_paid' | 'pending' | 'paid'
+  /** ID Stripe PaymentIntent (paiement réel) */
+  stripePaymentIntentId?: string
   /** Checklist admin (stock vérifié, message envoyé, prêt) */
   adminChecklist?: { stockChecked?: boolean; messageSent?: boolean; ready?: boolean }
 }

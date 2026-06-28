@@ -6,14 +6,11 @@ import { LIFESTYLE } from '../lib/decorativeAssets'
 import { Helmet } from 'react-helmet-async'
 import { Cart } from '../components/Cart'
 import { useOrderCheckoutContext } from '../contexts/OrderCheckoutContext'
-import { STRIPE_LIVE } from '../constants/checkout'
-import { STRIPE_PUBLISHABLE_KEY } from '../lib/stripe'
 
 export default function PremiumCart() {
   const { openAccount } = usePremiumAuth()
   const checkout = useOrderCheckoutContext()
-  /** En Stripe réel, le paiement réussi crée la commande directement (→ email). */
-  const useRealStripe = STRIPE_LIVE && !!STRIPE_PUBLISHABLE_KEY
+  const useRealStripe = checkout.useRealStripe
 
   const {
     cart,
@@ -167,6 +164,7 @@ export default function PremiumCart() {
               paymentMethod={paymentMethod}
               onConfirmPayment={useRealStripe ? confirmPaymentAndPlaceOrder : confirmSimulatedPayment}
               onResetPayment={resetSimulatedPayment}
+              autoPlaceOrderOnPayment={useRealStripe}
             />
           </div>
         )}

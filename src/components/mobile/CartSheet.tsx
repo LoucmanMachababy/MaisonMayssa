@@ -13,6 +13,7 @@ import type { CartItem, CustomerInfo } from '../../types'
 import type { DeliverySlotsMap } from '../../lib/firebase'
 import { CgvAcceptance } from '../legal/CgvAcceptance'
 import { PaymentSection } from '../checkout/PaymentSection'
+import type { StripePaymentConfirmHandler } from '../checkout/StripePayment'
 import { CLICK_COLLECT_ONLY, PAYMENT_ENABLED } from '../../constants/checkout'
 import type { PaymentMethod } from '../../constants/checkout'
 import { STORE_ADDRESS_LINE } from '../../constants/store'
@@ -69,8 +70,10 @@ interface CartSheetProps {
   onAllowAnotherOrder?: () => void
   paymentConfirmed?: boolean
   paymentMethod?: PaymentMethod | null
-  onConfirmPayment?: (method: PaymentMethod) => void
+  onConfirmPayment?: StripePaymentConfirmHandler
   onResetPayment?: () => void
+  /** Stripe réel : commande créée au paiement (pas de bouton manuel étape 3). */
+  autoPlaceOrderOnPayment?: boolean
 }
 
 type WizardStep = 1 | 2 | 3
@@ -116,6 +119,7 @@ export function CartSheet({
   paymentMethod = null,
   onConfirmPayment,
   onResetPayment,
+  autoPlaceOrderOnPayment = false,
 }: CartSheetProps) {
   const [dismissSecondOrderPrompt, setDismissSecondOrderPrompt] = useState(false)
   const [acceptedTerms, setAcceptedTerms] = useState(false)
@@ -245,7 +249,7 @@ export function CartSheet({
     ordersOpen !== false &&
     !trompeLoeilBeforeMinDate &&
     (!hasNonTrompeLoeil || !orderCutoffPassed || ordersExplicit)
-  const canSend = canPay && paymentConfirmed
+  const canSend = canPay && paymentConfirmed && !autoPlaceOrderOnPayment
 
   // --- Wizard step validation ---
   const canAdvanceFromStep1 = hasItems
@@ -1017,8 +1021,25 @@ export function CartSheet({
       )
     }
 
-    // Étape 3 : boutons d'envoi multi-canal
-    if (currentStep === 3) {
+    // Étape 3 Stripe réel : paiement dans PaymentSection, footer = retour seulement
+    if (currentStep === 3 && autoPlaceOrderOnPayment) {
+      return (
+        <div className="cart-sheet-footer">
+          <button
+            type="button"
+            onClick={goBack}
+            aria-label="Revenir à l'étape précédente"
+            className="cart-sheet-btn-ghost cursor-pointer w-full"
+          >
+            <ChevronLeft size={14} />
+            Retour
+          </button>
+        </div>
+      )
+    }
+
+    // Étape 3 : bouton manuel uniquement en mode paiement simulé
+    if (currentStep === 3 && !autoPlaceOrderOnPayment) {
       return (
         <div className="cart-sheet-footer space-y-2">
           <motion.button

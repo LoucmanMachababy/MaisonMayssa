@@ -42,9 +42,11 @@ import {
 } from '../lib/pendingOrder'
 import {
   CLICK_COLLECT_ONLY,
+  STRIPE_LIVE,
   isPaymentConfirmedByDefault,
   type PaymentMethod,
 } from '../constants/checkout'
+import { STRIPE_PUBLISHABLE_KEY } from '../lib/stripe'
 
 const TROMPE_CATEGORIES = ["Trompe l'œil", "Nos trompe-l'œil"] as const
 
@@ -117,28 +119,27 @@ export function useOrderCheckout() {
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null)
   const [paymentConfirmed, setPaymentConfirmed] = useState(isPaymentConfirmedByDefault())
+  const stripePaymentIntentIdRef = useRef<string | null>(null)
+  const useRealStripe = STRIPE_LIVE && !!STRIPE_PUBLISHABLE_KEY
 
-  const confirmSimulatedPayment = useCallback((method: PaymentMethod) => {
+  const confirmSimulatedPayment = useCallback((method: PaymentMethod, _paymentIntentId?: string) => {
     setPaymentMethod(method)
+    stripePaymentIntentIdRef.current = null
     setPaymentConfirmed(true)
   }, [])
 
   const resetSimulatedPayment = useCallback(() => {
     setPaymentMethod(null)
+    stripePaymentIntentIdRef.current = null
     setPaymentConfirmed(isPaymentConfirmedByDefault())
   }, [])
 
   /**
    * Appelé quand le paiement (Stripe réel) a réussi : enregistre la méthode,
-   * marque payé, PUIS crée la commande immédiatement (→ trigger email).
+   * crée la commande immédiatement (→ trigger email), puis marque payé.
    * `handleSend` est défini plus bas ; on passe par une ref pour l'appeler.
    */
-  const handleSendRef = useRef<(() => Promise<void>) | null>(null)
-  const confirmPaymentAndPlaceOrder = useCallback(async (method: PaymentMethod) => {
-    setPaymentMethod(method)
-    setPaymentConfirmed(true)
-    await handleSendRef.current?.()
-  }, [])
+  const handleSendRef = useRef<(() => Promise<SaveOrderResult | void>) | null>(null)
 
   const [toasts, setToasts] = useState<Toast[]>([])
   const [orderRecapChannel, setOrderRecapChannel] = useState<OrderRecapSendChannel | null>(null)
@@ -214,6 +215,32 @@ export function useOrderCheckout() {
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id))
   }, [])
+
+  const confirmPaymentAndPlaceOrder = useCallback(
+    async (method: PaymentMethod, paymentIntentId?: string) => {
+      if (!paymentIntentId || paymentIntentId.startsWith('simulated_')) {
+        showToast('Paiement invalide. Réessaie.', 'error', 6000)
+        return
+      }
+
+      setPaymentMethod(method)
+      stripePaymentIntentIdRef.current = paymentIntentId
+
+      const result = await handleSendRef.current?.()
+      if (result && !result.ok) {
+        setPaymentConfirmed(true)
+        showToast(
+          'Ton paiement a bien été reçu, mais la commande n\'a pas pu être enregistrée. Contacte-nous avec ton relevé bancaire.',
+          'error',
+          12000,
+        )
+        return
+      }
+
+      setPaymentConfirmed(true)
+    },
+    [showToast],
+  )
 
   const openOrderRecap = useCallback((ch: OrderRecapSendChannel) => {
     setOrderContactIdentity(ch)
@@ -452,7 +479,10 @@ export function useOrderCheckout() {
           ...(user?.uid && { userId: user.uid }),
           ...(paymentMethod && {
             paymentMethod,
-            paymentStatus: 'simulated_paid' as const,
+            paymentStatus: stripePaymentIntentIdRef.current ? ('paid' as const) : ('simulated_paid' as const),
+            ...(stripePaymentIntentIdRef.current && {
+              stripePaymentIntentId: stripePaymentIntentIdRef.current,
+            }),
           }),
           ...(referralDiscount > 0 &&
             referrerUid && {
@@ -680,8 +710,13 @@ export function useOrderCheckout() {
    * (paiement Stripe confirmé en amont), affiche la confirmation, puis vide
    * le panier. Plus d'ouverture WhatsApp — le parcours est 100 % en ligne.
    */
-  const handleSend = async () => {
-    if (!validateBeforeSend()) return
+  const handleSend = async (): Promise<SaveOrderResult | void> => {
+    if (!validateBeforeSend()) return { ok: false }
+
+    if (useRealStripe && !stripePaymentIntentIdRef.current && !paymentConfirmed) {
+      showToast('Le paiement en ligne est requis avant de valider la commande.', 'error', 6000)
+      return { ok: false }
+    }
 
     const referralDiscountAmount = await getReferralDiscount()
     const orderResult = await saveOrderToFirebase('whatsapp')
@@ -695,7 +730,7 @@ export function useOrderCheckout() {
       } else if (orderResult.reason !== 'empty') {
         showToast("Erreur lors de l'enregistrement de la commande.", 'error')
       }
-      return
+      return orderResult
     }
     const { orderId, orderNumber } = orderResult
     recordPlacedOrder(customer.phone, orderNumber)
@@ -751,7 +786,11 @@ export function useOrderCheckout() {
 
     const { removeActiveSession } = await import('../lib/firebase')
     await removeActiveSession(sessionId)
+    stripePaymentIntentIdRef.current = null
+    setPaymentMethod(null)
+    setPaymentConfirmed(isPaymentConfirmedByDefault())
     clearCart()
+    return orderResult
   }
 
   // Garde la ref à jour pour confirmPaymentAndPlaceOrder (défini avant handleSend).
@@ -986,6 +1025,7 @@ export function useOrderCheckout() {
     deliveryFeeForRecap,
     paymentConfirmed,
     paymentMethod,
+    useRealStripe,
     confirmSimulatedPayment,
     confirmPaymentAndPlaceOrder,
     resetSimulatedPayment,

@@ -842,9 +842,7 @@ export const createPaymentIntent = onCall(
     const intent = await stripe.paymentIntents.create({
       amount,
       currency: 'eur',
-      // Moyens de paiement EXPLICITES : Carte (+ Apple Pay / Google Pay servis
-      // automatiquement avec « card » sur les appareils compatibles) et Revolut Pay.
-      // On exclut volontairement Link et PayPal.
+      // Carte (+ Apple Pay / Google Pay via Express Checkout) et Revolut Pay.
       payment_method_types: ['card', 'revolut_pay'],
       metadata: {
         ...(request.auth?.uid ? { userId: request.auth.uid } : {}),
