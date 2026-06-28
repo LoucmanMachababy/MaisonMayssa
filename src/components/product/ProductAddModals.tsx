@@ -23,6 +23,7 @@ export function ProductAddModals({ flow }: { flow: Flow }) {
       />
       <CandyFruitModal
         product={flow.candyFruitProduct}
+        excludedFlavorIds={flow.candyFruitExcludedFlavorIds}
         onClose={() => flow.setCandyFruitProduct(null)}
         onSelect={(product, flavor, quantity) => flow.confirmCandyFruit(product, flavor, quantity)}
       />

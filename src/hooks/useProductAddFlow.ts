@@ -13,6 +13,10 @@ import {
 } from '../constants'
 import type { CandyFruitFlavor } from '../constants/candyFruit'
 import {
+  getAvailableCandyFruitFlavors,
+  getCandyFruitExcludedFlavorIds,
+} from '../constants/candyFruit'
+import {
   getEligibleTrompeIdsForDiscoveryBox,
   listIndividualTrompeLoeilProducts,
 } from '../lib/discoveryBox'
@@ -74,6 +78,8 @@ export function useProductAddFlow(options?: UseProductAddFlowOptions) {
     }
 
     if (isCandyFruitFlavorProductId(product.id)) {
+      const excluded = getCandyFruitExcludedFlavorIds(product.id, settings)
+      if (getAvailableCandyFruitFlavors(product.id, excluded).length === 0) return false
       setCandyFruitProduct(product)
       return true
     }
@@ -133,6 +139,15 @@ export function useProductAddFlow(options?: UseProductAddFlowOptions) {
     ? getTrompeBundleSelectionSlotCount(discoveryBoxProduct.id)
     : undefined
 
+  const candyFruitExcludedFlavorIds = useMemo(() => {
+    if (!candyFruitProduct) return []
+    return getCandyFruitExcludedFlavorIds(candyFruitProduct.id, settings)
+  }, [
+    candyFruitProduct,
+    settings.candyFruitBoxExcludedFlavorIds,
+    settings.candyFruitCanetteExcludedFlavorIds,
+  ])
+
   return {
     tryAddProduct,
     discoveryBoxProduct,
@@ -145,6 +160,7 @@ export function useProductAddFlow(options?: UseProductAddFlowOptions) {
     confirmSize,
     candyFruitProduct,
     setCandyFruitProduct,
+    candyFruitExcludedFlavorIds,
     confirmCandyFruit,
     getStock,
   }

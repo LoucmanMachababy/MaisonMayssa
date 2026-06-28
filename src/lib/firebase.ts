@@ -5,6 +5,10 @@ import {
   getTrompeBundleSelectionSlotCount,
 } from '../constants'
 import { listIndividualTrompeLoeilProducts } from './discoveryBox'
+import {
+  CANDY_FRUIT_BOX_FLAVOR_IDS,
+  CANDY_FRUIT_CANETTE_FLAVOR_IDS,
+} from '../constants/candyFruit'
 import { initializeApp } from 'firebase/app'
 import { getDatabase, ref, onValue, set, get, push, update, remove, runTransaction, connectDatabaseEmulator, onDisconnect } from 'firebase/database'
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, sendEmailVerification, reload } from 'firebase/auth'
@@ -290,7 +294,14 @@ export type Settings = {
    * Trompe-l'œil unitaires inclus dans la mini box par 5 (l'admin choisit explicitement les 5 saveurs proposées).
    * Liste affichée au client sur la fiche produit. Stock indépendant des saveurs unitaires.
    */
-  miniBoxTrompeIncludedIds?: string[]
+  /**
+   * Goûts Candy Fruit box masqués côté client (Catalogue → Candy Fruit box).
+   */
+  candyFruitBoxExcludedFlavorIds?: string[]
+  /**
+   * Goûts Candy Fruit canette masqués côté client (Catalogue → Candy Fruit canette).
+   */
+  candyFruitCanetteExcludedFlavorIds?: string[]
 }
 
 const DEFAULT_PREORDER_OPENINGS: PreorderOpening[] = [
@@ -436,6 +447,16 @@ function mergeSettings(val: unknown): Settings {
         (x): x is string => typeof x === 'string' && allTrompeCatalogIds.has(x),
       )
     : []
+  const candyFruitBoxExcludedFlavorIds = Array.isArray(raw.candyFruitBoxExcludedFlavorIds)
+    ? (raw.candyFruitBoxExcludedFlavorIds as unknown[]).filter(
+        (x): x is string => typeof x === 'string' && CANDY_FRUIT_BOX_FLAVOR_IDS.includes(x),
+      )
+    : []
+  const candyFruitCanetteExcludedFlavorIds = Array.isArray(raw.candyFruitCanetteExcludedFlavorIds)
+    ? (raw.candyFruitCanetteExcludedFlavorIds as unknown[]).filter(
+        (x): x is string => typeof x === 'string' && CANDY_FRUIT_CANETTE_FLAVOR_IDS.includes(x),
+      )
+    : []
   return {
     preorderDays,
     preorderOpenings,
@@ -461,6 +482,8 @@ function mergeSettings(val: unknown): Settings {
     eventModePosterUrl,
     boxDecouverteTrompeExcludedIds,
     miniBoxTrompeIncludedIds,
+    candyFruitBoxExcludedFlavorIds,
+    candyFruitCanetteExcludedFlavorIds,
   }
 }
 

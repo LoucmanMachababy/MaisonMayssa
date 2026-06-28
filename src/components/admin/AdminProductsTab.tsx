@@ -1,6 +1,12 @@
 import { useState, useMemo } from 'react'
 import { ChevronDown, ChevronUp, RotateCcw, Plus, Trash2, Tag, Pin, ImagePlus, ShoppingBag } from 'lucide-react'
 import { PRODUCTS, BOX_DECOUVERTE_TROMPE_PRODUCT_ID, MINI_BOX_TROMPE_PRODUCT_ID, MINI_BOX_TROMPE_SLOT_COUNT } from '../../constants'
+import {
+  CANDY_FRUIT_BOX_PRODUCT_ID,
+  CANDY_FRUIT_CANETTE_PRODUCT_ID,
+  CANDY_FRUIT_BOX_FLAVORS,
+  CANDY_FRUIT_CANETTE_FLAVORS,
+} from '../../constants/candyFruit'
 import { updateProductOverride, setProductOverride, deleteProductOverride, uploadProductImage, updateSettings } from '../../lib/firebase'
 import { listIndividualTrompeLoeilProducts } from '../../lib/discoveryBox'
 import type { ProductOverrideMap, ProductOverride, ProductCategory, ProductBadge, ProductSize } from '../../types'
@@ -29,6 +35,8 @@ interface AdminProductsTabProps {
   boxDecouverteTrompeExcludedIds?: string[]
   /** Saveurs incluses dans la mini box trompe-l'œil (admin) */
   miniBoxTrompeIncludedIds?: string[]
+  candyFruitBoxExcludedFlavorIds?: string[]
+  candyFruitCanetteExcludedFlavorIds?: string[]
 }
 
 export function AdminProductsTab({
@@ -36,6 +44,8 @@ export function AdminProductsTab({
   overrides,
   boxDecouverteTrompeExcludedIds = [],
   miniBoxTrompeIncludedIds = [],
+  candyFruitBoxExcludedFlavorIds = [],
+  candyFruitCanetteExcludedFlavorIds = [],
 }: AdminProductsTabProps) {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(ALL_CATEGORIES))
   const [editingProduct, setEditingProduct] = useState<string | null>(null)
@@ -159,6 +169,8 @@ export function AdminProductsTab({
                     isSaving={saving === product.id}
                     boxDecouverteTrompeExcludedIds={boxDecouverteTrompeExcludedIds}
                     miniBoxTrompeIncludedIds={miniBoxTrompeIncludedIds}
+                    candyFruitBoxExcludedFlavorIds={candyFruitBoxExcludedFlavorIds}
+                    candyFruitCanetteExcludedFlavorIds={candyFruitCanetteExcludedFlavorIds}
                     onSetAvailability={(state) => handleSetAvailability(product, state)}
                     onEdit={() => setEditingProduct(editingProduct === product.id ? null : product.id)}
                     onReset={() => handleResetProduct(product.id)}
@@ -183,6 +195,8 @@ interface ProductCardProps {
   isSaving: boolean
   boxDecouverteTrompeExcludedIds: string[]
   miniBoxTrompeIncludedIds: string[]
+  candyFruitBoxExcludedFlavorIds: string[]
+  candyFruitCanetteExcludedFlavorIds: string[]
   onSetAvailability: (state: ProductAvailabilityState) => void
   onEdit: () => void
   onReset: () => void
@@ -197,6 +211,8 @@ function ProductCard({
   isSaving,
   boxDecouverteTrompeExcludedIds,
   miniBoxTrompeIncludedIds,
+  candyFruitBoxExcludedFlavorIds,
+  candyFruitCanetteExcludedFlavorIds,
   onSetAvailability,
   onEdit,
   onReset,
@@ -299,6 +315,8 @@ function ProductCard({
           isCustom={isCustom}
           boxDecouverteTrompeExcludedIds={boxDecouverteTrompeExcludedIds}
           miniBoxTrompeIncludedIds={miniBoxTrompeIncludedIds}
+          candyFruitBoxExcludedFlavorIds={candyFruitBoxExcludedFlavorIds}
+          candyFruitCanetteExcludedFlavorIds={candyFruitCanetteExcludedFlavorIds}
           onReset={onReset}
           onDelete={onDelete}
         />
@@ -314,6 +332,8 @@ interface ProductEditFormProps {
   isCustom: boolean
   boxDecouverteTrompeExcludedIds: string[]
   miniBoxTrompeIncludedIds: string[]
+  candyFruitBoxExcludedFlavorIds: string[]
+  candyFruitCanetteExcludedFlavorIds: string[]
   onReset: () => void
   onDelete: () => void
 }
@@ -324,6 +344,8 @@ function ProductEditForm({
   isCustom,
   boxDecouverteTrompeExcludedIds,
   miniBoxTrompeIncludedIds,
+  candyFruitBoxExcludedFlavorIds,
+  candyFruitCanetteExcludedFlavorIds,
   onReset,
   onDelete,
 }: ProductEditFormProps) {
@@ -582,6 +604,88 @@ function ProductEditForm({
               )
             })}
           </div>
+        </div>
+      )}
+
+      {/* Candy Fruit box : masquer des goûts */}
+      {product.id === CANDY_FRUIT_BOX_PRODUCT_ID && (
+        <div className="rounded-xl border border-pink-200/80 bg-pink-50/50 p-3 space-y-2">
+          <p className="text-[10px] font-bold text-mayssa-brown">
+            Goûts Candy Fruit box proposés au client
+          </p>
+          <p className="text-[9px] text-mayssa-brown/50 leading-snug">
+            Cliquez sur un goût pour le masquer : il disparaît de la fenêtre de choix côté client.
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {CANDY_FRUIT_BOX_FLAVORS.map((flavor) => {
+              const excluded = candyFruitBoxExcludedFlavorIds.includes(flavor.id)
+              return (
+                <button
+                  key={flavor.id}
+                  type="button"
+                  onClick={() => {
+                    const cur = new Set(candyFruitBoxExcludedFlavorIds)
+                    if (excluded) cur.delete(flavor.id)
+                    else cur.add(flavor.id)
+                    void updateSettings({ candyFruitBoxExcludedFlavorIds: [...cur] })
+                  }}
+                  className={`px-2 py-1 rounded-lg text-[9px] font-bold transition-colors cursor-pointer border ${
+                    excluded
+                      ? 'border-mayssa-brown/20 bg-mayssa-brown/10 text-mayssa-brown/45 line-through'
+                      : 'border-mayssa-caramel/35 bg-white text-mayssa-brown hover:border-mayssa-caramel'
+                  }`}
+                >
+                  {flavor.label}
+                </button>
+              )
+            })}
+          </div>
+          {candyFruitBoxExcludedFlavorIds.length >= CANDY_FRUIT_BOX_FLAVORS.length && (
+            <p className="text-[9px] font-semibold text-amber-700">
+              Tous les goûts sont masqués — le produit ne sera pas commandable.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Candy Fruit canette : masquer des goûts */}
+      {product.id === CANDY_FRUIT_CANETTE_PRODUCT_ID && (
+        <div className="rounded-xl border border-pink-200/80 bg-pink-50/50 p-3 space-y-2">
+          <p className="text-[10px] font-bold text-mayssa-brown">
+            Goûts Candy Fruit canette proposés au client
+          </p>
+          <p className="text-[9px] text-mayssa-brown/50 leading-snug">
+            Cliquez sur un goût pour le masquer : il disparaît de la fenêtre de choix côté client.
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {CANDY_FRUIT_CANETTE_FLAVORS.map((flavor) => {
+              const excluded = candyFruitCanetteExcludedFlavorIds.includes(flavor.id)
+              return (
+                <button
+                  key={flavor.id}
+                  type="button"
+                  onClick={() => {
+                    const cur = new Set(candyFruitCanetteExcludedFlavorIds)
+                    if (excluded) cur.delete(flavor.id)
+                    else cur.add(flavor.id)
+                    void updateSettings({ candyFruitCanetteExcludedFlavorIds: [...cur] })
+                  }}
+                  className={`px-2 py-1 rounded-lg text-[9px] font-bold transition-colors cursor-pointer border ${
+                    excluded
+                      ? 'border-mayssa-brown/20 bg-mayssa-brown/10 text-mayssa-brown/45 line-through'
+                      : 'border-mayssa-caramel/35 bg-white text-mayssa-brown hover:border-mayssa-caramel'
+                  }`}
+                >
+                  {flavor.label}
+                </button>
+              )
+            })}
+          </div>
+          {candyFruitCanetteExcludedFlavorIds.length >= CANDY_FRUIT_CANETTE_FLAVORS.length && (
+            <p className="text-[9px] font-semibold text-amber-700">
+              Tous les goûts sont masqués — le produit ne sera pas commandable.
+            </p>
+          )}
         </div>
       )}
 

@@ -9,6 +9,8 @@ export function useStock() {
     preorderMessage: '',
     boxDecouverteTrompeExcludedIds: [],
     miniBoxTrompeIncludedIds: [],
+    candyFruitBoxExcludedFlavorIds: [],
+    candyFruitCanetteExcludedFlavorIds: [],
   })
   const [loading, setLoading] = useState(true)
 

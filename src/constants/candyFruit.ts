@@ -122,6 +122,33 @@ export function getCandyFruitFlavors(productId: string): CandyFruitFlavor[] {
   return []
 }
 
+export const CANDY_FRUIT_BOX_FLAVOR_IDS = CANDY_FRUIT_BOX_FLAVORS.map((f) => f.id)
+export const CANDY_FRUIT_CANETTE_FLAVOR_IDS = CANDY_FRUIT_CANETTE_FLAVORS.map((f) => f.id)
+
+/** Goûts visibles côté client (exclusions admin Firebase). */
+export function getAvailableCandyFruitFlavors(
+  productId: string,
+  excludedFlavorIds?: string[],
+): CandyFruitFlavor[] {
+  const flavors = getCandyFruitFlavors(productId)
+  if (!excludedFlavorIds?.length) return flavors
+  const excluded = new Set(excludedFlavorIds)
+  return flavors.filter((f) => !excluded.has(f.id))
+}
+
+export function getCandyFruitExcludedFlavorIds(
+  productId: string,
+  settings: {
+    candyFruitBoxExcludedFlavorIds?: string[]
+    candyFruitCanetteExcludedFlavorIds?: string[]
+  },
+): string[] {
+  const format = getCandyFruitFormat(productId)
+  if (format === 'box') return settings.candyFruitBoxExcludedFlavorIds ?? []
+  if (format === 'canette') return settings.candyFruitCanetteExcludedFlavorIds ?? []
+  return []
+}
+
 export function getCandyFruitFormatLabel(format: CandyFruitFormat): string {
   return format === 'box' ? 'Box' : 'Canette'
 }

@@ -3419,6 +3419,8 @@ function Dashboard({ user }: { user: User }) {
                   overrides={productOverrides}
                   boxDecouverteTrompeExcludedIds={settings.boxDecouverteTrompeExcludedIds ?? []}
                   miniBoxTrompeIncludedIds={settings.miniBoxTrompeIncludedIds ?? []}
+                  candyFruitBoxExcludedFlavorIds={settings.candyFruitBoxExcludedFlavorIds ?? []}
+                  candyFruitCanetteExcludedFlavorIds={settings.candyFruitCanetteExcludedFlavorIds ?? []}
                 />
               </motion.div>
             )}
@@ -4064,6 +4066,8 @@ function Dashboard({ user }: { user: User }) {
               overrides={productOverrides}
               boxDecouverteTrompeExcludedIds={settings.boxDecouverteTrompeExcludedIds ?? []}
               miniBoxTrompeIncludedIds={settings.miniBoxTrompeIncludedIds ?? []}
+              candyFruitBoxExcludedFlavorIds={settings.candyFruitBoxExcludedFlavorIds ?? []}
+              candyFruitCanetteExcludedFlavorIds={settings.candyFruitCanetteExcludedFlavorIds ?? []}
             />
           </motion.div>
         )}

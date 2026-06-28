@@ -4,7 +4,7 @@ import { X, Plus, Minus, ShoppingBag, ChevronDown } from 'lucide-react'
 import type { Product } from '../types'
 import {
   CANDY_FRUIT_BRAND,
-  getCandyFruitFlavors,
+  getAvailableCandyFruitFlavors,
   getCandyFruitFormat,
   getCandyFruitFormatLabel,
   type CandyFruitFlavor,
@@ -14,14 +14,15 @@ import { useEscapeKey } from '../hooks/useEscapeKey'
 
 interface CandyFruitModalProps {
   product: Product | null
+  excludedFlavorIds?: string[]
   onClose: () => void
   onSelect: (product: Product, flavor: CandyFruitFlavor, quantity: number) => void
 }
 
-export function CandyFruitModal({ product, onClose, onSelect }: CandyFruitModalProps) {
+export function CandyFruitModal({ product, excludedFlavorIds = [], onClose, onSelect }: CandyFruitModalProps) {
   const flavors = useMemo(
-    () => (product ? getCandyFruitFlavors(product.id) : []),
-    [product],
+    () => (product ? getAvailableCandyFruitFlavors(product.id, excludedFlavorIds) : []),
+    [product, excludedFlavorIds],
   )
   const format = product ? getCandyFruitFormat(product.id) : null
   const formatLabel = format ? getCandyFruitFormatLabel(format) : ''
