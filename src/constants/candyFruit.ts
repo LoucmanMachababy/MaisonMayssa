@@ -24,8 +24,9 @@ export type CandyFruitFlavor = {
 
 const img = (file: string) => `/nouvelle-img/${encodeURI(file)}`
 
-export const CANDY_FRUIT_BOX_IMAGE = img('candy-bruit-box.jpeg')
+export const CANDY_FRUIT_BOX_IMAGE = img('candy-fruits-box.png')
 export const CANDY_FRUIT_CANETTE_IMAGE = img('candy-fruit-canette-bubble-gum.jpeg')
+export const CANDY_FRUIT_SAUCE_IMAGE = img('sauce-aciduler.PNG')
 
 /** Box 15 € */
 export const CANDY_FRUIT_BOX_FLAVORS: CandyFruitFlavor[] = [

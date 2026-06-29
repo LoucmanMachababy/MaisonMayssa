@@ -30,7 +30,7 @@ export default function PremiumHome() {
   const categories = [
     { name: 'Les Canette Cake', image: LIFESTYLE.canetteCake, path: '/carte?categorie=canette-cake' },
     { name: 'Nos trompe-l\'œil', image: '/nouvelle-img/mangue-face.png', path: '/carte?categorie=patisseries' },
-    { name: 'Candy Fruit Chez Mima', image: '/nouvelle-img/candy-bruit-box.jpeg', path: '/carte?categorie=candy-fruit' },
+    { name: 'Candy Fruit Chez Mima', image: '/nouvelle-img/candy-fruits-box.png', path: '/carte?categorie=candy-fruit' },
     { name: 'Le salé', image: LIFESTYLE.sale, path: '/carte?categorie=sale' },
     { name: 'La Chocolaterie', image: LIFESTYLE.chocolaterie, path: '/carte?categorie=chocolaterie' },
     { name: 'Nos jus frais', image: LIFESTYLE.jusFrais, path: '/carte?categorie=jus' },

@@ -1,5 +1,5 @@
 import type { Product } from '../types'
-import { CANDY_FRUIT_BRAND, CANDY_FRUIT_SNAPCHAT_MENTION, CANDY_FRUIT_COMPOSITION } from './candyFruit'
+import { CANDY_FRUIT_BRAND, CANDY_FRUIT_SNAPCHAT_MENTION, CANDY_FRUIT_COMPOSITION, CANDY_FRUIT_SAUCE_IMAGE } from './candyFruit'
 
 export const TROMPE_PREORDER = { availableFrom: '2026-02-13', daysToPickup: 3 }
 
@@ -205,7 +205,7 @@ export const CATALOG_PRODUCTS: Product[] = [
     description: `${CANDY_FRUIT_COMPOSITION} Choisissez parmi 7 goûts en box. ${CANDY_FRUIT_SNAPCHAT_MENTION}`,
     price: 15,
     category: 'Candy Fruit',
-    image: '/nouvelle-img/candy-bruit-box.jpeg',
+    image: '/nouvelle-img/candy-fruits-box.png',
     badges: ['nouveau'],
     available: true,
     visible: true,
@@ -227,7 +227,7 @@ export const CATALOG_PRODUCTS: Product[] = [
     description: `Sauce acidulée en complément de votre Candy Fruit. ${CANDY_FRUIT_COMPOSITION} ${CANDY_FRUIT_SNAPCHAT_MENTION}`,
     price: 1,
     category: 'Candy Fruit',
-    image: '/nouvelle-img/candy-fruit-coca-cherry.JPG',
+    image: CANDY_FRUIT_SAUCE_IMAGE,
     badges: ['nouveau'],
     available: true,
     visible: true,

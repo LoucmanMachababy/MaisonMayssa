@@ -45,7 +45,7 @@ export const CATEGORY_HEADER_IMAGES: Record<string, string> = {
   sale: LIFESTYLE.sale,
   'canette-cake': LIFESTYLE.canetteCake,
   fruits: LIFESTYLE.fruits,
-  'candy-fruit': '/nouvelle-img/candy-bruit-box.jpeg',
+  'candy-fruit': '/nouvelle-img/candy-fruits-box.png',
   chocolaterie: LIFESTYLE.chocolaterie,
   boxes: LIFESTYLE.boxes,
 }
