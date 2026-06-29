@@ -1,6 +1,12 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import { PRODUCTS, isCustomizableTrompeBundleBoxId, isTrompeBoxWithStoredSelection } from '../constants'
+import {
+  CANDY_FRUIT_BOX_FLAVORS,
+  CANDY_FRUIT_CANETTE_FLAVORS,
+  CANDY_FRUIT_BOX_PRODUCT_ID,
+  CANDY_FRUIT_CANETTE_PRODUCT_ID,
+} from '../constants/candyFruit'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -231,6 +237,7 @@ export function shortenOrderItemDisplayName(raw: string): string {
   const tail = m[2].trim()
   if (!head) return trimmed
 
+  if (/^(Base:|Toppings:|Choix :|Saveurs :)/i.test(tail)) return trimmed
   if (tail.length <= 64) return trimmed
 
   return head
@@ -255,18 +262,36 @@ export type OrderItemLikeForDisplay = {
  * Box découverte : ajoute la liste des saveurs si `trompeDiscoverySelection` est présent.
  */
 export function formatOrderItemName(item: OrderItemLikeForDisplay): string {
-  const short = shortenOrderItemDisplayName(item.name)
   const id = item.productId ?? ''
   const baseId = normalizeOrderProductBaseId(id)
-  let line: string
-  if (id.startsWith('brownie-')) line = `Brownie - ${short}`
-  else if (id.startsWith('cookie-')) line = `Cookie - ${short}`
-  else if (id.startsWith('layer-')) line = `Layer Cup - ${short}`
-  else line = short
+  let line = shortenOrderItemDisplayName(item.name)
+
+  if (id.startsWith('brownie-')) line = `Brownie - ${shortenOrderItemDisplayName(item.name.replace(/^Brownie\s*[-–]?\s*/i, ''))}`
+  else if (id.startsWith('cookie-')) line = `Cookie - ${shortenOrderItemDisplayName(item.name.replace(/^Cookie\s*[-–]?\s*/i, ''))}`
+  else if (id.startsWith('layer-')) line = `Layer Cup - ${shortenOrderItemDisplayName(item.name.replace(/^Layer Cup\s*[-–]?\s*/i, ''))}`
+  else if (baseId.startsWith('canette-cake-')) {
+    const catalog = PRODUCTS.find((p) => p.id === baseId)
+    line = catalog?.name ?? line
+  } else if (baseId === CANDY_FRUIT_BOX_PRODUCT_ID || baseId === CANDY_FRUIT_CANETTE_PRODUCT_ID) {
+    const prefix = `${baseId}-`
+    if (id.startsWith(prefix)) {
+      const flavorId = id.slice(prefix.length).replace(/-\d{10,}$/, '')
+      const flavors = baseId === CANDY_FRUIT_BOX_PRODUCT_ID ? CANDY_FRUIT_BOX_FLAVORS : CANDY_FRUIT_CANETTE_FLAVORS
+      const flavor = flavors.find((f) => f.id === flavorId)
+      if (flavor) {
+        const format = baseId === CANDY_FRUIT_CANETTE_PRODUCT_ID ? 'Canette' : 'Box'
+        line = `Candy Fruit Chez Mima ${format} — ${flavor.label}`
+      }
+    }
+  }
+
+  if (item.sizeLabel && !line.includes(item.sizeLabel)) {
+    line = `${line} (${item.sizeLabel})`
+  }
 
   const trompeIds = item.trompeDiscoverySelection ?? []
   const looksLikeTrompePick =
-    trompeIds.length > 0 && trompeIds.every((id) => typeof id === 'string' && id.startsWith('trompe-loeil-'))
+    trompeIds.length > 0 && trompeIds.every((tid) => typeof tid === 'string' && tid.startsWith('trompe-loeil-'))
   if (trompeIds.length && (isTrompeBoxWithStoredSelection(baseId) || looksLikeTrompePick)) {
     const labels = trompeIds.map(
       (tid) => PRODUCTS.find((p) => p.id === tid)?.name.replace(/^Trompe l'œil\s+/i, '').trim() ?? tid,

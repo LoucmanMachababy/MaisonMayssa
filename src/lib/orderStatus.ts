@@ -5,7 +5,7 @@ export function isOrderOnlinePaid(order: Pick<Order, 'paymentStatus'>): boolean 
   return order.paymentStatus === 'paid' || order.paymentStatus === 'simulated_paid'
 }
 
-/** Statut initial : payé en ligne → directement en préparation (plus de validation manuelle). */
+/** Statut initial : payé en ligne → commande validée (plus d'étape « en attente » admin). */
 export function resolveInitialOrderStatus(input: {
   paymentMethod?: Order['paymentMethod']
   paymentStatus?: Order['paymentStatus']
@@ -16,5 +16,10 @@ export function resolveInitialOrderStatus(input: {
     input.paymentStatus === 'simulated_paid' ||
     !!input.stripePaymentIntentId ||
     !!input.paymentMethod
-  return paid ? 'en_preparation' : 'en_attente'
+  return paid ? 'validee' : 'en_attente'
+}
+
+/** Commandes visibles dans l'onglet admin « Nouvelles commandes » (à traiter avant la préparation). */
+export function isNewOrderInAdminQueue(order: Pick<Order, 'status'>): boolean {
+  return order.status === 'en_attente' || order.status === 'validee'
 }

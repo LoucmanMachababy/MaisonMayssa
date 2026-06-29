@@ -77,6 +77,7 @@ import {
 } from '../components/mobile'
 const OnboardingTour = lazyWithRetry(() => import('../components/mobile/OnboardingTour').then(m => ({ default: m.OnboardingTour })))
 import { hapticFeedback } from '../lib/haptics'
+import { buildOrderItemFromCart } from '../lib/orderItems'
 
 const SizeSelectorModal = lazyWithRetry(() => import('../components/SizeSelectorModal').then(m => ({ default: m.SizeSelectorModal })))
 const TiramisuCustomizationModal = lazyWithRetry(() => import('../components/TiramisuCustomizationModal').then(m => ({ default: m.TiramisuCustomizationModal })))
@@ -1265,27 +1266,7 @@ export default function Home() {
       }
       try {
         result = await createOrder({
-          items: cart.map((item) => {
-            // Inclure les personnalisations (toppings, coulis, parfums...) dans le nom pour l'admin
-            let name: string
-            if (item.product.category === 'Tiramisus' && item.product.description) {
-              name = `${item.product.name} – ${item.product.description}`
-            } else if (item.product.description) {
-              // Boxes, mini gourmandises, box fruitée, etc.
-              name = `${item.product.name} – ${item.product.description}`
-            } else {
-              name = item.product.name
-            }
-            return {
-              productId: getOriginalProductId(item.product.id),
-              name,
-              quantity: item.quantity,
-              price: item.product.price,
-              ...(item.trompeDiscoverySelection?.length
-                ? { trompeDiscoverySelection: item.trompeDiscoverySelection }
-                : {}),
-            }
-          }),
+          items: cart.map((item) => buildOrderItemFromCart(item)),
           customer: {
             firstName:
               source === 'instagram'

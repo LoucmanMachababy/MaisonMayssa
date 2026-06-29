@@ -41,6 +41,7 @@ import {
   markOrderPlaced,
 } from '../lib/pendingOrder'
 import { resolveInitialOrderStatus } from '../lib/orderStatus'
+import { buildOrderItemFromCart } from '../lib/orderItems'
 import {
   CLICK_COLLECT_ONLY,
   STRIPE_LIVE,
@@ -431,25 +432,7 @@ export function useOrderCheckout() {
       const rollbackStock = async () => {}
       try {
         result = await createOrder({
-          items: cart.map((item) => {
-            let name: string
-            if (item.product.category === 'Tiramisus' && item.product.description) {
-              name = `${item.product.name} – ${item.product.description}`
-            } else if (item.product.description) {
-              name = `${item.product.name} – ${item.product.description}`
-            } else {
-              name = item.product.name
-            }
-            return {
-              productId: getOriginalProductId(item.product.id),
-              name,
-              quantity: item.quantity,
-              price: item.product.price,
-              ...(item.trompeDiscoverySelection?.length
-                ? { trompeDiscoverySelection: item.trompeDiscoverySelection }
-                : {}),
-            }
-          }),
+          items: cart.map((item) => buildOrderItemFromCart(item)),
           customer: {
             firstName:
               source === 'instagram'

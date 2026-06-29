@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Bell, ShoppingBag, Package, AlertTriangle, Cake, TrendingDown, Clock } from 'lucide-react'
+import { isNewOrderInAdminQueue, isOrderOnlinePaid } from '../../lib/orderStatus'
 import { cn } from '../../lib/utils'
 import type { Order, UserProfile } from '../../lib/firebase'
 import { formatOrderCustomerDisplayName } from '../../lib/orderCustomerDisplay'
@@ -46,7 +47,7 @@ export function AdminNotificationsCenter({ orders, stock, allUsers, isOpen, onCl
     // === Commandes urgentes (retrait dans < 2h) ===
     Object.entries(orders)
       .filter(([, o]) => {
-        if (!['en_attente', 'en_preparation'].includes(o.status)) return false
+        if (!['en_attente', 'validee', 'en_preparation'].includes(o.status)) return false
         if (!o.requestedDate || !o.requestedTime) return false
         if (o.requestedDate !== todayStr) return false
         const [h, m] = (o.requestedTime ?? '23:59').split(':').map(Number)
@@ -67,33 +68,33 @@ export function AdminNotificationsCenter({ orders, stock, allUsers, isOpen, onCl
         })
       })
 
-    // === Commandes en attente ===
+    // === Nouvelles commandes (validées en ligne ou hors-site en attente) ===
     const PENDING_ALERT_MS = 30 * 60 * 1000
-    const pendingOrders = Object.entries(orders).filter(([, o]) => o.status === 'en_attente')
+    const pendingOrders = Object.entries(orders).filter(([, o]) => isNewOrderInAdminQueue(o))
     if (pendingOrders.length > 0) {
-      // List recent pending orders (exclure celles déjà en "non traitées")
       const recent = pendingOrders
         .filter(([, o]) => !o.createdAt || (Date.now() - o.createdAt) <= PENDING_ALERT_MS)
         .sort(([, a], [, b]) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
         .slice(0, 3)
       recent.forEach(([id, o]) => {
         const name = formatOrderCustomerDisplayName(o)
+        const paidLabel = isOrderOnlinePaid(o) ? ' · Payée en ligne' : o.status === 'en_attente' ? ' · À accepter' : ''
         notifs.push({
           id: `pending-${id}`,
           type: 'order_pending',
-          title: '🛒 Nouvelle commande',
-          message: `${name} — ${(o.total ?? 0).toFixed(0)}€ (${o.deliveryMode === 'livraison' ? 'Livraison' : 'Retrait'})`,
+          title: isOrderOnlinePaid(o) ? '✅ Commande validée' : '🛒 Nouvelle commande',
+          message: `${name} — ${(o.total ?? 0).toFixed(0)}€ (${o.deliveryMode === 'livraison' ? 'Livraison' : 'Retrait'})${paidLabel}`,
           time: o.createdAt ? timeAgo(o.createdAt) : '',
           priority: 'high',
           action: () => { onNavigate('commandes'); onClose() },
-          actionLabel: 'Valider',
+          actionLabel: isOrderOnlinePaid(o) ? 'Voir' : 'Accepter',
         })
       })
     }
 
     // === Commandes non traitées depuis > 30 min ===
     const stalePending = Object.entries(orders)
-      .filter(([, o]) => o.status === 'en_attente' && o.createdAt && (Date.now() - o.createdAt) > PENDING_ALERT_MS)
+      .filter(([, o]) => isNewOrderInAdminQueue(o) && o.createdAt && (Date.now() - o.createdAt) > PENDING_ALERT_MS)
       .sort(([, a], [, b]) => (a.createdAt ?? 0) - (b.createdAt ?? 0))
       .slice(0, 3)
     stalePending.forEach(([id, o]) => {
@@ -103,7 +104,7 @@ export function AdminNotificationsCenter({ orders, stock, allUsers, isOpen, onCl
         id: `stale-${id}`,
         type: 'order_pending',
         title: '⏰ Commande non traitée',
-        message: `${name} — en attente depuis ${mins} min`,
+        message: `${name} — validée depuis ${mins} min, pas encore en prépa`,
         time: o.createdAt ? timeAgo(o.createdAt) : '',
         priority: 'high',
         action: () => { onNavigate('commandes'); onClose() },

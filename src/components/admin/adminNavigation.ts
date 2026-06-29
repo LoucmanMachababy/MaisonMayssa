@@ -66,7 +66,7 @@ export function buildAdminNavigation(counts: {
     {
       label: 'Commandes',
       items: [
-        { id: 'commandes', icon: ClipboardList, label: 'À valider', badge: counts.pending },
+        { id: 'commandes', icon: ClipboardList, label: 'Nouvelles', badge: counts.pending },
         { id: 'historique', icon: Calendar, label: 'Planning' },
         { id: 'livret', icon: Truck, label: 'Journalier', badge: counts.inPrep },
       ],
@@ -84,7 +84,7 @@ export function buildAdminNavigation(counts: {
 
 export const ADMIN_TAB_LABELS: Record<string, string> = {
   resume: 'Tableau de bord',
-  commandes: 'Commandes à valider',
+  commandes: 'Nouvelles commandes',
   historique: 'Planning des commandes',
   livret: 'Journalier des retraits',
   ca: 'Analytics & performance',
