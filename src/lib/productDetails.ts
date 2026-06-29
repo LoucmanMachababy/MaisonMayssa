@@ -170,7 +170,7 @@ export const PRODUCT_DETAILS: Record<string, ProductDetailContent> = {
   'box-decouverte-trompe-5': {
     tagline: 'Composez votre sélection — 5 saveurs au choix',
     paragraphs: [
-      'La box découverte vous laisse choisir 5 trompe-l\'œil différents parmi toute notre gamme disponible. Idéale pour tester ses favoris ou composer un coffret sur mesure.',
+      'La box découverte vous laisse choisir 5 trompe-l\'œil différents parmi toute notre gamme disponible. La gousse de vanille est proposée avec un supplément de 0,50 €.',
       'Cadeau personnalisé, première commande ou envie de variété : vous composez, nous préparons avec le même soin artisanal.',
       'Un excellent rapport qualité-prix pour découvrir plusieurs univers de saveurs en une seule commande.',
     ],
@@ -180,7 +180,7 @@ export const PRODUCT_DETAILS: Record<string, ProductDetailContent> = {
   'box-decouverte-trompe-8': {
     tagline: 'Composez votre sélection — 8 saveurs au choix',
     paragraphs: [
-      'La box découverte 8 saveurs vous laisse choisir 8 trompe-l\'œil différents parmi notre gamme disponible — vanille incluse si proposée par la maison.',
+      'La box découverte 8 saveurs vous laisse choisir 8 trompe-l\'œil différents parmi notre gamme disponible. La gousse de vanille est proposée avec un supplément de 0,50 €.',
       'Format généreux pour les grandes occasions, les cadeaux d\'exception ou goûter une large partie de la collection en une commande.',
       'Même principe que la box de 5 : vous composez librement, nous préparons avec le même soin artisanal.',
     ],

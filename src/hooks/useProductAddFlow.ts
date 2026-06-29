@@ -20,6 +20,7 @@ import {
 import {
   getEligibleTrompeIdsForDiscoveryBox,
   listIndividualTrompeLoeilProducts,
+  getDiscoveryBoxLinePrice,
 } from '../lib/discoveryBox'
 import { trackAddToCart } from '../lib/siteAnalytics'
 
@@ -100,7 +101,9 @@ export function useProductAddFlow(options?: UseProductAddFlowOptions) {
 
   const confirmDiscoveryBox = (selectionIds: string[]) => {
     if (!discoveryBoxProduct) return
-    addItem(discoveryBoxProduct, 1, { trompeDiscoverySelection: selectionIds })
+    const linePrice = getDiscoveryBoxLinePrice(discoveryBoxProduct.price, selectionIds, discoveryBoxProduct.id)
+    const cartProduct: Product = { ...discoveryBoxProduct, price: linePrice }
+    addItem(cartProduct, 1, { trompeDiscoverySelection: selectionIds })
     trackAddToCart(discoveryBoxProduct.id, discoveryBoxProduct.name)
     const added = discoveryBoxProduct
     setDiscoveryBoxProduct(null)

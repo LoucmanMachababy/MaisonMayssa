@@ -105,7 +105,7 @@ export const CATALOG_PRODUCTS: Product[] = [
   {
     id: 'box-decouverte-trompe-5',
     name: "Box découverte — 5 trompe-l'œil",
-    description: 'Composez votre box : 5 trompe-l\'œil différents au choix.',
+    description: 'Composez votre box : 5 trompe-l\'œil différents au choix. Gousse de vanille : +0,50 €.',
     price: 40,
     originalPrice: 42.5,
     category: 'Boxes',
@@ -118,7 +118,7 @@ export const CATALOG_PRODUCTS: Product[] = [
   {
     id: 'box-decouverte-trompe-8',
     name: "Box découverte — 8 trompe-l'œil",
-    description: 'Composez votre box : 8 trompe-l\'œil différents au choix (vanille incluse si disponible).',
+    description: 'Composez votre box : 8 trompe-l\'œil différents au choix. Gousse de vanille : +0,50 €.',
     price: 70,
     category: 'Boxes',
     image: '/nouvelle-img/boxe-de-tout.png',

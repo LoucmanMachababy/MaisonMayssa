@@ -53,6 +53,7 @@ import {
   getEffectiveStockForProductCard,
   getEligibleTrompeIdsForDiscoveryBox,
   listIndividualTrompeLoeilProducts,
+  getDiscoveryBoxLinePrice,
 } from '../lib/discoveryBox'
 // Firebase importé dynamiquement pour le reste
 // addUserPoints, createOrder, etc. sont importés via import() dans les handlers
@@ -1026,6 +1027,9 @@ export default function Home() {
       ...base,
       id: `${base.id}-${Date.now()}`,
       description: `Choix : ${selectionIds.map(resolveName).join(', ')}`,
+      price: isDiscoveryTrompeBoxId(base.id)
+        ? getDiscoveryBoxLinePrice(base.price, selectionIds, base.id)
+        : base.price,
     }
     setCart((current) => {
       pendingAddToastRef.current = { message: `${base.name} ajouté au panier`, product: base }

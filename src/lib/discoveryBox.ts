@@ -11,6 +11,29 @@ import { getBundleEffectiveStock } from './bundleStock'
 
 export { BOX_DECOUVERTE_TROMPE_PRODUCT_ID, DISCOVERY_BOX_TROMPE_SLOT_COUNT }
 
+/** Gousse de vanille : supplément en box découverte (5 ou 8). */
+export const DISCOVERY_BOX_VANILLE_TROMPE_ID = 'trompe-loeil-vanille'
+export const DISCOVERY_BOX_VANILLE_SUPPLEMENT_EUR = 0.5
+
+export function discoveryBoxHasVanilleSupplement(selectionIds: string[] | undefined): boolean {
+  return !!selectionIds?.includes(DISCOVERY_BOX_VANILLE_TROMPE_ID)
+}
+
+/** Prix ligne panier / commande pour une box découverte (base + éventuel supplément vanille). */
+export function getDiscoveryBoxLinePrice(
+  basePrice: number,
+  selectionIds: string[] | undefined,
+  boxProductId?: string,
+): number {
+  const supplement =
+    boxProductId &&
+    isDiscoveryTrompeBoxId(boxProductId) &&
+    discoveryBoxHasVanilleSupplement(selectionIds)
+      ? DISCOVERY_BOX_VANILLE_SUPPLEMENT_EUR
+      : 0
+  return Math.round((basePrice + supplement) * 100) / 100
+}
+
 /** Trompe-l'œil unitaires (pas les boxes bundle). */
 export function listIndividualTrompeLoeilProducts(catalog: Product[] = PRODUCTS): Product[] {
   return catalog.filter(

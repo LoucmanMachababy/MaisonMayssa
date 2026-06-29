@@ -2,8 +2,14 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Check, Minus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { Product } from '../types'
-import { DISCOVERY_BOX_TROMPE_SLOT_COUNT } from '../constants'
-import { isTrompeSelectableForDiscovery } from '../lib/discoveryBox'
+import { DISCOVERY_BOX_TROMPE_SLOT_COUNT, isDiscoveryTrompeBoxId } from '../constants'
+import {
+  isTrompeSelectableForDiscovery,
+  DISCOVERY_BOX_VANILLE_TROMPE_ID,
+  DISCOVERY_BOX_VANILLE_SUPPLEMENT_EUR,
+  discoveryBoxHasVanilleSupplement,
+  getDiscoveryBoxLinePrice,
+} from '../lib/discoveryBox'
 import { useEscapeKey } from '../hooks/useEscapeKey'
 import { cn } from '../lib/utils'
 import { hapticFeedback } from '../lib/haptics'
@@ -69,6 +75,10 @@ export function BoxDecouverteTrompeModal({
     return picked.map((id) => nameById.get(id) ?? id).join(' • ')
   }, [picked, nameById])
 
+  const isDiscoveryBox = product ? isDiscoveryTrompeBoxId(product.id) : false
+  const linePrice = product ? getDiscoveryBoxLinePrice(product.price, picked, product.id) : 0
+  const vanilleSupplement = isDiscoveryBox && discoveryBoxHasVanilleSupplement(picked)
+
   if (!product) return null
 
   return (
@@ -115,7 +125,12 @@ export function BoxDecouverteTrompeModal({
                   </h3>
                   <p className="text-xs text-mayssa-brown/65">{product.description}</p>
                   <p className="text-sm font-display font-semibold text-mayssa-brown pt-1">
-                    {product.price.toFixed(2).replace('.', ',')} €
+                    {linePrice.toFixed(2).replace('.', ',')} €
+                    {vanilleSupplement && (
+                      <span className="text-[10px] font-normal text-mayssa-brown/55 ml-1">
+                        (dont +{DISCOVERY_BOX_VANILLE_SUPPLEMENT_EUR.toFixed(2).replace('.', ',')} € vanille)
+                      </span>
+                    )}
                     {product.originalPrice != null && (
                       <span className="text-xs text-mayssa-brown/40 line-through ml-2">
                         {product.originalPrice.toFixed(2).replace('.', ',')} €
@@ -164,6 +179,8 @@ export function BoxDecouverteTrompeModal({
                       const selectable =
                         !already && (allowOutOfStock || isTrompeSelectableForDiscovery(p.id, getStock))
                       const s = getStock(p.id)
+                      const isVanilleSurcharge =
+                        isDiscoveryBox && p.id === DISCOVERY_BOX_VANILLE_TROMPE_ID
                       const stockLabel =
                         already
                           ? 'Déjà dans la box'
@@ -186,6 +203,11 @@ export function BoxDecouverteTrompeModal({
                           )}
                         >
                           <span className="text-xs font-bold text-mayssa-brown block truncate">{p.name}</span>
+                          {isVanilleSurcharge && (
+                            <span className="text-[9px] font-semibold text-mayssa-gold mt-0.5 block">
+                              +{DISCOVERY_BOX_VANILLE_SUPPLEMENT_EUR.toFixed(2).replace('.', ',')} €
+                            </span>
+                          )}
                           {stockLabel ? (
                             <span
                               className={cn(

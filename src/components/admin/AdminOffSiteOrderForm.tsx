@@ -13,7 +13,7 @@ import {
   getTrompeBundleSelectionSlotCount,
   isCustomizableTrompeBundleBoxId,
 } from '../../constants'
-import { getEligibleTrompeIdsForDiscoveryBox, listIndividualTrompeLoeilProducts } from '../../lib/discoveryBox'
+import { getEligibleTrompeIdsForDiscoveryBox, listIndividualTrompeLoeilProducts, getDiscoveryBoxLinePrice } from '../../lib/discoveryBox'
 
 const ALL_CATEGORIES: ProductCategory[] = [
   "Trompe l'œil", 'Mini Gourmandises', 'Brownies', 'Cookies', 'Layer Cups', 'Boxes', 'Tiramisus',
@@ -262,15 +262,19 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
       return
     }
     const resolveName = (id: string) => allProducts.find((x) => x.id === id)?.name ?? id
+    const linePrice = isDiscoveryTrompeBoxId(base.id)
+      ? getDiscoveryBoxLinePrice(base.price, selectionIds, base.id)
+      : base.price
     const cartProduct = {
       ...base,
       id: `${base.id}-${Date.now()}`,
       description: `Choix : ${selectionIds.map(resolveName).join(', ')}`,
+      price: linePrice,
     } as ProductWithAvailability
     const entry: CartEntry = {
       product: cartProduct,
       quantity: 1,
-      unitPrice: base.price,
+      unitPrice: linePrice,
       trompeDiscoverySelection: selectionIds,
     }
     setTrompePickerProduct(null)
