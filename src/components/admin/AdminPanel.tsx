@@ -62,6 +62,7 @@ import { AdminWhatsAppDropdown } from './AdminWhatsAppDropdown'
 import { togglePinOrder, isOrderPinned } from '../../lib/adminPins'
 import { formatOrderCustomerDisplayName } from '../../lib/orderCustomerDisplay'
 import { getOrderDepositAmount, getOrderRemainingToPay, DEPOSIT_50_PERCENT_MIN_TOTAL_EUR } from '../../lib/orderAmounts'
+import { isOrderOnlinePaid } from '../../lib/orderStatus'
 import { AdminDeposit50Prompt } from './AdminDeposit50Prompt'
 import { Pin } from 'lucide-react'
 import { ADMIN_EMAIL, checkUserIsAdmin } from '../../lib/adminAccess'
@@ -205,6 +206,11 @@ const ORDER_STATUS_LABELS: Record<string, string> = {
   refusee: 'Refusée',
 }
 
+function getAdminOrderStatusLabel(order: Order): string {
+  const base = ORDER_STATUS_LABELS[order.status] ?? order.status
+  return isOrderOnlinePaid(order) ? `Payée · ${base}` : base
+}
+
 // Son de notification pour nouvelle commande (Web Audio API)
 function playNewOrderSound() {
   try {
@@ -236,7 +242,7 @@ function exportOrdersToCSV(entries: [string, Order][], filenameSuffix?: string):
     const client = formatOrderCustomerDisplayName(o)
     const phone = o.customer?.phone ?? ''
     const source = o.source === 'snap' ? 'Snap' : o.source === 'instagram' ? 'Insta' : o.source === 'whatsapp' ? 'WhatsApp' : 'Site'
-    const status = ORDER_STATUS_LABELS[o.status] ?? o.status
+    const status = getAdminOrderStatusLabel(o)
     const mode = o.deliveryMode === 'livraison' ? 'Livraison' : 'Retrait'
     const adresse = (o.customer?.address ?? '').replace(/"/g, '""')
     const distanceKm = o.distanceKm != null ? o.distanceKm.toFixed(1) : ''
@@ -2738,7 +2744,7 @@ function Dashboard({ user }: { user: User }) {
                                       ? 'bg-red-50 text-red-600'
                                       : 'bg-slate-50 text-slate-600'
                           }`}>
-                            {ORDER_STATUS_LABELS[order.status] ?? order.status}
+                            {getAdminOrderStatusLabel(order)}
                           </span>
                           <p className="text-[9px] text-mayssa-brown/40 mt-1">
                             {order.createdAt ? new Date(order.createdAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}

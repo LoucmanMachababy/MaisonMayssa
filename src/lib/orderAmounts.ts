@@ -25,8 +25,9 @@ export function isDepositMatchingSuggested50(order: Order): boolean {
   return Math.abs(d - s) < 0.005
 }
 
-/** Montant encore dû : total commande − acompte (≥ 0). */
+/** Montant encore dû : total commande − acompte (≥ 0). 0 si déjà payé en ligne. */
 export function getOrderRemainingToPay(order: Order): number {
+  if (order.paymentStatus === 'paid' || order.paymentStatus === 'simulated_paid') return 0
   const total = order.total ?? 0
   const deposit = getOrderDepositAmount(order)
   return Math.max(0, Math.round((total - deposit) * 100) / 100)

@@ -7,6 +7,7 @@ import { PremiumBackLink } from './layout/PremiumEditorial'
 import { listenOrder, type Order, type OrderStatus } from '../lib/firebase'
 import { getOrderDepositAmount, getOrderRemainingToPay } from '../lib/orderAmounts'
 import { formatOrderItemName } from '../lib/utils'
+import { isOrderOnlinePaid } from '../lib/orderStatus'
 
 /** Libellés alignés sur le dashboard admin (À valider / Historique) */
 const STATUS_CONFIG: Record<OrderStatus, { label: string; subtitle?: string; icon: typeof Package; color: string }> = {
@@ -70,6 +71,17 @@ export function OrderStatusPage({ orderId }: OrderStatusPageProps) {
 
   const config = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.en_attente
   const Icon = config.icon
+  const paidOnline = isOrderOnlinePaid(order)
+  const statusLabel =
+    paidOnline && order.status === 'en_preparation'
+      ? 'Commande payée'
+      : paidOnline && order.status === 'pret'
+        ? 'Commande payée · Prête'
+        : config.label
+  const statusSubtitle =
+    paidOnline && order.status === 'en_preparation'
+      ? 'Paiement confirmé. Nous préparons votre commande avec soin.'
+      : config.subtitle
 
   const itemsSubtotal = (order.items ?? []).reduce((s, it) => s + (it.price ?? 0) * (it.quantity ?? 0), 0)
   const delivery = (order.deliveryMode === 'livraison' ? (order.deliveryFee ?? 0) : 0)
@@ -115,10 +127,10 @@ export function OrderStatusPage({ orderId }: OrderStatusPageProps) {
             className={`inline-flex items-center gap-2 px-4 py-2 border text-sm tracking-wide uppercase ${config.color}`}
           >
             <Icon size={20} />
-            {config.label}
+            {statusLabel}
           </div>
-          {config.subtitle && (
-            <p className="mt-2 text-sm text-mayssa-brown/70">{config.subtitle}</p>
+          {statusSubtitle && (
+            <p className="mt-2 text-sm text-mayssa-brown/70">{statusSubtitle}</p>
           )}
 
           <div className="mt-6 space-y-4">

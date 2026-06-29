@@ -159,12 +159,14 @@ export async function createPaymentIntent(input: {
   discountAmount?: number
   donationAmount?: number
   phone?: string
-}): Promise<{ clientSecret: string; amount: number }> {
+  /** Intent Stripe à annuler si le montant du panier a changé (évite les paiements « Incomplet »). */
+  replacePaymentIntentId?: string
+}): Promise<{ clientSecret: string; amount: number; paymentIntentId: string }> {
   const functions = getFunctionsInstance()
-  const fn = httpsCallable<typeof input, { clientSecret: string; amount: number }>(
-    functions,
-    'createPaymentIntent',
-  )
+  const fn = httpsCallable<
+    typeof input,
+    { clientSecret: string; amount: number; paymentIntentId: string }
+  >(functions, 'createPaymentIntent')
   const res = await fn(input)
   return res.data
 }
@@ -592,6 +594,8 @@ export type Order = {
   paymentStatus?: 'simulated_paid' | 'pending' | 'paid'
   /** ID Stripe PaymentIntent (paiement réel) */
   stripePaymentIntentId?: string
+  /** Horodatage envoi emails confirmation (anti-doublon) */
+  emailNotificationsSentAt?: number
   /** Checklist admin (stock vérifié, message envoyé, prêt) */
   adminChecklist?: { stockChecked?: boolean; messageSent?: boolean; ready?: boolean }
 }
@@ -821,7 +825,23 @@ export async function createOrder(order: Omit<Order, 'id' | 'orderNumber'>): Pro
   const orderNumber = await getNextOrderNumber()
   const newRef = push(ordersRef)
   await set(newRef, { ...order, orderNumber })
-  return newRef.key ? { orderId: newRef.key, orderNumber } : null
+  const orderId = newRef.key
+  if (orderId) {
+    notifyOrderCreatedEmails(orderId).catch((err) => {
+      console.error('[createOrder] notification email:', err)
+    })
+  }
+  return orderId ? { orderId, orderNumber } : null
+}
+
+/** Déclenche l'envoi des emails nouvelle commande (admin + client si email renseigné). */
+export async function notifyOrderCreatedEmails(orderId: string): Promise<void> {
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable<{ orderId: string }, { ok?: boolean; skipped?: boolean }>(
+    functions,
+    'sendOrderCreatedEmails',
+  )
+  await fn({ orderId })
 }
 
 /** Lecture d'une commande par ID (publique pour page statut) */

@@ -38,8 +38,19 @@ const STRIPE_WEBHOOK_SECRET = defineSecret('STRIPE_WEBHOOK_SECRET')
 // Params non sensibles (valeurs en clair, défauts fournis).
 const ADMIN_EMAIL = defineString('ADMIN_EMAIL', { default: 'roumayssaghazi213@gmail.com' })
 const SITE_URL = defineString('SITE_URL', { default: 'https://maison-mayssa.fr' })
+/** Instance Realtime Database europe-west1 (nom dans l’URL Firebase). */
+const RTDB_INSTANCE_NAME = process.env.RTDB_INSTANCE || 'maison-mayssa-default-rtdb'
 /** Expéditeur des emails — domaine maison-mayssa.fr vérifié dans Resend. */
 const FROM_EMAIL = defineString('FROM_EMAIL', { default: 'Maison Mayssa <contact@maison-mayssa.fr>' })
+
+/** Options communes aux triggers Realtime Database (région + instance). */
+function rtdbTriggerOptions(extra = {}) {
+  return {
+    region: 'europe-west1',
+    instance: RTDB_INSTANCE_NAME,
+    ...extra,
+  }
+}
 
 let _stripe = null
 /** Client Stripe paresseux (réutilisé entre invocations chaudes). */
@@ -54,8 +65,8 @@ function getStripe() {
 async function sendEmail({ to, subject, html, from }) {
   const apiKey = RESEND_API_KEY.value()
   if (!apiKey) {
-    console.warn('[email] RESEND_API_KEY non configurée, email non envoyé')
-    return
+    console.error('[email] RESEND_API_KEY non configurée — aucun email envoyé')
+    throw new Error('RESEND_API_KEY manquante')
   }
   const fromAddress = from || FROM_EMAIL.value()
   const res = await fetch('https://api.resend.com/emails', {
@@ -268,16 +279,92 @@ function buildClientRecapHtml(order, orderId, orderNumber, statusUrl) {
 }
 
 /** Email admin : nouvelle commande */
-function buildAdminAlertHtml(orderNumber, orderId, adminUrl) {
+function buildAdminAlertHtml(orderNumber, orderId, adminUrl, order) {
   const num = orderNumber != null ? `#${orderNumber}` : orderId
+  const paid =
+    order?.paymentStatus === 'paid' ||
+    order?.paymentStatus === 'simulated_paid' ||
+    !!order?.stripePaymentIntentId
+  const paidLine = paid
+    ? '<p style="color:#166534;font-weight:600;">Paiement en ligne confirmé — commande déjà en préparation.</p>'
+    : '<p>Commande à traiter depuis le dashboard.</p>'
   return `
 <!DOCTYPE html>
 <html><body style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:16px;">
   <h2 style="color:#5b3a29;">Nouvelle commande</h2>
   <p>Tu as reçu une nouvelle commande <strong>${escapeHtml(String(num))}</strong>.</p>
+  ${paidLine}
   <p><a href="${escapeHtml(adminUrl)}" style="display:inline-block;background:#5b3a29;color:white;padding:10px 16px;text-decoration:none;border-radius:8px;">Voir le dashboard admin</a></p>
   <p style="color:#666;font-size:12px;">Maison Mayssa</p>
 </body></html>`
+}
+
+/**
+ * Emails nouvelle commande (client + admin), idempotent via emailNotificationsSentAt.
+ * Appelé par le trigger RTDB, la callable sendOrderCreatedEmails et createOrder.
+ */
+async function dispatchOrderCreatedEmails(orderId, order) {
+  if (!order || typeof order !== 'object') {
+    return { ok: false, reason: 'no_order' }
+  }
+
+  const sentRef = db.ref(`orders/${orderId}/emailNotificationsSentAt`)
+  const claim = await sentRef.transaction((current) => {
+    if (current) return
+    return Date.now()
+  })
+  if (!claim.committed) {
+    return { ok: true, skipped: true, reason: 'already_sent' }
+  }
+
+  const orderNumber = order.orderNumber
+  const site = SITE_URL.value().replace(/\/$/, '')
+  const adminEmails = ADMIN_EMAIL.value()
+    .split(',')
+    .map((e) => e.trim())
+    .filter(Boolean)
+  const statusUrl = `${site}/commande/${orderId}`
+  const adminUrl = `${site}/admin`
+
+  const htmlRecap = buildClientRecapHtml(order, orderId, orderNumber, statusUrl)
+  const htmlAdmin = buildAdminAlertHtml(orderNumber, orderId, adminUrl, order)
+
+  const promises = []
+
+  if (order.customer?.email?.trim()) {
+    promises.push(
+      sendEmailWithRetry({
+        to: order.customer.email.trim(),
+        subject: `Votre commande ${orderNumber != null ? `#${orderNumber}` : orderId} est confirmée 🎂 – Maison Mayssa`,
+        html: htmlRecap,
+      }),
+    )
+  }
+
+  if (adminEmails.length > 0) {
+    promises.push(
+      sendEmailWithRetry({
+        to: adminEmails,
+        subject: `Nouvelle commande ${orderNumber != null ? `#${orderNumber}` : orderId} – Maison Mayssa`,
+        html: htmlAdmin,
+      }),
+    )
+  }
+
+  if (promises.length === 0) {
+    await sentRef.remove().catch(() => {})
+    return { ok: false, reason: 'no_recipients' }
+  }
+
+  try {
+    await Promise.all(promises)
+    console.log(`[dispatchOrderCreatedEmails] order ${orderId} (#${orderNumber}) — ${promises.length} email(s) sent`)
+    return { ok: true, sent: promises.length }
+  } catch (err) {
+    await sentRef.remove().catch(() => {})
+    console.error('[dispatchOrderCreatedEmails]', orderId, err)
+    throw err
+  }
 }
 
 /** Email client : demande d'avis après validation */
@@ -297,48 +384,40 @@ function buildReviewRequestHtml(orderNumber, orderId, customerName, reviewUrl) {
 
 /** Trigger : nouvelle commande → email client (récap) + email admin (alerte) */
 export const onOrderCreated = onValueCreated(
-  { ref: 'orders/{orderId}', region: 'europe-west1', secrets: [RESEND_API_KEY] },
+  { ref: 'orders/{orderId}', ...rtdbTriggerOptions({ secrets: [RESEND_API_KEY] }) },
   async (event) => {
     const orderId = event.params.orderId
     const order = event.data.val()
     if (!order) return
+    await dispatchOrderCreatedEmails(orderId, order).catch((err) =>
+      console.error('[onOrderCreated]', orderId, err),
+    )
+  },
+)
 
-    const orderNumber = order.orderNumber
-    const site = SITE_URL.value()
-    const adminEmails = ADMIN_EMAIL.value()
-      .split(',')
-      .map((e) => e.trim())
-      .filter(Boolean)
-    const statusUrl = `${site}/#/commande/${orderId}`
-    const adminUrl = `${site}/#admin`
-
-    const htmlRecap = buildClientRecapHtml(order, orderId, orderNumber, statusUrl)
-    const htmlAdmin = buildAdminAlertHtml(orderNumber, orderId, adminUrl)
-
-    const promises = []
-
-    if (order.customer?.email?.trim()) {
-      promises.push(
-        sendEmailWithRetry({
-          to: order.customer.email.trim(),
-          subject: `Votre commande ${orderNumber != null ? `#${orderNumber}` : orderId} est confirmée 🎂 – Maison Mayssa`,
-          html: htmlRecap,
-        }).catch((err) => console.error('[onOrderCreated] email client:', err))
-      )
+/** Callable : envoi emails nouvelle commande (secours si le trigger RTDB ne part pas). */
+export const sendOrderCreatedEmails = onCall(
+  { region: 'europe-west1', secrets: [RESEND_API_KEY] },
+  async (request) => {
+    const orderId = request.data?.orderId
+    if (!orderId || typeof orderId !== 'string') {
+      throw new HttpsError('invalid-argument', 'orderId manquant')
     }
-
-    if (adminEmails.length > 0) {
-      promises.push(
-        sendEmailWithRetry({
-          to: adminEmails,
-          subject: `Nouvelle commande ${orderNumber != null ? `#${orderNumber}` : orderId} – Maison Mayssa`,
-          html: htmlAdmin,
-        }).catch((err) => console.error('[onOrderCreated] email admin:', err))
-      )
+    const snap = await db.ref(`orders/${orderId}`).once('value')
+    const order = snap.val()
+    if (!order) {
+      throw new HttpsError('not-found', 'Commande introuvable')
     }
-
-    await Promise.all(promises)
-  }
+    try {
+      return await dispatchOrderCreatedEmails(orderId, order)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (msg.includes('RESEND_API_KEY')) {
+        throw new HttpsError('failed-precondition', 'Service email non configuré (RESEND_API_KEY)')
+      }
+      throw new HttpsError('internal', 'Échec envoi email')
+    }
+  },
 )
 
 /** Callable : soumettre la réponse au mystère Trompe l'oeil Fraise. Le premier à trouver a 10 % dessus. */
@@ -424,7 +503,7 @@ export const sendBulkGoogleReviewEmails = onCall(
 
 /** Trigger : commande mise à jour → si statut passé à "validee", email client pour noter */
 export const onOrderUpdated = onValueUpdated(
-  { ref: 'orders/{orderId}', region: 'europe-west1', secrets: [RESEND_API_KEY] },
+  { ref: 'orders/{orderId}', ...rtdbTriggerOptions({ secrets: [RESEND_API_KEY] }) },
   async (event) => {
     const before = event.data.before.val()
     const after = event.data.after.val()
@@ -438,7 +517,7 @@ export const onOrderUpdated = onValueUpdated(
     const orderNumber = after.orderNumber
     const site = SITE_URL.value()
     const customerName = [after.customer?.firstName, after.customer?.lastName].filter(Boolean).join(' ')
-    const reviewUrl = `${site}/#/commande/${orderId}`
+    const reviewUrl = `${site.replace(/\/$/, '')}/commande/${orderId}`
 
     await sendEmailWithRetry({
       to: email,
@@ -480,7 +559,7 @@ function buildRestockEmailHtml(productName, productUrl) {
  * Supprime les entries après envoi (succès ou échec) pour éviter boucle infinie.
  */
 export const onStockAvailable = onValueUpdated(
-  { ref: 'stock/{productId}', region: 'europe-west1', secrets: [RESEND_API_KEY] },
+  { ref: 'stock/{productId}', ...rtdbTriggerOptions({ secrets: [RESEND_API_KEY] }) },
   async (event) => {
     const productId = event.params.productId
     const before = event.data.before.val()
@@ -569,8 +648,16 @@ function validateOrderInput(data) {
   if (!Number.isFinite(data.total) || data.total < 0 || data.total > 100000) {
     throw new HttpsError('invalid-argument', 'total invalide')
   }
-  if (data.status !== 'en_attente') {
-    throw new HttpsError('invalid-argument', 'status initial doit être en_attente')
+  const paidOnline =
+    data.paymentStatus === 'paid' ||
+    data.paymentStatus === 'simulated_paid' ||
+    !!data.stripePaymentIntentId
+  const expectedStatus = paidOnline ? 'en_preparation' : 'en_attente'
+  if (data.status !== expectedStatus) {
+    throw new HttpsError(
+      'invalid-argument',
+      paidOnline ? 'commande payée : statut initial attendu en_preparation' : 'status initial doit être en_attente',
+    )
   }
   if (data.source && !['site', 'whatsapp', 'instagram', 'snap'].includes(data.source)) {
     throw new HttpsError('invalid-argument', 'source invalide')
@@ -769,6 +856,13 @@ export const createOrder = onCall(
 
     // Best-effort post-création (n'échoue pas la commande)
     const postOps = []
+    if (orderId) {
+      postOps.push(
+        dispatchOrderCreatedEmails(orderId, order).catch((e) =>
+          console.error('[createOrder] dispatchOrderCreatedEmails:', e),
+        ),
+      )
+    }
     if (
       data.deliveryMode === 'livraison' &&
       data.requestedDate &&
@@ -839,6 +933,20 @@ export const createPaymentIntent = onCall(
     if (amount < 50) throw new HttpsError('invalid-argument', 'Montant trop faible (min 0,50 €)')
 
     const stripe = getStripe()
+
+    // Annule l'intent précédent non finalisé (évite les « Incomplet » dans Stripe quand le panier change).
+    const replaceId = data.replacePaymentIntentId
+    if (typeof replaceId === 'string' && replaceId.startsWith('pi_')) {
+      try {
+        const existing = await stripe.paymentIntents.retrieve(replaceId)
+        if (['requires_payment_method', 'requires_confirmation', 'requires_action'].includes(existing.status)) {
+          await stripe.paymentIntents.cancel(replaceId)
+        }
+      } catch (e) {
+        console.warn('[createPaymentIntent] annulation intent précédent:', e.message)
+      }
+    }
+
     const intent = await stripe.paymentIntents.create({
       amount,
       currency: 'eur',
@@ -851,7 +959,7 @@ export const createPaymentIntent = onCall(
       },
     })
 
-    return { clientSecret: intent.client_secret, amount }
+    return { clientSecret: intent.client_secret, amount, paymentIntentId: intent.id }
   }
 )
 

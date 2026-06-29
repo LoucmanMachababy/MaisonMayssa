@@ -182,6 +182,7 @@ export function StripePayment(props: StripePaymentProps) {
   const [paymentError, setPaymentError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const intentVersionRef = useRef(0)
+  const paymentIntentIdRef = useRef<string | null>(null)
 
   const paymentKey = useMemo(
     () =>
@@ -189,23 +190,30 @@ export function StripePayment(props: StripePaymentProps) {
         items: itemsKey(items),
         discount: discountAmount ?? 0,
         donation: donationAmount ?? 0,
-        phone: phone ?? '',
       }),
-    [items, discountAmount, donationAmount, phone],
+    [items, discountAmount, donationAmount],
   )
 
   useEffect(() => {
     if (confirmed) return
 
     const version = ++intentVersionRef.current
+    const replaceId = paymentIntentIdRef.current
     setLoading(true)
     setInitError(null)
     setPaymentError(null)
     setClientSecret(null)
 
-    createPaymentIntent({ items, discountAmount, donationAmount, phone })
+    createPaymentIntent({
+      items,
+      discountAmount,
+      donationAmount,
+      phone,
+      ...(replaceId ? { replacePaymentIntentId: replaceId } : {}),
+    })
       .then((r) => {
         if (intentVersionRef.current !== version) return
+        paymentIntentIdRef.current = r.paymentIntentId
         setClientSecret(r.clientSecret)
       })
       .catch((e) => {

@@ -40,6 +40,7 @@ import {
   getPendingOrder,
   markOrderPlaced,
 } from '../lib/pendingOrder'
+import { resolveInitialOrderStatus } from '../lib/orderStatus'
 import {
   CLICK_COLLECT_ONLY,
   STRIPE_LIVE,
@@ -378,7 +379,7 @@ export function useOrderCheckout() {
   }, [cart, setItems])
 
   const saveOrderToFirebase = async (
-    source: 'whatsapp' | 'instagram' | 'snap',
+    source: 'site' | 'whatsapp' | 'instagram' | 'snap',
   ): Promise<SaveOrderResult> => {
     if (cart.length === 0) return { ok: false, reason: 'empty' }
     const discount = appliedPromo?.discount ?? 0
@@ -402,6 +403,16 @@ export function useOrderCheckout() {
     const deliveryFee = computeDeliveryFee(customer, totalAfterDiscount) ?? 0
     const donation = donationAmount ?? 0
     const orderTotal = totalAfterDiscount + deliveryFee + donation
+    const paymentStatus = stripePaymentIntentIdRef.current
+      ? ('paid' as const)
+      : paymentMethod
+        ? ('simulated_paid' as const)
+        : undefined
+    const initialStatus = resolveInitialOrderStatus({
+      paymentMethod: paymentMethod ?? undefined,
+      paymentStatus,
+      stripePaymentIntentId: stripePaymentIntentIdRef.current,
+    })
     try {
       const {
         createOrder,
@@ -465,7 +476,7 @@ export function useOrderCheckout() {
             }),
           },
           total: orderTotal,
-          status: 'en_attente',
+          status: initialStatus,
           source,
           deliveryMode: customer.wantsDelivery ? 'livraison' : 'retrait',
           requestedDate: customer.date || undefined,
@@ -479,7 +490,7 @@ export function useOrderCheckout() {
           ...(user?.uid && { userId: user.uid }),
           ...(paymentMethod && {
             paymentMethod,
-            paymentStatus: stripePaymentIntentIdRef.current ? ('paid' as const) : ('simulated_paid' as const),
+            paymentStatus,
             ...(stripePaymentIntentIdRef.current && {
               stripePaymentIntentId: stripePaymentIntentIdRef.current,
             }),
@@ -719,7 +730,7 @@ export function useOrderCheckout() {
     }
 
     const referralDiscountAmount = await getReferralDiscount()
-    const orderResult = await saveOrderToFirebase('whatsapp')
+    const orderResult = await saveOrderToFirebase('site')
     if (!orderResult.ok) {
       if (orderResult.reason === 'stock') {
         showToast(
@@ -754,6 +765,7 @@ export function useOrderCheckout() {
         firstName: customer.firstName || 'Client',
         lastName: customer.lastName || '',
         phone: customer.phone || '',
+        ...(customer.email?.trim() && { email: customer.email.trim() }),
       },
       items: cart.map((i) => {
         const orig = getOriginalProductId(i.product.id)

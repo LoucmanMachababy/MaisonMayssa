@@ -49,18 +49,19 @@ Ne committe pas `.env`. Au premier `firebase deploy --only functions`, le CLI pe
 
 ---
 
-## 3. Région de la Realtime Database
+## 3. Région et instance Realtime Database
 
-Les triggers sont en `europe-west1`. Si ta Realtime Database est dans une autre région (ex. `us-central1`), modifie dans `functions/index.js` :
+Les triggers écoutent l’instance **`maison-mayssa-default-rtdb`** en `europe-west1` (paramètre `RTDB_INSTANCE`).
 
-```js
-export const onOrderCreated = onValueCreated(
-  { ref: 'orders/{orderId}', region: 'us-central1' },  // même région que ta DB
-  ...
-)
+Si ton URL Firebase ressemble à `https://TON-PROJET-default-rtdb.europe-west1.firebasedatabase.app`, l’instance est `TON-PROJET-default-rtdb`.
+
+Dans `functions/.env` :
+
+```
+RTDB_INSTANCE=maison-mayssa-default-rtdb
 ```
 
-La région des functions doit être la même que celle de la base.
+Sans ce paramètre, les triggers **ne se déclenchent pas** et aucun email n’est envoyé (sauf via la callable `sendOrderCreatedEmails` appelée par le site après chaque commande).
 
 ---
 
