@@ -6,6 +6,7 @@ import { useStock } from '../hooks/useStock'
 import { useProducts } from '../hooks/useProducts'
 import {
   BOX_DECOUVERTE_TROMPE_PRODUCT_ID,
+  isDiscoveryTrompeBoxId,
   CANDY_FRUIT_SAUCE_PRODUCT_ID,
   isCandyFruitFlavorProductId,
   isCustomizableTrompeBundleBoxId,
@@ -65,7 +66,7 @@ export function useProductAddFlow(options?: UseProductAddFlowOptions) {
     if (!product.available) return false
 
     if (
-      product.id === BOX_DECOUVERTE_TROMPE_PRODUCT_ID ||
+      isDiscoveryTrompeBoxId(product.id) ||
       isCustomizableTrompeBundleBoxId(product.id)
     ) {
       setDiscoveryBoxProduct(product)

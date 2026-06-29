@@ -7,7 +7,7 @@ import {
   getEffectiveStockForProductCard,
   getEligibleTrompeIdsForDiscoveryBox,
 } from '../../lib/discoveryBox'
-import { BOX_DECOUVERTE_TROMPE_PRODUCT_ID, isCustomizableTrompeBundleBoxId } from '../../constants'
+import { BOX_DECOUVERTE_TROMPE_PRODUCT_ID, isDiscoveryTrompeBoxId, isCustomizableTrompeBundleBoxId } from '../../constants'
 import type { ProductWithAvailability } from '../../hooks/useProducts'
 import type { ProductCategory } from '../../types'
 
@@ -38,7 +38,7 @@ export function AdminStockTab({ allProducts, stock, boxDecouverteTrompeExcludedI
 
   const stockQtyForSort = useCallback(
     (p: ProductWithAvailability): number => {
-      if (p.id === BOX_DECOUVERTE_TROMPE_PRODUCT_ID) {
+      if (isDiscoveryTrompeBoxId(p.id)) {
         return (
           getEffectiveStockForProductCard(p, getStockForBundle, {
             boxDecouverteExcludedIds: boxDecouverteTrompeExcludedIds,
@@ -59,7 +59,7 @@ export function AdminStockTab({ allProducts, stock, boxDecouverteTrompeExcludedI
 
   const isTrackedForUi = useCallback(
     (p: ProductWithAvailability): boolean => {
-      if (p.id === BOX_DECOUVERTE_TROMPE_PRODUCT_ID) {
+      if (isDiscoveryTrompeBoxId(p.id)) {
         return (
           getEffectiveStockForProductCard(p, getStockForBundle, {
             boxDecouverteExcludedIds: boxDecouverteTrompeExcludedIds,
@@ -224,7 +224,7 @@ export function AdminStockTab({ allProducts, stock, boxDecouverteTrompeExcludedI
                 )}
 
                 {sortProducts(products).map(product => {
-                  if (product.id === BOX_DECOUVERTE_TROMPE_PRODUCT_ID) {
+                  if (isDiscoveryTrompeBoxId(product.id)) {
                     const effective = getEffectiveStockForProductCard(product, getStockForBundle, {
                       boxDecouverteExcludedIds: boxDecouverteTrompeExcludedIds,
                       catalog: allProducts,

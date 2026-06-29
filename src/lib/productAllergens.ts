@@ -39,6 +39,7 @@ export const PRODUCT_ALLERGENS: Record<string, string[]> = {
   'box-trompe-loeil': BOX_ALL,
   'box-fruitee': BOX_ALL,
   'box-decouverte-trompe-5': BOX_ALL,
+  'box-decouverte-trompe-8': BOX_ALL,
   'mini-box-trompe-loeil-5': BOX_ALL,
   'box-de-tout': BOX_ALL,
   'box-surprise': BOX_ALL,

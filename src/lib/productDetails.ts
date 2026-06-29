@@ -177,6 +177,16 @@ export const PRODUCT_DETAILS: Record<string, ProductDetailContent> = {
     composition: ['5 trompe-l\'œil au choix', 'Coffret transparent / carton premium'],
     conservation: 'À conserver au réfrigérateur, à déguster sous 48 h.',
   },
+  'box-decouverte-trompe-8': {
+    tagline: 'Composez votre sélection — 8 saveurs au choix',
+    paragraphs: [
+      'La box découverte 8 saveurs vous laisse choisir 8 trompe-l\'œil différents parmi notre gamme disponible — vanille incluse si proposée par la maison.',
+      'Format généreux pour les grandes occasions, les cadeaux d\'exception ou goûter une large partie de la collection en une commande.',
+      'Même principe que la box de 5 : vous composez librement, nous préparons avec le même soin artisanal.',
+    ],
+    composition: ['8 trompe-l\'œil au choix', 'Coffret premium'],
+    conservation: 'À conserver au réfrigérateur, à déguster sous 48 h.',
+  },
   'mini-box-trompe-loeil-5': {
     tagline: '5 mini créations — saveurs de la semaine',
     paragraphs: [

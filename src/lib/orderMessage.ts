@@ -12,6 +12,7 @@ import {
   FIRST_PICKUP_DATE_CLASSIC,
   FIRST_PICKUP_DATE_CLASSIC_LABEL,
   BOX_DECOUVERTE_TROMPE_PRODUCT_ID,
+  isDiscoveryTrompeBoxId,
   PRODUCTS,
   isTrompeBoxWithStoredSelection,
 } from '../constants'
@@ -65,7 +66,7 @@ function getOrderLineLabel(item: CartItem, pickupDateLabel?: string): string {
   const name = stripEmoji(p.name)
   const cat = p.category
   const trompeLabel = pickupDateLabel ?? getTrompeLOeilPickupLabel()
-  if (baseProductIdFromCart(p.id) === BOX_DECOUVERTE_TROMPE_PRODUCT_ID) {
+  if (isDiscoveryTrompeBoxId(baseProductIdFromCart(p.id))) {
     return `🎨 ${name} (PRÉCOMMANDE – récupération ${trompeLabel})`
   }
   if (cat === "Trompe l'œil") return `🎨 ${name} (PRÉCOMMANDE – récupération ${trompeLabel})`

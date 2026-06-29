@@ -12,7 +12,7 @@ import { useCartStore } from '../lib/store'
 import { cn } from '../lib/utils'
 import type { Product } from '../types'
 import {
-  BOX_DECOUVERTE_TROMPE_PRODUCT_ID,
+  isDiscoveryTrompeBoxId,
   CANDY_FRUIT_SAUCE_PRODUCT_ID,
   isCandyFruitFlavorProductId,
   isCustomizableTrompeBundleBoxId,
@@ -129,7 +129,7 @@ export default function PremiumProduct() {
   const handleQuickAdd = (rec: Product) => {
     if (!rec.available) return
     const needsModal =
-      rec.id === BOX_DECOUVERTE_TROMPE_PRODUCT_ID ||
+      isDiscoveryTrompeBoxId(rec.id) ||
       isCandyFruitFlavorProductId(rec.id) ||
       isCustomizableTrompeBundleBoxId(rec.id) ||
       (rec.sizes && rec.sizes.length > 0)

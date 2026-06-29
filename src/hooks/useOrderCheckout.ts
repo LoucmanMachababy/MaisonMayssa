@@ -19,7 +19,7 @@ import {
   PRODUCTS,
   REFERRAL_DISCOUNT_EUR,
   BOX_DECOUVERTE_TROMPE_PRODUCT_ID,
-  DISCOVERY_BOX_TROMPE_SLOT_COUNT,
+  isDiscoveryTrompeBoxId,
   isCustomizableTrompeBundleBoxId,
   getTrompeBundleSelectionSlotCount,
   isTrompeBoxWithStoredSelection,
@@ -576,12 +576,9 @@ export function useOrderCheckout() {
     const invalidTrompeSelectionBox = cart.some((item) => {
       const oid = getOriginalProductId(item.product.id)
       const sel = item.trompeDiscoverySelection
-      if (oid === BOX_DECOUVERTE_TROMPE_PRODUCT_ID) {
-        return (
-          !sel ||
-          sel.length !== DISCOVERY_BOX_TROMPE_SLOT_COUNT ||
-          new Set(sel).size !== DISCOVERY_BOX_TROMPE_SLOT_COUNT
-        )
+      if (isDiscoveryTrompeBoxId(oid)) {
+        const n = getTrompeBundleSelectionSlotCount(oid)
+        return !sel || sel.length !== n || new Set(sel).size !== n
       }
       if (isCustomizableTrompeBundleBoxId(oid)) {
         const p = PRODUCTS.find((x) => x.id === oid)

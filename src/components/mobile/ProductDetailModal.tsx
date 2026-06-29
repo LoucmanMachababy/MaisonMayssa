@@ -3,7 +3,7 @@ import { motion, AnimatePresence, useMotionValue } from 'framer-motion'
 import { X, Plus, Minus, ShoppingBag, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from 'lucide-react'
 import { hapticFeedback } from '../../lib/haptics'
 import type { Product, ProductSize } from '../../types'
-import { BOX_DECOUVERTE_TROMPE_PRODUCT_ID, isCustomizableTrompeBundleBoxId } from '../../constants'
+import { isDiscoveryTrompeBoxId, isCustomizableTrompeBundleBoxId } from '../../constants'
 import { ProductBadges } from '../ProductBadges'
 import { StockBadge } from '../StockBadge'
 import { useFocusTrap } from '../../hooks/useAccessibility'
@@ -51,7 +51,7 @@ export function ProductDetailModal({ product, onClose, onAdd, stock = null, isPr
 
   const isBoxWithFlavors = product?.id === 'box-cookies' || product?.id === 'box-brownies' || product?.id === 'box-mixte'
   const isBoxTrompeAuChoix =
-    product?.id === BOX_DECOUVERTE_TROMPE_PRODUCT_ID ||
+    isDiscoveryTrompeBoxId(product?.id ?? '') ||
     (!!product && isCustomizableTrompeBundleBoxId(product.id))
 
   const handleAdd = () => {

@@ -40,6 +40,7 @@ import { listenDeliverySlots, reserveDeliverySlot, listenSettings } from '../lib
 import {
   PRODUCTS,
   BOX_DECOUVERTE_TROMPE_PRODUCT_ID,
+  isDiscoveryTrompeBoxId,
   MINI_BOX_TROMPE_PRODUCT_ID,
   PHONE_E164,
   DISCOVERY_BOX_TROMPE_SLOT_COUNT,
@@ -599,7 +600,7 @@ export default function Home() {
   const trompePickerEligibleTrompes = useMemo(() => {
     const p = selectedProductForDiscoveryBox
     if (!p) return []
-    if (p.id === BOX_DECOUVERTE_TROMPE_PRODUCT_ID) return discoveryEligibleTrompes
+    if (isDiscoveryTrompeBoxId(p.id)) return discoveryEligibleTrompes
     if (isCustomizableTrompeBundleBoxId(p.id) && p.bundleProductIds?.length) {
       const allowed = new Set(p.bundleProductIds)
       return listIndividualTrompeLoeilProducts(availableProducts).filter((x) => allowed.has(x.id))
@@ -843,7 +844,7 @@ export default function Home() {
       return
     }
 
-    if (product.id === BOX_DECOUVERTE_TROMPE_PRODUCT_ID || isCustomizableTrompeBundleBoxId(product.id)) {
+    if (isDiscoveryTrompeBoxId(product.id) || isCustomizableTrompeBundleBoxId(product.id)) {
       setSelectedProductForDiscoveryBox(product)
       return
     }
@@ -1000,11 +1001,9 @@ export default function Home() {
   const handleDiscoveryBoxConfirm = (selectionIds: string[]) => {
     if (!selectedProductForDiscoveryBox) return
     const base = selectedProductForDiscoveryBox
-    if (base.id === BOX_DECOUVERTE_TROMPE_PRODUCT_ID) {
-      if (
-        selectionIds.length !== DISCOVERY_BOX_TROMPE_SLOT_COUNT ||
-        new Set(selectionIds).size !== DISCOVERY_BOX_TROMPE_SLOT_COUNT
-      ) {
+    if (isDiscoveryTrompeBoxId(base.id)) {
+      const n = getTrompeBundleSelectionSlotCount(base.id)
+      if (selectionIds.length !== n || new Set(selectionIds).size !== n) {
         return
       }
     } else if (isCustomizableTrompeBundleBoxId(base.id)) {
@@ -1399,8 +1398,9 @@ export default function Home() {
     const invalidTrompeSelectionBox = cart.some((item) => {
       const oid = getOriginalProductId(item.product.id)
       const sel = item.trompeDiscoverySelection
-      if (oid === BOX_DECOUVERTE_TROMPE_PRODUCT_ID) {
-        return !sel || sel.length !== DISCOVERY_BOX_TROMPE_SLOT_COUNT || new Set(sel).size !== DISCOVERY_BOX_TROMPE_SLOT_COUNT
+      if (isDiscoveryTrompeBoxId(oid)) {
+        const n = getTrompeBundleSelectionSlotCount(oid)
+        return !sel || sel.length !== n || new Set(sel).size !== n
       }
       if (isCustomizableTrompeBundleBoxId(oid)) {
         const p = PRODUCTS.find((x) => x.id === oid)

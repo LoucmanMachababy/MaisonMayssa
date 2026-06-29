@@ -1,5 +1,6 @@
 import {
   BOX_DECOUVERTE_TROMPE_PRODUCT_ID,
+  isDiscoveryTrompeBoxId,
   PRODUCTS,
   isCustomizableTrompeBundleBoxId,
   getTrompeBundleSelectionSlotCount,
@@ -627,12 +628,15 @@ export function getStockDecrementItems(
   const baseId = productId.replace(/-\d{10,}$/, '')
   const sel = options?.trompeDiscoverySelection
   if (sel && sel.length > 0) {
-    if (baseId === BOX_DECOUVERTE_TROMPE_PRODUCT_ID) {
-      const counts: Record<string, number> = {}
-      for (const tid of sel) {
-        counts[tid] = (counts[tid] ?? 0) + quantity
+    if (isDiscoveryTrompeBoxId(baseId)) {
+      const n = getTrompeBundleSelectionSlotCount(baseId)
+      if (n > 0 && sel.length === n && new Set(sel).size === n) {
+        const counts: Record<string, number> = {}
+        for (const tid of sel) {
+          counts[tid] = (counts[tid] ?? 0) + quantity
+        }
+        return Object.entries(counts).map(([pid, q]) => ({ productId: pid, quantity: q }))
       }
-      return Object.entries(counts).map(([pid, q]) => ({ productId: pid, quantity: q }))
     }
     const bundleProduct = products.find((p) => p.id === baseId)
     if (

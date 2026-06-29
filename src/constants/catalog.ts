@@ -116,6 +116,18 @@ export const CATALOG_PRODUCTS: Product[] = [
     visible: true,
   },
   {
+    id: 'box-decouverte-trompe-8',
+    name: "Box découverte — 8 trompe-l'œil",
+    description: 'Composez votre box : 8 trompe-l\'œil différents au choix (vanille incluse si disponible).',
+    price: 70,
+    category: 'Boxes',
+    image: '/nouvelle-img/boxe-de-tout.png',
+    badges: ['nouveau'],
+    preorder: TROMPE_PREORDER,
+    available: true,
+    visible: true,
+  },
+  {
     id: 'mini-box-trompe-loeil-5',
     name: "Mini Box Trompe l'œil — 5 minis",
     description: '5 mini trompe-l\'œil — saveurs de la semaine choisies par la maison.',

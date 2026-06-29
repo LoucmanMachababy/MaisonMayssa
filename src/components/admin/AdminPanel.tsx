@@ -53,7 +53,7 @@ import { AdminSubscribersTab } from './AdminSubscribersTab'
 import { AdminCommunityTab } from './AdminCommunityTab'
 import { AdminSiteBehaviorSection } from './AdminSiteBehaviorSection'
 import { AdminOffSiteOrderForm } from './AdminOffSiteOrderForm'
-import { PRODUCTS, BOX_DECOUVERTE_TROMPE_PRODUCT_ID, isCustomizableTrompeBundleBoxId } from '../../constants'
+import { PRODUCTS, BOX_DECOUVERTE_TROMPE_PRODUCT_ID, isDiscoveryTrompeBoxId, isCustomizableTrompeBundleBoxId } from '../../constants'
 import { AdminEditOrderModal } from './AdminEditOrderModal'
 import { AdminEditReviewModal } from './AdminEditReviewModal'
 import { AdminClientProfileModal } from './AdminClientProfileModal'
@@ -1132,7 +1132,7 @@ function Dashboard({ user }: { user: User }) {
       for (const item of order.items ?? []) {
         const base = normalizeOrderProductBaseId(item.productId)
         const key =
-          (base === BOX_DECOUVERTE_TROMPE_PRODUCT_ID || isCustomizableTrompeBundleBoxId(base)) &&
+          (isDiscoveryTrompeBoxId(base) || isCustomizableTrompeBundleBoxId(base)) &&
           item.trompeDiscoverySelection?.length
             ? `${base}:${[...item.trompeDiscoverySelection].sort().join(',')}`
             : base || item.productId || item.name || 'Inconnu'
@@ -1168,7 +1168,7 @@ function Dashboard({ user }: { user: User }) {
       for (const item of order.items ?? []) {
         const base = normalizeOrderProductBaseId(item.productId)
         const key =
-          (base === BOX_DECOUVERTE_TROMPE_PRODUCT_ID || isCustomizableTrompeBundleBoxId(base)) &&
+          (isDiscoveryTrompeBoxId(base) || isCustomizableTrompeBundleBoxId(base)) &&
           item.trompeDiscoverySelection?.length
             ? `${base}:${[...item.trompeDiscoverySelection].sort().join(',')}`
             : base || item.productId || item.name || 'Inconnu'
@@ -1215,7 +1215,7 @@ function Dashboard({ user }: { user: User }) {
         const cat = id.startsWith('brownie-') ? 'Brownies'
           : id.startsWith('cookie-') ? 'Cookies'
           : id.startsWith('layer-') ? 'Layer Cups'
-          : id.startsWith('trompe-loeil-') || id === 'box-trompe-loeil' || id === 'box-fruitee' || id === 'box-de-tout' || baseLower === BOX_DECOUVERTE_TROMPE_PRODUCT_ID ? "Trompe l'œil"
+          : id.startsWith('trompe-loeil-') || id === 'box-trompe-loeil' || id === 'box-fruitee' || id === 'box-de-tout' || isDiscoveryTrompeBoxId(baseLower) ? "Trompe l'œil"
           : id.startsWith('tiramisu-') ? 'Tiramisus'
           : id.includes('box') || id.includes('mini') ? 'Boxes'
           : 'Autres'
@@ -4510,7 +4510,7 @@ function Dashboard({ user }: { user: User }) {
               const raw = item.productId ?? ''
               const id = raw.toLowerCase()
               const base = normalizeOrderProductBaseId(raw).toLowerCase()
-              if (base === BOX_DECOUVERTE_TROMPE_PRODUCT_ID.toLowerCase()) return '0-trompe'
+              if (isDiscoveryTrompeBoxId(base)) return '0-trompe'
               if (id.includes('trompe-loeil') || id === 'box-trompe-loeil' || id === 'box-fruitee' || id === 'box-de-tout') return '0-trompe'
               if (id.includes('box') || id.includes('mini-box')) return '1-box'
               if (id.startsWith('brownie-')) return '2-brownie'
@@ -4524,7 +4524,7 @@ function Dashboard({ user }: { user: User }) {
             for (const [, order] of ordersToUse) {
               for (const item of order.items ?? []) {
                 const basePid = normalizeOrderProductBaseId(item.productId ?? '').toLowerCase()
-                if (basePid === BOX_DECOUVERTE_TROMPE_PRODUCT_ID.toLowerCase()) {
+                if (isDiscoveryTrompeBoxId(basePid)) {
                   const sel = item.trompeDiscoverySelection
                   if (sel?.length) {
                     for (const tid of sel) {

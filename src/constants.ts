@@ -31,6 +31,19 @@ export const MYSTERY_TROMPE_LOEIL_ID = 'trompe-loeil-fraise'
 export const BOX_DECOUVERTE_TROMPE_PRODUCT_ID = 'box-decouverte-trompe-5'
 export const DISCOVERY_BOX_TROMPE_SLOT_COUNT = 5
 
+/** Box « découverte » : 8 trompe-l'œil au choix (mêmes exclusions admin que la box de 5). */
+export const BOX_DECOUVERTE_TROMPE_8_PRODUCT_ID = 'box-decouverte-trompe-8'
+export const DISCOVERY_BOX_TROMPE_8_SLOT_COUNT = 8
+
+export const DISCOVERY_TROMPE_BOX_IDS = [
+  BOX_DECOUVERTE_TROMPE_PRODUCT_ID,
+  BOX_DECOUVERTE_TROMPE_8_PRODUCT_ID,
+] as const
+
+export function isDiscoveryTrompeBoxId(id: string): boolean {
+  return (DISCOVERY_TROMPE_BOX_IDS as readonly string[]).includes(id)
+}
+
 /** Mini box trompe-l'œil par 5 : les saveurs sont choisies par l'admin (côté Firebase, miniBoxTrompeIncludedIds). */
 export const MINI_BOX_TROMPE_PRODUCT_ID = 'mini-box-trompe-loeil-5'
 export const MINI_BOX_TROMPE_SLOT_COUNT = 5
@@ -51,7 +64,7 @@ export function isCustomizableTrompeBundleBoxId(id: string): boolean {
 
 /** Box avec liste de trompes enregistrée sur la ligne de commande (`trompeDiscoverySelection`). */
 export function isTrompeBoxWithStoredSelection(baseId: string): boolean {
-  return baseId === BOX_DECOUVERTE_TROMPE_PRODUCT_ID || isCustomizableTrompeBundleBoxId(baseId)
+  return isDiscoveryTrompeBoxId(baseId) || isCustomizableTrompeBundleBoxId(baseId)
 }
 
 /** Première date de récupération pour les produits classiques — les ventes commencent officiellement à partir de ce jour. */
@@ -64,6 +77,7 @@ export const PRODUCTS: Product[] = CATALOG_PRODUCTS
 /** Nombre de saveurs distinctes à choisir pour une box « trompe au choix » (découverte, fruitée, etc.). */
 export function getTrompeBundleSelectionSlotCount(baseId: string): number {
   if (baseId === BOX_DECOUVERTE_TROMPE_PRODUCT_ID) return DISCOVERY_BOX_TROMPE_SLOT_COUNT
+  if (baseId === BOX_DECOUVERTE_TROMPE_8_PRODUCT_ID) return DISCOVERY_BOX_TROMPE_8_SLOT_COUNT
   if (baseId === 'box-fruitee') return FRUITEE_BOX_TROMPE_SLOT_COUNT
   if (isCustomizableTrompeBundleBoxId(baseId)) {
     const p = PRODUCTS.find((x) => x.id === baseId)

@@ -3,6 +3,7 @@ import {
   BOX_DECOUVERTE_TROMPE_PRODUCT_ID,
   DISCOVERY_BOX_TROMPE_SLOT_COUNT,
   PRODUCTS,
+  isDiscoveryTrompeBoxId,
   isCustomizableTrompeBundleBoxId,
   getTrompeBundleSelectionSlotCount,
 } from '../constants'
@@ -82,9 +83,13 @@ export function getEffectiveStockForProductCard(
   opts?: { boxDecouverteExcludedIds?: string[]; catalog?: Product[] },
 ): number | null {
   const catalog = opts?.catalog ?? PRODUCTS
-  if (product.id === BOX_DECOUVERTE_TROMPE_PRODUCT_ID) {
+  if (isDiscoveryTrompeBoxId(product.id)) {
     const eligible = getEligibleTrompeIdsForDiscoveryBox(catalog, opts?.boxDecouverteExcludedIds)
-    return getDiscoveryBoxEffectiveStock(eligible, getStockFn, DISCOVERY_BOX_TROMPE_SLOT_COUNT)
+    return getDiscoveryBoxEffectiveStock(
+      eligible,
+      getStockFn,
+      getTrompeBundleSelectionSlotCount(product.id),
+    )
   }
   if (isCustomizableTrompeBundleBoxId(product.id) && product.bundleProductIds?.length) {
     const slots = getTrompeBundleSelectionSlotCount(product.id)

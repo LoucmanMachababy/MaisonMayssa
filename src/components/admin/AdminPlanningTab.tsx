@@ -17,7 +17,7 @@ import {
 import { hapticFeedback } from '../../lib/haptics'
 import { buildWhatsAppChatHref } from '../../lib/whatsappOpen'
 import type { OrderItem } from '../../lib/firebase'
-import { BOX_DECOUVERTE_TROMPE_PRODUCT_ID, PRODUCTS } from '../../constants'
+import { BOX_DECOUVERTE_TROMPE_PRODUCT_ID, isDiscoveryTrompeBoxId, PRODUCTS } from '../../constants'
 import { formatOrderCustomerDisplayName } from '../../lib/orderCustomerDisplay'
 import { getOrderDepositAmount, getOrderRemainingToPay } from '../../lib/orderAmounts'
 import { AdminDeposit50Prompt } from './AdminDeposit50Prompt'
@@ -92,13 +92,12 @@ function getProductionList(
   }
   const labelToSortKey = new Map<string, string>()
   const ordersToUse = filterStatus ? dayOrders.filter(([, o]) => filterStatus(o.status ?? '')) : dayOrders
-  const discoveryBase = BOX_DECOUVERTE_TROMPE_PRODUCT_ID.toLowerCase()
   const flavorLabel = (trompeId: string): string => PRODUCTS.find((x) => x.id === trompeId)?.name ?? trompeId
 
   for (const [, order] of ordersToUse) {
     for (const item of order.items ?? []) {
       const rawPid = (item.productId ?? '').replace(/-\d{10,}$/, '').toLowerCase()
-      if (rawPid === discoveryBase) {
+      if (isDiscoveryTrompeBoxId(rawPid)) {
         const sel = item.trompeDiscoverySelection
         if (sel?.length) {
           for (const tid of sel) {

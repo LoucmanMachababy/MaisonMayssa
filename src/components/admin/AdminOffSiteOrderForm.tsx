@@ -9,6 +9,7 @@ import { BoxDecouverteTrompeModal } from '../BoxDecouverteTrompeModal'
 import {
   BOX_DECOUVERTE_TROMPE_PRODUCT_ID,
   DISCOVERY_BOX_TROMPE_SLOT_COUNT,
+  isDiscoveryTrompeBoxId,
   getTrompeBundleSelectionSlotCount,
   isCustomizableTrompeBundleBoxId,
 } from '../../constants'
@@ -220,7 +221,7 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
   const trompePickerEligibleTrompes = useMemo(() => {
     const p = trompePickerProduct
     if (!p) return []
-    if (p.id === BOX_DECOUVERTE_TROMPE_PRODUCT_ID) {
+    if (isDiscoveryTrompeBoxId(p.id)) {
       const ids = new Set(getEligibleTrompeIdsForDiscoveryBox(allProducts, []))
       return listIndividualTrompeLoeilProducts(allProducts).filter((x) => ids.has(x.id))
     }
@@ -241,11 +242,9 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
   const handleTrompePickerConfirm = (selectionIds: string[]) => {
     if (!trompePickerProduct) return
     const base = trompePickerProduct
-    if (base.id === BOX_DECOUVERTE_TROMPE_PRODUCT_ID) {
-      if (
-        selectionIds.length !== DISCOVERY_BOX_TROMPE_SLOT_COUNT ||
-        new Set(selectionIds).size !== DISCOVERY_BOX_TROMPE_SLOT_COUNT
-      ) {
+    if (isDiscoveryTrompeBoxId(base.id)) {
+      const n = getTrompeBundleSelectionSlotCount(base.id)
+      if (selectionIds.length !== n || new Set(selectionIds).size !== n) {
         return
       }
     } else if (isCustomizableTrompeBundleBoxId(base.id)) {
@@ -566,7 +565,7 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
                             <button type="button" onClick={() => setBoxFlavorsProduct(product)} className={addBtnClass}>
                               <Plus size={14} />
                             </button>
-                          ) : product.id === BOX_DECOUVERTE_TROMPE_PRODUCT_ID || isCustomizableTrompeBundleBoxId(product.id) ? (
+                          ) : isDiscoveryTrompeBoxId(product.id) || isCustomizableTrompeBundleBoxId(product.id) ? (
                             <button type="button" onClick={() => setTrompePickerProduct(product)} className={addBtnClass}>
                               <Plus size={14} />
                             </button>
