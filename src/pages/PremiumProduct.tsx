@@ -13,7 +13,6 @@ import { cn } from '../lib/utils'
 import type { Product } from '../types'
 import {
   isDiscoveryTrompeBoxId,
-  CANDY_FRUIT_SAUCE_PRODUCT_ID,
   isCandyFruitFlavorProductId,
   isCustomizableTrompeBundleBoxId,
 } from '../constants'

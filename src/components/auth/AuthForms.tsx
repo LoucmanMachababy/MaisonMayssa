@@ -14,10 +14,12 @@ const authInputClass =
   'w-full bg-transparent text-sm text-mayssa-brown placeholder:text-mayssa-brown/55 placeholder:opacity-100 focus:outline-none'
 
 interface RegisterFormProps {
+  /** Reçu pour cohérence d'API, mais non appelé : après inscription le client
+   *  doit d'abord vérifier son email (écran de confirmation), pas de login direct. */
   onSuccess: () => void
 }
 
-export function RegisterForm({ onSuccess }: RegisterFormProps) {
+export function RegisterForm(_props: RegisterFormProps) {
   const PHONE_REGEX = /^(\+33|0)[1-9](\d{2}){4}$/
 
   const [formData, setFormData] = useState({

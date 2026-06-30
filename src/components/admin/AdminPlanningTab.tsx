@@ -17,7 +17,7 @@ import {
 import { hapticFeedback } from '../../lib/haptics'
 import { buildWhatsAppChatHref } from '../../lib/whatsappOpen'
 import type { OrderItem } from '../../lib/firebase'
-import { BOX_DECOUVERTE_TROMPE_PRODUCT_ID, isDiscoveryTrompeBoxId, PRODUCTS } from '../../constants'
+import { isDiscoveryTrompeBoxId, PRODUCTS } from '../../constants'
 import { formatOrderCustomerDisplayName } from '../../lib/orderCustomerDisplay'
 import { getOrderDepositAmount, getOrderRemainingToPay } from '../../lib/orderAmounts'
 import { AdminDeposit50Prompt } from './AdminDeposit50Prompt'

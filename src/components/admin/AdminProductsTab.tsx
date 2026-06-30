@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { ChevronDown, ChevronUp, RotateCcw, Plus, Trash2, Tag, Pin, ImagePlus, ShoppingBag } from 'lucide-react'
-import { PRODUCTS, BOX_DECOUVERTE_TROMPE_PRODUCT_ID, isDiscoveryTrompeBoxId, MINI_BOX_TROMPE_PRODUCT_ID, MINI_BOX_TROMPE_SLOT_COUNT } from '../../constants'
+import { PRODUCTS, isDiscoveryTrompeBoxId, MINI_BOX_TROMPE_PRODUCT_ID, MINI_BOX_TROMPE_SLOT_COUNT } from '../../constants'
 import {
   CANDY_FRUIT_BOX_PRODUCT_ID,
   CANDY_FRUIT_CANETTE_PRODUCT_ID,

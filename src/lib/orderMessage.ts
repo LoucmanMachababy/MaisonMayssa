@@ -11,7 +11,6 @@ import { formatDateYyyyMmDdToFrench, isBeforeFirstPickupDate } from './utils'
 import {
   FIRST_PICKUP_DATE_CLASSIC,
   FIRST_PICKUP_DATE_CLASSIC_LABEL,
-  BOX_DECOUVERTE_TROMPE_PRODUCT_ID,
   isDiscoveryTrompeBoxId,
   PRODUCTS,
   isTrompeBoxWithStoredSelection,

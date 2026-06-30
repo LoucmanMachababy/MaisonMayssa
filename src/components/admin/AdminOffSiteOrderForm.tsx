@@ -7,7 +7,6 @@ import { TiramisuCustomizationModal } from '../TiramisuCustomizationModal'
 import { BoxFlavorsModal } from '../BoxFlavorsModal'
 import { BoxDecouverteTrompeModal } from '../BoxDecouverteTrompeModal'
 import {
-  BOX_DECOUVERTE_TROMPE_PRODUCT_ID,
   DISCOVERY_BOX_TROMPE_SLOT_COUNT,
   isDiscoveryTrompeBoxId,
   getTrompeBundleSelectionSlotCount,

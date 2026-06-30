@@ -5,7 +5,6 @@ import { useCartStore } from '../lib/store'
 import { useStock } from '../hooks/useStock'
 import { useProducts } from '../hooks/useProducts'
 import {
-  BOX_DECOUVERTE_TROMPE_PRODUCT_ID,
   isDiscoveryTrompeBoxId,
   CANDY_FRUIT_SAUCE_PRODUCT_ID,
   isCandyFruitFlavorProductId,

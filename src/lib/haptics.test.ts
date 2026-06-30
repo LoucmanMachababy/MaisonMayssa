@@ -8,6 +8,9 @@ describe('haptics', () => {
     if (!('vibrate' in navigator)) {
       ;(navigator as any).vibrate = vi.fn()
     }
+    // hapticFeedback est gardé par `hasUserInteracted` (anti-intervention Chrome) :
+    // il faut simuler une interaction utilisateur pour que vibrate() soit appelé.
+    window.dispatchEvent(new Event('click'))
   })
   afterEach(() => {
     if (originalVibrate) (navigator as any).vibrate = originalVibrate

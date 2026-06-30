@@ -1,5 +1,4 @@
 import {
-  BOX_DECOUVERTE_TROMPE_PRODUCT_ID,
   isDiscoveryTrompeBoxId,
   PRODUCTS,
   isCustomizableTrompeBundleBoxId,
@@ -297,6 +296,7 @@ export type Settings = {
    * Trompe-l'œil unitaires inclus dans la mini box par 5 (l'admin choisit explicitement les 5 saveurs proposées).
    * Liste affichée au client sur la fiche produit. Stock indépendant des saveurs unitaires.
    */
+  miniBoxTrompeIncludedIds?: string[]
   /**
    * Goûts Candy Fruit box masqués côté client (Catalogue → Candy Fruit box).
    */

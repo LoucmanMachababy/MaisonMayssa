@@ -7,7 +7,7 @@ import {
   getEffectiveStockForProductCard,
   getEligibleTrompeIdsForDiscoveryBox,
 } from '../../lib/discoveryBox'
-import { BOX_DECOUVERTE_TROMPE_PRODUCT_ID, isDiscoveryTrompeBoxId, isCustomizableTrompeBundleBoxId } from '../../constants'
+import { isDiscoveryTrompeBoxId, isCustomizableTrompeBundleBoxId } from '../../constants'
 import type { ProductWithAvailability } from '../../hooks/useProducts'
 import type { ProductCategory } from '../../types'
 

@@ -17,7 +17,6 @@ import {
 import {
   PRODUCTS,
   REFERRAL_DISCOUNT_EUR,
-  BOX_DECOUVERTE_TROMPE_PRODUCT_ID,
   isDiscoveryTrompeBoxId,
   isCustomizableTrompeBundleBoxId,
   getTrompeBundleSelectionSlotCount,

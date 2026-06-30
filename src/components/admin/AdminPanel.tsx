@@ -54,7 +54,7 @@ import { AdminSubscribersTab } from './AdminSubscribersTab'
 import { AdminCommunityTab } from './AdminCommunityTab'
 import { AdminSiteBehaviorSection } from './AdminSiteBehaviorSection'
 import { AdminOffSiteOrderForm } from './AdminOffSiteOrderForm'
-import { PRODUCTS, BOX_DECOUVERTE_TROMPE_PRODUCT_ID, isDiscoveryTrompeBoxId, isCustomizableTrompeBundleBoxId } from '../../constants'
+import { PRODUCTS, isDiscoveryTrompeBoxId, isCustomizableTrompeBundleBoxId } from '../../constants'
 import { AdminEditOrderModal } from './AdminEditOrderModal'
 import { AdminEditReviewModal } from './AdminEditReviewModal'
 import { AdminClientProfileModal } from './AdminClientProfileModal'
@@ -68,7 +68,6 @@ import { Pin } from 'lucide-react'
 import { ADMIN_EMAIL, checkUserIsAdmin } from '../../lib/adminAccess'
 
 const DAY_LABELS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
-const DELIVERY_RADIUS_KM = 5
 
 /** Numéro au format wa.me (33...) pour lien WhatsApp */
 function phoneToWhatsApp(phone: string): string {
@@ -530,7 +529,7 @@ function Dashboard({ user }: { user: User }) {
   /** Mode de l'onglet Planning/Historique : calendrier à venir | liste historique */
   const [historiqueMode, setHistoriqueMode] = useState<'calendrier' | 'liste'>('calendrier')
   /** Menu validation en masse ouvert */
-  const [bulkValidateOpen, setBulkValidateOpen] = useState(false)
+  const [, setBulkValidateOpen] = useState(false)
   /** Pins (rafraîchir pour forcer re-render) */
   const [, setPinsVersion] = useState(0)
   /** Dark mode admin (persisté en localStorage) */
