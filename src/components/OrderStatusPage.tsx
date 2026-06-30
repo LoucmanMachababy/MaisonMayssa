@@ -11,7 +11,7 @@ import { isOrderOnlinePaid } from '../lib/orderStatus'
 
 /** Libellés alignés sur le dashboard admin (À valider / Historique) */
 const STATUS_CONFIG: Record<OrderStatus, { label: string; subtitle?: string; icon: typeof Package; color: string }> = {
-  en_attente: { label: 'En attente', icon: Package, color: 'text-amber-700 bg-amber-50' },
+  en_attente: { label: 'Validée', icon: CheckCircle2, color: 'text-emerald-700 bg-emerald-50' },
   en_preparation: { label: 'En préparation', subtitle: 'Nous préparons votre commande avec soin.', icon: ChefHat, color: 'text-blue-700 bg-blue-50' },
   pret: { label: 'Prête', icon: CheckCircle2, color: 'text-emerald-700 bg-emerald-50' },
   livree: { label: 'Livrée', icon: Truck, color: 'text-emerald-700 bg-emerald-50' },
@@ -69,19 +69,23 @@ export function OrderStatusPage({ orderId }: OrderStatusPageProps) {
     )
   }
 
-  const config = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.en_attente
+  const config = STATUS_CONFIG[order.status === 'en_attente' ? 'validee' : order.status] ?? STATUS_CONFIG.validee
   const Icon = config.icon
   const paidOnline = isOrderOnlinePaid(order)
   const statusLabel =
-    paidOnline && order.status === 'en_preparation'
-      ? 'Commande payée'
+    paidOnline && (order.status === 'en_preparation' || order.status === 'en_attente' || order.status === 'validee')
+      ? 'Validée'
       : paidOnline && order.status === 'pret'
-        ? 'Commande payée · Prête'
-        : config.label
+        ? 'Validée · Prête'
+        : order.status === 'en_preparation'
+          ? 'En préparation'
+          : config.label
   const statusSubtitle =
     paidOnline && order.status === 'en_preparation'
       ? 'Paiement confirmé. Nous préparons votre commande avec soin.'
-      : config.subtitle
+      : order.status === 'en_preparation'
+        ? 'Nous préparons votre commande avec soin.'
+        : config.subtitle
 
   const itemsSubtotal = (order.items ?? []).reduce((s, it) => s + (it.price ?? 0) * (it.quantity ?? 0), 0)
   const delivery = (order.deliveryMode === 'livraison' ? (order.deliveryFee ?? 0) : 0)

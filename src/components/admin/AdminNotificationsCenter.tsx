@@ -47,7 +47,7 @@ export function AdminNotificationsCenter({ orders, stock, allUsers, isOpen, onCl
     // === Commandes urgentes (retrait dans < 2h) ===
     Object.entries(orders)
       .filter(([, o]) => {
-        if (!['en_attente', 'validee', 'en_preparation'].includes(o.status)) return false
+        if (!['en_preparation', 'validee', 'en_attente'].includes(o.status)) return false
         if (!o.requestedDate || !o.requestedTime) return false
         if (o.requestedDate !== todayStr) return false
         const [h, m] = (o.requestedTime ?? '23:59').split(':').map(Number)
@@ -68,7 +68,7 @@ export function AdminNotificationsCenter({ orders, stock, allUsers, isOpen, onCl
         })
       })
 
-    // === Nouvelles commandes (validées en ligne ou hors-site en attente) ===
+    // === Nouvelles commandes en prépa ===
     const PENDING_ALERT_MS = 30 * 60 * 1000
     const pendingOrders = Object.entries(orders).filter(([, o]) => isNewOrderInAdminQueue(o))
     if (pendingOrders.length > 0) {
@@ -78,16 +78,16 @@ export function AdminNotificationsCenter({ orders, stock, allUsers, isOpen, onCl
         .slice(0, 3)
       recent.forEach(([id, o]) => {
         const name = formatOrderCustomerDisplayName(o)
-        const paidLabel = isOrderOnlinePaid(o) ? ' · Payée en ligne' : o.status === 'en_attente' ? ' · À accepter' : ''
+        const paidLabel = isOrderOnlinePaid(o) ? ' · Validée · Payée' : ' · En prépa'
         notifs.push({
           id: `pending-${id}`,
           type: 'order_pending',
-          title: isOrderOnlinePaid(o) ? '✅ Commande validée' : '🛒 Nouvelle commande',
+          title: isOrderOnlinePaid(o) ? '✅ Commande validée' : '👩‍🍳 En préparation',
           message: `${name} — ${(o.total ?? 0).toFixed(0)}€ (${o.deliveryMode === 'livraison' ? 'Livraison' : 'Retrait'})${paidLabel}`,
           time: o.createdAt ? timeAgo(o.createdAt) : '',
           priority: 'high',
           action: () => { onNavigate('commandes'); onClose() },
-          actionLabel: isOrderOnlinePaid(o) ? 'Voir' : 'Accepter',
+          actionLabel: 'Voir',
         })
       })
     }
@@ -103,8 +103,8 @@ export function AdminNotificationsCenter({ orders, stock, allUsers, isOpen, onCl
       notifs.push({
         id: `stale-${id}`,
         type: 'order_pending',
-        title: '⏰ Commande non traitée',
-        message: `${name} — validée depuis ${mins} min, pas encore en prépa`,
+        title: '⏰ Commande en attente de traitement',
+        message: `${name} — en prépa depuis ${mins} min`,
         time: o.createdAt ? timeAgo(o.createdAt) : '',
         priority: 'high',
         action: () => { onNavigate('commandes'); onClose() },
@@ -122,170 +122,142 @@ export function AdminNotificationsCenter({ orders, stock, allUsers, isOpen, onCl
           id: `stock-${productId}`,
           type: 'low_stock',
           title: '📦 Stock faible',
-          message: `${productId.replace(/-/g, ' ')} : ${qty} restant${(qty ?? 0) > 1 ? 's' : ''}`,
-          priority: 'medium',
+          message: `${productId} — ${qty} restant${qty !== 1 ? 's' : ''}`,
+          priority: qty === 1 ? 'high' : 'medium',
           action: () => { onNavigate('catalogue'); onClose() },
-          actionLabel: 'Gérer',
+          actionLabel: 'Stock',
         })
       })
 
-    // === Ruptures ===
-    Object.entries(stock)
-      .filter(([, qty]) => qty !== null && qty === 0)
-      .slice(0, 3)
-      .forEach(([productId]) => {
-        notifs.push({
-          id: `rupture-${productId}`,
-          type: 'low_stock',
-          title: '🚫 Rupture de stock',
-          message: `${productId.replace(/-/g, ' ')} — indisponible`,
-          priority: 'high',
-          action: () => { onNavigate('catalogue'); onClose() },
-          actionLabel: 'Gérer',
-        })
-      })
-
-    // === Anniversaires dans les 3 prochains jours ===
+    // === Anniversaires à venir (7 jours) ===
     Object.entries(allUsers)
       .filter(([, u]) => u.birthday)
-      .map(([uid, u]) => {
-        const [, month, day] = (u.birthday ?? '').split('-').map(Number)
+      .forEach(([uid, u]) => {
+        const parts = u.birthday!.split('-').map(Number)
+        const month = parts[1]
+        const day = parts[2]
         const birthdayThisYear = new Date(now.getFullYear(), month - 1, day)
-        if (birthdayThisYear < now) birthdayThisYear.setFullYear(now.getFullYear() + 1)
+        if (birthdayThisYear.getTime() < now.getTime() - 86400000) {
+          birthdayThisYear.setFullYear(now.getFullYear() + 1)
+        }
         const daysUntil = Math.ceil((birthdayThisYear.getTime() - now.getTime()) / 86400000)
-        return { uid, u, daysUntil }
-      })
-      .filter(({ daysUntil }) => daysUntil >= 0 && daysUntil <= 3)
-      .sort((a, b) => a.daysUntil - b.daysUntil)
-      .forEach(({ uid, u, daysUntil }) => {
-        const name = [u.firstName, u.lastName].filter(Boolean).join(' ')
-        notifs.push({
-          id: `birthday-${uid}`,
-          type: 'birthday',
-          title: '🎂 Anniversaire bientôt',
-          message: `${name} — ${daysUntil === 0 ? "C'est aujourd'hui !" : `dans ${daysUntil} jour${daysUntil > 1 ? 's' : ''}`}`,
-          priority: 'low',
-          action: () => { onNavigate('clients'); onClose() },
-          actionLabel: 'Voir',
-        })
+        if (daysUntil <= 7 && daysUntil >= 0) {
+          notifs.push({
+            id: `birthday-${uid}`,
+            type: 'birthday',
+            title: '🎂 Anniversaire bientôt',
+            message: `${u.firstName ?? 'Client'} — dans ${daysUntil} jour${daysUntil !== 1 ? 's' : ''}`,
+            priority: daysUntil <= 1 ? 'high' : 'medium',
+            action: () => { onNavigate('clients'); onClose() },
+            actionLabel: 'Clients',
+          })
+        }
       })
 
-    // Sort by priority
-    const priorityOrder = { high: 0, medium: 1, low: 2 }
-    return notifs.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]).slice(0, 20)
-  }, [orders, stock, allUsers])
-
-  const highCount = notifications.filter(n => n.priority === 'high').length
-
-  const getIcon = (type: Notification['type']) => {
-    switch (type) {
-      case 'order_pending': return <ShoppingBag size={14} className="text-amber-500" />
-      case 'order_urgent': return <AlertTriangle size={14} className="text-red-500" />
-      case 'order_preparation': return <Package size={14} className="text-blue-500" />
-      case 'low_stock': return <TrendingDown size={14} className="text-orange-500" />
-      case 'birthday': return <Cake size={14} className="text-pink-500" />
+    // === Commandes en préparation (rappel) ===
+    const inPrep = Object.entries(orders).filter(([, o]) => o.status === 'en_preparation')
+    if (inPrep.length >= 3) {
+      notifs.push({
+        id: 'prep-summary',
+        type: 'order_preparation',
+        title: '👩‍🍳 Préparation en cours',
+        message: `${inPrep.length} commandes en préparation`,
+        priority: 'medium',
+        action: () => { onNavigate('commandes'); onClose() },
+        actionLabel: 'Voir',
+      })
     }
-  }
+
+    return notifs.sort((a, b) => {
+      const priorityOrder = { high: 0, medium: 1, low: 2 }
+      return priorityOrder[a.priority] - priorityOrder[b.priority]
+    })
+  }, [orders, stock, allUsers, onNavigate, onClose])
+
+  const unreadCount = notifications.filter(n => n.priority === 'high').length
 
   return (
-    <>
-      {/* Badge trigger */}
-      {highCount > 0 && (
-        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-black text-white shadow-sm">
-          {highCount > 9 ? '9+' : highCount}
-        </span>
-      )}
-
-      <AnimatePresence>
-        {isOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={onClose}
-              className="fixed inset-0 z-[80]"
-            />
-            <motion.div
-              initial={{ opacity: 0, y: -10, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -10, scale: 0.95 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="admin-notif-panel"
-            >
-              {/* Header */}
-              <div className="flex items-center justify-between px-5 py-4 border-b border-mayssa-brown/5">
-                <div className="flex items-center gap-2">
-                  <Bell size={16} className="text-mayssa-gold" />
-                  <h3 className="text-sm font-black text-mayssa-brown">Notifications</h3>
-                  {notifications.length > 0 && (
-                    <span className="px-2 py-0.5 rounded-full bg-mayssa-gold/10 text-mayssa-gold text-[10px] font-black">
-                      {notifications.length}
-                    </span>
-                  )}
-                </div>
-                <button onClick={onClose} className="p-1.5 rounded-xl text-mayssa-brown/40 hover:text-mayssa-brown hover:bg-mayssa-brown/5 transition-all cursor-pointer">
-                  <X size={14} />
-                </button>
-              </div>
-
-              {/* Notifications list */}
-              <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
-                {notifications.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Bell size={32} className="mx-auto text-mayssa-brown/15 mb-3" />
-                    <p className="text-sm text-mayssa-brown/50 font-medium">Tout est calme !</p>
-                    <p className="text-xs text-mayssa-brown/30 mt-1">Aucune alerte pour le moment</p>
-                  </div>
-                ) : (
-                  <div className="p-2 space-y-1">
-                    {notifications.map((n, i) => (
-                      <motion.div
-                        key={n.id}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.03 }}
-                        className={cn(
-                          'admin-notif-item',
-                          n.priority === 'high' ? 'bg-red-50/50' : n.priority === 'medium' ? 'bg-amber-50/30' : '',
-                          n.action && 'cursor-pointer'
-                        )}
-                        onClick={n.action}
-                      >
-                        <div className={cn(
-                          'h-8 w-8 rounded-xl flex items-center justify-center flex-shrink-0',
-                          n.priority === 'high' ? 'bg-red-100' : n.priority === 'medium' ? 'bg-amber-100' : 'bg-mayssa-soft'
-                        )}>
-                          {getIcon(n.type)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold text-mayssa-brown">{n.title}</p>
-                          <p className="text-[10px] text-mayssa-brown/60 mt-0.5 line-clamp-2">{n.message}</p>
-                          {n.time && (
-                            <p className="text-[9px] text-mayssa-brown/30 flex items-center gap-1 mt-1">
-                              <Clock size={8} /> {n.time}
-                            </p>
-                          )}
-                        </div>
-                        {n.action && (
-                          <div className="flex-shrink-0 flex items-center">
-                            <span className={cn(
-                              'text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-lg',
-                              n.priority === 'high' ? 'bg-red-100 text-red-600' : 'bg-mayssa-gold/10 text-mayssa-gold'
-                            )}>
-                              {n.actionLabel}
-                            </span>
-                          </div>
-                        )}
-                      </motion.div>
-                    ))}
-                  </div>
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/20 z-40"
+            onClick={onClose}
+          />
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            className="fixed top-0 right-0 h-full w-full max-w-sm bg-white shadow-2xl z-50 flex flex-col"
+          >
+            <div className="flex items-center justify-between p-4 border-b border-mayssa-brown/10">
+              <div className="flex items-center gap-2">
+                <Bell size={18} className="text-mayssa-caramel" />
+                <h2 className="text-sm font-bold text-mayssa-brown">Notifications</h2>
+                {unreadCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold">{unreadCount}</span>
                 )}
               </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-    </>
+              <button type="button" onClick={onClose} className="p-1 rounded-lg hover:bg-mayssa-soft cursor-pointer">
+                <X size={18} className="text-mayssa-brown/60" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              {notifications.length === 0 ? (
+                <p className="text-center text-sm text-mayssa-brown/50 py-8">Aucune notification</p>
+              ) : (
+                notifications.map((notif) => (
+                  <div
+                    key={notif.id}
+                    className={cn(
+                      'p-3 rounded-xl border transition-colors',
+                      notif.priority === 'high' ? 'border-red-200 bg-red-50/50' : 'border-mayssa-brown/10 bg-mayssa-soft/30',
+                    )}
+                  >
+                    <div className="flex items-start gap-2">
+                      <div className={cn(
+                        'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0',
+                        notif.type === 'order_pending' ? 'bg-emerald-100 text-emerald-600' :
+                        notif.type === 'order_urgent' ? 'bg-amber-100 text-amber-600' :
+                        notif.type === 'low_stock' ? 'bg-orange-100 text-orange-600' :
+                        notif.type === 'birthday' ? 'bg-pink-100 text-pink-600' :
+                        'bg-blue-100 text-blue-600',
+                      )}>
+                        {notif.type === 'order_pending' ? <ShoppingBag size={14} /> :
+                         notif.type === 'order_urgent' ? <AlertTriangle size={14} /> :
+                         notif.type === 'low_stock' ? <TrendingDown size={14} /> :
+                         notif.type === 'birthday' ? <Cake size={14} /> :
+                         notif.type === 'order_preparation' ? <Package size={14} /> :
+                         <Clock size={14} />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-mayssa-brown">{notif.title}</p>
+                        <p className="text-[11px] text-mayssa-brown/70 mt-0.5">{notif.message}</p>
+                        {notif.time && (
+                          <p className="text-[10px] text-mayssa-brown/40 mt-1">{notif.time}</p>
+                        )}
+                        {notif.action && (
+                          <button
+                            type="button"
+                            onClick={notif.action}
+                            className="mt-2 text-[10px] font-bold text-mayssa-caramel hover:text-mayssa-brown cursor-pointer"
+                          >
+                            {notif.actionLabel ?? 'Voir'} →
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   )
 }

@@ -54,7 +54,7 @@ export function AdminDeposit50Prompt({ orderId, order, variant = 'light' }: Admi
   }
 
   if (suggested == null) return null
-  if (order.status !== 'en_attente' && order.status !== 'en_preparation') return null
+  if (order.status !== 'en_preparation' && order.status !== 'validee' && order.status !== 'en_attente') return null
 
   const isDark = variant === 'dark'
 

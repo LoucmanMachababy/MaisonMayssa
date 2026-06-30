@@ -140,7 +140,7 @@ const DEPOSIT_REQUEST_WHATSAPP_MESSAGE = [
 
 function shouldShowDepositWhatsAppButton(order: Order): boolean {
   return (
-    order.status === 'en_attente' &&
+    (order.status === 'validee' || order.status === 'en_attente') &&
     (order.total ?? 0) >= DEPOSIT_50_PERCENT_MIN_TOTAL_EUR &&
     !!order.customer?.phone?.trim()
   )
@@ -163,7 +163,7 @@ const PICKUP_CONFIRMED_WHATSAPP_MESSAGE = [
 
 function shouldShowPickupRetraitConfirmedWhatsAppButton(order: Order): boolean {
   return (
-    order.status === 'en_attente' &&
+    (order.status === 'validee' || order.status === 'en_attente') &&
     order.deliveryMode === 'retrait' &&
     !!order.customer?.phone?.trim()
   )
@@ -186,7 +186,7 @@ const DELIVERY_CONFIRMED_WHATSAPP_MESSAGE = [
 
 function shouldShowDeliveryLivraisonConfirmedWhatsAppButton(order: Order): boolean {
   return (
-    order.status === 'en_attente' &&
+    (order.status === 'validee' || order.status === 'en_attente') &&
     order.deliveryMode === 'livraison' &&
     !!order.customer?.phone?.trim()
   )
@@ -612,7 +612,7 @@ function Dashboard({ user }: { user: User }) {
       if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
         const count = newIds.length
         new Notification('Nouvelle commande !', {
-          body: count === 1 ? 'Une nouvelle commande validée.' : `${count} nouvelles commandes validées.`,
+          body: count === 1 ? 'Une nouvelle commande en préparation.' : `${count} nouvelles commandes en préparation.`,
           icon: '/logo.webp',
         })
       }
@@ -762,7 +762,7 @@ function Dashboard({ user }: { user: User }) {
   }
 
   const handleBulkStartPreparation = async () => {
-    const toStart = ordersPourPrepDate.filter(([, o]) => o.status === 'en_attente').map(([id]) => id)
+    const toStart = ordersPourPrepDate.filter(([, o]) => o.status === 'validee' || o.status === 'en_attente').map(([id]) => id)
     if (toStart.length === 0) return
     for (const id of toStart) {
       setPreparingOrderIds((prev) => new Set(prev).add(id))
@@ -915,7 +915,7 @@ function Dashboard({ user }: { user: User }) {
 
     if (historiqueVue === 'a_faire') {
       const aFaire = filteredBySearch.filter(([, o]) => {
-        if (!isNewOrderInAdminQueue(o)) return false
+        if (o.status !== 'en_preparation') return false
         if (!o.requestedDate) return true
         return o.requestedDate >= todayRetraitStr
       })
@@ -931,7 +931,7 @@ function Dashboard({ user }: { user: User }) {
     }
 
     if (historiqueVue === 'a_traiter') {
-      const aTraiter = filteredBySearch.filter(([, o]) => o.status === 'en_preparation')
+      const aTraiter = filteredBySearch.filter(([, o]) => o.status === 'validee' || o.status === 'en_attente')
       return aTraiter.sort(([, a], [, b]) => (b.createdAt || 0) - (a.createdAt || 0))
     }
 
@@ -1000,9 +1000,9 @@ function Dashboard({ user }: { user: User }) {
 
     for (const [, order] of sortedOrders) {
       if (historiqueVue === 'a_traiter') {
-        if (order.status !== 'en_preparation') continue
+        if (order.status !== 'validee' && order.status !== 'en_attente') continue
       } else {
-        if (!isNewOrderInAdminQueue(order)) continue
+        if (order.status !== 'en_preparation') continue
       }
 
       for (const item of order.items ?? []) {
@@ -1351,7 +1351,7 @@ function Dashboard({ user }: { user: User }) {
     const twoHoursFromNow = now.getTime() + 2 * 60 * 60 * 1000
     return Object.entries(orders)
       .filter(([, o]) => {
-        if (!['en_attente', 'validee', 'en_preparation'].includes(o.status)) return false
+        if (!['validee', 'en_preparation'].includes(o.status) && o.status !== 'en_attente') return false
         if (!o.requestedDate || !o.requestedTime) return false
         if (o.requestedDate !== todayStr) return false
         const [h, m] = (o.requestedTime ?? '23:59').split(':').map(Number)
@@ -1466,7 +1466,7 @@ function Dashboard({ user }: { user: User }) {
                 return (
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <AdminKpi
-                      label="Nouvelles commandes"
+                      label="En prépa"
                       value={pendingCount}
                       hint="Voir les commandes →"
                       tone={pendingCount > 0 ? 'warning' : 'default'}
@@ -1778,8 +1778,8 @@ function Dashboard({ user }: { user: User }) {
             className="space-y-4"
           >
             <AdminPanelHeader
-              title="Nouvelles commandes"
-              description={`${pendingCount} commande${pendingCount !== 1 ? 's' : ''} validée${pendingCount !== 1 ? 's' : ''} ou à accepter`}
+              title="En préparation"
+              description={`${pendingCount} commande${pendingCount !== 1 ? 's' : ''} en prépa`}
               icon={ClipboardList}
               action={
                 <AdminBtn variant="primary" onClick={() => { setOffSitePresetClient(null); setShowOffSiteForm(true) }}>
@@ -1878,8 +1878,8 @@ function Dashboard({ user }: { user: User }) {
             {ordersToValidate.length === 0 ? (
               <div className="admin-panel admin-panel-pad admin-empty text-center">
                 <ClipboardList size={48} className="mx-auto text-mayssa-brown/15 mb-4" />
-                <p className="text-sm font-medium text-mayssa-brown/60">Aucune nouvelle commande</p>
-                <p className="text-xs text-mayssa-brown/40 mt-1">{hasActiveFilters ? 'Essayez d\'effacer les filtres' : 'Les commandes payées en ligne apparaissent ici automatiquement'}</p>
+                <p className="text-sm font-medium text-mayssa-brown/60">Aucune commande en préparation</p>
+                <p className="text-xs text-mayssa-brown/40 mt-1">{hasActiveFilters ? 'Essayez d\'effacer les filtres' : 'Les nouvelles commandes arrivent directement ici'}</p>
               </div>
             ) : (
               <>
@@ -1899,88 +1899,15 @@ function Dashboard({ user }: { user: User }) {
                       <button
                         type="button"
                         onClick={async () => {
-                          if (!window.confirm(`Mettre ${selectedPendingIds.size} commande(s) en préparation ?`)) return
+                          if (!window.confirm(`Marquer ${selectedPendingIds.size} commande(s) comme prêtes ?`)) return
                           for (const id of selectedPendingIds) {
-                            const o = orders[id]
-                            if (o) await handleValidateOrder(id, o)
+                            await handleSetOrderPreparationStatus(id, 'pret')
                           }
                           setSelectedPendingIds(new Set())
                         }}
                         className="px-3 py-1.5 rounded-lg bg-emerald-500 text-white text-[10px] font-bold hover:bg-emerald-600 cursor-pointer"
                       >
-                        Mettre en prépa
-                      </button>
-                      <div className="relative" ref={bulkValidateRef}>
-                        <button
-                          type="button"
-                          onClick={() => setBulkValidateOpen((o) => !o)}
-                          className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[10px] font-bold hover:bg-emerald-700 cursor-pointer flex items-center gap-1"
-                        >
-                          Tout mettre en prépa <ChevronDown size={12} className={cn('transition-transform', bulkValidateOpen && 'rotate-180')} />
-                        </button>
-                        <AnimatePresence>
-                          {bulkValidateOpen && (
-                            <motion.div
-                              initial={{ opacity: 0, y: -4 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -4 }}
-                              className="absolute left-0 top-full mt-1 py-1.5 rounded-xl shadow-xl border border-mayssa-brown/10 bg-white z-50 min-w-[220px]"
-                            >
-                              {[
-                                { key: 'all', label: 'Tout mettre en prépa', filter: (ids: string[]) => ids },
-                                { key: 'no_zone', label: 'Sauf hors zone', filter: (ids: string[]) => ids.filter(id => {
-                                  const o = orders[id]
-                                  if (!o || o.deliveryMode !== 'livraison') return true
-                                  const km = o.distanceKm
-                                  return km != null && km <= DELIVERY_RADIUS_KM
-                                })},
-                                { key: 'no_creneau', label: 'Sauf sans créneau', filter: (ids: string[]) => ids.filter(id => {
-                                  const o = orders[id]
-                                  return o && o.requestedDate && o.requestedTime
-                                })},
-                              ].map(({ key, label, filter }) => {
-                                const toValidate = filter(ordersToValidate.map(([id]) => id))
-                                return (
-                                  <button
-                                    key={key}
-                                    type="button"
-                                    onClick={async () => {
-                                      setBulkValidateOpen(false)
-                                      if (toValidate.length === 0) return
-                                      if (!window.confirm(`Mettre ${toValidate.length} commande(s) en préparation ?`)) return
-                                      for (const id of toValidate) {
-                                        const o = orders[id]
-                                        if (o) await handleValidateOrder(id, o)
-                                      }
-                                      setSelectedPendingIds(new Set())
-                                    }}
-                                    disabled={toValidate.length === 0}
-                                    className="w-full text-left px-4 py-2 text-xs font-medium text-mayssa-brown hover:bg-mayssa-soft disabled:opacity-50 disabled:cursor-not-allowed"
-                                  >
-                                    {label} ({toValidate.length})
-                                  </button>
-                                )
-                              })}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          const toRefuse = [...selectedPendingIds].filter((id) => orders[id]?.status === 'en_attente')
-                          if (toRefuse.length === 0) return
-                          if (!window.confirm(`Refuser ${toRefuse.length} commande(s) ? Les créneaux livraison seront libérés.`)) return
-                          for (const id of toRefuse) {
-                            const o = orders[id]
-                            if (o) await handleRefuseOrder(id, o)
-                          }
-                          setSelectedPendingIds(new Set())
-                        }}
-                        className="px-3 py-1.5 rounded-lg bg-red-500 text-white text-[10px] font-bold hover:bg-red-600 cursor-pointer disabled:opacity-50"
-                        disabled={![...selectedPendingIds].some((id) => orders[id]?.status === 'en_attente')}
-                      >
-                        Refuser la sélection
+                        Prête ✅
                       </button>
                     </>
                   )}
@@ -1994,11 +1921,7 @@ function Dashboard({ user }: { user: User }) {
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
                   className={`admin-order-card border-l-4 ${isSelected ? 'ring-2 ring-mayssa-caramel' : ''} ${
-                    order.status === 'en_attente'
-                      ? 'border-l-amber-400'
-                      : order.status === 'validee'
-                        ? 'border-l-emerald-400'
-                        : 'border-l-red-400'
+                    isOrderOnlinePaid(order) ? 'border-l-emerald-400' : 'border-l-blue-400'
                   }`}
                 >
                   {/* Header commande */}
@@ -2083,13 +2006,11 @@ function Dashboard({ user }: { user: User }) {
                     <div className="admin-order-status text-right">
                       <span className={cn(
                         'admin-status-pill',
-                        order.status === 'en_attente' && 'admin-status-pill--pending',
-                        order.status === 'validee' && 'admin-status-pill--success',
-                        order.status !== 'en_attente' && order.status !== 'validee' && 'admin-status-pill--danger',
+                        isOrderOnlinePaid(order) ? 'admin-status-pill--success' : 'admin-status-pill--info',
                       )}>
-                        {order.status === 'en_attente' ? 'À accepter' : order.status === 'validee' ? (isOrderOnlinePaid(order) ? 'Validée · Payée' : 'Validée') : 'Refusée'}
+                        {isOrderOnlinePaid(order) ? 'Validée · Payée' : 'En prépa'}
                       </span>
-                      {isOrderOnlinePaid(order) && order.status === 'validee' && (
+                      {isOrderOnlinePaid(order) && (
                         <p className="text-[9px] font-bold text-emerald-600 mt-0.5">Paiement en ligne ✓</p>
                       )}
                       <p className="text-[9px] text-mayssa-brown/40 mt-1">
@@ -2267,31 +2188,19 @@ function Dashboard({ user }: { user: User }) {
                       Modifier
                     </button>
                     {/* Boutons de progression de statut */}
-                    {order.status === 'en_attente' && (
-                      <>
-                        <button
-                          onClick={() => handleValidateOrder(id, order)}
-                          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-blue-500 text-white text-xs font-bold hover:bg-blue-600 transition-colors cursor-pointer"
-                        >
-                          <Package size={14} />
-                          Accepter → En prépa
-                        </button>
-                        <button
-                          onClick={() => triggerRefuseOrder(id, order)}
-                          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-red-50 text-red-600 text-xs font-bold hover:bg-red-100 transition-colors cursor-pointer"
-                        >
-                          <X size={14} />
-                          Refuser
-                        </button>
-                      </>
-                    )}
-                    {order.status === 'validee' && (
+                    {(order.status === 'en_preparation' || order.status === 'validee' || order.status === 'en_attente') && (
                       <button
-                        onClick={() => handleValidateOrder(id, order)}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-blue-500 text-white text-xs font-bold hover:bg-blue-600 transition-colors cursor-pointer"
+                        onClick={() => {
+                          if (order.status === 'validee' || order.status === 'en_attente') {
+                            void handleValidateOrder(id, order)
+                            return
+                          }
+                          void handleSetOrderPreparationStatus(id, 'pret')
+                        }}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 transition-colors cursor-pointer"
                       >
-                        <Package size={14} />
-                        En prépa
+                        <Check size={14} />
+                        {order.status === 'en_preparation' ? 'Prête ✅' : 'En prépa'}
                       </button>
                     )}
                     {order.status === 'en_preparation' && (
@@ -2363,8 +2272,8 @@ function Dashboard({ user }: { user: User }) {
                 return Object.values(orders).filter(o => statuses.includes(o.status)).length
               }
               const tabs: { vue: typeof historiqueVue; label: string; count: number; color: string }[] = [
-                { vue: 'a_faire',  label: 'Validées',    count: cnt(['en_attente', 'validee']), color: 'bg-emerald-500 text-white' },
-                { vue: 'a_traiter',label: 'En prépa',    count: cnt('en_preparation'),color: 'bg-blue-500 text-white' },
+                { vue: 'a_faire',  label: 'En prépa',    count: cnt(['en_preparation', 'validee', 'en_attente']), color: 'bg-blue-500 text-white' },
+                { vue: 'a_traiter',label: 'Validée',     count: cnt('validee'), color: 'bg-emerald-500 text-white' },
                 { vue: 'pret',     label: 'Prête',       count: cnt('pret'),          color: 'bg-emerald-500 text-white' },
                 { vue: 'livree',   label: 'Livrée',      count: cnt('livree'),        color: 'bg-mayssa-caramel text-white' },
                 { vue: 'validee',  label: 'Validée',     count: cnt('validee'),       color: 'bg-purple-500 text-white' },
@@ -2417,7 +2326,7 @@ function Dashboard({ user }: { user: User }) {
               <div className="flex flex-wrap items-center gap-2">
                 <div className="admin-mini-stat">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-mayssa-brown/50">
-                    {historiqueVue === 'a_faire' ? (aFaireAujourdhuiOnly ? "Aujourd'hui" : 'Validées') : historiqueVue === 'a_traiter' ? 'En préparation' : historiqueVue === 'pret' ? 'Prêtes' : historiqueVue === 'livree' ? 'Livrées' : historiqueVue === 'validee' ? 'Validées' : historiqueVue === 'refusee' ? 'Refusées' : 'Toutes'}
+                    {historiqueVue === 'a_faire' ? (aFaireAujourdhuiOnly ? "Aujourd'hui" : 'Validée') : historiqueVue === 'a_traiter' ? 'En prépa' : historiqueVue === 'pret' ? 'Prêtes' : historiqueVue === 'livree' ? 'Livrées' : historiqueVue === 'validee' ? 'Validées' : historiqueVue === 'refusee' ? 'Refusées' : 'Toutes'}
                   </span>
                   <p className="text-lg font-display font-bold text-mayssa-brown">{displayedOrders.length} commande{displayedOrders.length !== 1 ? 's' : ''}</p>
                 </div>
@@ -2900,22 +2809,22 @@ function Dashboard({ user }: { user: User }) {
                           <Pencil size={14} />
                           Modifier
                         </button>
-                        {(historiqueVue === 'a_faire' && isNewOrderInAdminQueue(order)) && (
+                        {historiqueVue === 'a_faire' && order.status === 'en_preparation' && (
                           <button
-                            onClick={() => handleValidateOrder(id, order)}
-                            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-blue-500 text-white text-xs font-bold hover:bg-blue-600 transition-colors cursor-pointer"
-                          >
-                            <Package size={14} />
-                            {order.status === 'en_attente' ? 'Accepter → En prépa' : 'En prépa'}
-                          </button>
-                        )}
-                        {historiqueVue === 'a_traiter' && order.status === 'en_preparation' && (
-                          <button
-                            onClick={() => handleFinishOrder(id)}
+                            onClick={() => void handleSetOrderPreparationStatus(id, 'pret')}
                             className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 transition-colors cursor-pointer"
                           >
                             <Check size={14} />
-                            Terminé
+                            Prête ✅
+                          </button>
+                        )}
+                        {historiqueVue === 'a_traiter' && (order.status === 'validee' || order.status === 'en_attente') && (
+                          <button
+                            onClick={() => void handleValidateOrder(id, order)}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-blue-500 text-white text-xs font-bold hover:bg-blue-600 transition-colors cursor-pointer"
+                          >
+                            <Package size={14} />
+                            En prépa
                           </button>
                         )}
                         {order.status === 'validee' && (

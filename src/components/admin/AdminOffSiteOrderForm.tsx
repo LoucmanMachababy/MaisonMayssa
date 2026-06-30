@@ -381,7 +381,7 @@ export function AdminOffSiteOrderForm({ allProducts, stock, onClose, onOrderCrea
           ...(presetClient?.email?.trim() && { email: presetClient.email.trim() }),
         },
         total,
-        status: 'en_attente',
+        status: 'en_preparation',
         source,
         deliveryMode,
         ...(presetClient?.uid && { userId: presetClient.uid }),

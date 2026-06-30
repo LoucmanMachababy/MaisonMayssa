@@ -1288,7 +1288,7 @@ export default function Home() {
             }),
           },
           total: orderTotal,
-          status: 'en_attente',
+          status: 'en_preparation',
           source,
           deliveryMode: customer.wantsDelivery ? 'livraison' : 'retrait',
           requestedDate: customer.date || undefined,

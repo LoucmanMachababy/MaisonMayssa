@@ -1298,6 +1298,11 @@
     color: #047857;
   }
 
+  .admin-status-pill--info {
+    background: color-mix(in srgb, #3b82f6 16%, transparent);
+    color: #1d4ed8;
+  }
+
   .admin-status-pill--danger {
     background: color-mix(in srgb, #ef4444 14%, transparent);
     color: #b91c1c;
@@ -1305,6 +1310,7 @@
 
   .admin-theme-dark .admin-status-pill--pending { color: #fcd34d; }
   .admin-theme-dark .admin-status-pill--success { color: #6ee7b7; }
+  .admin-theme-dark .admin-status-pill--info { color: #93c5fd; }
   .admin-theme-dark .admin-status-pill--danger { color: #fca5a5; }
 
   .admin-bulk-bar {

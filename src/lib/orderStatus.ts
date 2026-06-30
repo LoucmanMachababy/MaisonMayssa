@@ -5,21 +5,30 @@ export function isOrderOnlinePaid(order: Pick<Order, 'paymentStatus'>): boolean 
   return order.paymentStatus === 'paid' || order.paymentStatus === 'simulated_paid'
 }
 
-/** Statut initial : payé en ligne → commande validée (plus d'étape « en attente » admin). */
-export function resolveInitialOrderStatus(input: {
+/** Statut initial : toute nouvelle commande va directement en préparation. */
+export function resolveInitialOrderStatus(_input?: {
   paymentMethod?: Order['paymentMethod']
   paymentStatus?: Order['paymentStatus']
   stripePaymentIntentId?: string | null
 }): OrderStatus {
-  const paid =
-    input.paymentStatus === 'paid' ||
-    input.paymentStatus === 'simulated_paid' ||
-    !!input.stripePaymentIntentId ||
-    !!input.paymentMethod
-  return paid ? 'validee' : 'en_attente'
+  return 'en_preparation'
 }
 
-/** Commandes visibles dans l'onglet admin « Nouvelles commandes » (à traiter avant la préparation). */
+/** Commandes en préparation (file active admin). Inclut legacy en_attente/validee. */
 export function isNewOrderInAdminQueue(order: Pick<Order, 'status'>): boolean {
-  return order.status === 'en_attente' || order.status === 'validee'
+  return (
+    order.status === 'en_preparation' ||
+    order.status === 'validee' ||
+    order.status === 'en_attente'
+  )
+}
+
+/** Affichage admin : legacy → en préparation ou validée. */
+export function adminOrderStatusLabel(
+  status: OrderStatus | undefined,
+  paidOnline = false,
+): 'validee' | 'en_preparation' | 'pret' | 'livree' | 'refusee' {
+  if (status === 'en_attente' || status === 'validee') return paidOnline ? 'validee' : 'en_preparation'
+  if (status === 'en_preparation') return 'en_preparation'
+  return status ?? 'en_preparation'
 }
