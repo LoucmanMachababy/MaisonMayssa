@@ -4,7 +4,7 @@ export function BrowniesAnnecyPage() {
   return (
     <PillarPageLayout
       title="Brownies artisanaux Annecy — Maison Mayssa, fondants faits maison"
-      description="Brownies artisanaux à Annecy : Nutella Oreo, Pistache Framboise, El Mordjene, Caramel Cacahuète… 9 saveurs ultra fondantes. Click & collect 7j/7 à la galerie marchande du Carrefour, av. de Genève."
+      description="Brownies artisanaux à Annecy : Nutella Oreo, Pistache Framboise, El Mordjene, Caramel Cacahuète… 10 saveurs ultra fondantes. Click & collect 7j/7 à la galerie marchande du Carrefour, av. de Genève."
       canonical="https://maison-mayssa.fr/brownies-annecy"
       breadcrumb={[
         { name: 'Accueil', url: '/' },
@@ -13,7 +13,7 @@ export function BrowniesAnnecyPage() {
       heroImage="/nouvelle-img/cup-dubai-bueno.PNG"
       heroEyebrow="Pâtisserie gourmande Annecy"
       heroTitle="Brownies artisanaux à Annecy"
-      heroSubtitle="Ultra fondants, saveurs originales, faits maison à la demande. 9 recettes pour tous les goûts."
+      heroSubtitle="Ultra fondants, saveurs originales, faits maison à la demande. 10 recettes pour tous les goûts."
       categoryProductIds={[
         'brownie-nutella-oreo',
         'brownie-el-mordjene',
@@ -69,7 +69,7 @@ export function BrowniesAnnecyPage() {
             chocolat qui laisse une trace en bouche.
           </p>
           <p>
-            Je varie les plaisirs avec <strong>9 saveurs signatures</strong>, entre
+            Je varie les plaisirs avec <strong>10 saveurs signatures</strong>, entre
             classiques revisités (Nutella Oreo, Caramel Cacahuète) et associations plus
             audacieuses (Pistache Framboise, Tiramisu Café, Crème Brûlée Vanille). Chaque
             brownie est réalisé avec du chocolat de couverture de qualité, du beurre frais,
@@ -80,7 +80,7 @@ export function BrowniesAnnecyPage() {
 
       <section>
         <h2 className="text-xl sm:text-2xl font-display font-bold text-mayssa-brown mb-4">
-          Nos 9 saveurs de brownies artisanaux
+          Nos 10 saveurs de brownies artisanaux
         </h2>
         <div className="prose prose-sm sm:prose-base max-w-none text-mayssa-brown/85 space-y-4 leading-relaxed">
           <ul className="space-y-2 list-none p-0">

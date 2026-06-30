@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import { cn, formatOrderItemName } from '../../lib/utils'
 import {
-  adminAddPoints, adminRemovePoints, type UserProfile, type Order
+  adminAddPoints, adminRemovePoints, LOYALTY_TIER_THRESHOLDS, type UserProfile, type Order
 } from '../../lib/firebase'
 import { togglePinClient, isClientPinned } from '../../lib/adminPins'
 import { Pin } from 'lucide-react'
@@ -289,10 +289,14 @@ export function AdminClientProfileModal({ uid, profile, orders, onClose, onNewOr
                   <div className="mt-3 h-2 bg-mayssa-gold/10 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-gradient-to-r from-mayssa-gold to-mayssa-caramel rounded-full transition-all duration-1000"
-                      style={{ width: `${Math.min(100, ((profile.loyalty?.lifetimePoints ?? 0) / 200) * 100)}%` }}
+                      style={{ width: `${Math.min(100, ((profile.loyalty?.lifetimePoints ?? 0) / LOYALTY_TIER_THRESHOLDS.prestige) * 100)}%` }}
                     />
                   </div>
-                  <p className="text-[9px] text-mayssa-brown/40 mt-1">{profile.loyalty?.lifetimePoints ?? 0} / 200 pts pour Prestige</p>
+                  <p className="text-[9px] text-mayssa-brown/40 mt-1">
+                    {(profile.loyalty?.lifetimePoints ?? 0) >= LOYALTY_TIER_THRESHOLDS.prestige
+                      ? 'Palier Prestige atteint 🏆'
+                      : `${profile.loyalty?.lifetimePoints ?? 0} / ${LOYALTY_TIER_THRESHOLDS.prestige} pts pour Prestige`}
+                  </p>
                 </div>
 
                 {/* Add/Remove points */}

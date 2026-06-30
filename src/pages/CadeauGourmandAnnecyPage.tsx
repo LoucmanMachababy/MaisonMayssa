@@ -16,11 +16,11 @@ export function CadeauGourmandAnnecyPage() {
       heroSubtitle="Boxes et coffrets artisanaux à offrir — un cadeau qui marque, plus qu'une simple boîte de chocolats."
       categoryProductIds={[
         'box-decouverte-trompe-5',
-        'box-mixte',
-        'box-brownies',
-        'box-cookies',
-        'mini-box-mixte',
+        'box-decouverte-trompe-8',
         'trompe-loeil-mangue',
+        'trompe-loeil-pistache',
+        'trompe-loeil-cacahuete',
+        'trompe-loeil-cabosse',
       ]}
       maxCatalogProducts={6}
       faqItems={[

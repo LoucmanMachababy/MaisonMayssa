@@ -102,7 +102,14 @@ export function useProductAddFlow(options?: UseProductAddFlowOptions) {
   const confirmDiscoveryBox = (selectionIds: string[]) => {
     if (!discoveryBoxProduct) return
     const linePrice = getDiscoveryBoxLinePrice(discoveryBoxProduct.price, selectionIds, discoveryBoxProduct.id)
-    const cartProduct: Product = { ...discoveryBoxProduct, price: linePrice }
+    // id unique par ligne : deux box découverte de saveurs/prix différents ne doivent
+    // pas fusionner (sinon la 2e écrase la sélection + le prix de la 1re). Le suffixe
+    // numérique (≥10 chiffres) est strippé partout pour retrouver l'id de base.
+    const cartProduct: Product = {
+      ...discoveryBoxProduct,
+      id: `${discoveryBoxProduct.id}-${Date.now()}`,
+      price: linePrice,
+    }
     addItem(cartProduct, 1, { trompeDiscoverySelection: selectionIds })
     trackAddToCart(discoveryBoxProduct.id, discoveryBoxProduct.name)
     const added = discoveryBoxProduct

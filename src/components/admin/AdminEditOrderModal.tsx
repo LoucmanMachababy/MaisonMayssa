@@ -62,7 +62,14 @@ export function AdminEditOrderModal({ orderId, order, stock, allProducts, onClos
     () => items.reduce((s, i) => s + i.price * i.quantity, 0),
     [items]
   )
-  const total = itemsTotal + (deliveryMode === 'livraison' ? deliveryFee : 0)
+  // Remises/don déjà appliqués à la commande (non éditables ici) : on les conserve
+  // dans le total auto-calculé pour ne pas effacer une promo en ré-enregistrant.
+  const existingDiscount = (order.discountAmount ?? 0) + (order.referralDiscountAmount ?? 0)
+  const existingDonation = order.donationAmount ?? 0
+  const total = Math.max(
+    0,
+    itemsTotal + (deliveryMode === 'livraison' ? deliveryFee : 0) - existingDiscount + existingDonation,
+  )
   const displayOrderTotal = useMemo(() => {
     if (manualTotal.trim() && !Number.isNaN(parseFloat(manualTotal.replace(',', '.')))) {
       return Math.max(0, parseFloat(manualTotal.replace(',', '.')))

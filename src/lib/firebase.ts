@@ -825,17 +825,18 @@ export function listenOrders(callback: (orders: Record<string, Order>) => void) 
   })
 }
 
-export async function createOrder(order: Omit<Order, 'id' | 'orderNumber'>): Promise<{ orderId: string; orderNumber: number } | null> {
-  const orderNumber = await getNextOrderNumber()
-  const newRef = push(ordersRef)
-  await set(newRef, { ...order, orderNumber })
-  const orderId = newRef.key
-  if (orderId) {
-    notifyOrderCreatedEmails(orderId).catch((err) => {
-      console.error('[createOrder] notification email:', err)
-    })
-  }
-  return orderId ? { orderId, orderNumber } : null
+/**
+ * Crée une commande. Délègue à la Cloud Function sécurisée `createOrder`
+ * (total recalculé, paiement Stripe vérifié, stock/numérotation côté serveur).
+ * L'écriture directe en base n'est plus autorisée par les règles de sécurité.
+ */
+export async function createOrder(
+  order: Omit<Order, 'id' | 'orderNumber'>,
+): Promise<{ orderId: string; orderNumber: number } | null> {
+  // La CF pose elle-même createdAt ; on ne l'envoie pas.
+  const { createdAt: _createdAt, ...payload } = order
+  void _createdAt
+  return createOrderViaCF(payload)
 }
 
 /** Déclenche l'envoi des emails nouvelle commande (admin + client si email renseigné). */
@@ -1192,6 +1193,19 @@ export async function resendClientEmailVerification(email: string, password: str
 // --- Types Profils Clients & Fidélité ---
 export type LoyaltyTier = 'Douceur' | 'Gourmand' | 'Prestige'
 
+/** Seuils de points à vie pour chaque palier de fidélité (source unique de vérité). */
+export const LOYALTY_TIER_THRESHOLDS: { gourmand: number; prestige: number } = {
+  gourmand: 150,
+  prestige: 400,
+}
+
+/** Palier de fidélité correspondant à un nombre de points à vie. */
+export function tierForLifetimePoints(lifetimePoints: number): LoyaltyTier {
+  if (lifetimePoints >= LOYALTY_TIER_THRESHOLDS.prestige) return 'Prestige'
+  if (lifetimePoints >= LOYALTY_TIER_THRESHOLDS.gourmand) return 'Gourmand'
+  return 'Douceur'
+}
+
 export type LoyaltyHistoryEntry = {
   reason: 'creation_compte' | 'instagram_follow' | 'tiktok_follow' | 'order_points' | 'review_bonus' | 'ramadan_bonus' | 'anniversary_bonus' | 'birthday_bonus' | 'admin_ajout' | 'admin_retrait'
   points: number
@@ -1400,12 +1414,7 @@ export async function addUserPoints(uid: string, entry: LoyaltyHistoryEntry) {
   const newLifetimePoints = profile.loyalty.lifetimePoints + entry.points
   
   // Recalculer le tier en fonction des points à vie
-  let newTier: UserProfile['loyalty']['tier'] = 'Douceur'
-  if (newLifetimePoints >= 400) {
-    newTier = 'Prestige'
-  } else if (newLifetimePoints >= 150) {
-    newTier = 'Gourmand'
-  }
+  const newTier: UserProfile['loyalty']['tier'] = tierForLifetimePoints(newLifetimePoints)
 
   const newHistory = Array.isArray(profile.loyalty.history) 
     ? [...profile.loyalty.history, entry]

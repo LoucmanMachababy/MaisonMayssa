@@ -16,18 +16,17 @@ export function PatisserieAnniversaireAnnecyPage() {
       heroSubtitle="Trompe-l'œil, layer cups, box découverte — des pâtisseries qui font l'effet wow le jour J."
       categoryProductIds={[
         'box-decouverte-trompe-5',
+        'box-decouverte-trompe-8',
         'trompe-loeil-mangue',
         'trompe-loeil-cabosse',
-        'layer-mangue-passion',
-        'layer-nutella-oreo',
-        'layer-pistache-fraise',
-        'box-mixte',
+        'trompe-loeil-pistache',
+        'trompe-loeil-fraise',
       ]}
       maxCatalogProducts={6}
       faqItems={[
         {
           q: "Quelle pâtisserie d'anniversaire choisir ?",
-          a: "Pour un effet wow garanti, je recommande un trompe-l'œil (mangue, cabosse de cacao, noix de pécan) ou une box découverte de 5 trompe-l'œil à composer. Pour un public plus jeune, une layer cup (Nutella Oreo, Pistache Fraise) fait toujours son effet. Pour un mix de saveurs : une box mixte brownies + cookies + trompe-l'œil.",
+          a: "Pour un effet wow garanti, je recommande un trompe-l'œil (mangue, cabosse de cacao, noix de pécan) ou une box découverte de 5 à 8 trompe-l'œil à composer selon le nombre d'invités. Une box partagée fait toujours son effet pour souffler les bougies à plusieurs.",
         },
         {
           q: "Combien de temps à l'avance commander pour un anniversaire ?",
@@ -43,7 +42,7 @@ export function PatisserieAnniversaireAnnecyPage() {
         },
         {
           q: "Quel budget pour un anniversaire ?",
-          a: "Tout dépend du nombre d'invités. Un trompe-l'œil = 6 à 8,50 €. Une box de 7 trompe-l'œil = 50 €. Une box mixte brownies + cookies = 25 €. Retrait gratuit en boutique.",
+          a: "Tout dépend du nombre d'invités. Un trompe-l'œil = 7,50 à 9,50 €. Une box découverte de 5 trompe-l'œil au choix = 40 €, une box de 8 = 70 €. Retrait gratuit en boutique (click & collect).",
         },
       ]}
       relatedPages={[

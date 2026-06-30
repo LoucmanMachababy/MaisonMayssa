@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { ExternalLink } from 'lucide-react'
-import { GOOGLE_REVIEWS_FILTERED } from '../data/googleReviews'
+import { useReviews } from '../hooks/useReviews'
 import { GOOGLE_REVIEWS_URL } from '../constants/checkout'
 
 function StarRow({ count }: { count: number }) {
@@ -22,7 +22,12 @@ function StarRow({ count }: { count: number }) {
 }
 
 export function GoogleReviewsCarousel() {
-  const reviews = GOOGLE_REVIEWS_FILTERED
+  // Avis réels laissés par les clients (Firebase). On n'affiche que les notes 4-5
+  // étoiles avec un commentaire, et la section disparaît tant qu'il n'y a pas d'avis.
+  const { reviews: allReviews } = useReviews()
+  const reviews = allReviews.filter((r) => r.rating >= 4 && r.comment?.trim())
+
+  if (reviews.length === 0) return null
 
   return (
     <section className="py-24 md:py-32 bg-white overflow-hidden">
@@ -36,14 +41,14 @@ export function GoogleReviewsCarousel() {
             ))}
           </div>
           <h2 className="font-display text-3xl md:text-5xl text-mayssa-brown mb-4">L&apos;avis de nos clients</h2>
-          <p className="text-mayssa-brown/50 font-light tracking-[0.2em] uppercase text-xs mb-6">Avis Google · 4 & 5 étoiles</p>
+          <p className="text-mayssa-brown/50 font-light tracking-[0.2em] uppercase text-xs mb-6">Avis vérifiés · 4 &amp; 5 étoiles</p>
           <a
             href={GOOGLE_REVIEWS_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 text-xs tracking-widest uppercase text-mayssa-gold hover:text-mayssa-brown transition-colors"
           >
-            Voir tous les avis Google
+            Laisser un avis Google
             <ExternalLink size={14} />
           </a>
         </div>
@@ -65,12 +70,9 @@ export function GoogleReviewsCarousel() {
                     className="shrink-0 w-[85vw] md:w-[400px] bg-mayssa-soft p-8 md:p-10 rounded-2xl border border-mayssa-brown/5"
                   >
                     <StarRow count={review.rating} />
-                    <p className="text-mayssa-brown/80 font-light leading-relaxed my-6 italic">&ldquo;{review.text}&rdquo;</p>
+                    <p className="text-mayssa-brown/80 font-light leading-relaxed my-6 italic">&ldquo;{review.comment}&rdquo;</p>
                     <div className="flex items-center justify-between gap-2">
-                      <p className="font-display text-lg text-mayssa-brown">{review.name}</p>
-                      {review.date && (
-                        <p className="text-[10px] text-mayssa-brown/40 uppercase tracking-wide">{review.date}</p>
-                      )}
+                      <p className="font-display text-lg text-mayssa-brown">{review.authorName || 'Client Maison Mayssa'}</p>
                     </div>
                   </article>
                 ))}
