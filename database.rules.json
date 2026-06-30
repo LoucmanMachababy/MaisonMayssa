@@ -54,7 +54,13 @@
     "users": {
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || auth.token.email === 'roumayssaghazi213@gmail.com')",
-        ".write": "auth != null && (auth.uid === $uid || auth.token.email === 'roumayssaghazi213@gmail.com')"
+        ".write": "auth != null && (auth.uid === $uid || auth.token.email === 'roumayssaghazi213@gmail.com')",
+        "loyalty": {
+          ".validate": "auth.token.email === 'roumayssaghazi213@gmail.com'"
+        },
+        "rewards": {
+          ".validate": "auth.token.email === 'roumayssaghazi213@gmail.com'"
+        }
       }
     },
 

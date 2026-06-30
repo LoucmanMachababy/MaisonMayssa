@@ -61,21 +61,28 @@ function getStripe() {
   return _stripe
 }
 
-/** Envoyer un email via l'API Resend */
-async function sendEmail({ to, subject, html, from }) {
+/**
+ * Envoyer un email via l'API Resend.
+ * `attachments` : tableau Resend [{ filename, content }] où content est du base64.
+ */
+async function sendEmail({ to, subject, html, from, attachments }) {
   const apiKey = RESEND_API_KEY.value()
   if (!apiKey) {
     console.error('[email] RESEND_API_KEY non configurée — aucun email envoyé')
     throw new Error('RESEND_API_KEY manquante')
   }
   const fromAddress = from || FROM_EMAIL.value()
+  const payload = { from: fromAddress, to: Array.isArray(to) ? to : [to], subject, html }
+  if (Array.isArray(attachments) && attachments.length > 0) {
+    payload.attachments = attachments
+  }
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ from: fromAddress, to: Array.isArray(to) ? to : [to], subject, html }),
+    body: JSON.stringify(payload),
   })
   if (!res.ok) {
     const err = await res.text()
@@ -167,6 +174,68 @@ function formatPickupDate(ymd) {
   } catch {
     return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`
   }
+}
+
+/** Échappe les caractères spéciaux iCalendar (RFC 5545). */
+function escapeIcs(value) {
+  return String(value == null ? '' : value)
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\r?\n/g, '\\n')
+}
+
+/**
+ * Construit le contenu .ics du retrait click & collect.
+ * Heures écrites en local "flottant" (sans Z) — l'agenda du client interprète
+ * dans son propre fuseau, ce qui correspond à l'heure de retrait affichée.
+ * Retourne null si la date est invalide.
+ */
+function buildPickupIcs(order, orderId, orderNumber) {
+  const ymd = order.requestedDate
+  if (!ymd || typeof ymd !== 'string') return null
+  const [y, m, d] = ymd.split('-').map(Number)
+  if (!y || !m || !d) return null
+
+  const time = /^\d{1,2}:\d{2}$/.test(order.requestedTime || '') ? order.requestedTime : '12:00'
+  const [hh, mn] = time.split(':').map(Number)
+  const pad = (n) => String(n).padStart(2, '0')
+  const dtStart = `${y}${pad(m)}${pad(d)}T${pad(hh)}${pad(mn)}00`
+  // Fin = +30 min (créneau standard), via minutes brutes pour éviter le passage d'heure.
+  const endMinutesTotal = hh * 60 + mn + 30
+  const endHh = Math.floor(endMinutesTotal / 60) % 24
+  const endMn = endMinutesTotal % 60
+  const dtEnd = `${y}${pad(m)}${pad(d)}T${pad(endHh)}${pad(endMn)}00`
+
+  const ref = orderNumber != null ? `#${orderNumber}` : orderId
+  const uid = `pickup-${String(ref).replace(/[^a-zA-Z0-9]/g, '')}@maison-mayssa.fr`
+  const summary = escapeIcs(`Retrait commande ${ref} — Maison Mayssa`)
+  const location = escapeIcs(`${STORE.name}, ${STORE.address}`)
+  const description = escapeIcs(
+    `Présentez le numéro ${ref} au comptoir. Aucun paiement sur place : c'est déjà réglé.`,
+  )
+
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Maison Mayssa//Click and Collect//FR',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    `UID:${uid}`,
+    `DTSTART:${dtStart}`,
+    `DTEND:${dtEnd}`,
+    `SUMMARY:${summary}`,
+    `LOCATION:${location}`,
+    `DESCRIPTION:${description}`,
+    'BEGIN:VALARM',
+    'TRIGGER:-PT2H',
+    'ACTION:DISPLAY',
+    `DESCRIPTION:${summary}`,
+    'END:VALARM',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].join('\r\n')
 }
 
 /** En-tête de marque (logo texte + filet doré) réutilisable. */
@@ -332,11 +401,21 @@ async function dispatchOrderCreatedEmails(orderId, order) {
   const promises = []
 
   if (order.customer?.email?.trim()) {
+    const ics = buildPickupIcs(order, orderId, orderNumber)
+    const attachments = ics
+      ? [
+          {
+            filename: 'retrait-maison-mayssa.ics',
+            content: Buffer.from(ics, 'utf-8').toString('base64'),
+          },
+        ]
+      : undefined
     promises.push(
       sendEmailWithRetry({
         to: order.customer.email.trim(),
         subject: `Votre commande ${orderNumber != null ? `#${orderNumber}` : orderId} est confirmée 🎂 – Maison Mayssa`,
         html: htmlRecap,
+        attachments,
       }),
     )
   }
@@ -611,6 +690,105 @@ export const onStockAvailable = onValueUpdated(
 const ADMIN_EMAIL_HARDCODED = 'roumayssaghazi213@gmail.com'
 const DOUBLE_ORDER_BLOCK_MS = 48 * 60 * 60 * 1000
 
+// ============================================================================
+// Programme fidélité — 100 % serveur (les points ne sont JAMAIS écrits par le
+// client : `users/$uid/loyalty` et `users/$uid/rewards` sont admin-only dans
+// les règles ; seul l'Admin SDK (qui bypass les règles) écrit ici).
+// ============================================================================
+
+const LOYALTY_TIER_GOURMAND = 150
+const LOYALTY_TIER_PRESTIGE = 400
+const REFERRAL_POINTS_TO_REFERRER = 15
+const WELCOME_POINTS = 15
+const SOCIAL_FOLLOW_POINTS = 15
+
+// Coûts des récompenses — source de vérité serveur (miroir de REWARD_COSTS côté front).
+const REWARD_COSTS = {
+  surprise_maison_mayssa: 60,
+  remise_5e: 100,
+  mini_box: 150,
+  box_fidelite: 250,
+}
+
+/** Palier correspondant à un nombre de points à vie. */
+function tierForLifetimePoints(lifetimePoints) {
+  if (lifetimePoints >= LOYALTY_TIER_PRESTIGE) return 'Prestige'
+  if (lifetimePoints >= LOYALTY_TIER_GOURMAND) return 'Gourmand'
+  return 'Douceur'
+}
+
+/**
+ * Crédite (ou débite) des points de fidélité atomiquement, en recalculant le
+ * tier d'après les points à vie. `entry.points` peut être négatif (retrait).
+ * lifetimePoints n'augmente que pour les crédits (jamais diminué).
+ * Retourne le nouveau solde, ou null si le profil/loyalty n'existe pas.
+ */
+async function awardLoyaltyPoints(uid, entry) {
+  const loyaltyRef = db.ref(`users/${uid}/loyalty`)
+  let applied = null
+  const res = await loyaltyRef.transaction((current) => {
+    if (current == null) return // profil/loyalty absent → on n'écrit rien
+    const points = (Number(current.points) || 0) + entry.points
+    const lifetime =
+      entry.points > 0
+        ? (Number(current.lifetimePoints) || 0) + entry.points
+        : Number(current.lifetimePoints) || 0
+    const history = Array.isArray(current.history)
+      ? current.history
+      : current.history && typeof current.history === 'object'
+        ? Object.values(current.history)
+        : []
+    applied = {
+      ...current,
+      points: Math.max(0, points),
+      lifetimePoints: lifetime,
+      tier: tierForLifetimePoints(lifetime),
+      history: [...history, entry],
+    }
+    return applied
+  })
+  if (!res.committed || !applied) return null
+  return applied.points
+}
+
+/**
+ * Crédite le parrain (15 pts) lors de la 1ère commande d'un filleul.
+ * Best-effort : ne fait pas échouer la commande.
+ */
+async function creditReferrer(referrerUid, referralCode) {
+  if (!referrerUid) return
+  try {
+    await awardLoyaltyPoints(referrerUid, {
+      reason: 'admin_ajout',
+      points: REFERRAL_POINTS_TO_REFERRER,
+      at: Date.now(),
+      adminNote: `Parrainage (${String(referralCode || '').toUpperCase()})`,
+    })
+  } catch (e) {
+    console.error('[creditReferrer] échec:', e)
+  }
+}
+
+/**
+ * Recalcule, côté serveur, le total « gagnant de points » d'une commande
+ * (jamais de confiance dans data.total fourni par le client).
+ *   total = Σ(price·qty) − discountAmount − referralDiscountAmount
+ *           + deliveryFee (plafonné 5 €) + donationAmount
+ * Renvoie un nombre ≥ 0.
+ */
+function computeOrderPointsTotal(data) {
+  let itemsTotal = 0
+  for (const it of data.items || []) {
+    itemsTotal += (Number(it.price) || 0) * (Number(it.quantity) || 0)
+  }
+  const discount = Math.max(0, Number(data.discountAmount) || 0)
+  const referral = Math.max(0, Number(data.referralDiscountAmount) || 0)
+  const delivery = Math.min(5, Math.max(0, Number(data.deliveryFee) || 0))
+  const donation = Math.max(0, Number(data.donationAmount) || 0)
+  const total = itemsTotal - discount - referral + delivery + donation
+  return Math.max(0, total)
+}
+
 function normalizePhone(raw) {
   return String(raw || '').replace(/\D/g, '')
 }
@@ -881,6 +1059,27 @@ export const createOrder = onCall(
           .catch((e) => console.error('[createOrder] incrementPromoCodeUsage:', e))
       )
     }
+    // Fidélité (100 % serveur) : crédite les points de commande au client
+    // connecté, sur la base du total RECALCULÉ serveur (jamais data.total).
+    if (userId && orderId) {
+      const pointsTotal = computeOrderPointsTotal(data)
+      const basePoints = Math.round(pointsTotal)
+      if (basePoints > 0) {
+        postOps.push(
+          awardLoyaltyPoints(userId, {
+            reason: 'order_points',
+            points: basePoints,
+            at: Date.now(),
+            amount: pointsTotal,
+            orderId,
+          }).catch((e) => console.error('[createOrder] awardLoyaltyPoints:', e)),
+        )
+      }
+      // Crédit parrain : 1ère commande d'un filleul (referrerUserId fourni par le front).
+      if (data.referrerUserId && data.referrerUserId !== userId) {
+        postOps.push(creditReferrer(data.referrerUserId, data.referralCode))
+      }
+    }
     await Promise.allSettled(postOps)
 
     console.log(`[createOrder] order ${orderId} (#${orderNumber}) created for ${data.customer.phone}`)
@@ -1021,5 +1220,222 @@ export const setAdminClaim = onCall(
     await admin.auth().setCustomUserClaims(targetUid, { admin: true })
     console.log(`[setAdminClaim] admin=true set on uid=${targetUid} by ${callerEmail}`)
     return { success: true, uid: targetUid }
+  }
+)
+
+// ============================================================================
+// Fidélité — Cloud Functions appelables (le client ne peut plus écrire ses points)
+// ============================================================================
+
+/**
+ * Trigger : crédite les points de bienvenue à la création du profil.
+ * Le client crée son profil avec loyalty.points = 0 ; ce trigger ajoute les
+ * 15 pts de manière fiable (le client ne peut pas se créditer lui-même).
+ * Garde anti-double-crédit : ne fait rien si l'historique contient déjà
+ * 'creation_compte' (ré-exécution, restauration, etc.).
+ */
+export const onUserCreated = onValueCreated(
+  { ref: 'users/{uid}', ...rtdbTriggerOptions() },
+  async (event) => {
+    const uid = event.params.uid
+    const profile = event.data.val()
+    if (!profile || typeof profile !== 'object') return
+    const history = profile.loyalty?.history
+    const historyArr = Array.isArray(history)
+      ? history
+      : history && typeof history === 'object'
+        ? Object.values(history)
+        : []
+    if (historyArr.some((h) => h?.reason === 'creation_compte')) return
+    await awardLoyaltyPoints(uid, {
+      reason: 'creation_compte',
+      points: WELCOME_POINTS,
+      at: Date.now(),
+    })
+    console.log(`[onUserCreated] +${WELCOME_POINTS} pts bienvenue → ${uid}`)
+  }
+)
+
+/**
+ * Callable : réclame les points d'un suivi réseau social (Instagram / TikTok),
+ * une seule fois par plateforme. Vérifie l'auth + le drapeau côté serveur.
+ * @returns {{ points: number }}
+ */
+export const claimSocialPoints = onCall(
+  { region: 'europe-west1' },
+  async (request) => {
+    const uid = request.auth?.uid
+    if (!uid) throw new HttpsError('unauthenticated', 'Connexion requise')
+    const platform = request.data?.platform
+    if (platform !== 'instagram' && platform !== 'tiktok') {
+      throw new HttpsError('invalid-argument', 'plateforme invalide')
+    }
+    const claimedField = platform === 'instagram' ? 'instagramClaimedAt' : 'tiktokClaimedAt'
+    const now = Date.now()
+
+    // Transaction atomique : pose le drapeau (anti double-réclamation) ET crédite.
+    let credited = false
+    const res = await db.ref(`users/${uid}/loyalty`).transaction((current) => {
+      if (current == null) return // profil absent
+      if (current[claimedField]) return current // déjà réclamé → no-op (commit sans changement)
+      credited = true
+      const points = (Number(current.points) || 0) + SOCIAL_FOLLOW_POINTS
+      const lifetime = (Number(current.lifetimePoints) || 0) + SOCIAL_FOLLOW_POINTS
+      const history = Array.isArray(current.history)
+        ? current.history
+        : current.history && typeof current.history === 'object'
+          ? Object.values(current.history)
+          : []
+      return {
+        ...current,
+        points,
+        lifetimePoints: lifetime,
+        tier: tierForLifetimePoints(lifetime),
+        [claimedField]: now,
+        history: [...history, { reason: `${platform}_follow`, points: SOCIAL_FOLLOW_POINTS, at: now }],
+      }
+    })
+    if (!res.committed || res.snapshot.val() == null) {
+      throw new HttpsError('not-found', 'Profil introuvable')
+    }
+    if (!credited) {
+      throw new HttpsError('already-exists', `Points ${platform} déjà réclamés`)
+    }
+    console.log(`[claimSocialPoints] +${SOCIAL_FOLLOW_POINTS} pts ${platform} → ${uid}`)
+    return { points: Number(res.snapshot.val().points) || 0 }
+  }
+)
+
+/**
+ * Callable : réclame une récompense (débite les points + crée l'entrée reward).
+ * Le coût est lu côté serveur (REWARD_COSTS) — jamais fourni par le client.
+ * Le débit + l'écriture du reward sont atomiques (transaction sur loyalty +
+ * vérif du solde) pour empêcher solde négatif / double-clic.
+ * @returns {{ rewardId: string, points: number }}
+ */
+export const claimLoyaltyReward = onCall(
+  { region: 'europe-west1' },
+  async (request) => {
+    const uid = request.auth?.uid
+    if (!uid) throw new HttpsError('unauthenticated', 'Connexion requise')
+    const rewardType = request.data?.rewardType
+    const cost = REWARD_COSTS[rewardType]
+    if (!cost) throw new HttpsError('invalid-argument', 'récompense inconnue')
+
+    // Débit atomique : abort si solde insuffisant (transaction renvoie undefined).
+    let insufficient = false
+    const res = await db.ref(`users/${uid}/loyalty`).transaction((current) => {
+      if (current == null) return // profil absent
+      const points = Number(current.points) || 0
+      if (points < cost) {
+        insufficient = true
+        return // abort → pas de débit
+      }
+      return { ...current, points: points - cost }
+    })
+    if (insufficient) throw new HttpsError('failed-precondition', 'Points insuffisants')
+    if (!res.committed || res.snapshot.val() == null) {
+      throw new HttpsError('not-found', 'Profil introuvable')
+    }
+
+    // Crée la récompense (le débit est déjà acté ; en cas d'échec rare ici, on
+    // re-crédite pour ne pas perdre les points).
+    try {
+      const rewardRef = db.ref(`users/${uid}/rewards`).push()
+      await rewardRef.set({
+        type: rewardType,
+        pointsSpent: cost,
+        claimedAt: Date.now(),
+        usedInOrderId: null,
+      })
+      console.log(`[claimLoyaltyReward] ${rewardType} (-${cost} pts) → ${uid}`)
+      return { rewardId: rewardRef.key, points: Number(res.snapshot.val().points) || 0 }
+    } catch (e) {
+      await db
+        .ref(`users/${uid}/loyalty/points`)
+        .transaction((p) => (Number(p) || 0) + cost)
+        .catch(() => {})
+      console.error('[claimLoyaltyReward] échec création reward, points re-crédités:', e)
+      throw new HttpsError('internal', 'Réclamation impossible, réessaie')
+    }
+  }
+)
+
+/**
+ * Callable : crédite les 10 points d'avis (review_bonus), 1 seule fois par
+ * commande (ou 1 seule fois tout court si pas d'orderId). Idempotent via
+ * l'historique loyalty.
+ * @returns {{ points: number, awarded: boolean }}
+ */
+export const awardReviewPoints = onCall(
+  { region: 'europe-west1' },
+  async (request) => {
+    const uid = request.auth?.uid
+    if (!uid) throw new HttpsError('unauthenticated', 'Connexion requise')
+    const orderId = typeof request.data?.orderId === 'string' ? request.data.orderId : null
+    const REVIEW_BONUS = 10
+    const now = Date.now()
+
+    let awarded = false
+    const res = await db.ref(`users/${uid}/loyalty`).transaction((current) => {
+      if (current == null) return // profil absent
+      const history = Array.isArray(current.history)
+        ? current.history
+        : current.history && typeof current.history === 'object'
+          ? Object.values(current.history)
+          : []
+      // Anti-double : déjà un review_bonus (pour cette commande, ou tout court).
+      const already = history.some(
+        (h) => h?.reason === 'review_bonus' && (orderId ? h.orderId === orderId : true),
+      )
+      if (already) return current // no-op
+      awarded = true
+      const points = (Number(current.points) || 0) + REVIEW_BONUS
+      const lifetime = (Number(current.lifetimePoints) || 0) + REVIEW_BONUS
+      return {
+        ...current,
+        points,
+        lifetimePoints: lifetime,
+        tier: tierForLifetimePoints(lifetime),
+        history: [...history, { reason: 'review_bonus', points: REVIEW_BONUS, at: now, ...(orderId && { orderId }) }],
+      }
+    })
+    if (!res.committed || res.snapshot.val() == null) {
+      throw new HttpsError('not-found', 'Profil introuvable')
+    }
+    return { points: Number(res.snapshot.val().points) || 0, awarded }
+  }
+)
+
+/**
+ * Callable (admin) : ajoute ou retire des points manuellement.
+ * `points` > 0 → ajout (crédite lifetime) ; < 0 → retrait (ne touche pas lifetime).
+ * @returns {{ points: number }}
+ */
+export const adminAdjustPoints = onCall(
+  { region: 'europe-west1' },
+  async (request) => {
+    const callerEmail = request.auth?.token?.email
+    if (callerEmail !== ADMIN_EMAIL_HARDCODED) {
+      throw new HttpsError('permission-denied', 'admin only')
+    }
+    const targetUid = request.data?.uid
+    const delta = Number(request.data?.points)
+    if (!targetUid || typeof targetUid !== 'string') {
+      throw new HttpsError('invalid-argument', 'uid manquant')
+    }
+    if (!Number.isFinite(delta) || delta === 0) {
+      throw new HttpsError('invalid-argument', 'points invalide')
+    }
+    const note = typeof request.data?.note === 'string' ? request.data.note.trim() : ''
+    const newPoints = await awardLoyaltyPoints(targetUid, {
+      reason: delta > 0 ? 'admin_ajout' : 'admin_retrait',
+      points: delta,
+      at: Date.now(),
+      ...(note && { adminNote: note }),
+    })
+    if (newPoints == null) throw new HttpsError('not-found', 'Profil introuvable')
+    console.log(`[adminAdjustPoints] ${delta > 0 ? '+' : ''}${delta} pts → ${targetUid} par ${callerEmail}`)
+    return { points: newPoints }
   }
 )

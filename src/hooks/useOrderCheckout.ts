@@ -585,27 +585,20 @@ export function useOrderCheckout() {
     }
   }
 
-  const addLoyaltyPoints = async (referralDiscountAmount: number) => {
+  // Affiche le gain de points (le crédit réel est fait côté serveur par la
+  // Cloud Function `createOrder`, sur la base du total recalculé serveur — le
+  // client ne peut plus écrire ses propres points). On reproduit ici le même
+  // calcul uniquement pour le toast de confirmation.
+  const showLoyaltyPointsToast = (referralDiscountAmount: number) => {
     if (!isAuthenticated || !user || cart.length === 0) return
-    try {
-      const totalAfterDiscount = total - (appliedPromo?.discount ?? 0) - referralDiscountAmount
-      const orderTotal =
-        totalAfterDiscount +
-        (computeDeliveryFee(customer, totalAfterDiscount) || 0) +
-        (donationAmount ?? 0)
-      const basePoints = Math.round(orderTotal)
-      const orderIdPts = `order_${Date.now()}`
-      const { addUserPoints } = await import('../lib/firebase')
-      await addUserPoints(user.uid, {
-        reason: 'order_points',
-        points: basePoints,
-        at: Date.now(),
-        amount: orderTotal,
-        orderId: orderIdPts,
-      })
+    const totalAfterDiscount = total - (appliedPromo?.discount ?? 0) - referralDiscountAmount
+    const orderTotal =
+      totalAfterDiscount +
+      (computeDeliveryFee(customer, totalAfterDiscount) || 0) +
+      (donationAmount ?? 0)
+    const basePoints = Math.round(Math.max(0, orderTotal))
+    if (basePoints > 0) {
       showToast(`+${basePoints} points gagnés avec cette commande !`, 'success', 4000)
-    } catch (error) {
-      console.error('Error adding loyalty points:', error)
     }
   }
 
@@ -756,7 +749,7 @@ export function useOrderCheckout() {
 
     confirmTrompeReservations()
     await claimSelectedReward()
-    await addLoyaltyPoints(referralDiscountAmount)
+    showLoyaltyPointsToast(referralDiscountAmount)
 
     const { removeActiveSession } = await import('../lib/firebase')
     await removeActiveSession(sessionId)
@@ -842,7 +835,7 @@ export function useOrderCheckout() {
 
     confirmTrompeReservations()
     await claimSelectedReward()
-    await addLoyaltyPoints(referralDiscountAmount)
+    showLoyaltyPointsToast(referralDiscountAmount)
 
     const { removeActiveSession } = await import('../lib/firebase')
     await removeActiveSession(sessionId)
@@ -926,7 +919,7 @@ export function useOrderCheckout() {
 
     confirmTrompeReservations()
     await claimSelectedReward()
-    await addLoyaltyPoints(referralDiscountAmount)
+    showLoyaltyPointsToast(referralDiscountAmount)
 
     const { removeActiveSession } = await import('../lib/firebase')
     await removeActiveSession(sessionId)

@@ -965,12 +965,12 @@ export async function submitReview(review: Omit<Review, 'createdAt'>, uid?: stri
   }
   await set(newRef, stripUndefined(data as unknown as Record<string, unknown>))
   if (uid) {
+    // Points d'avis (+10) crédités côté serveur (loyalty est verrouillé client).
+    // Best-effort : un échec ne doit pas perdre l'avis déjà enregistré.
     try {
-      await addUserPoints(uid, {
-        reason: 'review_bonus',
-        points: 10,
-        at: Date.now(),
-      })
+      const functions = getFunctionsInstance()
+      const fn = httpsCallable<{ orderId?: string }, { points: number; awarded: boolean }>(functions, 'awardReviewPoints')
+      await fn({ ...(review.orderId && { orderId: review.orderId }) })
     } catch (err) {
       console.error('Error adding review bonus points:', err)
     }
@@ -1299,27 +1299,21 @@ export function getUserRewardsRef(uid: string) {
   return ref(db, `users/${uid}/rewards`)
 }
 
-// Créer un profil client (inscription)
+// Créer un profil client (inscription).
+// IMPORTANT : le client n'écrit JAMAIS le nœud `loyalty` (verrouillé admin-only
+// dans les règles). Les 15 points de bienvenue sont crédités côté serveur par
+// le trigger Cloud Function `onUserCreated`. Le profil renvoyé inclut une vue
+// loyalty par défaut (0 pt) pour l'UI, en attendant la propagation du trigger.
 export async function createUserProfile(uid: string, profile: Omit<UserProfile, 'createdAt' | 'loyalty'>) {
   const now = Date.now()
-  const userProfile: UserProfile = {
+  // On ne persiste PAS `loyalty` : la règle `.validate` le rejetterait pour un
+  // écrivain non-admin. Le serveur (onUserCreated) seedera loyalty.
+  const persisted = {
     ...profile,
     createdAt: now,
-    loyalty: {
-      points: 15, // Bonus création de compte
-      lifetimePoints: 15,
-      tier: 'Douceur',
-      history: [
-        {
-          reason: 'creation_compte',
-          points: 15,
-          at: now,
-        },
-      ],
-    },
   }
-  await set(getUserRef(uid), userProfile)
-  return userProfile
+  await set(getUserRef(uid), persisted)
+  return { ...persisted, loyalty: { ...DEFAULT_LOYALTY } } as UserProfile
 }
 
 // Lire un profil client (profil normalisé : loyalty toujours défini)
@@ -1388,138 +1382,64 @@ export async function getReferrerByCode(code: string): Promise<string | null> {
   return snapshot.val() ?? null
 }
 
-/** Marque l'utilisateur comme filleul et crédite le parrain (à appeler après création de commande). */
-export async function applyReferralAfterOrder(orderedUserId: string, referralCode: string, referrerUid: string): Promise<void> {
-  const { REFERRAL_POINTS_TO_REFERRER } = await import('../constants')
-  await update(getUserRef(orderedUserId), { referredByCode: referralCode.trim().toUpperCase() })
-  await addUserPoints(referrerUid, {
-    reason: 'admin_ajout',
-    points: REFERRAL_POINTS_TO_REFERRER,
-    at: Date.now(),
-    adminNote: 'Parrainage',
-  })
-}
-
 // Supprimer un client (admin) — supprime le profil Realtime Database
 export async function deleteUserProfile(uid: string): Promise<void> {
   await remove(getUserRef(uid))
 }
 
-// Ajouter des points (avec entrée dans l'historique)
-export async function addUserPoints(uid: string, entry: LoyaltyHistoryEntry) {
-  const profile = await getUserProfile(uid)
-  if (!profile) return
+// ============================================================================
+// Fidélité — 100 % serveur. Le nœud `users/$uid/loyalty` (et `rewards`) est
+// verrouillé en écriture par les règles (.validate admin-only) : le client ne
+// peut plus écrire ses points. Toutes les mutations passent par des Cloud
+// Functions appelables qui valident le droit côté serveur via l'Admin SDK.
+// ============================================================================
 
-  const newPoints = profile.loyalty.points + entry.points
-  const newLifetimePoints = profile.loyalty.lifetimePoints + entry.points
-  
-  // Recalculer le tier en fonction des points à vie
-  const newTier: UserProfile['loyalty']['tier'] = tierForLifetimePoints(newLifetimePoints)
-
-  const newHistory = Array.isArray(profile.loyalty.history) 
-    ? [...profile.loyalty.history, entry]
-    : [...Object.values(profile.loyalty.history || {}), entry]
-
-  const updates = {
-    'loyalty/points': newPoints,
-    'loyalty/lifetimePoints': newLifetimePoints,
-    'loyalty/tier': newTier,
-    'loyalty/history': newHistory,
-  }
-
-  await update(getUserRef(uid), updates)
+/**
+ * Réclame les points d'un suivi réseau social (Instagram / TikTok), 1 fois par
+ * plateforme. Le crédit + l'anti-double sont garantis côté serveur.
+ * Lève une erreur 'already-exists' si déjà réclamé.
+ */
+export async function claimSocialPoints(_uid: string, platform: 'instagram' | 'tiktok'): Promise<{ points: number }> {
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable<{ platform: 'instagram' | 'tiktok' }, { points: number }>(functions, 'claimSocialPoints')
+  const res = await fn({ platform })
+  return res.data
 }
 
-// Réclamer Instagram/TikTok points (une seule fois)
-export async function claimSocialPoints(uid: string, platform: 'instagram' | 'tiktok') {
-  const profile = await getUserProfile(uid)
-  if (!profile) return
-
-  const claimedAtField = platform === 'instagram' ? 'instagramClaimedAt' : 'tiktokClaimedAt'
-  if (profile.loyalty[claimedAtField]) {
-    throw new Error(`Points ${platform} déjà réclamés`)
+/**
+ * Réclame une récompense : débit des points + création du reward, atomique
+ * côté serveur (le coût est lu serveur, jamais fourni par le client).
+ * Retourne l'id du reward, ou null si points insuffisants.
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- uid/pointsCost gardés pour compat des appelants ; le serveur dérive l'uid de l'auth et lit le coût.
+export async function claimReward(_uid: string, rewardType: RewardType, _pointsCost?: number): Promise<string | null> {
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable<{ rewardType: RewardType }, { rewardId: string; points: number }>(functions, 'claimLoyaltyReward')
+  try {
+    const res = await fn({ rewardType })
+    return res.data.rewardId ?? null
+  } catch (err) {
+    const code = (err as { code?: string })?.code
+    // 'functions/failed-precondition' = points insuffisants → null (comportement legacy)
+    if (typeof code === 'string' && code.includes('failed-precondition')) return null
+    throw err
   }
-
-  const now = Date.now()
-  const entry: LoyaltyHistoryEntry = {
-    reason: `${platform}_follow` as any,
-    points: 15,
-    at: now,
-  }
-
-  await addUserPoints(uid, entry)
-  await update(getUserRef(uid), {
-    [`loyalty/${claimedAtField}`]: now,
-  })
 }
 
-// Ajouter des points manuellement (admin)
-export async function adminAddPoints(uid: string, points: number, note?: string): Promise<void> {
+/** Ajoute des points manuellement (admin → Cloud Function). */
+export async function adminAddPoints(_uid: string, points: number, note?: string): Promise<void> {
   if (points <= 0) return
-  const entry: LoyaltyHistoryEntry = {
-    reason: 'admin_ajout',
-    points,
-    at: Date.now(),
-    ...(note?.trim() && { adminNote: note.trim() }),
-  }
-  await addUserPoints(uid, entry)
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable<{ uid: string; points: number; note?: string }, { points: number }>(functions, 'adminAdjustPoints')
+  await fn({ uid: _uid, points, ...(note?.trim() && { note: note.trim() }) })
 }
 
-// Retirer des points manuellement (admin) — ne touche pas aux lifetimePoints
-export async function adminRemovePoints(uid: string, points: number, note?: string): Promise<void> {
+/** Retire des points manuellement (admin → Cloud Function). */
+export async function adminRemovePoints(_uid: string, points: number, note?: string): Promise<void> {
   if (points <= 0) return
-  const profile = await getUserProfile(uid)
-  if (!profile) return
-
-  const toRemove = Math.min(points, profile.loyalty.points)
-  if (toRemove <= 0) return
-
-  const newPoints = profile.loyalty.points - toRemove
-  const entry: LoyaltyHistoryEntry = {
-    reason: 'admin_retrait',
-    points: -toRemove,
-    at: Date.now(),
-    ...(note?.trim() && { adminNote: note.trim() }),
-  }
-  const newHistory = Array.isArray(profile.loyalty.history)
-    ? [...profile.loyalty.history, entry]
-    : [...Object.values(profile.loyalty.history || {}), entry]
-
-  await update(getUserRef(uid), {
-    'loyalty/points': Math.max(0, newPoints),
-    'loyalty/history': newHistory,
-  })
-}
-
-// Déduire des points (réclamation de récompense)
-export async function spendUserPoints(uid: string, pointsToSpend: number): Promise<boolean> {
-  const profile = await getUserProfile(uid)
-  if (!profile || profile.loyalty.points < pointsToSpend) {
-    return false // Pas assez de points
-  }
-
-  await update(getUserRef(uid), {
-    'loyalty/points': profile.loyalty.points - pointsToSpend,
-  })
-
-  return true
-}
-
-// Créer une récompense réclamée
-export async function claimReward(uid: string, rewardType: RewardType, pointsCost: number): Promise<string | null> {
-  const canSpend = await spendUserPoints(uid, pointsCost)
-  if (!canSpend) return null
-
-  const reward: UserReward = {
-    type: rewardType,
-    pointsSpent: pointsCost,
-    claimedAt: Date.now(),
-    usedInOrderId: null,
-  }
-
-  const rewardRef = push(getUserRewardsRef(uid))
-  await set(rewardRef, reward)
-  return rewardRef.key
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable<{ uid: string; points: number; note?: string }, { points: number }>(functions, 'adminAdjustPoints')
+  await fn({ uid: _uid, points: -points, ...(note?.trim() && { note: note.trim() }) })
 }
 
 // Lister les récompenses réclamées d'un utilisateur
@@ -1535,7 +1455,11 @@ export function listenUserRewards(uid: string, callback: (rewards: Record<string
   })
 }
 
-// Marquer une récompense comme utilisée dans une commande
+// Marquer une récompense comme utilisée dans une commande.
+// @deprecated Le nœud `rewards` est désormais verrouillé en écriture côté client
+// (règles .validate admin-only). Cette écriture échouera pour un client : elle
+// n'a aucun appelant actif. À déplacer dans une Cloud Function si on réactive
+// le marquage « récompense utilisée ».
 export async function markRewardUsed(uid: string, rewardId: string, orderId: string) {
   await update(ref(db, `users/${uid}/rewards/${rewardId}`), {
     usedInOrderId: orderId,
