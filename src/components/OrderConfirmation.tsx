@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion'
-import { CheckCircle2, MapPin, User, Phone } from 'lucide-react'
+import { CheckCircle2, MapPin, User, Phone, CalendarPlus } from 'lucide-react'
 import { formatOrderItemName } from '../lib/utils'
 import { STORE_ADDRESS_FULL, STORE_MAPS_URL } from '../constants/store'
+import { downloadPickupIcs } from '../lib/calendar'
 
 export type OrderConfirmationData = {
   orderId: string
@@ -92,14 +93,31 @@ export function OrderConfirmation({ data, onClose }: OrderConfirmationProps) {
                   <p className="text-sm font-semibold text-mayssa-brown mt-1">{pickupWhen}</p>
                 )}
                 <p className="text-sm text-mayssa-brown/80 mt-1 leading-relaxed">{STORE_ADDRESS_FULL}</p>
-                <a
-                  href={STORE_MAPS_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 mt-2 text-xs text-mayssa-gold font-medium hover:underline"
-                >
-                  <MapPin size={12} /> Voir l&apos;itinéraire
-                </a>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2">
+                  <a
+                    href={STORE_MAPS_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-mayssa-gold font-medium hover:underline"
+                  >
+                    <MapPin size={12} /> Voir l&apos;itinéraire
+                  </a>
+                  {data.requestedDate && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        downloadPickupIcs({
+                          orderRef: displayOrderRef,
+                          date: data.requestedDate!,
+                          time: data.requestedTime,
+                        })
+                      }
+                      className="inline-flex items-center gap-1 text-xs text-mayssa-gold font-medium hover:underline cursor-pointer"
+                    >
+                      <CalendarPlus size={12} /> Ajouter à mon agenda
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>

@@ -84,15 +84,24 @@ export function BlurImage({
       return
     }
 
-    // Précharge l'image
+    // Précharge la version la plus légère (WebP si dispo), avec fallback sur
+    // l'original si le WebP n'existe pas (404). Évite de télécharger le PNG lourd
+    // alors que le navigateur affichera le WebP via <picture>.
     const img = new Image()
     img.onload = () => {
       imageCache.add(src)
       setIsLoaded(true)
     }
-    img.onerror = () => setHasError(true)
-    img.src = src
-  }, [shouldLoad, src])
+    img.onerror = () => {
+      if (img.src !== optimizedSources.original) {
+        // Le WebP a échoué → on retente l'original.
+        img.src = optimizedSources.original
+      } else {
+        setHasError(true)
+      }
+    }
+    img.src = optimizedSources.webp || optimizedSources.original
+  }, [shouldLoad, src, optimizedSources])
 
   // Reset state when src changes
   useEffect(() => {
