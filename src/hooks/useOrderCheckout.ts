@@ -32,7 +32,6 @@ import {
   normalizeInstagramHandle,
 } from '../lib/delivery'
 import { buildOrderMessage, buildShortSocialPasteMessage } from '../lib/orderMessage'
-import { isBeforeOrderCutoff } from '../lib/utils'
 import { REWARD_COSTS, REWARD_LABELS } from '../lib/rewards'
 import {
   MM_PENDING_ORDER_KEY,
@@ -459,8 +458,10 @@ export function useOrderCheckout() {
           status: initialStatus,
           source,
           deliveryMode: customer.wantsDelivery ? 'livraison' : 'retrait',
-          requestedDate: customer.date || undefined,
-          requestedTime: customer.time || undefined,
+          // httpsCallable rejette les valeurs `undefined` explicites : on n'inclut
+          // ces champs que s'ils sont renseignés (spread conditionnel).
+          ...(customer.date && { requestedDate: customer.date }),
+          ...(customer.time && { requestedTime: customer.time }),
           ...(deliveryFee > 0 && { deliveryFee }),
           ...(distanceKm != null && { distanceKm }),
           ...(note.trim() &&
@@ -525,7 +526,6 @@ export function useOrderCheckout() {
       )
       return false
     }
-    const hasNonTrompeLoeil = cart.some((item) => !isTrompeLoeilCartItem(item))
     const hasTrompeLoeil = cart.some(isTrompeLoeilCartItem)
     const minDateForMode = customer.wantsDelivery
       ? deliverySchedule.minDateLivraison
@@ -533,14 +533,6 @@ export function useOrderCheckout() {
     if (hasTrompeLoeil && customer.date && customer.date < minDateForMode) {
       showToast(
         `Les précommandes trompe l'œil sont possibles à partir du ${formatDateLabel(minDateForMode)}.`,
-        'error',
-        5000,
-      )
-      return false
-    }
-    if (hasNonTrompeLoeil && !isBeforeOrderCutoff() && !ordersExplicit) {
-      showToast(
-        "Commandes (pâtisseries, cookies…) possibles jusqu'à 17h. Les précommandes trompe-l'œil restent disponibles.",
         'error',
         5000,
       )

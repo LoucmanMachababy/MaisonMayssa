@@ -103,7 +103,7 @@
     },
 
     "siteAnalytics": {
-      ".read": "auth != null && auth.token.email === 'roumayssaghazi213@gmail.com'",
+      ".read": true,
       ".write": true
     },
 
