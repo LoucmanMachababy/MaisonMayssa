@@ -469,12 +469,13 @@ export function useOrderCheckout() {
           ...(appliedPromo && { promoCode: appliedPromo.code, discountAmount: appliedPromo.discount }),
           ...(donation > 0 && { donationAmount: donation }),
           ...(user?.uid && { userId: user.uid }),
-          ...(paymentMethod && {
-            paymentMethod,
-            paymentStatus,
-            ...(stripePaymentIntentIdRef.current && {
-              stripePaymentIntentId: stripePaymentIntentIdRef.current,
-            }),
+          // Paiement : on se base sur le ref (synchrone) et pas sur le state
+          // `paymentMethod` (setState asynchrone, pas encore à jour à cet instant).
+          // Un PaymentIntent posé ⇒ payé en ligne, indépendamment du paymentMethod.
+          ...(paymentMethod && { paymentMethod }),
+          ...(paymentStatus && { paymentStatus }),
+          ...(stripePaymentIntentIdRef.current && {
+            stripePaymentIntentId: stripePaymentIntentIdRef.current,
           }),
           ...(referralDiscount > 0 &&
             referrerUid && {
