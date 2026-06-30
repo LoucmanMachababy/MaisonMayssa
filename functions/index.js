@@ -472,7 +472,12 @@ function buildGoogleReviewEmailHtml(customerName) {
  */
 export const sendBulkGoogleReviewEmails = onCall(
   { region: 'europe-west1', secrets: [RESEND_API_KEY] },
-  async () => {
+  async (request) => {
+    // Réservé à l'admin : déclenche un envoi de masse (quota Resend + spam clients).
+    const callerEmail = request.auth?.token?.email
+    if (request.auth?.token?.admin !== true && callerEmail !== ADMIN_EMAIL_HARDCODED) {
+      throw new HttpsError('permission-denied', 'admin only')
+    }
     const ordersSnap = await db.ref('orders').once('value')
     const orders = ordersSnap.val() || {}
 
@@ -610,9 +615,65 @@ export const onStockAvailable = onValueUpdated(
 
 const ADMIN_EMAIL_HARDCODED = 'roumayssaghazi213@gmail.com'
 const DOUBLE_ORDER_BLOCK_MS = 48 * 60 * 60 * 1000
+/** Frais de livraison max accepté côté serveur (miroir de DELIVERY_FEE front). */
+const MAX_DELIVERY_FEE_EUR = 5
 
 function normalizePhone(raw) {
   return String(raw || '').replace(/\D/g, '')
+}
+
+/**
+ * Recalcule le total attendu d'une commande côté serveur (source de vérité).
+ * Σ(price×qty) − remises (promo + parrainage) + frais de livraison (borné) + don.
+ * Les frais de livraison sont fournis par le client mais bornés à [0, MAX].
+ */
+function computeServerTotal(data) {
+  let itemsTotal = 0
+  for (const it of data.items) {
+    itemsTotal += Math.round(Number(it.price) * 100) * Number(it.quantity)
+  }
+  const discount = Math.max(0, Math.round(Number(data.discountAmount || 0) * 100))
+  const referralDiscount = Math.max(0, Math.round(Number(data.referralDiscountAmount || 0) * 100))
+  const donation = Math.max(0, Math.round(Number(data.donationAmount || 0) * 100))
+  let deliveryFee = Math.max(0, Math.round(Number(data.deliveryFee || 0) * 100))
+  deliveryFee = Math.min(deliveryFee, MAX_DELIVERY_FEE_EUR * 100)
+  const cents = Math.max(0, itemsTotal - discount - referralDiscount) + deliveryFee + donation
+  return Math.round(cents) / 100
+}
+
+/** Points crédités au parrain quand un filleul commande (miroir front). */
+const REFERRAL_POINTS_TO_REFERRER = 15
+/** Seuils de paliers fidélité (miroir de LOYALTY_TIER_THRESHOLDS front). */
+const LOYALTY_TIER_PRESTIGE = 400
+const LOYALTY_TIER_GOURMAND = 150
+
+function tierForLifetimePoints(lifetimePoints) {
+  if (lifetimePoints >= LOYALTY_TIER_PRESTIGE) return 'Prestige'
+  if (lifetimePoints >= LOYALTY_TIER_GOURMAND) return 'Gourmand'
+  return 'Douceur'
+}
+
+/**
+ * Crédite le parrain de REFERRAL_POINTS_TO_REFERRER points (transaction sur son
+ * profil loyalty) et marque le filleul comme parrainé. Idempotent : ne crédite
+ * pas deux fois le même filleul (champ referredByCode déjà posé → no-op).
+ */
+async function creditReferrer(referrerUid, referredUid, referralCode) {
+  const code = String(referralCode).trim().toUpperCase()
+  const referredRef = db.ref(`users/${referredUid}/referredByCode`)
+  const claim = await referredRef.transaction((cur) => (cur ? undefined : code))
+  if (!claim.committed) return // déjà parrainé → ne pas recréditer
+
+  await db.ref(`users/${referrerUid}/loyalty`).transaction((loyalty) => {
+    if (!loyalty || typeof loyalty !== 'object') return loyalty // profil parrain absent
+    const points = (loyalty.points || 0) + REFERRAL_POINTS_TO_REFERRER
+    const lifetimePoints = (loyalty.lifetimePoints || 0) + REFERRAL_POINTS_TO_REFERRER
+    const history = Array.isArray(loyalty.history)
+      ? loyalty.history
+      : Object.values(loyalty.history || {})
+    history.push({ reason: 'admin_ajout', points: REFERRAL_POINTS_TO_REFERRER, at: Date.now(), adminNote: 'Parrainage' })
+    return { ...loyalty, points, lifetimePoints, tier: tierForLifetimePoints(lifetimePoints), history }
+  })
 }
 
 function validateOrderInput(data) {
@@ -648,6 +709,15 @@ function validateOrderInput(data) {
   if (!Number.isFinite(data.total) || data.total < 0 || data.total > 100000) {
     throw new HttpsError('invalid-argument', 'total invalide')
   }
+  // Recalcul du total côté serveur (source de vérité) : on ne fait pas confiance
+  // au `total` envoyé par le client. items − remises (+ livraison + don).
+  const expectedTotal = computeServerTotal(data)
+  if (Math.abs(data.total - expectedTotal) > 0.01) {
+    throw new HttpsError(
+      'invalid-argument',
+      `total incohérent (reçu ${data.total} €, attendu ${expectedTotal} €)`,
+    )
+  }
   const paidOnline =
     data.paymentStatus === 'paid' ||
     data.paymentStatus === 'simulated_paid' ||
@@ -667,6 +737,10 @@ function validateOrderInput(data) {
   }
 }
 
+// NOTE : blocage anti-double-commande 48h désactivé (un client peut commander
+// plusieurs fois, ex. cadeaux/recommandes). Conservé ici pour réactivation facile :
+// rappeler `await checkDoubleOrder(data.customer.phone)` dans createOrder.
+// eslint-disable-next-line no-unused-vars
 async function checkDoubleOrder(phone) {
   const normalized = normalizePhone(phone)
   if (!normalized) return
@@ -798,9 +872,43 @@ async function decrementStockAtomic(items) {
 }
 
 /**
- * Callable : crée une commande côté serveur.
- * - Valide la structure d'entrée
- * - Anti-double-commande 48h par numéro de téléphone
+ * Vérifie qu'un PaymentIntent Stripe a bien été payé et que son montant
+ * correspond au total de la commande. Lève une HttpsError sinon.
+ * @param {string} paymentIntentId
+ * @param {number} expectedTotalEur
+ */
+async function assertStripePaymentValid(paymentIntentId, expectedTotalEur) {
+  if (typeof paymentIntentId !== 'string' || !paymentIntentId.startsWith('pi_')) {
+    throw new HttpsError('invalid-argument', 'PaymentIntent invalide')
+  }
+  const stripe = getStripe()
+  let intent
+  try {
+    intent = await stripe.paymentIntents.retrieve(paymentIntentId)
+  } catch (e) {
+    throw new HttpsError('failed-precondition', 'Paiement introuvable côté Stripe')
+  }
+  if (intent.status !== 'succeeded') {
+    throw new HttpsError('failed-precondition', `Paiement non confirmé (statut ${intent.status})`)
+  }
+  if (intent.currency !== 'eur') {
+    throw new HttpsError('failed-precondition', 'Devise de paiement inattendue')
+  }
+  const expectedCents = Math.round(expectedTotalEur * 100)
+  // amount_received est le montant réellement encaissé.
+  const paidCents = intent.amount_received ?? intent.amount
+  if (Math.abs(paidCents - expectedCents) > 1) {
+    throw new HttpsError(
+      'failed-precondition',
+      `Montant payé (${paidCents}) ≠ total commande (${expectedCents})`,
+    )
+  }
+}
+
+/**
+ * Callable : crée une commande côté serveur (source de vérité).
+ * - Valide la structure + recalcule le total (anti-fraude montant)
+ * - Si payée en ligne : vérifie le PaymentIntent Stripe (statut + montant)
  * - Décrémente le stock atomiquement avec rollback
  * - Incrémente counters/orderNumber
  * - Crée la commande
@@ -809,12 +917,16 @@ async function decrementStockAtomic(items) {
  * Retour : { orderId, orderNumber }
  */
 export const createOrder = onCall(
-  { region: 'europe-west1' },
+  { region: 'europe-west1', secrets: [STRIPE_SECRET_KEY, RESEND_API_KEY] },
   async (request) => {
     const data = request.data
     validateOrderInput(data)
 
-    await checkDoubleOrder(data.customer.phone)
+    // Paiement en ligne réel : on vérifie auprès de Stripe que l'intent a bien
+    // été payé et que le montant correspond au total (recalculé) de la commande.
+    if (data.paymentStatus === 'paid' || data.stripePaymentIntentId) {
+      await assertStripePaymentValid(data.stripePaymentIntentId, data.total)
+    }
 
     // Décomposer les bundles/boxes en saveurs individuelles pour le stock
     console.log('[createOrder] input items:', JSON.stringify(data.items))
@@ -886,6 +998,15 @@ export const createOrder = onCall(
           .catch((e) => console.error('[createOrder] incrementPromoCodeUsage:', e))
       )
     }
+    // Crédit parrain : +15 pts au parrain + marquage du filleul (côté serveur, car le
+    // filleul n'a pas le droit d'écrire le profil d'un autre utilisateur).
+    if (data.referralCode && data.referrerUserId && userId && data.referrerUserId !== userId) {
+      postOps.push(
+        creditReferrer(data.referrerUserId, userId, data.referralCode).catch((e) =>
+          console.error('[createOrder] creditReferrer:', e),
+        ),
+      )
+    }
     await Promise.allSettled(postOps)
 
     console.log(`[createOrder] order ${orderId} (#${orderNumber}) created for ${data.customer.phone}`)
@@ -926,10 +1047,14 @@ export const createPaymentIntent = onCall(
       }
       amount += Math.round(price * 100) * qty
     }
-    // Remises éventuelles transmises (promo / parrainage / don) — bornées.
+    // Remises (promo + parrainage), frais de livraison (bornés) et don — alignés
+    // sur computeServerTotal pour que le montant payé == total commande.
     const discount = Math.max(0, Math.round(Number(data.discountAmount || 0) * 100))
+    const referralDiscount = Math.max(0, Math.round(Number(data.referralDiscountAmount || 0) * 100))
     const donation = Math.max(0, Math.round(Number(data.donationAmount || 0) * 100))
-    amount = Math.max(0, amount - discount) + donation
+    let deliveryFee = Math.max(0, Math.round(Number(data.deliveryFee || 0) * 100))
+    deliveryFee = Math.min(deliveryFee, MAX_DELIVERY_FEE_EUR * 100)
+    amount = Math.max(0, amount - discount - referralDiscount) + deliveryFee + donation
     if (amount < 50) throw new HttpsError('invalid-argument', 'Montant trop faible (min 0,50 €)')
 
     const stripe = getStripe()
@@ -992,10 +1117,43 @@ export const stripeWebhook = onRequest(
       return
     }
 
+    // Idempotence : Stripe peut rejouer un événement. On ne le traite qu'une fois.
+    const evtRef = db.ref(`stripeEvents/${evt.id}`)
+    const claim = await evtRef.transaction((cur) => (cur ? undefined : { type: evt.type, at: Date.now() }))
+    if (!claim.committed) {
+      res.status(200).json({ received: true, duplicate: true })
+      return
+    }
+
     switch (evt.type) {
-      case 'payment_intent.succeeded':
-        console.log(`[stripeWebhook] paiement réussi: ${evt.data.object.id} (${evt.data.object.amount} ${evt.data.object.currency})`)
+      case 'payment_intent.succeeded': {
+        const pi = evt.data.object
+        console.log(`[stripeWebhook] paiement réussi: ${pi.id} (${pi.amount} ${pi.currency})`)
+        // Réconciliation : vérifier qu'une commande référence bien ce PaymentIntent.
+        // Sinon = paiement encaissé sans commande (onglet fermé après paiement) → on
+        // le consigne dans orphanPayments/ pour rattrapage manuel par l'admin.
+        try {
+          const ordersSnap = await db
+            .ref('orders')
+            .orderByChild('stripePaymentIntentId')
+            .equalTo(pi.id)
+            .once('value')
+          if (!ordersSnap.exists()) {
+            await db.ref(`orphanPayments/${pi.id}`).set({
+              amount: pi.amount,
+              currency: pi.currency,
+              createdAt: Date.now(),
+              phone: pi.metadata?.phone || null,
+              userId: pi.metadata?.userId || null,
+              resolved: false,
+            })
+            console.warn(`[stripeWebhook] paiement orphelin consigné: ${pi.id}`)
+          }
+        } catch (e) {
+          console.error('[stripeWebhook] réconciliation:', e)
+        }
         break
+      }
       case 'payment_intent.payment_failed':
         console.warn(`[stripeWebhook] paiement échoué: ${evt.data.object.id}`)
         break

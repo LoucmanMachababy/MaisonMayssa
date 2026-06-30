@@ -2,75 +2,121 @@
   "rules": {
     "stock": {
       ".read": true,
-      "$productId": {
-        ".write": "auth != null || (data.exists() && newData.exists() && newData.val() < data.val())"
-      }
+      ".write": "auth != null && auth.token.email === 'roumayssaghazi213@gmail.com'"
     },
+
     "settings": {
       ".read": true,
-      ".write": "auth != null"
+      ".write": "auth != null && auth.token.email === 'roumayssaghazi213@gmail.com'"
     },
+
     "products": {
       ".read": true,
-      ".write": "auth != null"
+      ".write": "auth != null && auth.token.email === 'roumayssaghazi213@gmail.com'"
     },
+
     "orders": {
-      ".read": "auth != null",
+      ".read": "auth != null && auth.token.email === 'roumayssaghazi213@gmail.com'",
+      ".indexOn": ["createdAt", "stripePaymentIntentId"],
       "$orderId": {
         ".read": true,
-        ".write": "auth != null || (!data.exists() && newData.exists())"
+        ".write": "auth != null && auth.token.email === 'roumayssaghazi213@gmail.com'"
       }
     },
+
+    "stripeEvents": {
+      ".read": false,
+      ".write": false
+    },
+
+    "orphanPayments": {
+      ".read": "auth != null && auth.token.email === 'roumayssaghazi213@gmail.com'",
+      ".write": "auth != null && auth.token.email === 'roumayssaghazi213@gmail.com'"
+    },
+
     "deliverySlots": {
       ".read": true,
-      ".write": "auth != null"
+      ".write": "auth != null && auth.token.email === 'roumayssaghazi213@gmail.com'"
     },
+
     "mysteryFraise": {
       ".read": true,
       ".write": false
     },
+
     "reviews": {
       ".read": true,
-      ".write": true
+      "$reviewId": {
+        ".write": "auth != null && (auth.token.email === 'roumayssaghazi213@gmail.com' || (!data.exists() && newData.exists() && newData.hasChildren(['rating']) && newData.child('rating').val() >= 1 && newData.child('rating').val() <= 5))"
+      }
     },
+
     "users": {
-      ".read": "auth != null",
       "$uid": {
-        ".read": "auth != null && auth.uid === $uid",
+        ".read": "auth != null && (auth.uid === $uid || auth.token.email === 'roumayssaghazi213@gmail.com')",
         ".write": "auth != null && (auth.uid === $uid || auth.token.email === 'roumayssaghazi213@gmail.com')"
       }
     },
+
     "promoCodes": {
       ".read": true,
-      ".write": "auth != null"
+      ".write": "auth != null && auth.token.email === 'roumayssaghazi213@gmail.com'"
     },
+
     "referralCodes": {
       ".read": true,
-      ".write": "auth != null"
+      "$code": {
+        ".write": "auth != null && (auth.token.email === 'roumayssaghazi213@gmail.com' || (!data.exists() && newData.val() === auth.uid))"
+      }
     },
+
     "polls": {
       ".read": true,
-      ".write": "auth != null"
+      ".write": "auth != null && auth.token.email === 'roumayssaghazi213@gmail.com'"
     },
+
     "pollVotes": {
       ".read": true,
-      ".write": true
+      "$pollId": {
+        "$voterId": {
+          ".write": "!data.exists() && newData.exists()"
+        }
+      }
     },
+
     "communityMap": {
       ".read": true,
-      ".write": "auth != null"
+      ".write": "auth != null && auth.token.email === 'roumayssaghazi213@gmail.com'"
     },
+
     "notifyWhenAvailable": {
-      ".read": "auth != null",
-      ".write": true
+      ".read": "auth != null && auth.token.email === 'roumayssaghazi213@gmail.com'",
+      "$entryId": {
+        ".write": "(!data.exists() && newData.exists()) || (auth != null && auth.token.email === 'roumayssaghazi213@gmail.com')",
+        ".validate": "newData.hasChildren(['email', 'productId'])"
+      }
     },
+
     "counters": {
       ".read": true,
+      ".write": "auth != null && auth.token.email === 'roumayssaghazi213@gmail.com'"
+    },
+
+    "siteAnalytics": {
+      ".read": "auth != null && auth.token.email === 'roumayssaghazi213@gmail.com'",
       ".write": true
     },
-    "siteAnalytics": {
-      ".read": "auth != null",
-      ".write": true
+
+    "orderReleases": {
+      ".read": "auth != null && auth.token.email === 'roumayssaghazi213@gmail.com'",
+      ".write": "auth != null && auth.token.email === 'roumayssaghazi213@gmail.com'"
+    },
+
+    "activeSessions": {
+      ".read": "auth != null && auth.token.email === 'roumayssaghazi213@gmail.com'",
+      "$sessionId": {
+        ".write": true
+      }
     }
   }
 }

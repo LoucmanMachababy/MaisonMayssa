@@ -3,10 +3,14 @@
  * Fonctions no-op si analytics non initialisé (dev, etc.)
  */
 
+import { hasAnalyticsConsent } from './siteAnalytics'
+
 let analyticsInitialized = false
 
 export async function initAnalytics(): Promise<void> {
   if (analyticsInitialized) return
+  // RGPD : pas de mesure d'audience (qui dépose des cookies) sans consentement explicite.
+  if (!hasAnalyticsConsent()) return
   try {
     const { getAnalytics } = await import('firebase/analytics')
     const { app } = await import('./firebase')

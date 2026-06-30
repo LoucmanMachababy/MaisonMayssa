@@ -4,7 +4,7 @@ export function CookiesAnnecyPage() {
   return (
     <PillarPageLayout
       title="Cookies artisanaux Annecy — Maison Mayssa, faits maison 7j/7"
-      description="Cookies artisanaux à Annecy : Kinder Bueno, Nutella Oreo, Spéculoos Framboise, Caramel Daim… 11 saveurs moelleuses faites maison. Click & collect 7j/7 à Annecy."
+      description="Cookies artisanaux à Annecy : Kinder Bueno, Nutella Oreo, Spéculoos Framboise, Caramel Daim… 12 saveurs moelleuses faites maison. Click & collect 7j/7 à Annecy."
       canonical="https://maison-mayssa.fr/cookies-annecy"
       breadcrumb={[
         { name: 'Accueil', url: '/' },
@@ -13,7 +13,7 @@ export function CookiesAnnecyPage() {
       heroImage="/nouvelle-img/Canette-cake-nutella-oreo.png"
       heroEyebrow="Pâtisserie gourmande Annecy"
       heroTitle="Cookies artisanaux à Annecy"
-      heroSubtitle="Moelleux à cœur, croustillants sur les bords, garnitures généreuses. 11 recettes maison."
+      heroSubtitle="Moelleux à cœur, croustillants sur les bords, garnitures généreuses. 12 recettes maison."
       categoryProductIds={[
         'cookie-nutella-kinder-bueno',
         'cookie-nutella-oreo',
@@ -80,11 +80,11 @@ export function CookiesAnnecyPage() {
 
       <section>
         <h2 className="text-xl sm:text-2xl font-display font-bold text-mayssa-brown mb-4">
-          11 recettes de cookies pour tous les goûts
+          12 recettes de cookies pour tous les goûts
         </h2>
         <div className="prose prose-sm sm:prose-base max-w-none text-mayssa-brown/85 space-y-4 leading-relaxed">
           <p>
-            Un bon cookie doit avoir une personnalité. Voici les 11 recettes de la maison :
+            Un bon cookie doit avoir une personnalité. Voici les 12 recettes de la maison :
           </p>
           <ul className="space-y-2 list-none p-0">
             <li>

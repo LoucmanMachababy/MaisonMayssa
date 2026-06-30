@@ -258,9 +258,9 @@ export function AccountPage({ onClose }: AccountPageProps) {
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold border ${getTierColor(profile.loyalty?.tier || 'Bronze')}`}>
-                {getTierIcon(profile.loyalty?.tier || 'Bronze')}
-                Niveau {profile.loyalty?.tier || 'Bronze'}
+              <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold border ${getTierColor(profile.loyalty?.tier || 'Douceur')}`}>
+                {getTierIcon(profile.loyalty?.tier || 'Douceur')}
+                Niveau {profile.loyalty?.tier || 'Douceur'}
               </span>
             </div>
             <h2 className="text-3xl font-display font-bold text-mayssa-brown">

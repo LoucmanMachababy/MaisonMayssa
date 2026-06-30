@@ -205,7 +205,7 @@ export default function PremiumMenu() {
         <title>La carte — Maison Mayssa | Pâtisseries trompe-l&apos;œil à Annecy</title>
         <meta
           name="description"
-          content="Découvrez la carte Maison Mayssa : trompe-l'œil, canette cakes, cups de fruits, chocolaterie, salé et boxes. Précommande en ligne, livraison & retrait à Annecy, Seynod, Annecy-le-Vieux et tout le bassin annécien."
+          content="Découvrez la carte Maison Mayssa : trompe-l'œil, canette cakes, cups de fruits, chocolaterie, salé et boxes. Précommande en ligne, click & collect à Annecy, Seynod, Annecy-le-Vieux et tout le bassin annécien."
         />
         <link rel="canonical" href="https://maison-mayssa.fr/carte" />
       </Helmet>

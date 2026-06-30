@@ -11,7 +11,6 @@ import { useAuth } from './useAuth'
 import { useActiveSession } from './useActiveSession'
 import {
   listenDeliverySlots,
-  reserveDeliverySlot,
   isTrompeLoeilProductId,
   type DeliverySlotsMap,
 } from '../lib/firebase'
@@ -415,11 +414,9 @@ export function useOrderCheckout() {
       stripePaymentIntentId: stripePaymentIntentIdRef.current,
     })
     try {
-      const {
-        createOrder,
-        incrementPromoCodeUsage,
-        applyReferralAfterOrder,
-      } = await import('../lib/firebase')
+      // Commande créée côté serveur (Cloud Function) : total recalculé, paiement
+      // Stripe vérifié, stock/slot/promo/parrainage gérés serveur (Admin SDK).
+      const { createOrderViaCF } = await import('../lib/firebase')
       const distanceKm =
         customer.wantsDelivery && customer.addressCoordinates
           ? calculateDistance(customer.addressCoordinates, ANNECY_GARE)
@@ -431,7 +428,7 @@ export function useOrderCheckout() {
       let result: { orderId: string; orderNumber: number } | null
       const rollbackStock = async () => {}
       try {
-        result = await createOrder({
+        result = await createOrderViaCF({
           items: cart.map((item) => buildOrderItemFromCart(item)),
           customer: {
             firstName:
@@ -484,7 +481,6 @@ export function useOrderCheckout() {
               referralDiscountAmount: referralDiscount,
               referrerUserId: referrerUid,
             }),
-          createdAt: Date.now(),
         })
       } catch (orderErr) {
         await rollbackStock()
@@ -494,12 +490,9 @@ export function useOrderCheckout() {
         await rollbackStock()
         return { ok: false }
       }
-      if (referralDiscount > 0 && referrerUid && user?.uid) {
-        applyReferralAfterOrder(user.uid, referralCodeInput!.trim(), referrerUid).catch(console.error)
-      }
-      if (appliedPromo?.code) {
-        incrementPromoCodeUsage(appliedPromo.code).catch(console.error)
-      }
+      // Crédit parrain, usage promo et réservation de créneau sont gérés côté
+      // serveur par la Cloud Function createOrder (évite le double comptage).
+      // Les stats/badges client restent côté front (non couverts par la CF).
       if (user?.uid) {
         const { updateUserOrderStats } = await import('../lib/firebase')
         updateUserOrderStats(user.uid, {
@@ -507,9 +500,6 @@ export function useOrderCheckout() {
           hasDonation: donation > 0,
           hasPromo: !!appliedPromo,
         }).catch(console.error)
-      }
-      if (customer.wantsDelivery && customer.date && customer.time) {
-        reserveDeliverySlot(customer.date, customer.time).catch(console.error)
       }
       return { ok: true, ...result }
     } catch (err) {
