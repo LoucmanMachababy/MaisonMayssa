@@ -1,6 +1,6 @@
 import { SimulatedPayment } from './SimulatedPayment'
 import { StripePayment } from './StripePayment'
-import type { StripePaymentConfirmHandler } from './StripePayment'
+import type { StripePaymentConfirmHandler, OrderDraft } from './StripePayment'
 import { STRIPE_LIVE, type PaymentMethod } from '../../constants/checkout'
 import { STRIPE_PUBLISHABLE_KEY } from '../../lib/stripe'
 import type { PaymentIntentItem } from '../../lib/firebase'
@@ -17,6 +17,8 @@ interface PaymentSectionProps {
   discountAmount?: number
   donationAmount?: number
   phone?: string
+  /** Brouillon de commande (webhook-first) fourni à la création du PaymentIntent. */
+  buildOrderDraft?: () => OrderDraft | null
   className?: string
 }
 
@@ -37,6 +39,7 @@ export function PaymentSection({
   discountAmount,
   donationAmount,
   phone,
+  buildOrderDraft,
   className,
 }: PaymentSectionProps) {
   const useRealStripe = STRIPE_LIVE && !!STRIPE_PUBLISHABLE_KEY
@@ -66,6 +69,7 @@ export function PaymentSection({
         discountAmount={discountAmount}
         donationAmount={donationAmount}
         phone={phone}
+        buildOrderDraft={buildOrderDraft}
         onConfirm={onConfirm}
         onReset={onReset}
         className={className}

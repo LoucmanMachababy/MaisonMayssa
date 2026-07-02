@@ -10,7 +10,7 @@ import { useAuth } from '../hooks/useAuth'
 import { REWARD_COSTS, REWARD_LABELS } from '../lib/rewards'
 import type { DeliverySlotsMap } from '../lib/firebase'
 import { PaymentSection } from './checkout/PaymentSection'
-import type { StripePaymentConfirmHandler } from './checkout/StripePayment'
+import type { StripePaymentConfirmHandler, OrderDraft } from './checkout/StripePayment'
 import {
     CheckoutAlerts,
     CheckoutCgv,
@@ -90,6 +90,8 @@ interface CartProps {
     paymentMethod?: PaymentMethod | null
     onConfirmPayment?: StripePaymentConfirmHandler
     onResetPayment?: () => void
+    /** Brouillon de commande (webhook-first) fourni à la création du PaymentIntent. */
+    buildOrderDraft?: () => OrderDraft | null
     /** Stripe réel : la commande est créée automatiquement au paiement (pas de bouton « Réserver »). */
     autoPlaceOrderOnPayment?: boolean
 }
@@ -133,6 +135,7 @@ export function Cart({
     paymentConfirmed = false,
     paymentMethod = null,
     onConfirmPayment,
+    buildOrderDraft,
     onResetPayment,
     autoPlaceOrderOnPayment = false,
 }: CartProps) {
@@ -947,6 +950,7 @@ export function Cart({
                                             discountAmount={(appliedPromo?.discount ?? 0) + mysteryFraiseDiscount}
                                             donationAmount={donationAmount}
                                             phone={customer.phone}
+                                            buildOrderDraft={buildOrderDraft}
                                             className="max-w-md mx-auto"
                                         />
                                     )

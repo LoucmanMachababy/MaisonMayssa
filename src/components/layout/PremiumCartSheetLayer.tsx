@@ -61,6 +61,7 @@ export function PremiumCartSheetLayer() {
     confirmPaymentAndPlaceOrder,
     resetSimulatedPayment,
     useRealStripe,
+    buildOrderDraftForStripe,
   } = useOrderCheckoutContext()
 
   const isPanierPage = location.pathname === '/panier'
@@ -116,6 +117,7 @@ export function PremiumCartSheetLayer() {
     paymentMethod,
     onConfirmPayment: useRealStripe ? confirmPaymentAndPlaceOrder : confirmSimulatedPayment,
     onResetPayment: resetSimulatedPayment,
+    buildOrderDraft: buildOrderDraftForStripe,
     autoPlaceOrderOnPayment: useRealStripe,
   }
 

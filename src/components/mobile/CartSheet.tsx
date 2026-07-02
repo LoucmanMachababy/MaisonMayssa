@@ -20,7 +20,7 @@ import {
   CheckoutPaymentIntro,
 } from '../checkout/CheckoutUi'
 import { PaymentSection } from '../checkout/PaymentSection'
-import type { StripePaymentConfirmHandler } from '../checkout/StripePayment'
+import type { StripePaymentConfirmHandler, OrderDraft } from '../checkout/StripePayment'
 import { CLICK_COLLECT_ONLY, PAYMENT_ENABLED } from '../../constants/checkout'
 import type { PaymentMethod } from '../../constants/checkout'
 import { STORE_ADDRESS_LINE } from '../../constants/store'
@@ -79,6 +79,8 @@ interface CartSheetProps {
   paymentMethod?: PaymentMethod | null
   onConfirmPayment?: StripePaymentConfirmHandler
   onResetPayment?: () => void
+  /** Brouillon de commande (webhook-first) fourni à la création du PaymentIntent. */
+  buildOrderDraft?: () => OrderDraft | null
   /** Stripe réel : commande créée au paiement (pas de bouton manuel étape 3). */
   autoPlaceOrderOnPayment?: boolean
 }
@@ -125,6 +127,7 @@ export function CartSheet({
   paymentConfirmed = false,
   paymentMethod = null,
   onConfirmPayment,
+  buildOrderDraft,
   onResetPayment,
   autoPlaceOrderOnPayment = false,
 }: CartSheetProps) {
@@ -881,6 +884,7 @@ export function CartSheet({
             discountAmount={(appliedPromo?.discount ?? 0) + mysteryFraiseDiscount}
             donationAmount={donationAmount}
             phone={customer.phone}
+            buildOrderDraft={buildOrderDraft}
           />
         )
       ) : (

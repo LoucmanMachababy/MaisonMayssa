@@ -10,13 +10,16 @@ import type { PaymentIntent } from '@stripe/stripe-js'
 import { Check, Loader2, Lock, AlertCircle } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { getStripePromise, STRIPE_PUBLISHABLE_KEY } from '../../lib/stripe'
-import { createPaymentIntent, type PaymentIntentItem } from '../../lib/firebase'
+import { createPaymentIntent, type PaymentIntentItem, type Order } from '../../lib/firebase'
 import type { PaymentMethod } from '../../constants/checkout'
 
 export type StripePaymentConfirmHandler = (
   method: PaymentMethod,
   paymentIntentId: string,
 ) => void | Promise<void>
+
+/** Brouillon de commande complet (webhook-first). */
+export type OrderDraft = Omit<Order, 'id' | 'orderNumber' | 'createdAt'>
 
 export interface StripePaymentProps {
   total: number
@@ -25,6 +28,12 @@ export interface StripePaymentProps {
   discountAmount?: number
   donationAmount?: number
   phone?: string
+  /**
+   * Fournit le brouillon de commande au moment de créer le PaymentIntent, pour
+   * que le webhook Stripe puisse créer la commande si le navigateur ne revient
+   * pas. Appelé à chaque (re)création d'intent → toujours à jour.
+   */
+  buildOrderDraft?: () => OrderDraft | null
   onConfirm: StripePaymentConfirmHandler
   onReset?: () => void
   className?: string
@@ -176,7 +185,7 @@ function StripePaymentForm({
 }
 
 export function StripePayment(props: StripePaymentProps) {
-  const { total, confirmed, items, discountAmount, donationAmount, phone, onReset, className = '' } = props
+  const { total, confirmed, items, discountAmount, donationAmount, phone, buildOrderDraft, onReset, className = '' } = props
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [initError, setInitError] = useState<string | null>(null)
   const [paymentError, setPaymentError] = useState<string | null>(null)
@@ -204,12 +213,14 @@ export function StripePayment(props: StripePaymentProps) {
     setPaymentError(null)
     setClientSecret(null)
 
+    const draft = buildOrderDraft?.() ?? null
     createPaymentIntent({
       items,
       discountAmount,
       donationAmount,
       phone,
       ...(replaceId ? { replacePaymentIntentId: replaceId } : {}),
+      ...(draft ? { orderDraft: draft } : {}),
     })
       .then((r) => {
         if (intentVersionRef.current !== version) return

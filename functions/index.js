@@ -254,7 +254,7 @@ function emailFooter() {
   <tr><td style="padding:24px 32px 32px;text-align:center;border-top:1px solid ${BRAND.line};">
     <div style="font-size:12px;color:${BRAND.muted};line-height:1.7;">
       Maison Mayssa — ${escapeHtml(STORE.address)}<br/>
-      Click &amp; collect · de 18h30 à 2h, 7j/7<br/>
+      Click &amp; collect · 11h - 20h, 7j/7<br/>
       <a href="https://instagram.com/maison_mayssa74" style="color:${BRAND.gold};text-decoration:none;">@maison_mayssa74</a>
     </div>
   </td></tr>`
@@ -971,28 +971,73 @@ async function decrementStockAtomic(items) {
 }
 
 /**
- * Callable : crée une commande côté serveur.
- * - Valide la structure d'entrée
- * - Anti-double-commande 48h par numéro de téléphone
- * - Décrémente le stock atomiquement avec rollback
- * - Incrémente counters/orderNumber
- * - Crée la commande
- * - Best-effort post-ops : réservation slot livraison + incrément promo usage
- *
- * Retour : { orderId, orderNumber }
+ * Réserve atomiquement l'index paymentIntentToOrder/{pi} pour garantir qu'un
+ * PaymentIntent ne donne qu'UNE commande, quel que soit le chemin (front,
+ * webhook, retry Stripe). Retourne :
+ *   - { alreadyOrderId } si une commande existe déjà pour ce PI (ne rien recréer)
+ *   - { reserved: true } si la réservation vient d'être posée (on peut créer)
+ * La valeur 'PENDING' est un verrou temporaire remplacé par l'orderId réel
+ * une fois la commande écrite (voir placeOrder).
  */
-export const createOrder = onCall(
-  { region: 'europe-west1' },
-  async (request) => {
-    const data = request.data
-    validateOrderInput(data)
+async function reservePaymentIntent(paymentIntentId) {
+  const ref = db.ref(`paymentIntentToOrder/${paymentIntentId}`)
+  let existing = null
+  const res = await ref.transaction((current) => {
+    if (current) {
+      existing = current
+      return // déjà réservé/créé → abort (ne pas écraser)
+    }
+    return 'PENDING'
+  })
+  if (existing) return { alreadyOrderId: existing }
+  if (!res.committed) return { alreadyOrderId: 'PENDING' }
+  return { reserved: true }
+}
 
+/**
+ * Cœur de la création de commande, réutilisable par le callable createOrder
+ * (front) ET le webhook Stripe (secours). Idempotent quand data porte un
+ * stripePaymentIntentId : le même PI ne crée jamais deux commandes.
+ *
+ * @param {object} data  Payload de commande validé (structure createOrder)
+ * @param {{ userId?: string }} [opts]
+ * @returns {Promise<{ orderId: string, orderNumber: number, deduped?: boolean }>}
+ */
+async function placeOrder(data, opts = {}) {
+  validateOrderInput(data)
+
+  const pi = typeof data.stripePaymentIntentId === 'string' ? data.stripePaymentIntentId : null
+
+  // Idempotence : si ce PaymentIntent a déjà (ou est en train de créer) une
+  // commande, on ne recrée rien. Évite les doublons front+webhook / retries.
+  if (pi) {
+    const reservation = await reservePaymentIntent(pi)
+    if (reservation.alreadyOrderId) {
+      console.log(`[placeOrder] PI ${pi} déjà traité (order=${reservation.alreadyOrderId}) — dédupliqué`)
+      return {
+        orderId: reservation.alreadyOrderId === 'PENDING' ? null : reservation.alreadyOrderId,
+        orderNumber: null,
+        deduped: true,
+      }
+    }
+  }
+
+  try {
     await checkDoubleOrder(data.customer.phone)
+  } catch (err) {
+    // La commande est refusée (doublon 48h) : on libère le verrou PI pour ne
+    // pas bloquer une éventuelle réconciliation ultérieure.
+    if (pi) await db.ref(`paymentIntentToOrder/${pi}`).remove().catch(() => {})
+    throw err
+  }
 
+  const userId = opts.userId
+
+  try {
     // Décomposer les bundles/boxes en saveurs individuelles pour le stock
-    console.log('[createOrder] input items:', JSON.stringify(data.items))
+    console.log('[placeOrder] input items:', JSON.stringify(data.items))
     const stockItems = expandItemsForStock(data.items)
-    console.log('[createOrder] expanded stockItems:', JSON.stringify(stockItems))
+    console.log('[placeOrder] expanded stockItems:', JSON.stringify(stockItems))
 
     // Stock (bloquant avec rollback)
     await decrementStockAtomic(stockItems)
@@ -1013,8 +1058,6 @@ export const createOrder = onCall(
     }
     const orderNumber = counterRes.snapshot.val()
 
-    const userId = request.auth?.uid
-
     // Construire l'Order final (copie des champs validés + métadonnées)
     const order = {
       ...data,
@@ -1027,12 +1070,19 @@ export const createOrder = onCall(
     await newRef.set(order)
     const orderId = newRef.key
 
+    // Verrouille l'index PI sur l'orderId réel (remplace 'PENDING').
+    if (pi && orderId) {
+      await db.ref(`paymentIntentToOrder/${pi}`).set(orderId).catch((e) =>
+        console.error('[placeOrder] set paymentIntentToOrder:', e),
+      )
+    }
+
     // Best-effort post-création (n'échoue pas la commande)
     const postOps = []
     if (orderId) {
       postOps.push(
         dispatchOrderCreatedEmails(orderId, order).catch((e) =>
-          console.error('[createOrder] dispatchOrderCreatedEmails:', e),
+          console.error('[placeOrder] dispatchOrderCreatedEmails:', e),
         ),
       )
     }
@@ -1047,7 +1097,7 @@ export const createOrder = onCall(
       postOps.push(
         slotRef
           .transaction((c) => (c ?? 0) + 1)
-          .catch((e) => console.error('[createOrder] reserveDeliverySlot:', e))
+          .catch((e) => console.error('[placeOrder] reserveDeliverySlot:', e))
       )
     }
     if (data.promoCode) {
@@ -1056,7 +1106,7 @@ export const createOrder = onCall(
         db
           .ref(`promoCodes/${promoKey}/usedCount`)
           .transaction((c) => (c ?? 0) + 1)
-          .catch((e) => console.error('[createOrder] incrementPromoCodeUsage:', e))
+          .catch((e) => console.error('[placeOrder] incrementPromoCodeUsage:', e))
       )
     }
     // Fidélité (100 % serveur) : crédite les points de commande au client
@@ -1072,7 +1122,7 @@ export const createOrder = onCall(
             at: Date.now(),
             amount: pointsTotal,
             orderId,
-          }).catch((e) => console.error('[createOrder] awardLoyaltyPoints:', e)),
+          }).catch((e) => console.error('[placeOrder] awardLoyaltyPoints:', e)),
         )
       }
       // Crédit parrain : 1ère commande d'un filleul (referrerUserId fourni par le front).
@@ -1082,8 +1132,32 @@ export const createOrder = onCall(
     }
     await Promise.allSettled(postOps)
 
-    console.log(`[createOrder] order ${orderId} (#${orderNumber}) created for ${data.customer.phone}`)
+    // Une fois la commande créée, le pending n'est plus utile (le webhook la
+    // trouvera via l'index PI). On le nettoie best-effort.
+    if (pi) await db.ref(`pendingOrders/${pi}`).remove().catch(() => {})
+
+    console.log(`[placeOrder] order ${orderId} (#${orderNumber}) created for ${data.customer.phone}`)
     return { orderId, orderNumber }
+  } catch (err) {
+    // Échec APRÈS réservation du verrou PI : on le libère pour permettre au
+    // webhook (ou à une réconciliation) de retenter. Le stock a déjà été
+    // rollback par decrementStockAtomic/counter le cas échéant.
+    if (pi) await db.ref(`paymentIntentToOrder/${pi}`).remove().catch(() => {})
+    throw err
+  }
+}
+
+/**
+ * Callable (front) : crée une commande côté serveur après paiement.
+ * Mince wrapper autour de placeOrder (auth → userId). Voir placeOrder pour
+ * l'idempotence et les post-ops.
+ *
+ * Retour : { orderId, orderNumber }
+ */
+export const createOrder = onCall(
+  { region: 'europe-west1' },
+  async (request) => {
+    return placeOrder(request.data, { userId: request.auth?.uid })
   }
 )
 
@@ -1095,10 +1169,11 @@ export const createOrder = onCall(
  * Callable : crée un PaymentIntent Stripe pour le panier en cours.
  * Le montant est recalculé côté serveur à partir des items (jamais de confiance
  * dans un total envoyé par le client). Retourne le clientSecret pour le
- * Payment Element. La commande n'est créée qu'après confirmation du paiement
- * (côté front via createOrder, ou via le webhook si tu passes en mode webhook-first).
+ * Payment Element. La commande est créée après confirmation du paiement, soit
+ * par le front (createOrder), soit par le webhook Stripe en secours à partir du
+ * brouillon `orderDraft` stocké dans pendingOrders/{pi.id} (webhook-first).
  *
- * @returns {{ clientSecret: string, amount: number }}
+ * @returns {{ clientSecret: string, amount: number, paymentIntentId: string }}
  */
 export const createPaymentIntent = onCall(
   { region: 'europe-west1', secrets: [STRIPE_SECRET_KEY] },
@@ -1139,6 +1214,8 @@ export const createPaymentIntent = onCall(
       } catch (e) {
         console.warn('[createPaymentIntent] annulation intent précédent:', e.message)
       }
+      // Nettoie le brouillon de l'intent remplacé (panier changé → nouvel intent).
+      await db.ref(`pendingOrders/${replaceId}`).remove().catch(() => {})
     }
 
     const intent = await stripe.paymentIntents.create({
@@ -1153,21 +1230,133 @@ export const createPaymentIntent = onCall(
       },
     })
 
+    // Webhook-first : on stocke le brouillon de commande complet, indexé par
+    // PaymentIntent, pour que le webhook puisse créer la commande même si le
+    // navigateur du client ne revient jamais (onglet fermé, réseau coupé).
+    // Best-effort : un échec ici ne bloque pas le paiement (le filet B alertera).
+    if (data.orderDraft && typeof data.orderDraft === 'object') {
+      const draft = {
+        ...data.orderDraft,
+        // Le PI est la clé d'idempotence : placeOrder l'utilise pour dédupliquer.
+        stripePaymentIntentId: intent.id,
+        paymentStatus: 'paid',
+        // Montant recalculé serveur (en €) — trace de contrôle.
+        serverAmountEur: amount / 100,
+        ...(request.auth?.uid ? { userId: request.auth.uid } : {}),
+      }
+      await db
+        .ref(`pendingOrders/${intent.id}`)
+        .set({ order: draft, createdAt: Date.now() })
+        .catch((e) => console.error('[createPaymentIntent] stash pendingOrder:', e))
+    }
+
     return { clientSecret: intent.client_secret, amount, paymentIntentId: intent.id }
   }
 )
 
+/** Email admin : paiement reçu sans commande enregistrée (filet de sécurité B). */
+function buildOrphanPaymentAlertHtml(pi) {
+  const amount = (Number(pi.amount || 0) / 100).toFixed(2).replace('.', ',')
+  const phone = pi.metadata?.phone || '—'
+  const userId = pi.metadata?.userId || '(client non connecté)'
+  const dashUrl = `https://dashboard.stripe.com/payments/${pi.id}`
+  return `
+<!DOCTYPE html>
+<html><body style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:16px;">
+  <h2 style="color:#b91c1c;">⚠️ Paiement reçu SANS commande</h2>
+  <p>Un paiement Stripe a réussi mais aucune commande n'a été enregistrée dans les 2 minutes.</p>
+  <ul style="font-size:14px;color:#333;">
+    <li><strong>Montant :</strong> ${amount} €</li>
+    <li><strong>Téléphone client :</strong> ${escapeHtml(phone)}</li>
+    <li><strong>Compte :</strong> ${escapeHtml(userId)}</li>
+    <li><strong>PaymentIntent :</strong> ${escapeHtml(pi.id)}</li>
+  </ul>
+  <p><strong>À faire :</strong> contacter le client pour confirmer sa commande, puis la saisir manuellement (le détail des articles n'est pas dans Stripe).</p>
+  <p><a href="${dashUrl}" style="display:inline-block;background:#635bff;color:white;padding:10px 16px;text-decoration:none;border-radius:8px;">Voir le paiement dans Stripe</a></p>
+  <p style="color:#666;font-size:12px;">Maison Mayssa — filet de sécurité automatique</p>
+</body></html>`
+}
+
+/**
+ * Traite un payment_intent.succeeded : garantit qu'un paiement réussi donne
+ * toujours une commande.
+ *  A) Si un brouillon pendingOrders/{pi} existe → crée la commande via placeOrder
+ *     (idempotent : ne double pas si le front l'a déjà créée).
+ *  B) Sinon (pas de brouillon exploitable) → enregistre orphanPayments/{pi} et
+ *     alerte l'admin par email pour réconciliation manuelle.
+ * Un court délai de grâce laisse le front finir sa propre création (cas nominal).
+ */
+async function handlePaymentSucceeded(pi) {
+  const piId = pi.id
+  // Idempotence globale du traitement webhook (retries Stripe inclus).
+  const alreadyHandled = await db.ref(`orphanPayments/${piId}`).once('value').then((s) => s.exists())
+
+  // Délai de grâce : le front crée souvent la commande dans la foulée du paiement.
+  await sleep(3000)
+
+  // Le front a-t-il déjà créé la commande pour ce PI ?
+  const mapped = await db.ref(`paymentIntentToOrder/${piId}`).once('value')
+  if (mapped.exists() && mapped.val() !== 'PENDING') {
+    console.log(`[stripeWebhook] PI ${piId} → commande déjà créée (${mapped.val()})`)
+    return
+  }
+
+  // (A) Brouillon disponible → création serveur de la commande complète.
+  const pendingSnap = await db.ref(`pendingOrders/${piId}`).once('value')
+  const pending = pendingSnap.val()
+  if (pending?.order && typeof pending.order === 'object') {
+    try {
+      const draft = pending.order
+      const { userId, ...orderData } = draft
+      const result = await placeOrder(orderData, { userId })
+      if (result.deduped) {
+        console.log(`[stripeWebhook] PI ${piId} déjà traité (dédupliqué) — OK`)
+      } else {
+        console.log(`[stripeWebhook] PI ${piId} → commande créée par le webhook: ${result.orderId} (#${result.orderNumber})`)
+      }
+      return
+    } catch (err) {
+      console.error(`[stripeWebhook] échec placeOrder depuis brouillon PI ${piId}:`, err)
+      // On tombe dans le filet B ci-dessous pour alerter malgré tout.
+    }
+  }
+
+  // (B) Filet de sécurité : paiement sans commande → alerte admin (une seule fois).
+  if (alreadyHandled) {
+    console.log(`[stripeWebhook] PI ${piId} orphelin déjà signalé — pas de nouvelle alerte`)
+    return
+  }
+  await db.ref(`orphanPayments/${piId}`).set({
+    amount: pi.amount ?? null,
+    currency: pi.currency ?? null,
+    phone: pi.metadata?.phone ?? null,
+    userId: pi.metadata?.userId ?? null,
+    createdAt: Date.now(),
+    resolved: false,
+  }).catch((e) => console.error('[stripeWebhook] write orphanPayment:', e))
+
+  const adminEmails = ADMIN_EMAIL.value().split(',').map((e) => e.trim()).filter(Boolean)
+  if (adminEmails.length > 0) {
+    await sendEmailWithRetry({
+      to: adminEmails,
+      subject: `⚠️ Paiement ${(Number(pi.amount || 0) / 100).toFixed(2)} € SANS commande – Maison Mayssa`,
+      html: buildOrphanPaymentAlertHtml(pi),
+    }).catch((e) => console.error('[stripeWebhook] alerte admin orphelin:', e))
+  }
+  console.warn(`[stripeWebhook] PI ${piId} PAIEMENT ORPHELIN signalé (${pi.amount} ${pi.currency})`)
+}
+
 /**
  * Webhook Stripe : reçoit les événements de paiement (signature vérifiée).
- * Sert de filet de sécurité / journal (la commande est créée côté front après
- * confirmation). On loggue payment_intent.succeeded ; étendable plus tard pour
- * réconcilier les paiements orphelins.
+ * Filet + création webhook-first (voir handlePaymentSucceeded).
  *
  * Configurer l'URL de ce webhook dans le dashboard Stripe → Développeurs →
- * Webhooks, et renseigner STRIPE_WEBHOOK_SECRET (whsec_…).
+ * Webhooks (événements payment_intent.succeeded, payment_intent.payment_failed),
+ * et renseigner STRIPE_WEBHOOK_SECRET (whsec_…).
+ * Les emails admin nécessitent RESEND_API_KEY.
  */
 export const stripeWebhook = onRequest(
-  { region: 'europe-west1', secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET] },
+  { region: 'europe-west1', secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, RESEND_API_KEY] },
   async (req, res) => {
     const whSecret = STRIPE_WEBHOOK_SECRET.value()
     if (!whSecret) {
@@ -1186,16 +1375,23 @@ export const stripeWebhook = onRequest(
       return
     }
 
-    switch (evt.type) {
-      case 'payment_intent.succeeded':
-        console.log(`[stripeWebhook] paiement réussi: ${evt.data.object.id} (${evt.data.object.amount} ${evt.data.object.currency})`)
-        break
-      case 'payment_intent.payment_failed':
-        console.warn(`[stripeWebhook] paiement échoué: ${evt.data.object.id}`)
-        break
-      default:
-        // autres événements ignorés pour l'instant
-        break
+    try {
+      switch (evt.type) {
+        case 'payment_intent.succeeded':
+          console.log(`[stripeWebhook] paiement réussi: ${evt.data.object.id} (${evt.data.object.amount} ${evt.data.object.currency})`)
+          await handlePaymentSucceeded(evt.data.object)
+          break
+        case 'payment_intent.payment_failed':
+          console.warn(`[stripeWebhook] paiement échoué: ${evt.data.object.id}`)
+          break
+        default:
+          // autres événements ignorés pour l'instant
+          break
+      }
+    } catch (err) {
+      console.error('[stripeWebhook] erreur traitement:', err)
+      // On renvoie 200 quand même : l'événement est signé et valide ; un 500
+      // ferait retenter Stripe en boucle. Les erreurs sont loggées + orphanPayments.
     }
     res.status(200).json({ received: true })
   }
