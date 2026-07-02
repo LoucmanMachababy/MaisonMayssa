@@ -161,6 +161,12 @@ export async function createPaymentIntent(input: {
   phone?: string
   /** Intent Stripe à annuler si le montant du panier a changé (évite les paiements « Incomplet »). */
   replacePaymentIntentId?: string
+  /**
+   * Brouillon de commande complet (webhook-first) : stocké côté serveur dans
+   * pendingOrders/{paymentIntentId} pour que le webhook Stripe puisse créer la
+   * commande même si le navigateur ne revient jamais après le paiement.
+   */
+  orderDraft?: Omit<Order, 'id' | 'orderNumber' | 'createdAt'>
 }): Promise<{ clientSecret: string; amount: number; paymentIntentId: string }> {
   const functions = getFunctionsInstance()
   const fn = httpsCallable<

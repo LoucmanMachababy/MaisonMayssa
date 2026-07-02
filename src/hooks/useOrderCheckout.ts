@@ -376,11 +376,111 @@ export function useOrderCheckout() {
     )
   }, [cart, setItems])
 
+  /**
+   * Construit le payload de commande envoyé à la Cloud Function (createOrder)
+   * ET stocké comme brouillon Stripe (webhook-first). Fonction pure de closure :
+   * un même appel donne le même objet, sans effet de bord.
+   */
+  const buildOrderPayload = (
+    source: 'site' | 'whatsapp' | 'instagram' | 'snap',
+    opts: {
+      referrerUid?: string | null
+      referralDiscount?: number
+    } = {},
+  ): Omit<Order, 'id' | 'orderNumber' | 'createdAt'> => {
+    const discount = appliedPromo?.discount ?? 0
+    const referralDiscount = opts.referralDiscount ?? 0
+    const referrerUid = opts.referrerUid ?? null
+    const totalAfterDiscount = Math.max(0, total - discount - referralDiscount)
+    const deliveryFee = computeDeliveryFee(customer, totalAfterDiscount) ?? 0
+    const donation = donationAmount ?? 0
+    const orderTotal = totalAfterDiscount + deliveryFee + donation
+    const paymentStatus = stripePaymentIntentIdRef.current
+      ? ('paid' as const)
+      : paymentMethod
+        ? ('simulated_paid' as const)
+        : undefined
+    const initialStatus = resolveInitialOrderStatus({
+      paymentMethod: paymentMethod ?? undefined,
+      paymentStatus,
+      stripePaymentIntentId: stripePaymentIntentIdRef.current,
+    })
+    const distanceKm =
+      customer.wantsDelivery && customer.addressCoordinates
+        ? calculateDistance(customer.addressCoordinates, ANNECY_GARE)
+        : undefined
+    return {
+      items: cart.map((item) => buildOrderItemFromCart(item)),
+      customer: {
+        firstName:
+          source === 'instagram'
+            ? normalizeInstagramHandle(customer.firstName) || 'client'
+            : customer.firstName || 'Client',
+        lastName: source === 'instagram' ? '' : customer.lastName || '',
+        phone: customer.phone || '',
+        ...(customer.email?.trim() && { email: customer.email.trim() }),
+        ...(customer.wantsDelivery &&
+          customer.address.trim() && { address: customer.address.trim() }),
+        ...(customer.wantsDelivery &&
+          customer.addressCoordinates && { addressCoordinates: customer.addressCoordinates }),
+        ...(customer.wantsDelivery &&
+          customer.deliveryInstructions?.trim() && {
+            deliveryInstructions: customer.deliveryInstructions.trim(),
+          }),
+        ...(source === 'instagram' && {
+          contactPlatform: 'instagram' as const,
+          contactHandle: normalizeInstagramHandle(customer.firstName),
+        }),
+        ...(source === 'snap' && {
+          contactPlatform: 'snap' as const,
+          contactHandle: customer.firstName.trim(),
+        }),
+      },
+      total: orderTotal,
+      status: initialStatus,
+      source,
+      deliveryMode: customer.wantsDelivery ? 'livraison' : 'retrait',
+      // httpsCallable rejette les valeurs `undefined` explicites : on n'inclut
+      // ces champs que s'ils sont renseignés (spread conditionnel).
+      ...(customer.date && { requestedDate: customer.date }),
+      ...(customer.time && { requestedTime: customer.time }),
+      ...(deliveryFee > 0 && { deliveryFee }),
+      ...(distanceKm != null && { distanceKm }),
+      ...(note.trim() &&
+        note.trim() !== 'Pour le … (date, créneau, adresse)' && { clientNote: note.trim() }),
+      ...(appliedPromo && { promoCode: appliedPromo.code, discountAmount: appliedPromo.discount }),
+      ...(donation > 0 && { donationAmount: donation }),
+      ...(user?.uid && { userId: user.uid }),
+      ...(paymentMethod && { paymentMethod }),
+      ...(paymentStatus && { paymentStatus }),
+      ...(stripePaymentIntentIdRef.current && {
+        stripePaymentIntentId: stripePaymentIntentIdRef.current,
+      }),
+      ...(referralDiscount > 0 &&
+        referrerUid && {
+          referralCode: referralCodeInput!.trim(),
+          referralDiscountAmount: referralDiscount,
+          referrerUserId: referrerUid,
+        }),
+    } as Omit<Order, 'id' | 'orderNumber' | 'createdAt'>
+  }
+
+  /**
+   * Brouillon de commande pour Stripe (webhook-first), construit au moment de
+   * créer le PaymentIntent. Le parrainage async n'est pas résolu ici (best-effort
+   * côté serveur si le front réussit) ; retourne null si le panier est vide.
+   */
+  const buildOrderDraftForStripe = (): Omit<Order, 'id' | 'orderNumber' | 'createdAt'> | null => {
+    if (cart.length === 0) return null
+    // Le PI n'est pas encore posé au 1er build : on force paymentStatus paid côté
+    // serveur (createPaymentIntent l'ajoute), donc ici on renvoie l'état courant.
+    return buildOrderPayload('site')
+  }
+
   const saveOrderToFirebase = async (
     source: 'site' | 'whatsapp' | 'instagram' | 'snap',
   ): Promise<SaveOrderResult> => {
     if (cart.length === 0) return { ok: false, reason: 'empty' }
-    const discount = appliedPromo?.discount ?? 0
     let referralDiscount = 0
     let referrerUid: string | null = null
     const canUseReferral =
@@ -397,28 +497,11 @@ export function useOrderCheckout() {
         referralDiscount = REFERRAL_DISCOUNT_EUR
       }
     }
-    const totalAfterDiscount = Math.max(0, total - discount - referralDiscount)
-    const deliveryFee = computeDeliveryFee(customer, totalAfterDiscount) ?? 0
     const donation = donationAmount ?? 0
-    const orderTotal = totalAfterDiscount + deliveryFee + donation
-    const paymentStatus = stripePaymentIntentIdRef.current
-      ? ('paid' as const)
-      : paymentMethod
-        ? ('simulated_paid' as const)
-        : undefined
-    const initialStatus = resolveInitialOrderStatus({
-      paymentMethod: paymentMethod ?? undefined,
-      paymentStatus,
-      stripePaymentIntentId: stripePaymentIntentIdRef.current,
-    })
     try {
       // Commande créée côté serveur (Cloud Function) : total recalculé, paiement
       // Stripe vérifié, stock/slot/promo/parrainage gérés serveur (Admin SDK).
       const { createOrderViaCF } = await import('../lib/firebase')
-      const distanceKm =
-        customer.wantsDelivery && customer.addressCoordinates
-          ? calculateDistance(customer.addressCoordinates, ANNECY_GARE)
-          : undefined
 
       // Gestion de stock désactivée : la production se fait à la commande,
       // aucune limite de quantité ne bloque le passage d'une commande,
@@ -426,63 +509,9 @@ export function useOrderCheckout() {
       let result: { orderId: string; orderNumber: number } | null
       const rollbackStock = async () => {}
       try {
-        result = await createOrderViaCF({
-          items: cart.map((item) => buildOrderItemFromCart(item)),
-          customer: {
-            firstName:
-              source === 'instagram'
-                ? normalizeInstagramHandle(customer.firstName) || 'client'
-                : customer.firstName || 'Client',
-            lastName: source === 'instagram' ? '' : customer.lastName || '',
-            phone: customer.phone || '',
-            ...(customer.email?.trim() && { email: customer.email.trim() }),
-            ...(customer.wantsDelivery &&
-              customer.address.trim() && { address: customer.address.trim() }),
-            ...(customer.wantsDelivery &&
-              customer.addressCoordinates && { addressCoordinates: customer.addressCoordinates }),
-            ...(customer.wantsDelivery &&
-              customer.deliveryInstructions?.trim() && {
-                deliveryInstructions: customer.deliveryInstructions.trim(),
-              }),
-            ...(source === 'instagram' && {
-              contactPlatform: 'instagram' as const,
-              contactHandle: normalizeInstagramHandle(customer.firstName),
-            }),
-            ...(source === 'snap' && {
-              contactPlatform: 'snap' as const,
-              contactHandle: customer.firstName.trim(),
-            }),
-          },
-          total: orderTotal,
-          status: initialStatus,
-          source,
-          deliveryMode: customer.wantsDelivery ? 'livraison' : 'retrait',
-          // httpsCallable rejette les valeurs `undefined` explicites : on n'inclut
-          // ces champs que s'ils sont renseignés (spread conditionnel).
-          ...(customer.date && { requestedDate: customer.date }),
-          ...(customer.time && { requestedTime: customer.time }),
-          ...(deliveryFee > 0 && { deliveryFee }),
-          ...(distanceKm != null && { distanceKm }),
-          ...(note.trim() &&
-            note.trim() !== 'Pour le … (date, créneau, adresse)' && { clientNote: note.trim() }),
-          ...(appliedPromo && { promoCode: appliedPromo.code, discountAmount: appliedPromo.discount }),
-          ...(donation > 0 && { donationAmount: donation }),
-          ...(user?.uid && { userId: user.uid }),
-          // Paiement : on se base sur le ref (synchrone) et pas sur le state
-          // `paymentMethod` (setState asynchrone, pas encore à jour à cet instant).
-          // Un PaymentIntent posé ⇒ payé en ligne, indépendamment du paymentMethod.
-          ...(paymentMethod && { paymentMethod }),
-          ...(paymentStatus && { paymentStatus }),
-          ...(stripePaymentIntentIdRef.current && {
-            stripePaymentIntentId: stripePaymentIntentIdRef.current,
-          }),
-          ...(referralDiscount > 0 &&
-            referrerUid && {
-              referralCode: referralCodeInput!.trim(),
-              referralDiscountAmount: referralDiscount,
-              referrerUserId: referrerUid,
-            }),
-        })
+        result = await createOrderViaCF(
+          buildOrderPayload(source, { referrerUid, referralDiscount }),
+        )
       } catch (orderErr) {
         await rollbackStock()
         throw orderErr
@@ -996,5 +1025,6 @@ export function useOrderCheckout() {
     confirmSimulatedPayment,
     confirmPaymentAndPlaceOrder,
     resetSimulatedPayment,
+    buildOrderDraftForStripe,
   }
 }

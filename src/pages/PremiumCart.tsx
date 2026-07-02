@@ -45,6 +45,7 @@ export default function PremiumCart() {
     confirmSimulatedPayment,
     confirmPaymentAndPlaceOrder,
     resetSimulatedPayment,
+    buildOrderDraftForStripe,
   } = checkout
 
   return (
@@ -164,6 +165,7 @@ export default function PremiumCart() {
               paymentMethod={paymentMethod}
               onConfirmPayment={useRealStripe ? confirmPaymentAndPlaceOrder : confirmSimulatedPayment}
               onResetPayment={resetSimulatedPayment}
+              buildOrderDraft={buildOrderDraftForStripe}
               autoPlaceOrderOnPayment={useRealStripe}
             />
           </div>
